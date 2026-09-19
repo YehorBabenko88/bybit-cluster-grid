@@ -20,6 +20,10 @@ class DatasetBuilder:
             manifest=[_canonical(r) for r in rows if _matches(r,criteria)]
             if not manifest: raise ValueError("dataset has no eligible samples")
             digest=hashlib.sha256("\n".join(manifest).encode()).hexdigest()
+            async with self.pool.acquire() as c:
+                async with c.transaction():
+                    await c.executemany("INSERT INTO dataset_samples(dataset_id,sample_id,ordinal) VALUES($1,$2,$3)",
+                        [(did,r["sample_id"],i) for i,r in enumerate(rows) if _matches(r,criteria)])
             await self.pool.execute("""UPDATE dataset_snapshots SET dataset_hash=$2,
               sample_count=$3,status='READY' WHERE id=$1 AND status='BUILDING'""",
               did,digest,len(manifest))
