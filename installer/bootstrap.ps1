@@ -33,26 +33,44 @@ if(Test-Path $Release){
 }
 Move-Item $Stage $Release
 
-# Never install packages into an unrelated global Python.
-$BasePython=$null
-foreach($p in $Discovery.python){
-    try {
-        $parts=@($p.version.Split(".") | ForEach-Object {[int]$_})
-        if($parts[0] -eq 3 -and $parts[1] -ge 11){$BasePython=$p.exe;break}
-    } catch {}
+# Prefer an isolated Grid-owned Python runtime. Never mutate system Python.
+$OwnedPython=Join-Path $RuntimeRoot "python\python.exe"
+$Bundled=Join-Path $Release "runtime\python.exe"
+if(!(Test-Path $OwnedPython)){
+    if(Test-Path $Bundled){
+        $OwnedRoot=Split-Path $OwnedPython -Parent
+        New-Item -ItemType Directory -Force -Path $OwnedRoot | Out-Null
+        Copy-Item (Split-Path $Bundled -Parent) $OwnedRoot -Recurse -Force
+    } else {
+        throw "Grid-owned Python runtime is missing from deployment bundle."
+    }
 }
-if(!$BasePython){
-    $Bundled=Join-Path $Release "runtime\python.exe"
-    if(Test-Path $Bundled){$BasePython=$Bundled}
+$BasePython=$OwnedPython
+try {
+    $ver=& $BasePython -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+    $vp=$ver.Trim().Split(".")
+    if([int]$vp[0] -ne 3 -or [int]$vp[1] -lt 11){throw "Grid Python must be >=3.11"}
+} catch {
+    throw "Grid-owned Python runtime is damaged or incompatible: $($_.Exception.Message)"
 }
-if(!$BasePython){throw "No compatible Python >=3.11. Bundle an isolated Python runtime."}
 
-if(!(Test-Path (Join-Path $Venv "Scripts\python.exe"))){
-    & $BasePython -m venv $Venv
+$VenvPython=Join-Path $Venv "Scripts\python.exe"
+$RebuildVenv=$false
+if(!(Test-Path $VenvPython)){$RebuildVenv=$true}
+else {
+    & $VenvPython -c "import sys; assert sys.version_info >= (3,11)" 2>$null
+    if($LASTEXITCODE -ne 0){$RebuildVenv=$true}
 }
-$Python=Join-Path $Venv "Scripts\python.exe"
+if($RebuildVenv){
+    if(Test-Path $Venv){Remove-Item -Recurse -Force $Venv}
+    & $BasePython -m venv $Venv
+    if($LASTEXITCODE -ne 0){throw "Failed to create Grid virtual environment"}
+}
+$Python=$VenvPython
 & $Python -m pip install --upgrade pip
+if($LASTEXITCODE -ne 0){throw "Failed to update Grid pip"}
 & $Python -m pip install --upgrade -r (Join-Path $Release "requirements.txt")
+if($LASTEXITCODE -ne 0){throw "Failed to install Grid dependencies"}
 
 $EnvFile=Join-Path $DataRoot ".env"
 if(!(Test-Path $EnvFile)){
