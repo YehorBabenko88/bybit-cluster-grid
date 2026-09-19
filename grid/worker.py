@@ -221,6 +221,12 @@ class Worker:
                             self.pressure.observe_symbol(symbol,db_writes=1)
             except asyncio.CancelledError:
                 raise
+            except BufferError:
+                self.pressure.state="CRITICAL"
+                self.pressure.bad_ticks=max(self.pressure.bad_ticks,10)
+                log.error("local WAL pressure; draining live symbols until database catches up",
+                          extra={"event":"wal_pressure","symbol":symbol})
+                await asyncio.sleep(max(5,settings.heartbeat_seconds))
             except Exception:
                 d=next(delays)
                 log.exception("trade stream failed",extra={
