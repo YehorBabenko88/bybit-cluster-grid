@@ -81,6 +81,22 @@ target jsonb NOT NULL DEFAULT '{}'::jsonb, target_ready boolean NOT NULL DEFAULT
 quality_status text NOT NULL, split_group text, created_at timestamptz NOT NULL DEFAULT now())""",
 "CREATE UNIQUE INDEX IF NOT EXISTS ml_event_samples_event_type_idx ON ml_event_samples(event_id,sample_type)",
 "CREATE INDEX IF NOT EXISTS ml_event_samples_train_idx ON ml_event_samples(target_ready,quality_status,event_ts)"
+]),
+(12,"ml_orchestrator_concurrency",[
+"""CREATE TABLE IF NOT EXISTS ml_jobs(
+id uuid PRIMARY KEY, job_type text NOT NULL, payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+status text NOT NULL DEFAULT 'queued', priority integer NOT NULL DEFAULT 100,
+lease_owner text, lease_until timestamptz, attempts integer NOT NULL DEFAULT 0,
+dataset_cutoff timestamptz, created_at timestamptz NOT NULL DEFAULT now(),
+started_at timestamptz, finished_at timestamptz, error text)""",
+"CREATE INDEX IF NOT EXISTS ml_jobs_claim_idx ON ml_jobs(status,priority,created_at)",
+"""CREATE TABLE IF NOT EXISTS dataset_snapshots(
+id uuid PRIMARY KEY, purpose text NOT NULL, cutoff_ts timestamptz NOT NULL,
+created_at timestamptz NOT NULL DEFAULT now(), created_by text NOT NULL,
+criteria jsonb NOT NULL DEFAULT '{}'::jsonb, status text NOT NULL DEFAULT 'ready')""",
+"""CREATE TABLE IF NOT EXISTS service_leases(
+service_key text PRIMARY KEY, owner text NOT NULL, lease_until timestamptz NOT NULL,
+heartbeat_at timestamptz NOT NULL DEFAULT now(), metadata jsonb NOT NULL DEFAULT '{}'::jsonb)"""
 ])
 ]
 
