@@ -28,8 +28,8 @@ def chronological_folds(rows,min_train=100,folds=4):
         start=end
     return out
 
-def select_validation(variant,setup,train,validation,markov_threshold=.55,ml_threshold=.5,min_transitions=30):
-    model=ConditionalMarkov(min_transitions=min_transitions).fit(train)
+def select_validation(variant,setup,train,validation,markov_threshold=.55,ml_threshold=.5,min_transitions=30,model=None):
+    model=model or ConditionalMarkov(min_transitions=min_transitions).fit(train)
     selected=[];missing_ml=False
     for row in validation:
         x=dict(row)
