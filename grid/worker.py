@@ -10,7 +10,7 @@ from .service import prepare_database, bootstrap_logging, health_monitor
 from .microstructure import MicrostructureCollector
 from .resilience import backoff_delays, wait_for_internet
 from .retention import ensure_retention_schema, retention_scheduler
-from .telegram_bot import telegram_loop\nfrom .strategy_jobs import ensure_strategy_schema\nfrom .strategy_runner import strategy_worker
+from .telegram_bot import telegram_loop\nfrom .strategy_jobs import ensure_strategy_schema\nfrom .strategy_plugins import ensure_plugin_schema\nfrom .strategy_runner import strategy_worker
 
 log=logging.getLogger("worker")
 
@@ -108,7 +108,7 @@ class Worker:
     async def run(self):
         bootstrap_logging()
         self.db=await prepare_database()
-        await ensure_retention_schema(self.db.pool)\n        await ensure_strategy_schema(self.db.pool)
+        await ensure_retention_schema(self.db.pool)\n        await ensure_strategy_schema(self.db.pool)\n        await ensure_plugin_schema(self.db.pool)
         await self.storage.start()
         self.meta={x["symbol"]:x for x in await linear_symbols(settings.bybit_rest_url)}
 
