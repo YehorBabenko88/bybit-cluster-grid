@@ -48,6 +48,10 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     nid=payload["node_id"]
     await node_auth(nid,x_node_credential,x_grid_token)
     payload["last_seen"]=time.time(); nodes[nid]=payload
+    version=str(payload.get("agent_version",""))
+    if version:
+        await note_heartbeat(db.pool,nid,version,payload)
+        await note_rollout_heartbeat(db.pool,nid,version,heartbeat=payload)
     repair_info=await handle_integrity_heartbeat(db.pool,nid,payload,repair_breaker)
     payload.update(repair_info)
     commands=await pending_commands(db.pool,nid)
