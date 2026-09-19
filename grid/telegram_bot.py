@@ -7,6 +7,7 @@ from .retention import cleanup_all
 from .update_protocol import start_canary
 from .control_replication import telegram_cursor,commit_telegram_cursor
 from .fleet_health import fleet_health
+from .pilot_state import pilot_state,expansion_ready,mark_expansion_notified
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -41,7 +42,19 @@ async def handle_command(db,session,chat_id,text,nodes):
     parts=text.strip().split()
     cmd=parts[0].lower()
     now=time.time()
-    if cmd=="/health":
+    if cmd=="/pilot":
+        rows=await pilot_state(db.pool,parts[1] if len(parts)>1 else None)
+        rows=[rows] if isinstance(rows,dict) else rows
+        if not rows:
+            await tg_send(session,chat_id,"No pilot bootstrap state.")
+        else:
+            lines=["Pilot bootstrap:"]
+            for r in rows:
+                lines.append(f"{r['node_id']}: {r['mode']} / {r['phase']}, progress={float(r['progress']):.1f}%, paused={r['paused']}")
+                missing=(r.get("details") or {}).get("missing_readiness")
+                if missing: lines.append("  waiting: "+", ".join(missing))
+            await tg_send(session,chat_id,"\n".join(lines))
+    elif cmd=="/health":
         h=await fleet_health(db.pool,nodes,settings.heartbeat_seconds)
         leader=h["leader"]["owner"] if h["leader"] else "none"
         lines=[f"Grid health: leader={leader}",f"online={len(h['online'])} offline={len(h['offline'])}"]
@@ -161,7 +174,15 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /health /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /restart NODE /rollback NODE /uninstall NODE /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /pilot [NODE] /health /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /restart NODE /rollback NODE /uninstall NODE /cleanup /db")
+
+async def _notify_expansion_ready(db,session,chat_id):
+    rows=await expansion_ready(db.pool)
+    for r in rows:
+        if r.get("expansion_notified_at") is not None: continue
+        await tg_send(session,chat_id,
+          f"Pilot {r['node_id']} completed bootstrap and live validation. Grid is READY_FOR_EXPANSION; other agents may now be installed.")
+        await mark_expansion_notified(db.pool,r["node_id"])
 
 async def telegram_loop(db,nodes):
     if not settings.telegram_bot_token:
@@ -189,6 +210,7 @@ async def telegram_loop(db,nodes):
                         log.warning("telegram unauthorized",extra={"event":"telegram_denied"})
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     await handle_command(db,session,chat,txt,nodes)
+                    await _notify_expansion_ready(db,session,chat)
                     offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
             except asyncio.CancelledError:
                 raise
