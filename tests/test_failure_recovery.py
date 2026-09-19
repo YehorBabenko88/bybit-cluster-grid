@@ -12,8 +12,7 @@ def test_db_outage_retries_then_drains_wal(tmp_path):
                 raise ConnectionError("postgres unavailable")
             committed.append(row["n"])
             await wal.ack(record_id)
-        q=BoundedWriteQueue(db_writer,maxsize=10,workers=1)
-        q_retry_sleep=asyncio.sleep
+        q=BoundedWriteQueue(db_writer,maxsize=10,workers=1,retry_base_seconds=.01,retry_max_seconds=.02)
         await q.start()
         for n in range(3):
             rid=await wal.append({"n":n})
