@@ -16,8 +16,15 @@ $Discovery | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 (Join-Path $Da
 $Bundle=Join-Path $PSScriptRoot "bybit-cluster-grid.zip"
 if(!(Test-Path $Bundle)){throw "Missing bybit-cluster-grid.zip"}
 $Release=Join-Path $InstallRoot "bootstrap"
-if(Test-Path $Release){Remove-Item -Recurse -Force $Release}
-Expand-Archive $Bundle $Release -Force
+$Stage=Join-Path $InstallRoot "bootstrap.staging"
+if(Test-Path $Stage){Remove-Item -Recurse -Force $Stage}
+Expand-Archive $Bundle $Stage -Force
+if(Test-Path $Release){
+    $Backup=Join-Path $InstallRoot "bootstrap.previous"
+    if(Test-Path $Backup){Remove-Item -Recurse -Force $Backup}
+    Move-Item $Release $Backup
+}
+Move-Item $Stage $Release
 
 # Never install packages into an unrelated global Python.
 $BasePython=$null
@@ -53,12 +60,18 @@ if(!(Test-Path $EnvFile)){
 # Existing PostgreSQL is discovered, never upgraded/reconfigured automatically.
 & (Join-Path $PSScriptRoot "provision_postgres.ps1") -DiscoveryPath (Join-Path $DataRoot "discovery.json") -DataRoot $DataRoot
 
-if($CoordinatorUrl -and $EnrollmentToken){
+$CredentialFile=Join-Path $DataRoot "secrets\node.credential"
+if(!(Test-Path $CredentialFile)){
+    if(!$CoordinatorUrl -or !$EnrollmentToken){
+        throw "Node is not enrolled and CoordinatorUrl/EnrollmentToken were not supplied."
+    }
     Push-Location $Release
     try {
         & (Join-Path $PSScriptRoot "enroll.ps1") -CoordinatorUrl $CoordinatorUrl -EnrollmentToken $EnrollmentToken -Python $Python -DataRoot $DataRoot | Out-Null
     } finally { Pop-Location }
+} else {
+    Write-Host "Existing node credential found; preserving node identity."
 }
 
-& (Join-Path $PSScriptRoot "preflight.ps1") -ReleaseDir $Release
+& (Join-Path $PSScriptRoot "preflight.ps1") -ReleaseDir $Release -Python $Python
 & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python
