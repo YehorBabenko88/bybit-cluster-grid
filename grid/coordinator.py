@@ -118,19 +118,12 @@ async def promote_release(version:str,x_grid_token:str=Header(default="")):
 
 
 @app.post("/ingest/minute")
-async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
     global ingest_storage
     if not constant_time_equal(x_grid_token,settings.grid_shared_token):
         raise HTTPException(403)
     payload=await request.json()
-    nid=payload.get("_node_id") or ""
-    # Credential is required; resolve the node from the credential rather than trusting payload.
-    try:
-        from .enrollment import node_for_credential
-        credential_node=await node_for_credential(db.pool,x_node_credential)
-    except Exception:
-        credential_node=None
-    if not credential_node:
+    if not x_node_id or not await authenticate_agent(db.pool,x_node_id,x_node_credential):
         raise HTTPException(403)
     gate=await runtime_state(db.pool)
     if gate["state"]!="ACTIVE":
