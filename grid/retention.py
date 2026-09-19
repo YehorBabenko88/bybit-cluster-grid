@@ -100,3 +100,25 @@ async def cleanup_all(pool,overrides=None):
     for dataset,days in cfg.items():
         out[dataset]=await cleanup_dataset(pool,dataset,days)
     return out
+
+
+async def retention_scheduler(pool,settings):
+    if not settings.retention_enabled:
+        log.info("retention disabled",extra={"event":"retention_disabled"})
+        return
+    overrides={
+        "market_events":settings.retention_market_events_days,
+        "orderbook_snapshots":settings.retention_orderbook_snapshots_days,
+        "footprint_1m":settings.retention_footprint_days,
+        "derivatives_metrics":settings.retention_derivatives_days,
+    }
+    while True:
+        try:
+            result=await cleanup_all(pool,overrides)
+            log.info("automatic retention completed",extra={
+                "event":"retention_complete",
+                "component":str(result)
+            })
+        except Exception:
+            log.exception("automatic retention failed",extra={"event":"retention_failed"})
+        await asyncio.sleep(max(5,settings.retention_interval_minutes)*60)
