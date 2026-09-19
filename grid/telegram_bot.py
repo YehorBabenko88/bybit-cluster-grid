@@ -11,6 +11,7 @@ from .pilot_state import pilot_state,expansion_ready,mark_expansion_notified
 from .retention_plan import cleanup_plan
 from .retention import RETENTION_DEFAULTS
 from .telegram_idempotency import claim_update,complete_update
+from .ha_status import ha_status
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -66,6 +67,8 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines.append("DB queue/spool: "+(", ".join(h["queues"]) if h["queues"] else "OK"))
         if h["repairs"]:
             lines.append("repairs: "+", ".join(f"{x['node_id']}={x['status']}" for x in h["repairs"][:5]))
+        ha=await ha_status(db.pool,nodes,settings.heartbeat_seconds)
+        lines.append(f"HA: {ha['ha_level']}, candidates={ha['control_candidates']}, DB failover={'ON' if ha['automatic_db_failover'] else 'OFF'}")
         await tg_send(session,chat_id,"\n".join(lines))
     elif cmd=="/nodes":
         lines=["Grid nodes:"]+[_node_line(nid,n,now) for nid,n in sorted(nodes.items())]
