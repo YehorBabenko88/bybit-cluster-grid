@@ -10,7 +10,7 @@ class Conn:
         if sql.startswith("SELECT *"):
             if self.claimed:return None
             self.claimed=True; return {"id":"j1"}
-        if sql.startswith("UPDATE ml_jobs"): return {"id":"j1","lease_owner":args[1]}
+        if sql.startswith("UPDATE ml_jobs"): return {"id":"j1","lease_owner":args[1],"lease_generation":1}
     async def execute(self,*a): return "UPDATE 1"
 class Acquire:
     def __init__(self,c):self.c=c
@@ -27,6 +27,6 @@ def test_claim_uses_transactional_single_owner_path():
         a=await claim_ml_job(p,"worker-a")
         b=await claim_ml_job(p,"worker-b")
         assert a["lease_owner"]=="worker-a" and b is None
-        assert await renew_ml_job(p,"j1","worker-a")
-        assert await finish_ml_job(p,"j1","worker-a")
+        assert await renew_ml_job(p,"j1","worker-a",a["lease_generation"])
+        assert await finish_ml_job(p,"j1","worker-a",a["lease_generation"])
     asyncio.run(run())
