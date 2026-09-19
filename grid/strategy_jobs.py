@@ -73,3 +73,14 @@ async def finish_job(pool,job_id,error=None):
     async with pool.acquire() as c:
         await c.execute("""UPDATE strategy_jobs SET status=$2,finished_at=now(),error=$3 WHERE id=$1""",
                         job_id,"failed" if error else "done",error)
+
+
+async def recover_stale_jobs(pool,stale_seconds,max_attempts=5):
+    return await pool.execute("""UPDATE strategy_jobs SET
+      status=CASE WHEN attempts<$2 THEN 'queued' ELSE 'failed' END,
+      assigned_node=NULL,started_at=NULL,
+      finished_at=CASE WHEN attempts>=$2 THEN now() ELSE NULL END,
+      error=COALESCE(error,'recovered stale strategy worker')
+      WHERE status='running' AND started_at IS NOT NULL
+        AND started_at<now()-($1::int*interval '1 second')""",
+      int(stale_seconds),int(max_attempts))
