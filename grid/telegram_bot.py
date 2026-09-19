@@ -14,6 +14,7 @@ from .telegram_idempotency import claim_update,complete_update
 from .ha_status import ha_status
 from .runtime_gate import runtime_state,set_runtime_state
 from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_delete_status,latest_operation,reconcile_fleet_operation
+from .start_readiness import start_readiness
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -81,9 +82,16 @@ async def handle_command(db,session,chat_id,text,nodes):
         if s["state"]=="ACTIVE":
             await tg_send(session,chat_id,"System is already ACTIVE.")
             return
+        if s["state"]!="INFRA_ONLY":
+            await tg_send(session,chat_id,f"START blocked: SYSTEM state is {s['state']}.")
+            return
+        readiness=await start_readiness(db.pool,nodes,settings.heartbeat_seconds)
+        if not readiness["ready"]:
+            await tg_send(session,chat_id,"START blocked by readiness gate: "+", ".join(readiness["missing"]))
+            return
         code=secrets.token_hex(3).upper()
         _pending_confirms[(str(chat_id),code)]=("fleet_begin",None,time.time()+120)
-        await tg_send(session,chat_id,"START will enable Bybit discovery, market collection, archive/backfill, feature generation, simulations and learning for the whole Grid.\nConfirm within 120s: /confirm "+code)
+        await tg_send(session,chat_id,"START readiness OK. This will enable Bybit discovery, market collection, archive/backfill, feature generation, simulations and learning for the whole Grid.\nConfirm within 120s: /confirm "+code)
     elif cmd in ("/fleetpause","/fleetstop"):
         r=await fleet_stop(db.pool,nodes,f"telegram:{chat_id}")
         await tg_send(session,chat_id,f"SYSTEM: STOPPING. Stop queued for {len(r.get('commands',[]))} agents; STOPPED will be reported only after all required ACKs. Control heartbeat remains online.",_main_keyboard())
@@ -251,7 +259,15 @@ async def handle_command(db,session,chat_id,text,nodes):
             cid=await enqueue_command(db.pool,node_id,"uninstall",{"purge_data":False})
             await tg_send(session,chat_id,f"Uninstall queued for {node_id} ({cid}); data preserved.")
         elif action=="fleet_begin":
-            state=await set_runtime_state(db.pool,"ACTIVE",f"telegram:{chat_id}","explicit operator START")
+            current=await runtime_state(db.pool)
+            if current["state"]!="INFRA_ONLY":
+                await tg_send(session,chat_id,f"START confirmation rejected: SYSTEM state changed to {current['state']}.",_main_keyboard())
+                return
+            readiness=await start_readiness(db.pool,nodes,settings.heartbeat_seconds)
+            if not readiness["ready"]:
+                await tg_send(session,chat_id,"START confirmation rejected by readiness gate: "+", ".join(readiness["missing"]),_main_keyboard())
+                return
+            state=await set_runtime_state(db.pool,"ACTIVE",f"telegram:{chat_id}","explicit operator START after readiness")
             await tg_send(session,chat_id,f"SYSTEM: {state['state']}. Market workloads may now start.",_main_keyboard())
         elif action=="fleet_delete":
             r=await begin_fleet_delete(db.pool,nodes,f"telegram:{chat_id}")
