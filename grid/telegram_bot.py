@@ -13,6 +13,7 @@ from .retention import RETENTION_DEFAULTS
 from .telegram_idempotency import claim_update,complete_update
 from .ha_status import ha_status
 from .runtime_gate import runtime_state,set_runtime_state
+from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_delete_status
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -21,9 +22,18 @@ def allowed(chat_id):
     raw={x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()}
     return bool(raw) and str(chat_id) in raw
 
-async def tg_send(session,chat_id,text):
+def _main_keyboard():
+    return {"inline_keyboard":[
+      [{"text":"▶ НАЧАТЬ","callback_data":"fleet:begin"},{"text":"⏹ СТОП","callback_data":"fleet:stop"}],
+      [{"text":"⏯ ПРОДОЛЖИТЬ","callback_data":"fleet:resume"},{"text":"🗑 УДАЛИТЬ","callback_data":"fleet:delete"}],
+      [{"text":"🖥 АГЕНТЫ","callback_data":"fleet:nodes"},{"text":"ℹ СОСТОЯНИЕ","callback_data":"fleet:system"}]
+    ]}
+
+async def tg_send(session,chat_id,text,reply_markup=None):
     url=f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
-    await session.post(url,json={"chat_id":chat_id,"text":text[:4000]})
+    body={"chat_id":chat_id,"text":text[:4000]}
+    if reply_markup: body["reply_markup"]=reply_markup
+    await session.post(url,json=body)
 
 def _node_line(nid,n,now):
     age=max(0,int(now-float(n.get("last_seen",0))))
@@ -47,7 +57,9 @@ async def handle_command(db,session,chat_id,text,nodes):
     parts=text.strip().split()
     cmd=parts[0].lower()
     now=time.time()
-    if cmd=="/system":
+    if cmd=="/menu":
+        await tg_send(session,chat_id,"Управление Bybit Cluster Grid",_main_keyboard())
+    elif cmd=="/system":
         s=await runtime_state(db.pool)
         online=sum(1 for n in nodes.values() if now-float(n.get("last_seen",0))<settings.heartbeat_seconds*3)
         await tg_send(session,chat_id,f"SYSTEM: {s['state']}\nNodes: {len(nodes)}, online: {online}\nMarket data: {'ENABLED' if s['state']=='ACTIVE' else 'LOCKED'}\nReason: {s.get('reason') or '-'}")
@@ -59,9 +71,19 @@ async def handle_command(db,session,chat_id,text,nodes):
         code=secrets.token_hex(3).upper()
         _pending_confirms[(str(chat_id),code)]=("fleet_begin",None,time.time()+120)
         await tg_send(session,chat_id,"START will enable Bybit discovery, market collection, archive/backfill, feature generation, simulations and learning for the whole Grid.\nConfirm within 120s: /confirm "+code)
-    elif cmd=="/fleetpause":
-        await set_runtime_state(db.pool,"PAUSED",f"telegram:{chat_id}","operator paused fleet")
-        await tg_send(session,chat_id,"SYSTEM: PAUSED. Market workloads are locked; infrastructure, heartbeat, Telegram and updates remain online.")
+    elif cmd in ("/fleetpause","/fleetstop"):
+        r=await fleet_stop(db.pool,nodes,f"telegram:{chat_id}")
+        await tg_send(session,chat_id,f"SYSTEM: STOPPED. Workloads stopped on {len(r.get('commands',[]))} agents. Control heartbeat remains online so ПРОДОЛЖИТЬ can reach them.",_main_keyboard())
+    elif cmd=="/fleetresume":
+        r=await fleet_resume(db.pool,nodes,f"telegram:{chat_id}")
+        kept=r.get("preserved_stopped") or []
+        msg=f"SYSTEM: ACTIVE. Resume queued for {len(r.get('commands',[]))} agents."
+        if kept: msg+=" Previously stopped nodes preserved: "+", ".join(kept)
+        await tg_send(session,chat_id,msg,_main_keyboard())
+    elif cmd=="/fleetdelete":
+        code=secrets.token_hex(3).upper()
+        _pending_confirms[(str(chat_id),code)]=("fleet_delete",None,time.time()+120)
+        await tg_send(session,chat_id,"DANGER: this will purge Grid software and Grid-owned data from ALL registered computers. CONTROL is deleted LAST, only after every agent acknowledges purge.\nConfirm within 120s: /confirm "+code)
     elif cmd=="/pilot":
         rows=await pilot_state(db.pool,parts[1] if len(parts)>1 else None)
         rows=[rows] if isinstance(rows,dict) else rows
@@ -115,6 +137,11 @@ async def handle_command(db,session,chat_id,text,nodes):
             n=nodes.get(nid)
             await tg_send(session,chat_id,_node_line(nid,n,now) if n else f"Unknown node: {nid}")
     elif cmd in ("/pause","/resume","/stop","/start","/restart","/rollback"):
+        if cmd in ("/resume","/start"):
+            gs=await runtime_state(db.pool)
+            if gs["state"]!="ACTIVE":
+                await tg_send(session,chat_id,f"Blocked: global SYSTEM state is {gs['state']}. Use ПРОДОЛЖИТЬ for the whole Grid first.")
+                return
         if len(parts)!=2:
             await tg_send(session,chat_id,f"Usage: {cmd} NODE")
             return
@@ -212,17 +239,29 @@ async def handle_command(db,session,chat_id,text,nodes):
             await tg_send(session,chat_id,f"Uninstall queued for {node_id} ({cid}); data preserved.")
         elif action=="fleet_begin":
             state=await set_runtime_state(db.pool,"ACTIVE",f"telegram:{chat_id}","explicit operator START")
-            await tg_send(session,chat_id,f"SYSTEM: {state['state']}. Market workloads may now start.")
+            await tg_send(session,chat_id,f"SYSTEM: {state['state']}. Market workloads may now start.",_main_keyboard())
+        elif action=="fleet_delete":
+            r=await begin_fleet_delete(db.pool,nodes,f"telegram:{chat_id}")
+            await tg_send(session,chat_id,f"DELETE operation {r['operation_id']} started for {len(r['targets'])} agents. CONTROL remains online until all agents acknowledge purge. Check: /deletestatus {r['operation_id']}")
         else:
             result=await cleanup_all(db.pool)
             await tg_send(session,chat_id,"Cleanup completed: "+", ".join(f"{k}={v}" for k,v in result.items()))
+    elif cmd=="/deletestatus":
+        if len(parts)!=2:
+            await tg_send(session,chat_id,"Usage: /deletestatus OPERATION_ID"); return
+        r=await fleet_delete_status(db.pool,parts[1])
+        if not r: await tg_send(session,chat_id,"Unknown delete operation.")
+        elif r["status"]=="READY_CONTROL_PURGE":
+            await tg_send(session,chat_id,"All agent purge commands acknowledged. CONTROL is ready for final local purge.")
+        else:
+            await tg_send(session,chat_id,"DELETE waiting. Pending: "+(", ".join(r["pending"]) or "-")+"; failed: "+(", ".join(r["failed"]) or "-"))
     elif cmd in ("/db","/dbsize","/storage"):
         st=await database_stats(db.pool)
         lines=[f"DB: {st['database']['name']}","Size: "+str(st["database"]["pretty"]),"Largest tables:"]
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /system /begin /fleetpause /pilot [NODE] /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /menu /system /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
 
 async def _notify_expansion_ready(db,session):
     rows=await expansion_ready(db.pool)
@@ -257,9 +296,16 @@ async def telegram_loop(db,nodes):
                 await _notify_expansion_ready(db,session)
                 for upd in data.get("result",[]):
                     next_offset=max(offset,upd["update_id"]+1)
-                    msg=upd.get("message") or {}
+                    cb=upd.get("callback_query") or {}
+                    msg=upd.get("message") or cb.get("message") or {}
                     chat=(msg.get("chat") or {}).get("id")
                     txt=msg.get("text","")
+                    if cb:
+                        mapping={"fleet:begin":"/begin","fleet:stop":"/fleetstop","fleet:resume":"/fleetresume","fleet:delete":"/fleetdelete","fleet:nodes":"/nodes","fleet:system":"/system"}
+                        txt=mapping.get(cb.get("data"),"")
+                        try:
+                            await session.post(f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery",json={"callback_query_id":cb.get("id")})
+                        except Exception: pass
                     if not chat or not txt.startswith("/"):
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     if not allowed(chat):
