@@ -45,7 +45,8 @@ class Storage:
             async with aiohttp.ClientSession() as session:
                 async with session.post(settings.coordinator_url+"/ingest/minute",
                     json=row,headers={"X-Grid-Token":settings.grid_shared_token,
-                                      "X-Node-Credential":node_credential()},timeout=20) as resp:
+                                      "X-Node-Credential":node_credential(),
+                                      "X-Node-ID":os.getenv("COMPUTERNAME","unknown")},timeout=20) as resp:
                     if resp.status!=200:
                         raise RuntimeError("CONTROL ingest rejected: "+str(resp.status))
         else:
