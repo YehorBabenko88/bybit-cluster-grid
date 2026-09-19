@@ -15,23 +15,28 @@ class MLDispatcher:
     async def __call__(self,slots,health=None):
         nodes=await self.node_provider()
         active=await self.pool.fetchval("""SELECT count(*) FROM ml_jobs
-          WHERE status='running' AND lease_until>=now()""")
+          WHERE status IN ('assigned','running') AND lease_until>=now()""")
         budget=max(0,int(slots)-int(active or 0)); dispatched=[]
         for _ in range(budget):
             async with self.pool.acquire() as c:
                 async with c.transaction():
-                    job=await c.fetchrow("""SELECT * FROM ml_jobs WHERE status='queued'
-                      ORDER BY priority,created_at FOR UPDATE SKIP LOCKED LIMIT 1""")
+                    jobs=await c.fetch("""SELECT * FROM ml_jobs WHERE status='queued'
+                      AND attempts<max_attempts AND (not_before IS NULL OR not_before<=now())
+                      ORDER BY priority,created_at FOR UPDATE SKIP LOCKED LIMIT 32""")
+                    if not jobs: break
+                    job=None;pick=None
+                    for candidate in jobs:
+                        payload=dict(candidate["payload"] or {})
+                        d=WORKLOAD_DEFAULTS.get(candidate["job_type"],WORKLOAD_DEFAULTS["evaluate"])
+                        w=Workload(candidate["job_type"],cpu=float(payload.get("cpu",d["cpu"])),
+                          ram_gb=float(payload.get("ram_gb",d["ram_gb"])),
+                          scratch_gb=float(payload.get("scratch_gb",d["scratch_gb"])),
+                          input_gb=float(payload.get("input_gb",0)),
+                          gpu=bool(payload.get("gpu",False)),data_locality=payload.get("data_locality"))
+                        pick=choose_node(nodes,w)
+                        if pick:
+                            job=candidate;break
                     if not job: break
-                    payload=dict(job["payload"] or {})
-                    d=WORKLOAD_DEFAULTS.get(job["job_type"],WORKLOAD_DEFAULTS["evaluate"])
-                    w=Workload(job["job_type"],cpu=float(payload.get("cpu",d["cpu"])),
-                      ram_gb=float(payload.get("ram_gb",d["ram_gb"])),
-                      scratch_gb=float(payload.get("scratch_gb",d["scratch_gb"])),
-                      input_gb=float(payload.get("input_gb",0)),
-                      gpu=bool(payload.get("gpu",False)),data_locality=payload.get("data_locality"))
-                    pick=choose_node(nodes,w)
-                    if not pick: break
                     _,node_id,why=pick
                     await c.execute("""UPDATE ml_jobs SET status='assigned',lease_owner=$2,
                       lease_until=now()+interval '2 minutes' WHERE id=$1 AND status='queued'""",
