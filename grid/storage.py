@@ -5,12 +5,14 @@ from .config import settings
 from .write_queue import BoundedWriteQueue
 from .segment_wal import SegmentWAL
 from .unified_features import UnifiedFeatureBuilder
+from .derived_pipeline import DerivedPipeline
 import os
 
 class Storage:
     def __init__(self):
         self.pool=None
         self.feature_builder=UnifiedFeatureBuilder()
+        self.derived=None
         root=os.path.join(os.getenv("ProgramData",os.getcwd()),"BybitClusterGrid","spool")
         self.spool=SegmentWAL(root)
         # WAL checkpoint advances monotonically, therefore commit/ack is deliberately ordered.
@@ -18,6 +20,8 @@ class Storage:
     async def start(self):
         self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=5)
         await self.write_queue.start()
+        self.derived=DerivedPipeline(self.pool)
+        await self.derived.start()
         for record_id,row in self.spool.recover():
             await self.write_queue.put(record_id,row)
     async def save(self,row):
@@ -51,3 +55,4 @@ class Storage:
         feature_row=dict(row); feature_row["ts"]=ts
         built=await self.feature_builder.build(self.pool,feature_row)
         await self.feature_builder.persist(self.pool,built)
+        await self.derived.on_candle(feature_row,built)
