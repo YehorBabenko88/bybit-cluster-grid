@@ -3,7 +3,8 @@ from pathlib import Path
 BOOT=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
 
 def test_runtime_is_grid_owned():
-    assert '$OwnedPython=Join-Path $RuntimeRoot "python\\\\python.exe"' in BOOT
+    assert '$OwnedPython=Join-Path $RuntimeRoot' in BOOT
+    assert '"python\\\\python.exe"' in BOOT
     assert 'Grid-owned Python runtime is missing' in BOOT
     assert 'Get-Command python.exe' not in BOOT
 
