@@ -7,6 +7,7 @@ from .segment_wal import SegmentWAL
 from .unified_features import UnifiedFeatureBuilder
 from .derived_pipeline import DerivedPipeline
 import os
+import aiohttp
 
 class Storage:
     def __init__(self):
@@ -18,10 +19,12 @@ class Storage:
         # WAL checkpoint advances monotonically, therefore commit/ack is deliberately ordered.
         self.write_queue=BoundedWriteQueue(self._save_spooled,maxsize=5000,workers=1)
     async def start(self):
-        self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=5)
+        self.remote=(settings.role!="coordinator")
+        if not self.remote:
+            self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=5)
+            self.derived=DerivedPipeline(self.pool)
+            await self.derived.start()
         await self.write_queue.start()
-        self.derived=DerivedPipeline(self.pool)
-        await self.derived.start()
         for record_id,row in self.spool.recover():
             await self.write_queue.put(record_id,row)
     async def save(self,row):
@@ -37,7 +40,16 @@ class Storage:
         return m
 
     async def _save_spooled(self,record_id,row):
-        await self._save_direct(row)
+        if self.remote:
+            from .credential_store import node_credential
+            async with aiohttp.ClientSession() as session:
+                async with session.post(settings.coordinator_url+"/ingest/minute",
+                    json=row,headers={"X-Grid-Token":settings.grid_shared_token,
+                                      "X-Node-Credential":node_credential()},timeout=20) as resp:
+                    if resp.status!=200:
+                        raise RuntimeError("CONTROL ingest rejected: "+str(resp.status))
+        else:
+            await self._save_direct(row)
         await self.spool.ack(record_id)
 
     async def _save_direct(self,row):
