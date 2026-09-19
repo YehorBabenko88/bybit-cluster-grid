@@ -173,6 +173,15 @@ PRIMARY KEY(dataset_id,sample_id),UNIQUE(dataset_id,ordinal))""",
 "ALTER TABLE ml_jobs ADD COLUMN IF NOT EXISTS dedupe_key text",
 """CREATE UNIQUE INDEX IF NOT EXISTS ml_jobs_active_dedupe_idx ON ml_jobs(dedupe_key)
 WHERE dedupe_key IS NOT NULL AND status IN ('queued','assigned','running')"""
+]),
+(20,"ml_resource_reservations",[
+"""CREATE TABLE IF NOT EXISTS ml_resource_reservations(
+job_id uuid PRIMARY KEY REFERENCES ml_jobs(id) ON DELETE CASCADE,
+node_id text NOT NULL,cpu double precision NOT NULL,ram_gb double precision NOT NULL,
+scratch_gb double precision NOT NULL,gpu boolean NOT NULL DEFAULT false,
+lease_generation bigint NOT NULL DEFAULT 0,expires_at timestamptz NOT NULL,
+created_at timestamptz NOT NULL DEFAULT now())""",
+"CREATE INDEX IF NOT EXISTS ml_reservations_node_idx ON ml_resource_reservations(node_id,expires_at)"
 ])
 ]
 
