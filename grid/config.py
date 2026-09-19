@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     cluster_interval_seconds: int = 60
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
+    retention_enabled: bool = True
+    retention_interval_minutes: int = 60
+    retention_batch_size: int = 10000
+    retention_market_events_days: int = 7
+    retention_orderbook_snapshots_days: int = 14
+    retention_footprint_days: int = 90
+    retention_derivatives_days: int = 365
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
