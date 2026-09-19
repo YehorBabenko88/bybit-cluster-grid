@@ -1,19 +1,24 @@
 import os,psutil
 from .config import settings
+from .runtime_gate import market_work_allowed
 
 def pause_flag():
-    return os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","bootstrap.pause")
+    return os.path.join(os.environ.get("ProgramData",r"C:\\ProgramData"),"BybitClusterGrid","bootstrap.pause")
 def stop_flag():
-    return os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","operator.stop")
+    return os.path.join(os.environ.get("ProgramData",r"C:\\ProgramData"),"BybitClusterGrid","operator.stop")
 
 async def background_work_allowed(pool):
     if os.path.exists(stop_flag()):
         return False,["operator_stopped"]
     if os.path.exists(pause_flag()):
         return False,["paused"]
-    cpu=psutil.cpu_percent(interval=.15)
+    # Fail closed: background/archive/strategy/learning work is forbidden until
+    # the persistent fleet gate has explicitly entered ACTIVE.
+    if not await market_work_allowed(pool):
+        return False,["runtime_gate"]
+    cpu=psutil.cpu_percent(interval=None)
     ram=psutil.virtual_memory().percent
-    disk=psutil.disk_usage(os.environ.get("ProgramData",os.getcwd())).free/(1024**3)
+    disk=psutil.disk_usage(os.environ.get("GRID_DATA_PATH",os.environ.get("ProgramData",os.getcwd()))).free/(1024**3)
     reasons=[]
     if cpu>=settings.resource_cpu_limit:reasons.append("cpu")
     if ram>=settings.resource_ram_limit:reasons.append("ram")
