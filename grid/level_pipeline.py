@@ -52,7 +52,7 @@ class LevelPipeline:
                 await self.pool.execute("""UPDATE historical_levels SET first_cross_ts=$1,test_count=test_count+1
                     WHERE symbol=$2 AND timeframe=$3 AND level_kind=$4 AND source_ts=$5""",
                     ts,symbol,level.timeframe,level.kind,level.source_ts)
-            elif typ in ("ACCEPTED_BREAK","FALSE_BREAK"):
+            elif typ=="ACCEPTED_BREAK":
                 await self.pool.execute("""UPDATE historical_levels SET active=false
                     WHERE symbol=$1 AND timeframe=$2 AND level_kind=$3 AND source_ts=$4""",
                     symbol,level.timeframe,level.kind,level.source_ts)
