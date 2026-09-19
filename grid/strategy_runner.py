@@ -1,6 +1,6 @@
 import asyncio, logging
 from .resources import NODE_ID
-from .strategy_jobs import claim_job, finish_job, requeue_job
+from .strategy_jobs import claim_job, finish_job, requeue_job, recover_stale_jobs
 from .strategy_executor import execute_job_subprocess
 from .strategy_resources import strategy_allowed, database_pressure
 from .config import settings
@@ -10,7 +10,13 @@ log=logging.getLogger("strategy_runner")
 
 async def strategy_worker(db,poll_seconds=None):
     poll_seconds=poll_seconds or settings.strategy_poll_seconds
+    await recover_stale_jobs(db.pool,settings.strategy_job_timeout_seconds)
+    last_recovery=asyncio.get_running_loop().time()
     while True:
+        now=asyncio.get_running_loop().time()
+        if now-last_recovery>=60:
+            await recover_stale_jobs(db.pool,settings.strategy_job_timeout_seconds)
+            last_recovery=now
         job=None
         try:
             bg_ok,bg_reasons=await background_work_allowed(db.pool)
