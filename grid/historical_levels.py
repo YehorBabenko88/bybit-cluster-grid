@@ -27,7 +27,7 @@ class HistoricalLevelTracker:
     def __init__(self,approach_pct=.002,break_buffer_pct=.0002,accept_bars=2,false_break_bars=3):
         self.approach_pct=float(approach_pct); self.break_buffer_pct=float(break_buffer_pct)
         self.accept_bars=int(accept_bars); self.false_break_bars=int(false_break_bars)
-        self.levels={}; self.prev_close={}; self.after={}
+        self.levels={}; self.prev_close={}; self.after={}; self.last_features={}
 
     def register(self,symbol,timeframe,kind,source_ts,price,side):
         key=(timeframe,kind,source_ts)
@@ -36,15 +36,17 @@ class HistoricalLevelTracker:
 
     def observe(self,symbol,ts,o,h,l,c,features):
         o,h,l,c=map(float,(o,h,l,c)); prev=self.prev_close.get(symbol,c); events=[]
+        prior_features=dict(self.last_features.get(symbol,{}))
         for key,x in self.levels.get(symbol,{}).items():
             p=x.price; buf=max(abs(p)*self.break_buffer_pct,1e-18)
             dist=abs(c-p)/max(abs(p),1e-18)
             if not x.crossed and dist<=self.approach_pct:
-                x.pre_features=dict(features)
+                x.pre_features=dict(prior_features)
                 events.append((APPROACH,x,{"distance_pct":dist}))
             up=prev<=p and c>p+buf
             down=prev>=p and c<p-buf
             if not x.crossed and (up or down):
+                if not x.pre_features: x.pre_features=dict(prior_features)
                 x.crossed=True; x.cross_ts=ts; x.tests+=1; x.post_bars=0
                 direction="UP" if up else "DOWN"
                 self.after[(symbol,key)]={"direction":direction,"bars":0,"accept":0,"returned":False}
@@ -71,4 +73,5 @@ class HistoricalLevelTracker:
             elif not x.accepted and touches and not x.crossed:
                 events.append((REJECTION,x,{"distance_pct":dist}))
         self.prev_close[symbol]=c
+        self.last_features[symbol]=dict(features)
         return events
