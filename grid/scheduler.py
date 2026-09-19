@@ -14,6 +14,13 @@ def learned_symbol_cost(nodes, default=1.0):
     fallback=median(known) if known else float(default)
     return {symbol:median(vals) for symbol,vals in samples.items()},max(float(default),fallback)
 
+def node_avoids(node,symbol):
+    state=(node.get("pressure_state") or "NORMAL").upper()
+    drained=set(node.get("drained_symbols") or [])
+    if state=="CRITICAL":
+        return True
+    return state=="REDUCE_LOAD" and symbol in drained
+
 def weighted_assign(symbols,node_scores,nodes):
     result={n:[] for n in node_scores}
     if not node_scores:
@@ -24,7 +31,11 @@ def weighted_assign(symbols,node_scores,nodes):
     ordered=sorted(symbols,key=lambda s:(costs.get(s,fallback),s),reverse=True)
     for symbol in ordered:
         cost=max(.01,costs.get(symbol,fallback))
-        node=min(node_scores,key=lambda n:(load[n]/node_scores[n],n))
+        eligible=[n for n in node_scores if not node_avoids(nodes.get(n,{}),symbol)]
+        if not eligible:
+            # Availability wins over avoidance: if every live node is pressured, keep one collector.
+            eligible=list(node_scores)
+        node=min(eligible,key=lambda n:(load[n]/node_scores[n],n))
         result[node].append(symbol)
         load[node]+=cost
     return result
