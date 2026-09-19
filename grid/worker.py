@@ -1,4 +1,4 @@
-import asyncio, json, time, logging
+import asyncio, json, time, logging, os
 import aiohttp, websockets
 from .config import settings
 from .resources import snapshot
@@ -16,6 +16,7 @@ from .strategy_plugins import ensure_plugin_schema
 from .strategy_runner import strategy_worker
 from .agent_commands import execute_command
 from .credential_store import node_credential
+from .decommission import mark_coordinator_success,mark_internet_success,internet_available,decommission_due
 
 log=logging.getLogger("worker")
 
@@ -45,6 +46,7 @@ class Worker:
                         timeout=10
                     ) as r:
                         if r.status==200:
+                            mark_coordinator_success()
                             reply=await r.json()
                             for cmd in reply.get("commands",[]):
                                 ok=True; result=None; error=None
@@ -72,6 +74,14 @@ class Worker:
                             log.warning("coordinator heartbeat rejected",extra={"event":"heartbeat_rejected"})
                 except Exception:
                     log.exception("heartbeat failed",extra={"event":"heartbeat_failed"})
+                    if internet_available():
+                        mark_internet_success()
+                    elif decommission_due(settings.decommission_days):
+                        log.critical("offline decommission threshold reached",extra={"event":"self_decommission"})
+                        try:
+                            await execute_command(self,{"action":"uninstall","payload":{"purge_data":True}})
+                        finally:
+                            os._exit(0)
                 await asyncio.sleep(settings.heartbeat_seconds)
 
     async def reconcile(self):
