@@ -13,7 +13,7 @@ from .retention import RETENTION_DEFAULTS
 from .telegram_idempotency import claim_update,complete_update
 from .ha_status import ha_status
 from .runtime_gate import runtime_state,set_runtime_state
-from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_delete_status
+from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_delete_status,latest_operation
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -276,6 +276,34 @@ async def handle_command(db,session,chat_id,text,nodes):
     else:
         await tg_send(session,chat_id,"Commands: /menu /system /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
 
+async def _maybe_finalize_fleet_delete(db,session):
+    op=await latest_operation(db.pool,"DELETE")
+    if not op or op["status"] not in ("WAITING","READY_CONTROL_PURGE"):
+        return
+    status=await fleet_delete_status(db.pool,str(op["id"]))
+    if not status or status["status"]!="READY_CONTROL_PURGE":
+        return
+    # Mark durably BEFORE spawning the final remover so a Telegram-loop retry cannot
+    # launch multiple destructive processes.
+    changed=await db.pool.execute("""UPDATE fleet_operations SET status='CONTROL_PURGE_STARTED',
+      completed_at=now() WHERE id=$1 AND status='READY_CONTROL_PURGE'""",op["id"])
+    if not str(changed).endswith("1"):
+        return
+    chats=[x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()]
+    for chat_id in chats:
+        try:
+            await tg_send(session,chat_id,"All agents acknowledged deletion. CONTROL and Grid-owned PostgreSQL/data are now being removed. This bot will go offline when deletion completes.")
+        except Exception:
+            pass
+    data_root=pathlib.Path(os.environ.get("ProgramData",r"C:\\ProgramData"))/"BybitClusterGrid"
+    script=data_root/"installer"/"uninstall.ps1"
+    if not script.exists():
+        await db.pool.execute("UPDATE fleet_operations SET status='FAILED',details=details || $2::jsonb WHERE id=$1",
+                              op["id"],'{"control_error":"local uninstall script missing"}')
+        return
+    subprocess.Popen(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(script),"-PurgeData"],
+                     creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+
 async def _notify_expansion_ready(db,session):
     rows=await expansion_ready(db.pool)
     chats=[x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()]
@@ -307,6 +335,7 @@ async def telegram_loop(db,nodes):
                 async with session.get(url,params={"timeout":30,"offset":offset},timeout=40) as r:
                     data=await r.json()
                 await _notify_expansion_ready(db,session)
+                await _maybe_finalize_fleet_delete(db,session)
                 for upd in data.get("result",[]):
                     next_offset=max(offset,upd["update_id"]+1)
                     cb=upd.get("callback_query") or {}
