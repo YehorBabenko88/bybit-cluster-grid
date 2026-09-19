@@ -33,4 +33,4 @@ jobs:
           POSTGRES_DSN: postgresql://grid:grid@127.0.0.1:5432/grid
         run: python -c "import grid.config, grid.worker, grid.coordinator, grid.control_plane, grid.enrollment, grid.update_manager"
       - name: Unit tests
-        run: pytest -q
+        run: python -m pytest -q
