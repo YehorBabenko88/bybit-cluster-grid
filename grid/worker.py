@@ -120,9 +120,7 @@ class Worker:
                             market_enabled=bool(reply.get("market_work_enabled",False)) and self.runtime_state=="ACTIVE"
                             if market_enabled and not self.meta:
                                 try:
-                                    # No Bybit market request in INFRA_ONLY. Metadata is loaded lazily after the
-        # coordinator explicitly reports the persistent fleet gate as ACTIVE.
-        self.meta={}
+                                    self.meta={x["symbol"]:x for x in await linear_symbols(settings.bybit_rest_url)}
                                 except Exception:
                                     log.exception("instrument metadata refresh failed",extra={"event":"metadata_refresh_failed"})
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
