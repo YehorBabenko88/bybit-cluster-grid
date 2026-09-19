@@ -19,6 +19,7 @@ from .repair_circuit_breaker import RepairCircuitBreaker
 from .repair_health import expired_repairs
 from .archive_discovery_service import seed_discovery
 from .pilot_state import node_accepts_live_assignments,node_live_mode
+from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -52,15 +53,18 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     commands=await pending_commands(db.pool,nid)
     replica=await build_replica(db.pool)
     live_mode=await node_live_mode(db.pool,nid)
-    if live_mode=="NORMAL":
+    fleet_state=await runtime_state(db.pool)
+    market_enabled=fleet_state["state"]=="ACTIVE"
+    if market_enabled and live_mode=="NORMAL":
         symbols=assignments.get(nid,[])
-    elif live_mode=="PILOT_VALIDATING":
+    elif market_enabled and live_mode=="PILOT_VALIDATING":
         preferred=["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","DOGEUSDT"]
         symbols=[x for x in preferred if x in instruments][:5]
     else:
         symbols=[]
     return {"symbols":symbols,"commands":commands,"control_replica":replica,
-            "live_assignments_enabled":bool(symbols),"live_mode":live_mode}
+            "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
+            "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
 
 @app.post("/commands/{command_id}/result")
 async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
@@ -154,10 +158,17 @@ async def startup():
     await ensure_control_schema(db.pool)
     await ensure_update_schema(db.pool)
     await ensure_enrollment_schema(db.pool)
+    await ensure_runtime_gate(db.pool)
     async def loop():
         global instruments
         while True:
             try:
+                gate=await runtime_state(db.pool)
+                if gate["state"]!="ACTIVE":
+                    instruments={}
+                    assignments={}
+                    await asyncio.sleep(settings.rebalance_seconds)
+                    continue
                 xs=await linear_symbols(settings.bybit_rest_url)
                 added,retired=await reconcile_instruments(db.pool,xs)
                 await seed_discovery(db.pool,xs)
