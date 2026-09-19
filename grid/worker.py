@@ -69,6 +69,8 @@ class Worker:
                 snap['pressure_state']=state
                 snap['bootstrap_paused']=self.bootstrap_paused
                 snap['bootstrap_phase']=self.bootstrap_phase
+                snap['wanted_symbols']=len(self.wanted)
+                snap['active_trade_streams']=sum(1 for t in self.trade_tasks.values() if not t.done())
                 snap['pressure_drained']=len(self.pressure_drained)
                 snap['drained_symbols']=sorted(self.pressure_drained)
                 snap['symbol_cost']={k:round(v,3) for k,v in self.pressure.symbol_cost.items() if k in self.wanted}
