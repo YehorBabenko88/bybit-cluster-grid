@@ -71,7 +71,7 @@ async def handle_command(db,session,chat_id,text,nodes):
     parts=text.strip().split()
     cmd=parts[0].lower()
     now=time.time()
-    if cmd=="/menu":
+    if cmd=="/menu" or (cmd=="/start" and len(parts)==1):
         await tg_send(session,chat_id,"Управление Bybit Cluster Grid",_main_keyboard())
     elif cmd=="/system":
         s=await runtime_state(db.pool)
