@@ -1,5 +1,8 @@
 import hashlib,os,tempfile,aiohttp
 
+class ArchiveUnavailable(FileNotFoundError):
+    pass
+
 async def download_verified(url,directory,expected_sha256=None,expected_bytes=None,chunk_size=1024*1024):
     os.makedirs(directory,exist_ok=True)
     fd,path=tempfile.mkstemp(prefix="grid-archive-",suffix=".part",dir=directory);os.close(fd)
@@ -7,6 +10,8 @@ async def download_verified(url,directory,expected_sha256=None,expected_bytes=No
     try:
         async with aiohttp.ClientSession() as s:
             async with s.get(url,timeout=aiohttp.ClientTimeout(total=None,sock_read=60)) as r:
+                if r.status==404:
+                    raise ArchiveUnavailable(url)
                 r.raise_for_status()
                 with open(path,"wb") as f:
                     async for chunk in r.content.iter_chunked(int(chunk_size)):
