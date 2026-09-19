@@ -3,8 +3,12 @@ from .config import settings
 
 def pause_flag():
     return os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","bootstrap.pause")
+def stop_flag():
+    return os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","operator.stop")
 
 async def background_work_allowed(pool):
+    if os.path.exists(stop_flag()):
+        return False,["operator_stopped"]
     if os.path.exists(pause_flag()):
         return False,["paused"]
     cpu=psutil.cpu_percent(interval=.15)
