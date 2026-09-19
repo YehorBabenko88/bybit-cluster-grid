@@ -1,6 +1,7 @@
 import asyncio, logging, os, pathlib, subprocess, tempfile, collections
 import aiohttp
 from .update_manager import rollback,verify_package,install_release,switch_current,current_version
+from .integrity_guard import verify_manifest
 log=logging.getLogger("agent_commands")
 
 def _roots():
@@ -79,6 +80,15 @@ async def execute_command(worker,cmd):
         return {"state":"restarting"}
     if action=="update":
         result=await _update(payload)
+        asyncio.get_running_loop().call_later(2.0,lambda:os._exit(75))
+        return result
+    if action=="repair":
+        # Repair is deliberately the same verified release path as update, never arbitrary file download.
+        if not payload.get("repair_only") or not payload.get("repair_files"):
+            raise ValueError("invalid repair request")
+        result=await _update(payload)
+        result["state"]="repair_staged"
+        result["repair_files"]=list(payload["repair_files"])
         asyncio.get_running_loop().call_later(2.0,lambda:os._exit(75))
         return result
     if action=="rollback":
