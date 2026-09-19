@@ -8,7 +8,7 @@ from .instrument_lifecycle import ensure_instrument_schema,reconcile_instruments
 from .strategy_jobs import ensure_strategy_schema,submit_job
 from .strategy_plugins import ensure_plugin_schema,register_plugin,list_plugins
 from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result
-from .update_protocol import ensure_update_schema
+from .update_protocol import ensure_update_schema,note_heartbeat,register_release,start_canary,promote_stable
 from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent
 
 log=logging.getLogger("coordinator")
@@ -58,6 +58,29 @@ async def create_node_command(node_id:str,payload:dict,x_grid_token:str=Header(d
     if action not in allowed: raise HTTPException(400,"unsupported command")
     cid=await enqueue_command(db.pool,node_id,action,payload.get("payload"))
     return {"command_id":cid,"status":"queued"}
+
+@app.post("/updates/releases")
+async def create_release(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    await register_release(db.pool,payload["version"],payload.get("channel","canary"),
+                           payload["package_url"],payload["sha256"],payload.get("metadata"))
+    return {"ok":True,"version":payload["version"]}
+
+@app.post("/updates/{version}/canary/{node_id}")
+async def launch_canary(version:str,node_id:str,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    rel=await start_canary(db.pool,version,node_id,3)
+    cid=await enqueue_command(db.pool,node_id,"update",rel)
+    return {"command_id":cid,"version":version,"node_id":node_id,"required_health_acks":3}
+
+@app.post("/updates/{version}/promote")
+async def promote_release(version:str,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    try:
+        await promote_stable(db.pool,version)
+    except ValueError as e:
+        raise HTTPException(409,str(e))
+    return {"ok":True,"version":version,"channel":"stable"}
 
 @app.get("/status")
 async def status(x_grid_token:str=Header(default="")):
