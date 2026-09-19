@@ -191,6 +191,13 @@ state_from text NOT NULL,state_to text NOT NULL,trades bigint NOT NULL,net_pnl d
 expectancy double precision NOT NULL,hit_rate double precision NOT NULL,
 created_at timestamptz NOT NULL DEFAULT now(),
 PRIMARY KEY(dataset_id,model_id,strategy_name,symbol,setup_type,state_from,state_to))"""
+]),
+(22,"strategy_comparison_results",[
+"""CREATE TABLE IF NOT EXISTS strategy_comparison_results(
+dataset_id uuid REFERENCES dataset_snapshots(id),strategy_name text NOT NULL,variant text NOT NULL,
+comparison_group text NOT NULL,metrics jsonb NOT NULL,incremental jsonb,uncertainty jsonb,
+created_at timestamptz NOT NULL DEFAULT now(),
+PRIMARY KEY(dataset_id,strategy_name,variant,comparison_group))"""
 ])
 ]
 
