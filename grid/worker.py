@@ -245,10 +245,9 @@ class Worker:
 
     async def run(self):
         bootstrap_logging()
-        self.db=await prepare_database()
-        await ensure_retention_schema(self.db.pool)
-        await ensure_strategy_schema(self.db.pool)
-        await ensure_plugin_schema(self.db.pool)
+        # Workers are DB-less by design: CONTROL owns PostgreSQL and accepts
+        # authenticated ingestion. This keeps database credentials off agent PCs.
+        self.db=None
         await self.storage.start()
         # Strict INFRA_ONLY: no Bybit discovery is permitted before CONTROL opens ACTIVE.
         self.meta={}
@@ -257,10 +256,7 @@ class Worker:
             self.operator_stopped=True; self.enabled=False
 
         asyncio.create_task(health_monitor())
-        asyncio.create_task(retention_scheduler(self.db.pool,settings))
-        # Strategy runner is independent from live collection and needs no agent restart.
-        asyncio.create_task(strategy_worker(self.db))
-        # Telegram will move to coordinator-only control plane; keep disabled on workers in production.
+        # Retention, strategy orchestration and Telegram are CONTROL-owned.
 
         await self.heartbeat()
 
