@@ -3,7 +3,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     role: str = "worker"
     coordinator_url: str = "http://127.0.0.1:8787"
-    grid_shared_token: str = ""\n    enrollment_token: str = ""\n    node_credential: str = ""
+    grid_shared_token: str = ""
+    enrollment_token: str = ""
+    node_credential: str = ""
     postgres_dsn: str
     bybit_ws_url: str = "wss://stream.bybit.com/v5/public/linear"
     bybit_rest_url: str = "https://api.bybit.com"
@@ -30,6 +32,10 @@ class Settings(BaseSettings):
     strategy_disk_free_gb: float = 30
     strategy_db_active_limit: int = 20
     strategy_poll_seconds: int = 3
+    deadman_enabled: bool = True
+    deadman_days: int = 7
+    deadman_state_path: str = ""
+    deadman_uninstall_script: str = ""
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
