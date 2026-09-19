@@ -155,6 +155,19 @@ health_acks integer NOT NULL DEFAULT 0,previous_version text,
 files jsonb NOT NULL DEFAULT '[]'::jsonb,created_at timestamptz NOT NULL DEFAULT now(),
 deadline timestamptz NOT NULL DEFAULT now()+interval '10 minutes',last_error text)""",
 "CREATE INDEX IF NOT EXISTS integrity_repairs_node_status_idx ON integrity_repairs(node_id,status,created_at DESC)"
+]),
+(18,"ml_fencing_immutable_payloads_and_label_horizon",[
+"ALTER TABLE ml_jobs ADD COLUMN IF NOT EXISTS lease_generation bigint NOT NULL DEFAULT 0",
+"ALTER TABLE ml_jobs ADD COLUMN IF NOT EXISTS max_attempts integer NOT NULL DEFAULT 5",
+"ALTER TABLE ml_jobs ADD COLUMN IF NOT EXISTS not_before timestamptz",
+"ALTER TABLE ml_event_samples ADD COLUMN IF NOT EXISTS label_end_ts timestamptz",
+"""CREATE TABLE IF NOT EXISTS dataset_sample_payloads(
+dataset_id uuid NOT NULL REFERENCES dataset_snapshots(id) ON DELETE CASCADE,
+sample_id bigint NOT NULL,ordinal bigint NOT NULL,payload jsonb NOT NULL,
+payload_hash text NOT NULL,event_ts timestamptz NOT NULL,feature_ts timestamptz NOT NULL,
+label_end_ts timestamptz,split_group text,
+PRIMARY KEY(dataset_id,sample_id),UNIQUE(dataset_id,ordinal))""",
+"CREATE INDEX IF NOT EXISTS dataset_payload_event_idx ON dataset_sample_payloads(dataset_id,event_ts,ordinal)"
 ])
 ]
 
