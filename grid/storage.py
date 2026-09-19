@@ -4,11 +4,13 @@ import json
 from .config import settings
 from .write_queue import BoundedWriteQueue
 from .segment_wal import SegmentWAL
+from .unified_features import UnifiedFeatureBuilder
 import os
 
 class Storage:
     def __init__(self):
         self.pool=None
+        self.feature_builder=UnifiedFeatureBuilder()
         root=os.path.join(os.getenv("ProgramData",os.getcwd()),"BybitClusterGrid","spool")
         self.spool=SegmentWAL(root)
         # WAL checkpoint advances monotonically, therefore commit/ack is deliberately ordered.
@@ -46,3 +48,6 @@ class Storage:
                 ON CONFLICT(symbol,ts,price) DO UPDATE SET buy_volume=EXCLUDED.buy_volume,sell_volume=EXCLUDED.sell_volume,
                 delta=EXCLUDED.delta,volume=EXCLUDED.volume,buy_count=EXCLUDED.buy_count,sell_count=EXCLUDED.sell_count""",
                 [(row["symbol"],ts,x["price"],x["buy_volume"],x["sell_volume"],x["delta"],x["volume"],x["buy_count"],x["sell_count"]) for x in row["levels"]])
+        feature_row=dict(row); feature_row["ts"]=ts
+        built=await self.feature_builder.build(self.pool,feature_row)
+        await self.feature_builder.persist(self.pool,built)
