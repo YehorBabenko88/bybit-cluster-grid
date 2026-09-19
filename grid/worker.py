@@ -9,6 +9,8 @@ from .bybit import linear_symbols
 from .service import prepare_database, bootstrap_logging, health_monitor
 from .microstructure import MicrostructureCollector
 from .resilience import backoff_delays, wait_for_internet
+from .retention import ensure_retention_schema, retention_scheduler
+from .telegram_bot import telegram_loop
 
 log=logging.getLogger("worker")
 
@@ -45,7 +47,6 @@ class Worker:
                 await asyncio.sleep(settings.heartbeat_seconds)
 
     async def reconcile(self):
-        # Trade stream lifecycle
         for sym in list(self.trade_tasks):
             if sym not in self.wanted:
                 self.trade_tasks.pop(sym).cancel()
@@ -53,7 +54,6 @@ class Worker:
             if sym in self.meta and sym not in self.trade_tasks:
                 self.trade_tasks[sym]=asyncio.create_task(self.trade_stream(sym))
 
-        # Microstructure streams are batched. Rebuild only when assignment changes.
         signature=tuple(sorted(self.wanted))
         if signature != self.micro_signature:
             self.micro_signature=signature
@@ -108,9 +108,14 @@ class Worker:
     async def run(self):
         bootstrap_logging()
         self.db=await prepare_database()
+        await ensure_retention_schema(self.db.pool)
         await self.storage.start()
         self.meta={x["symbol"]:x for x in await linear_symbols(settings.bybit_rest_url)}
+
         asyncio.create_task(health_monitor())
+        asyncio.create_task(retention_scheduler(self.db.pool,settings))
+        asyncio.create_task(telegram_loop(self.db))
+
         await self.heartbeat()
 
 async def main():
