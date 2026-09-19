@@ -2,12 +2,15 @@
 param([switch]$PurgeData)
 $ErrorActionPreference="Stop"
 $TaskName="BybitClusterGridAgent"
+$ArchiveTaskName="BybitClusterGridArchivePipeline"
 $InstallRoot="$env:ProgramFiles\BybitClusterGrid"
 $DataRoot="$env:ProgramData\BybitClusterGrid"
 $Manifest=Join-Path $DataRoot "postgres-owned.json"
 
 Stop-ScheduledTask $TaskName -ErrorAction SilentlyContinue
+Stop-ScheduledTask $ArchiveTaskName -ErrorAction SilentlyContinue
 Unregister-ScheduledTask $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+Unregister-ScheduledTask $ArchiveTaskName -Confirm:$false -ErrorAction SilentlyContinue
 
 if($PurgeData -and (Test-Path $Manifest)){
     try {
