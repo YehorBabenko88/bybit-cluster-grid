@@ -37,15 +37,24 @@ async def run(args):
                     await repair_gaps(conn,settings.bybit_rest_url,inv["gaps"],pilot.pause_flag)
                 finally:conn.close()
             cp.advance("VERIFY_REPAIR")
+        state=cp.load()
         inv=verified_inventory(args.sqlite,cutoff,life)
-        cp.advance("RESEARCH",coverage_symbols=inv["symbols"])
         await pilot.complete_history({"symbols":inv["symbols"],"gap_minutes":0,"cutoff_ms":cutoff})
-        handoff,data=await run_research_command(args.research_command,args.sqlite,cutoff,args.output,pilot.pause_flag)
-        cp.advance("IMPORT",handoff=handoff)
-        await pilot.complete_research({"handoff":handoff})
-        result=await import_handoff(db.pool,handoff)
-        cp.advance("LIVE_CANARY",import_result=result)
-        await pilot.complete_import(result)
+        if state["stage"] in ("VERIFY_REPAIR","RESEARCH"):
+            cp.advance("RESEARCH",coverage_symbols=inv["symbols"])
+            handoff,data=await run_research_command(args.research_command,args.sqlite,cutoff,args.output,pilot.pause_flag)
+            cp.advance("IMPORT",handoff=handoff)
+            await pilot.complete_research({"handoff":handoff})
+        else:
+            handoff=state.get("handoff")
+        state=cp.load()
+        if state["stage"]=="IMPORT":
+            if not handoff:raise RuntimeError("IMPORT checkpoint has no handoff")
+            result=await import_handoff(db.pool,handoff)
+            cp.advance("LIVE_CANARY",import_result=result)
+            await pilot.complete_import(result)
+        else:
+            result=state.get("import_result")
         return {"stage":"LIVE_CANARY","cutoff_ms":cutoff,"import":result}
     finally:
         if db.pool:await db.pool.close()
