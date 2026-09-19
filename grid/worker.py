@@ -41,6 +41,7 @@ class Worker:
                 state=self.pressure.update(snap)
                 snap['pressure_state']=state
                 snap['pressure_drained']=len(self.pressure_drained)
+                snap['symbol_cost']={k:round(v,3) for k,v in self.pressure.symbol_cost.items() if k in self.wanted}
                 try:
                     async with s.post(
                         settings.coordinator_url+"/heartbeat",
