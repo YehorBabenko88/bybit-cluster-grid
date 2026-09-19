@@ -18,6 +18,7 @@ from .agent_commands import execute_command
 from .credential_store import node_credential
 from .decommission import mark_coordinator_success,mark_internet_success,internet_available,decommission_due
 from .pressure import PressureController, NORMAL, SOFT_PRESSURE
+from .continuity import TradeContinuity
 
 log=logging.getLogger("worker")
 
@@ -134,6 +135,8 @@ class Worker:
         tick=self.meta[symbol]["tick_size"]
         fp=FootprintBuilder(tick,settings.cluster_interval_seconds)
         delays=backoff_delays()
+        continuity=TradeContinuity(gap_ms=max(5000,settings.cluster_interval_seconds*1000//2))
+        connected_once=False
         while True:
             try:
                 await wait_for_internet()
@@ -142,20 +145,28 @@ class Worker:
                     ping_interval=20,ping_timeout=20,max_queue=50000,close_timeout=5
                 ) as ws:
                     await ws.send(json.dumps({"op":"subscribe","args":[f"publicTrade.{symbol}"]}))
+                    if connected_once:
+                        continuity.reconnect()
+                        fp.mark_open_degraded(symbol,"ws_reconnect")
+                    connected_once=True
                     delays=backoff_delays()
                     async for raw in ws:
                         msg=json.loads(raw)
                         batch=msg.get("data",[])
                         self.pressure.observe_symbol(symbol,events=len(batch))
                         for x in batch:
+                            trade_ts=int(x["T"])
+                            suspect_gap=continuity.observe(trade_ts)
                             fp.add(Trade(
                                 symbol=symbol,
-                                ts_ms=int(x["T"]),
+                                ts_ms=trade_ts,
                                 price=float(x["p"]),
                                 qty=float(x["v"]),
                                 side=x["S"],
                                 trade_id=x.get("i","")
                             ))
+                            if suspect_gap:
+                                fp.mark_degraded(symbol,trade_ts,"trade_time_gap")
                         for row in fp.pop_closed(int(time.time()*1000)):
                             await self.storage.save(row)
                             self.pressure.observe_symbol(symbol,db_writes=1)
