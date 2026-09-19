@@ -97,6 +97,15 @@ criteria jsonb NOT NULL DEFAULT '{}'::jsonb, status text NOT NULL DEFAULT 'ready
 """CREATE TABLE IF NOT EXISTS service_leases(
 service_key text PRIMARY KEY, owner text NOT NULL, lease_until timestamptz NOT NULL,
 heartbeat_at timestamptz NOT NULL DEFAULT now(), metadata jsonb NOT NULL DEFAULT '{}'::jsonb)"""
+]),
+(13,"ml_artifact_lifecycle",[
+"""CREATE TABLE IF NOT EXISTS ml_artifacts(
+id uuid PRIMARY KEY, artifact_type text NOT NULL, owner_job uuid,
+storage_uri text NOT NULL, bytes bigint NOT NULL DEFAULT 0,
+status text NOT NULL DEFAULT 'ACTIVE', reusable boolean NOT NULL DEFAULT false,
+expires_at timestamptz, last_used_at timestamptz NOT NULL DEFAULT now(),
+created_at timestamptz NOT NULL DEFAULT now(), metadata jsonb NOT NULL DEFAULT '{}'::jsonb)""",
+"CREATE INDEX IF NOT EXISTS ml_artifacts_gc_idx ON ml_artifacts(status,reusable,expires_at,last_used_at)"
 ])
 ]
 
