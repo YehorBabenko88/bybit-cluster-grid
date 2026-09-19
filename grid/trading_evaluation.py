@@ -4,7 +4,7 @@ from collections import defaultdict
 def _metrics(trades):
     n=len(trades)
     if not n:return {"trades":0}
-    pnl=[float(x.get("pnl",0)) for x in trades]
+    pnl=[float(x.get("pnl",0))-float(x.get("fees",0))-float(x.get("slippage",0)) for x in trades]
     wins=[x for x in pnl if x>0]; losses=[x for x in pnl if x<0]
     equity=0.0;peak=0.0;max_dd=0.0
     for x in pnl:
@@ -12,6 +12,9 @@ def _metrics(trades):
     gross_win=sum(wins);gross_loss=-sum(losses)
     return {
       "trades":n,"net_pnl":sum(pnl),"expectancy":sum(pnl)/n,
+      "gross_pnl":sum(float(x.get("pnl",0)) for x in trades),
+      "fees":sum(float(x.get("fees",0)) for x in trades),
+      "slippage":sum(float(x.get("slippage",0)) for x in trades),
       "hit_rate":len(wins)/n,"profit_factor":gross_win/gross_loss if gross_loss>0 else None,
       "max_drawdown":max_dd,
       "median_mfe":statistics.median(float(x.get("mfe",0)) for x in trades),
