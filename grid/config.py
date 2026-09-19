@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     resource_reserve_cores: int = 2
     heartbeat_seconds: int = 10
     rebalance_seconds: int = 30
+    assignment_max_churn_fraction: float = 0.10
+    spool_max_gb: float = 8.0
+    spool_critical_ratio: float = 0.90
     cluster_interval_seconds: int = 60
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
