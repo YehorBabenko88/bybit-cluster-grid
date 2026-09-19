@@ -282,6 +282,12 @@ source_id text NOT NULL REFERENCES legacy_bootstrap_imports(source_id) ON DELETE
 symbol text NOT NULL,sample_key text NOT NULL,sample_type text NOT NULL,event_ts timestamptz NOT NULL,
 split text,payload jsonb NOT NULL,PRIMARY KEY(source_id,symbol,sample_key))""",
 "CREATE INDEX IF NOT EXISTS legacy_research_samples_type_idx ON legacy_research_samples(sample_type,event_ts)"
+]),
+(29,"legacy_symbol_import_state",[
+"ALTER TABLE legacy_symbol_coverage ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'PENDING'",
+"ALTER TABLE legacy_symbol_coverage ADD COLUMN IF NOT EXISTS imported_candles bigint NOT NULL DEFAULT 0",
+"ALTER TABLE legacy_symbol_coverage ADD COLUMN IF NOT EXISTS verified_at timestamptz",
+"ALTER TABLE legacy_symbol_coverage ADD COLUMN IF NOT EXISTS last_error text"
 ])
 ]
 
