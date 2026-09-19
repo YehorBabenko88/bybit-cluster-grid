@@ -75,7 +75,7 @@ async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Heade
 @app.post("/nodes/{node_id}/commands")
 async def create_node_command(node_id:str,payload:dict,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
-    allowed={"pause","resume","restart","update","rollback","uninstall"}
+    allowed={"pause","resume","stop","start","restart","update","rollback","uninstall","log_tail","repair"}
     action=payload.get("action")
     if action not in allowed: raise HTTPException(400,"unsupported command")
     cid=await enqueue_command(db.pool,node_id,action,payload.get("payload"))
