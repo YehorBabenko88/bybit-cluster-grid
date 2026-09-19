@@ -49,15 +49,16 @@ class LevelPipeline:
             pre=dict(detail.get("pre_features",level.pre_features)); pre.update(rolling_pre); pre["instrument_profile"]=profile
             event_features=detail.get("event_features",features)
             outcome={k:v for k,v in detail.items() if k not in ("pre_features","event_features","direction")}
-            await self.pool.execute("""INSERT INTO level_events
+            inserted_id=await self.pool.fetchval("""INSERT INTO level_events
                 (symbol,timeframe,level_kind,source_ts,level_price,event_ts,event_type,direction,
                  pre_features,event_features,outcome,quality_status,completeness,ml_eligible)
                 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13,$14)
-                ON CONFLICT(symbol,timeframe,level_kind,source_ts,event_ts,event_type) DO NOTHING""",
+                ON CONFLICT(symbol,timeframe,level_kind,source_ts,event_ts,event_type) DO NOTHING
+                RETURNING id""",
                 symbol,level.timeframe,level.kind,level.source_ts,level.price,ts,typ,direction,
                 json.dumps(pre,default=str),json.dumps(event_features,default=str),json.dumps(outcome,default=str),
                 quality["quality_status"],quality["completeness"],quality["ml_eligible"])
-            if typ=="FIRST_CROSS":
+            if typ=="FIRST_CROSS" and inserted_id is not None:
                 await self.pool.execute("""UPDATE historical_levels SET first_cross_ts=$1,test_count=test_count+1
                     WHERE symbol=$2 AND timeframe=$3 AND level_kind=$4 AND source_ts=$5""",
                     ts,symbol,level.timeframe,level.kind,level.source_ts)
