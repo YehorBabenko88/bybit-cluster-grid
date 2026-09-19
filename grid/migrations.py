@@ -62,6 +62,15 @@ event_features jsonb NOT NULL DEFAULT '{}'::jsonb, outcome jsonb NOT NULL DEFAUL
 ]),
 (9,"level_event_idempotency",[
 "CREATE UNIQUE INDEX IF NOT EXISTS level_events_unique_event_idx ON level_events(symbol,timeframe,level_kind,source_ts,event_ts,event_type)"
+]),
+(10,"observer_recovery_state",[
+"""CREATE TABLE IF NOT EXISTS observer_checkpoints(
+observer text NOT NULL, symbol text NOT NULL, last_ts timestamptz,
+state jsonb NOT NULL DEFAULT '{}'::jsonb, updated_at timestamptz NOT NULL DEFAULT now(),
+PRIMARY KEY(observer,symbol))""",
+"ALTER TABLE level_events ADD COLUMN IF NOT EXISTS quality_status text NOT NULL DEFAULT 'UNKNOWN'",
+"ALTER TABLE level_events ADD COLUMN IF NOT EXISTS completeness double precision NOT NULL DEFAULT 0",
+"ALTER TABLE level_events ADD COLUMN IF NOT EXISTS ml_eligible boolean NOT NULL DEFAULT false"
 ])
 ]
 
