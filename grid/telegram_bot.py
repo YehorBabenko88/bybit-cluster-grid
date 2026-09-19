@@ -69,6 +69,23 @@ async def handle_command(db,session,chat_id,text,nodes):
     elif cmd=="/nodes":
         lines=["Grid nodes:"]+[_node_line(nid,n,now) for nid,n in sorted(nodes.items())]
         await tg_send(session,chat_id,"\n".join(lines) if len(lines)>1 else "No nodes registered.")
+    elif cmd=="/node":
+        if len(parts)!=2:
+            await tg_send(session,chat_id,"Usage: /node NODE"); return
+        nid=parts[1]; n=nodes.get(nid)
+        if not n:
+            await tg_send(session,chat_id,f"Unknown node: {nid}"); return
+        age=max(0,int(now-float(n.get("last_seen",0))))
+        p=await pilot_state(db.pool,nid)
+        mode=(p or {}).get("mode",n.get("live_mode","NORMAL"))
+        syms=n.get("wanted_symbols",0); streams=n.get("active_trade_streams",0)
+        assigned=n.get("assigned_symbols") or []
+        lines=[f"Node {nid}",f"mode={mode} online={age<settings.heartbeat_seconds*3} seen={age}s",
+               f"workload: wanted={syms} streams={streams} stopped={n.get('operator_stopped',False)}",
+               f"resources: cpu={n.get('cpu_pct','?')}% ram={n.get('ram_pct','?')}% pressure={n.get('pressure_state','?')}",
+               f"storage: queue={n.get('db_queue_ratio','?')} spool={n.get('spool_ratio','?')}",
+               f"integrity={n.get('integrity_ok','?')} assignments={len(assigned) if isinstance(assigned,list) else syms}"]
+        await tg_send(session,chat_id,"\n".join(lines))
     elif cmd=="/status":
         if len(parts)==1:
             online=sum(1 for n in nodes.values() if now-float(n.get("last_seen",0))<settings.heartbeat_seconds*3)
@@ -182,7 +199,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /pilot [NODE] /health /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /pilot [NODE] /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
 
 async def _notify_expansion_ready(db,session):
     rows=await expansion_ready(db.pool)
