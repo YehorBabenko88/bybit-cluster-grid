@@ -83,7 +83,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines=[f"Node {nid}",f"mode={mode} online={age<settings.heartbeat_seconds*3} seen={age}s",
                f"workload: wanted={syms} streams={streams} stopped={n.get('operator_stopped',False)}",
                f"resources: cpu={n.get('cpu_pct','?')}% ram={n.get('ram_pct','?')}% pressure={n.get('pressure_state','?')}",
-               f"storage: queue={n.get('db_queue_ratio','?')} spool={n.get('spool_ratio','?')}",
+               f"storage: queue={n.get('db_queue_ratio','?')} spool={n.get('db_spool_ratio','?')}",
                f"integrity={n.get('integrity_ok','?')} assignments={len(assigned) if isinstance(assigned,list) else syms}"]
         await tg_send(session,chat_id,"\n".join(lines))
     elif cmd=="/status":
