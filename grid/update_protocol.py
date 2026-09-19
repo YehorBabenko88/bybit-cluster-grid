@@ -60,7 +60,25 @@ async def expired_canaries(pool):
               last_error='canary health timeout',updated_at=now() WHERE node_id=$1""",row["canary_node"])
         return [dict(r) for r in rows]
 
-async def note_heartbeat(pool,node_id,version):
+def release_health_ok(heartbeat):
+    if not heartbeat:
+        return False,"missing heartbeat"
+    if not heartbeat.get("integrity_ok",False):
+        return False,"integrity"
+    if str(heartbeat.get("pressure_state","CRITICAL"))=="CRITICAL":
+        return False,"critical_pressure"
+    if int(heartbeat.get("db_write_failures",0) or 0)>0:
+        return False,"db_write_failures"
+    if float(heartbeat.get("db_queue_ratio",0) or 0)>=0.8:
+        return False,"db_queue_pressure"
+    if float(heartbeat.get("db_spool_ratio",0) or 0)>=0.8:
+        return False,"db_spool_pressure"
+    return True,None
+
+async def note_heartbeat(pool,node_id,version,heartbeat=None):
+    ok,reason=release_health_ok(heartbeat)
+    if not ok:
+        return "unhealthy:"+str(reason)
     async with pool.acquire() as c:
         row=await c.fetchrow("""SELECT version,required_health_acks FROM rollout_state
           WHERE canary_node=$1 AND status='running' ORDER BY created_at DESC LIMIT 1""",node_id)
