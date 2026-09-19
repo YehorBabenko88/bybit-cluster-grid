@@ -21,6 +21,7 @@ from .pressure import PressureController, NORMAL, SOFT_PRESSURE
 from .continuity import TradeContinuity
 from .local_control_journal import LocalControlJournal
 from .control_snapshot_ring import ControlSnapshotRing,replica_meta
+from .integrity_guard import verify_manifest
 
 log=logging.getLogger("worker")
 
@@ -43,6 +44,13 @@ class Worker:
         async with aiohttp.ClientSession() as s:
             while True:
                 snap=snapshot()
+                try:
+                    install_root=os.getenv('GRID_INSTALL_ROOT','.')
+                    manifest=os.getenv('GRID_RELEASE_MANIFEST','release-manifest.json')
+                    ir=verify_manifest(install_root,manifest) if os.path.exists(manifest) else {'ok':True,'bad':[],'missing':[],'version':None}
+                    snap.update({'integrity_ok':ir['ok'],'integrity_bad':ir['bad'],'integrity_missing':ir['missing'],'integrity_version':ir.get('version')})
+                except Exception as e:
+                    snap.update({'integrity_ok':False,'integrity_bad':[],'integrity_missing':['manifest/unreadable'],'integrity_error':str(e)[:300]})
                 try: snap.update(replica_meta(self.control_journal))
                 except Exception:
                     snap.update({'control_generation':0,'control_checksum':'CORRUPT'})
