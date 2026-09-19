@@ -13,6 +13,7 @@ from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent
 from .rollout import begin_stable_rollout,note_rollout_heartbeat,expire_rollout_nodes
 from .telegram_bot import telegram_loop
 from .scheduler import weighted_assign
+from .control_replica_builder import build_replica
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -41,7 +42,8 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     await node_auth(nid,x_node_credential,x_grid_token)
     payload["last_seen"]=time.time(); nodes[nid]=payload
     commands=await pending_commands(db.pool,nid)
-    return {"symbols":assignments.get(nid,[]),"commands":commands}
+    replica=await build_replica(db.pool)
+    return {"symbols":assignments.get(nid,[]),"commands":commands,"control_replica":replica}
 
 @app.post("/commands/{command_id}/result")
 async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
