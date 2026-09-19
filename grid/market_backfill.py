@@ -11,9 +11,12 @@ async def seed_backfill(pool,symbols,timeframe="1"):
 async def claim_backfill(pool):
     async with pool.acquire() as c:
         async with c.transaction():
-            row=await c.fetchrow("""SELECT * FROM market_backfill_state
-              WHERE status IN ('queued','retry') ORDER BY updated_at
-              FOR UPDATE SKIP LOCKED LIMIT 1""")
+            row=await c.fetchrow("""SELECT b.*,
+              COALESCE(NULLIF(i.metadata->>'launch_time','')::bigint,0) AS launch_time_ms
+              FROM market_backfill_state b
+              LEFT JOIN instruments i ON i.symbol=b.symbol
+              WHERE b.status IN ('queued','retry') ORDER BY b.updated_at
+              FOR UPDATE OF b SKIP LOCKED LIMIT 1""")
             if not row:return None
             await c.execute("""UPDATE market_backfill_state SET status='running',
               attempts=attempts+1,updated_at=now(),last_error=NULL
@@ -44,17 +47,57 @@ async def store_kline_page(pool,symbol,rows):
 
 async def backfill_symbol(pool,base_url,state,max_pages=50,pause=.08):
     symbol=state["symbol"];end_ms=state.get("next_end_ms");oldest=newest=None
+    launch_ms=int(state.get("launch_time_ms") or 0)
+    complete=False;pages=0
     for _ in range(int(max_pages)):
         rows=await fetch_kline_page(base_url,symbol,state.get("timeframe","1"),end_ms)
-        if not rows:break
+        pages+=1
+        if not rows:
+            complete=True
+            break
         lo,hi=await store_kline_page(pool,symbol,rows)
         oldest=lo if oldest is None else min(oldest,lo);newest=hi if newest is None else max(newest,hi)
-        next_end=int(lo.timestamp()*1000)-1
-        if end_ms is not None and next_end>=end_ms:break
+        lo_ms=int(lo.timestamp()*1000)
+        next_end=lo_ms-1
+        if launch_ms and lo_ms<=launch_ms:
+            complete=True;end_ms=next_end;break
+        if len(rows)<1000:
+            complete=True;end_ms=next_end;break
+        if end_ms is not None and next_end>=int(end_ms):
+            raise RuntimeError(f"OHLCV backfill stalled for {symbol}")
         end_ms=next_end
         await asyncio.sleep(float(pause))
-    await pool.execute("""UPDATE market_backfill_state SET status='done',
-      oldest_loaded_ts=COALESCE($3,oldest_loaded_ts),newest_loaded_ts=COALESCE($4,newest_loaded_ts),
-      next_end_ms=$5,updated_at=now() WHERE symbol=$1 AND timeframe=$2""",
-      symbol,state.get("timeframe","1"),oldest,newest,end_ms)
-    return {"symbol":symbol,"oldest":oldest,"newest":newest}
+    status="done" if complete else "queued"
+    await pool.execute("""UPDATE market_backfill_state SET status=$3,
+      oldest_loaded_ts=CASE WHEN $4::timestamptz IS NULL THEN oldest_loaded_ts
+        ELSE LEAST(COALESCE(oldest_loaded_ts,$4),$4) END,
+      newest_loaded_ts=CASE WHEN $5::timestamptz IS NULL THEN newest_loaded_ts
+        ELSE GREATEST(COALESCE(newest_loaded_ts,$5),$5) END,
+      next_end_ms=$6,updated_at=now(),last_error=NULL WHERE symbol=$1 AND timeframe=$2""",
+      symbol,state.get("timeframe","1"),status,oldest,newest,end_ms)
+    return {"symbol":symbol,"oldest":oldest,"newest":newest,"complete":complete,"pages":pages}
+
+async def run_backfill_worker(pool,base_url,stop_event=None,max_pages=50):
+    from .data_capabilities import set_capability
+    stop_event=stop_event or asyncio.Event();done=chunks=failed=0
+    while not stop_event.is_set():
+        state=await claim_backfill(pool)
+        if not state:break
+        try:
+            r=await backfill_symbol(pool,base_url,state,max_pages=max_pages)
+            chunks+=1
+            if r["complete"]:
+                done+=1
+                await set_capability(pool,state["symbol"],"ohlcv_history","READY",
+                                     {"source":"bybit_rest","backfill":"complete"})
+            else:
+                await set_capability(pool,state["symbol"],"ohlcv_history","PARTIAL",
+                                     {"source":"bybit_rest","backfill":"continuing"})
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            failed+=1
+            await pool.execute("""UPDATE market_backfill_state SET status='retry',last_error=$3,
+              updated_at=now() WHERE symbol=$1 AND timeframe=$2""",
+              state["symbol"],state.get("timeframe","1"),str(exc)[:4000])
+    return {"completed":done,"chunks":chunks,"failed":failed}
