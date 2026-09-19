@@ -175,7 +175,12 @@ def rebalance():
 @app.on_event("startup")
 async def startup():
     global db, ingest_storage, background_tasks
-    bootstrap_logging(); db=await prepare_database()
+    bootstrap_logging()
+    log.info(
+        "coordinator startup",
+        extra={"event": "coordinator_startup", "component": "coordinator"},
+    )
+    db=await prepare_database()
     await ensure_instrument_schema(db.pool)
     await ensure_strategy_schema(db.pool)
     await ensure_plugin_schema(db.pool)
