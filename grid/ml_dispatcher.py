@@ -1,5 +1,6 @@
 import json,uuid
 from .ml_resource_scheduler import Workload,choose_node
+from .ml_reservations import reserved_by_node
 
 WORKLOAD_DEFAULTS={
  "dataset":{"cpu":1.0,"ram_gb":4,"scratch_gb":10},
@@ -14,6 +15,12 @@ class MLDispatcher:
 
     async def __call__(self,slots,health=None):
         nodes=await self.node_provider()
+        reservations=await reserved_by_node(self.pool)
+        for n in nodes:
+            r=reservations.get(n.node_id,{})
+            n.free_cpu=max(0.0,float(n.free_cpu)-float(r.get('cpu',0) or 0))
+            n.free_ram_gb=max(0.0,float(n.free_ram_gb)-float(r.get('ram_gb',0) or 0))
+            n.free_disk_gb=max(0.0,float(n.free_disk_gb)-float(r.get('scratch_gb',0) or 0))
         active=await self.pool.fetchval("""SELECT count(*) FROM ml_jobs
           WHERE status IN ('assigned','running') AND lease_until>=now()""")
         budget=max(0,int(slots)-int(active or 0)); dispatched=[]
@@ -38,8 +45,15 @@ class MLDispatcher:
                             job=candidate;break
                     if not job: break
                     _,node_id,why=pick
-                    await c.execute("""UPDATE ml_jobs SET status='assigned',lease_owner=$2,
+                    changed=await c.execute("""UPDATE ml_jobs SET status='assigned',lease_owner=$2,
                       lease_until=now()+interval '2 minutes' WHERE id=$1 AND status='queued'""",
                       job["id"],node_id)
+                    if not changed.endswith(" 1"): continue
+                    await c.execute("""INSERT INTO ml_resource_reservations
+                      (job_id,node_id,cpu,ram_gb,scratch_gb,gpu,expires_at)
+                      VALUES($1,$2,$3,$4,$5,$6,now()+interval '2 minutes')
+                      ON CONFLICT(job_id) DO UPDATE SET node_id=EXCLUDED.node_id,cpu=EXCLUDED.cpu,
+                      ram_gb=EXCLUDED.ram_gb,scratch_gb=EXCLUDED.scratch_gb,gpu=EXCLUDED.gpu,
+                      expires_at=EXCLUDED.expires_at""",job["id"],node_id,w.cpu,w.ram_gb,w.scratch_gb,w.gpu)
                     dispatched.append({"job_id":str(job["id"]),"node_id":node_id,"placement":why})
         return dispatched
