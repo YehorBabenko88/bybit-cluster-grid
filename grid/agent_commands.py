@@ -67,12 +67,18 @@ async def execute_command(worker,cmd):
     action=cmd["action"]; payload=cmd.get("payload") or {}
     if action=="pause":
         worker.enabled=False
+        worker.bootstrap_paused=True
         worker.wanted=set()
         await worker.reconcile()
-        return {"state":"paused"}
+        if hasattr(worker,"set_bootstrap_pause"):
+            await worker.set_bootstrap_pause(True)
+        return {"state":"paused","heartbeat":"active"}
     if action=="resume":
         worker.enabled=True
-        return {"state":"running"}
+        worker.bootstrap_paused=False
+        if hasattr(worker,"set_bootstrap_pause"):
+            await worker.set_bootstrap_pause(False)
+        return {"state":"running","heartbeat":"active"}
     if action=="log_tail":
         return _grid_log_tail(payload.get("lines",120))
     if action=="restart":
