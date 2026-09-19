@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     grid_shared_token: str = ""
     enrollment_token: str = ""
     node_credential: str = ""
-    postgres_dsn: str
+    postgres_dsn: str = ""
     bybit_ws_url: str = "wss://stream.bybit.com/v5/public/linear"
     bybit_rest_url: str = "https://api.bybit.com"
     bybit_archive_base_url: str = "https://public.bybit.com/trading"
