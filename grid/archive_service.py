@@ -3,6 +3,7 @@ from .service import prepare_database,bootstrap_logging
 from .config import settings
 from .bybit import linear_symbols
 from .archive_discovery_service import seed_discovery
+from .market_backfill import seed_backfill,run_backfill_worker
 from .archive_pipeline_service import run_discovery_worker,run_archive_worker
 
 log=logging.getLogger("archive_service")
@@ -15,11 +16,13 @@ async def service_loop(stop_event=None):
         try:
             xs=await linear_symbols(settings.bybit_rest_url)
             await seed_discovery(db.pool,xs)
+            await seed_backfill(db.pool,xs)
             ticks={x["symbol"]:x["tick_size"] for x in xs}
             await asyncio.gather(
                 run_discovery_worker(db.pool,settings.bybit_archive_base_url,
                                      settings.archive_probe_days,stop_event),
                 run_archive_worker(db.pool,settings.archive_root,ticks,5,stop_event),
+                run_backfill_worker(db.pool,settings.bybit_rest_url,stop_event,max_pages=50),
             )
         except asyncio.CancelledError:
             raise
