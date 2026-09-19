@@ -241,6 +241,15 @@ source_uri text,bytes bigint,rows bigint,sha256 text,attempts integer NOT NULL D
 last_error text,updated_at timestamptz NOT NULL DEFAULT now(),
 PRIMARY KEY(symbol,archive_date))""",
 "CREATE INDEX IF NOT EXISTS trade_archive_backfill_status_idx ON trade_archive_backfill(status,archive_date,symbol)"
+]),
+(26,"archive_compaction_manifests",[
+"""CREATE TABLE IF NOT EXISTS archive_compaction_manifests(
+symbol text NOT NULL,archive_date date NOT NULL,source_sha256 text NOT NULL,
+source_rows bigint NOT NULL,derived_candles bigint NOT NULL,derived_footprint_rows bigint NOT NULL,
+min_ts timestamptz,max_ts timestamptz,status text NOT NULL DEFAULT 'DERIVED',
+verified_at timestamptz,raw_deleted_at timestamptz,details jsonb NOT NULL DEFAULT '{}'::jsonb,
+PRIMARY KEY(symbol,archive_date))""",
+"CREATE INDEX IF NOT EXISTS archive_compaction_status_idx ON archive_compaction_manifests(status,archive_date)"
 ])
 ]
 
