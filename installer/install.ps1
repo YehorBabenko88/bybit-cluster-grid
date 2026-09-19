@@ -1,7 +1,8 @@
 #Requires -RunAsAdministrator
 param(
  [Parameter(Mandatory=$true)][string]$ReleaseDir,
- [Parameter(Mandatory=$true)][string]$Python
+ [Parameter(Mandatory=$true)][string]$Python,
+ [ValidateSet("PILOT","NORMAL")][string]$Mode="NORMAL"
 )
 $ErrorActionPreference="Stop"
 $TaskName="BybitClusterGridAgent"
@@ -26,8 +27,12 @@ Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Pr
 
 $ArchiveArg='-NoProfile -ExecutionPolicy Bypass -File "'+$ArchiveLauncher+'" -Python "'+$Python+'" -InstallRoot "'+$InstallRoot+'"'
 $ArchiveAction=New-ScheduledTaskAction -Execute "powershell.exe" -Argument $ArchiveArg -WorkingDirectory $InstallRoot
-Register-ScheduledTask -TaskName $ArchiveTaskName -Action $ArchiveAction -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
+if($Mode -eq "NORMAL"){
+  Register-ScheduledTask -TaskName $ArchiveTaskName -Action $ArchiveAction -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
+}else{
+  Unregister-ScheduledTask $ArchiveTaskName -Confirm:$false -ErrorAction SilentlyContinue
+}
 
 Start-ScheduledTask $TaskName
-Start-ScheduledTask $ArchiveTaskName
-Write-Host "Bybit Cluster Grid agent and archive pipeline installed and started."
+if($Mode -eq "NORMAL"){ Start-ScheduledTask $ArchiveTaskName }
+Write-Host "Bybit Cluster Grid installed in $Mode mode."
