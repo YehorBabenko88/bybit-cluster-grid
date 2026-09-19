@@ -19,16 +19,34 @@ db=None
 def auth(token):
     if token != settings.grid_shared_token: raise HTTPException(401,"bad grid token")
 
+@app.post("/enroll")
+async def enroll_node(payload:dict):
+    try:
+        credential=await enroll(db.pool,payload["enrollment_token"],payload["node_id"])
+    except ValueError as e:
+        raise HTTPException(401,str(e))
+    return {"node_id":payload["node_id"],"credential":credential}
+
+async def node_auth(node_id,credential,fleet_token):
+    if credential and await authenticate_agent(db.pool,node_id,credential):
+        return
+    auth(fleet_token)
+
 @app.post("/heartbeat")
-async def heartbeat(payload:dict,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    nid=payload["node_id"]; payload["last_seen"]=time.time(); nodes[nid]=payload
+async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    nid=payload["node_id"]
+    await node_auth(nid,x_node_credential,x_grid_token)
+    payload["last_seen"]=time.time(); nodes[nid]=payload
     commands=await pending_commands(db.pool,nid)
     return {"symbols":assignments.get(nid,[]),"commands":commands}
 
 @app.post("/commands/{command_id}/result")
-async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
+async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=payload.get("node_id")
+    if node_id:
+        await node_auth(node_id,x_node_credential,x_grid_token)
+    else:
+        auth(x_grid_token)
     await command_result(db.pool,command_id,bool(payload.get("ok")),payload.get("result"),payload.get("error"))
     return {"ok":True}
 
