@@ -17,6 +17,7 @@ from .strategy_runner import strategy_worker
 from .agent_commands import execute_command
 from .credential_store import node_credential
 from .decommission import mark_coordinator_success,mark_internet_success,internet_available,decommission_due
+from .pressure import PressureController, NORMAL, SOFT_PRESSURE
 
 log=logging.getLogger("worker")
 
@@ -30,11 +31,16 @@ class Worker:
         self.db=None
         self.meta={}
         self.enabled=True
+        self.pressure=PressureController(settings.resource_cpu_limit,settings.resource_ram_limit,settings.resource_disk_free_gb)
+        self.pressure_drained=set()
 
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
             while True:
                 snap=snapshot()
+                state=self.pressure.update(snap)
+                snap['pressure_state']=state
+                snap['pressure_drained']=len(self.pressure_drained)
                 try:
                     async with s.post(
                         settings.coordinator_url+"/heartbeat",
@@ -66,7 +72,12 @@ class Worker:
                                     )
                                 except Exception:
                                     log.exception("command acknowledgement failed",extra={"event":"command_ack_failed"})
-                            new=set(reply.get("symbols",[])) if self.enabled else set()
+                            assigned=set(reply.get("symbols",[])) if self.enabled else set()
+                            if state in (NORMAL,SOFT_PRESSURE):
+                                self.pressure_drained.clear()
+                            else:
+                                self.pressure_drained.update(self.pressure.symbols_to_drain(assigned-self.pressure_drained))
+                            new=assigned-self.pressure_drained
                             if new != self.wanted:
                                 self.wanted=new
                                 await self.reconcile()
@@ -123,7 +134,9 @@ class Worker:
                     delays=backoff_delays()
                     async for raw in ws:
                         msg=json.loads(raw)
-                        for x in msg.get("data",[]):
+                        batch=msg.get("data",[])
+                        self.pressure.observe_symbol(symbol,events=len(batch))
+                        for x in batch:
                             fp.add(Trade(
                                 symbol=symbol,
                                 ts_ms=int(x["T"]),
