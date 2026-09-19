@@ -38,7 +38,7 @@ async def store_kline_page(pool,symbol,rows):
         parsed.append((symbol,ts,r[1],r[2],r[3],r[4],r[5],r[6] if len(r)>6 else None))
     async with pool.acquire() as c:
         async with c.transaction():
-            await c.executemany("""INSERT INTO candles_1m(symbol,ts,open,high,low,close,volume,turnover)
+            await c.executemany("""INSERT INTO ohlcv_1m(symbol,ts,open,high,low,close,volume,turnover)
               VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(symbol,ts) DO NOTHING""",parsed)
     return min(x[1] for x in parsed),max(x[1] for x in parsed)
 
