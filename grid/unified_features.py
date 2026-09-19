@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 from .features import FeatureEngine
 from .volatility_regime import VolatilityRegimeDetector
+from .setup_flags import setup_flags
 
 class UnifiedFeatureBuilder:
     """Builds one reproducible 1m feature row from candle + nearest prior microstructure."""
@@ -40,6 +41,7 @@ class UnifiedFeatureBuilder:
         eligible=bool(base["eligible"])
         regime=self.regime.update(symbol,features,eligible=eligible)
         features.update(regime)
+        features.update(setup_flags(features,regime["regime"],eligible))
         return {"symbol":symbol,"ts":ts,"eligible":eligible,
                 "quality_status":base["data_quality"],"regime":regime["regime"],
                 "regime_score":regime["regime_score"],"features":features,"capabilities":caps}
