@@ -1,7 +1,8 @@
 #Requires -RunAsAdministrator
 param(
   [string]$CoordinatorUrl="",
-  [string]$EnrollmentToken=""
+  [string]$EnrollmentToken="",
+  [string]$LegacyHandoff=""
 )
 $ErrorActionPreference="Stop"
 $InstallRoot="$env:ProgramFiles\BybitClusterGrid"
@@ -98,6 +99,31 @@ if(!(Test-Path $EnvFile)){
 
 # Existing PostgreSQL is discovered, never upgraded/reconfigured automatically.
 & (Join-Path $PSScriptRoot "provision_postgres.ps1") -DiscoveryPath (Join-Path $DataRoot "discovery.json") -DataRoot $DataRoot
+
+# First-node legacy import must finish before Agent/ArchivePipeline start. This prevents
+# Grid from blindly downloading OHLCV that already exists in the repaired SQLite cache.
+if($LegacyHandoff){
+    if(!(Test-Path $LegacyHandoff)){throw "Legacy handoff not found: $LegacyHandoff"}
+    $HandoffCopy=Join-Path $DataRoot "bootstrap-handoff.json"
+    Copy-Item $LegacyHandoff $HandoffCopy -Force
+    foreach($line in Get-Content $EnvFile){
+        $x=$line.Trim()
+        if(!$x -or $x.StartsWith("#")){continue}
+        $i=$x.IndexOf("=")
+        if($i -le 0){continue}
+        [Environment]::SetEnvironmentVariable($x.Substring(0,$i).Trim(),$x.Substring($i+1),"Process")
+    }
+    Push-Location $Release
+    try {
+        & $Python -m grid.legacy_bootstrap_import --handoff $HandoffCopy
+        if($LASTEXITCODE -ne 0){throw "Legacy SQLite/Grid handoff import failed"}
+    } finally { Pop-Location }
+    $Verified=Join-Path $DataRoot "grid_import_verified.json"
+    $SideMarker=Join-Path $DataRoot "grid_import_verified.json"
+    $ImporterMarker=Join-Path (Split-Path $HandoffCopy -Parent) "grid_import_verified.json"
+    if(!(Test-Path $ImporterMarker)){throw "Legacy importer did not produce VERIFIED marker"}
+    Write-Host "Legacy handoff imported and verified before service startup."
+}
 
 $CredentialFile=Join-Path $DataRoot "secrets\node.credential"
 if(!(Test-Path $CredentialFile)){
