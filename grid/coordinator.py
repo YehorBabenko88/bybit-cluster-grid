@@ -18,6 +18,7 @@ from .integrity_coordinator import handle_integrity_heartbeat
 from .repair_circuit_breaker import RepairCircuitBreaker
 from .repair_health import expired_repairs
 from .archive_discovery_service import seed_discovery
+from .pilot_state import node_accepts_live_assignments
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -50,7 +51,9 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     payload.update(repair_info)
     commands=await pending_commands(db.pool,nid)
     replica=await build_replica(db.pool)
-    return {"symbols":assignments.get(nid,[]),"commands":commands,"control_replica":replica}
+    live_ok=await node_accepts_live_assignments(db.pool,nid)
+    return {"symbols":assignments.get(nid,[]) if live_ok else [],
+            "commands":commands,"control_replica":replica,"live_assignments_enabled":live_ok}
 
 @app.post("/commands/{command_id}/result")
 async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
