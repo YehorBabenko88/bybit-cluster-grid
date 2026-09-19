@@ -19,6 +19,8 @@ from .credential_store import node_credential
 from .decommission import mark_coordinator_success,mark_internet_success,internet_available,decommission_due
 from .pressure import PressureController, NORMAL, SOFT_PRESSURE
 from .continuity import TradeContinuity
+from .local_control_journal import LocalControlJournal
+from .control_snapshot_ring import ControlSnapshotRing,replica_meta
 
 log=logging.getLogger("worker")
 
@@ -34,11 +36,16 @@ class Worker:
         self.enabled=True
         self.pressure=PressureController(settings.resource_cpu_limit,settings.resource_ram_limit,settings.resource_disk_free_gb)
         self.pressure_drained=set()
+        self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json'))
+        self.control_ring=ControlSnapshotRing(os.getenv('GRID_CONTROL_SNAPSHOTS','control-snapshots'))
 
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
             while True:
                 snap=snapshot()
+                try: snap.update(replica_meta(self.control_journal))
+                except Exception:
+                    snap.update({'control_generation':0,'control_checksum':'CORRUPT'})
                 dbm=self.storage.metrics()
                 state=self.pressure.update(snap,max(dbm["queue_ratio"],dbm.get("spool_ratio",0.0)))
                 snap.update({"db_queue_depth":dbm["queue_depth"],
@@ -66,6 +73,13 @@ class Worker:
                         if r.status==200:
                             mark_coordinator_success()
                             reply=await r.json()
+                            replica=reply.get("control_replica")
+                            if replica:
+                                try:
+                                    if self.control_journal.apply(replica["version"],replica["state"]):
+                                        self.control_ring.store(replica["version"],replica["state"])
+                                except Exception:
+                                    log.exception("control replica apply failed",extra={"event":"control_replica_failed"})
                             for cmd in reply.get("commands",[]):
                                 ok=True; result=None; error=None
                                 try:
