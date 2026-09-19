@@ -34,6 +34,12 @@ class FootprintBuilder:
             b["quality_status"]="DEGRADED"
             if reason not in b["quality_reasons"]: b["quality_reasons"].append(reason)
 
+    def mark_open_degraded(self, symbol: str, reason: str):
+        for (sym,_),b in self.buckets.items():
+            if sym==symbol:
+                b["quality_status"]="DEGRADED"
+                if reason not in b["quality_reasons"]: b["quality_reasons"].append(reason)
+
     def pop_closed(self, now_ms: int):
         out=[]
         for key in list(self.buckets):
