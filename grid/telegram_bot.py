@@ -1,4 +1,4 @@
-import asyncio, logging, secrets, time
+import asyncio, logging, secrets, time, os, pathlib, subprocess
 import aiohttp
 from .config import settings
 from .control_plane import enqueue_command
@@ -21,6 +21,19 @@ _pending_confirms={}
 def allowed(chat_id):
     raw={x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()}
     return bool(raw) and str(chat_id) in raw
+
+def _node_keyboard(nid):
+    return {"inline_keyboard":[
+      [{"text":"⏸ PAUSE","callback_data":f"node:pause:{nid}"},{"text":"▶ START","callback_data":f"node:start:{nid}"}],
+      [{"text":"⏹ STOP","callback_data":f"node:stop:{nid}"},{"text":"⏯ RESUME","callback_data":f"node:resume:{nid}"}],
+      [{"text":"🔄 RESTART","callback_data":f"node:restart:{nid}"},{"text":"📄 LOGS","callback_data":f"node:logs:{nid}"}],
+      [{"text":"🗑 УДАЛИТЬ АГЕНТ","callback_data":f"node:uninstall:{nid}"},{"text":"⬅ ВСЕ АГЕНТЫ","callback_data":"fleet:nodes"}]
+    ]}
+
+def _nodes_keyboard(nodes):
+    rows=[[{"text":f"🖥 {nid}","callback_data":f"node:show:{nid}"}] for nid in sorted(nodes)]
+    rows.append([{"text":"⬅ ГЛАВНОЕ МЕНЮ","callback_data":"fleet:menu"}])
+    return {"inline_keyboard":rows}
 
 def _main_keyboard():
     return {"inline_keyboard":[
@@ -301,8 +314,15 @@ async def telegram_loop(db,nodes):
                     chat=(msg.get("chat") or {}).get("id")
                     txt=msg.get("text","")
                     if cb:
-                        mapping={"fleet:begin":"/begin","fleet:stop":"/fleetstop","fleet:resume":"/fleetresume","fleet:delete":"/fleetdelete","fleet:nodes":"/nodes","fleet:system":"/system"}
-                        txt=mapping.get(cb.get("data"),"")
+                        mapping={"fleet:begin":"/begin","fleet:stop":"/fleetstop","fleet:resume":"/fleetresume","fleet:delete":"/fleetdelete","fleet:nodes":"/nodes","fleet:system":"/system","fleet:menu":"/menu"}
+                        data=cb.get("data") or ""
+                        txt=mapping.get(data,"")
+                        if data.startswith("node:"):
+                            p=data.split(":",2)
+                            if len(p)==3:
+                                action,nid=p[1],p[2]
+                                cmdmap={"show":"/node","pause":"/pause","resume":"/resume","stop":"/stop","start":"/start","restart":"/restart","logs":"/logs","uninstall":"/uninstall"}
+                                if action in cmdmap: txt=cmdmap[action]+" "+nid
                         try:
                             await session.post(f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery",json={"callback_query_id":cb.get("id")})
                         except Exception: pass
