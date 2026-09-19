@@ -16,11 +16,15 @@ class MLDispatcher:
     async def __call__(self,slots,health=None):
         nodes=await self.node_provider()
         reservations=await reserved_by_node(self.pool)
-        for n in nodes:
-            r=reservations.get(n.node_id,{})
-            n.free_cpu=max(0.0,float(n.free_cpu)-float(r.get('cpu',0) or 0))
-            n.free_ram_gb=max(0.0,float(n.free_ram_gb)-float(r.get('ram_gb',0) or 0))
-            n.free_disk_gb=max(0.0,float(n.free_disk_gb)-float(r.get('scratch_gb',0) or 0))
+        adjusted={}
+        for node_id,n in nodes.items():
+            x=dict(n); r=reservations.get(node_id,{})
+            x["ram_available"]=max(0,float(x.get("ram_available",0))-float(r.get("ram_gb",0) or 0)*1024**3)
+            x["disk_free"]=max(0,float(x.get("disk_free",0))-float(r.get("scratch_gb",0) or 0)*1024**3)
+            cpu_count=max(1,int(x.get("cpu_count",1)))
+            x["cpu_pct"]=min(100.0,float(x.get("cpu_pct",0))+100.0*float(r.get("cpu",0) or 0)/cpu_count)
+            adjusted[node_id]=x
+        nodes=adjusted
         active=await self.pool.fetchval("""SELECT count(*) FROM ml_jobs
           WHERE status IN ('assigned','running') AND lease_until>=now()""")
         budget=max(0,int(slots)-int(active or 0)); dispatched=[]
