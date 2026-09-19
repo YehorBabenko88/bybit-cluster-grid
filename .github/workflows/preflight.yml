@@ -1,0 +1,28 @@
+name: preflight
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python-preflight:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      - name: Compile
+        run: python -m compileall -q grid run_worker.py run_coordinator.py
+      - name: Import smoke test
+        env:
+          GRID_SHARED_TOKEN: test-token
+          POSTGRES_DSN: postgresql://grid:grid@127.0.0.1:5432/grid
+        run: |
+          python -c "import grid.config, grid.worker, grid.coordinator, grid.control_plane, grid.enrollment, grid.update_manager"
