@@ -4,15 +4,35 @@ log=logging.getLogger("retention_v2")
 TABLE_TS={"market_events":"event_ts","orderbook_snapshots":"ts","footprint_1m":"ts",
           "candles_1m":"ts","derivatives_metrics":"ts"}
 
+async def register_consumer(pool,dataset,consumer,required=True,active=True):
+    await pool.execute("""INSERT INTO retention_consumers(dataset,consumer,required,active)
+      VALUES($1,$2,$3,$4)
+      ON CONFLICT(dataset,consumer) DO UPDATE SET required=EXCLUDED.required,
+      active=EXCLUDED.active,updated_at=now()""",dataset,consumer,bool(required),bool(active))
+
 async def cleanup_dataset_safe(pool,dataset,retention_days,batch_size=10000):
     if dataset not in TABLE_TS:raise ValueError("unsupported dataset")
     ts=TABLE_TS[dataset]; deleted=0
-    sql=f"""WITH doomed AS (
+    # No active required-consumer registry => fail closed. This prevents a fresh
+    # installation from deleting data before downstream consumers announce themselves.
+    required=await pool.fetchval("""SELECT count(*) FROM retention_consumers
+      WHERE dataset=$1 AND required=true AND active=true""",dataset)
+    if not required:
+        log.info("retention blocked: no required consumers registered",
+                 extra={"event":"retention_blocked","dataset":dataset})
+        return 0
+    sql=f"""WITH safe AS (
+      SELECT t.symbol,min(cw.consumed_through) AS safe_through
+      FROM {dataset} t
+      CROSS JOIN retention_consumers rc
+      LEFT JOIN consumer_watermarks cw
+        ON cw.dataset=rc.dataset AND cw.consumer=rc.consumer AND cw.symbol=t.symbol
+      WHERE rc.dataset=$3 AND rc.required=true AND rc.active=true
+      GROUP BY t.symbol
+      HAVING count(cw.consumer)=count(*) AND bool_and(cw.consumed_through IS NOT NULL)
+    ), doomed AS (
       SELECT t.ctid FROM {dataset} t
-      JOIN (
-        SELECT symbol,min(consumed_through) safe_through
-        FROM consumer_watermarks WHERE dataset=$3 AND required=true GROUP BY symbol
-      ) w ON w.symbol=t.symbol
+      JOIN safe w ON w.symbol=t.symbol
       WHERE t.{ts}<now()-($1::int*interval '1 day') AND t.{ts}<=w.safe_through
       AND NOT EXISTS (
         SELECT 1 FROM retention_holds h WHERE h.dataset=$3
