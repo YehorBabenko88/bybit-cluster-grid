@@ -89,13 +89,21 @@ if($NeedDeps){
 }
 
 $EnvFile=Join-Path $DataRoot ".env"
+$DesiredRole=$(if($AgentMode -eq "CONTROL"){"coordinator"}else{"worker"})
 if(!(Test-Path $EnvFile)){
     @(
-      ("ROLE="+($(if($AgentMode -eq "CONTROL"){"coordinator"}else{"worker"}))),
+      ("ROLE="+$DesiredRole),
       "GRID_DATA_PATH=$DataRoot",
       "STRATEGY_CACHE_DIR=$DataRoot\\runtime_strategies",
-      "COORDINATOR_URL=$CoordinatorUrl"
+      ("COORDINATOR_URL="+$(if($CoordinatorUrl){$CoordinatorUrl}else{"http://127.0.0.1:8765"}))
     ) | Set-Content -Encoding UTF8 $EnvFile
+}else{
+    # Repair/upgrade may change node role. Replace only Grid-owned role/URL keys,
+    # preserving secrets and PostgreSQL DSN already provisioned on CONTROL.
+    $lines=@(Get-Content $EnvFile | Where-Object {$_ -notmatch '^(ROLE|COORDINATOR_URL)='})
+    $lines += "ROLE=$DesiredRole"
+    $lines += ("COORDINATOR_URL="+$(if($CoordinatorUrl){$CoordinatorUrl}else{"http://127.0.0.1:8765"}))
+    $lines | Set-Content -Encoding UTF8 $EnvFile
 }
 
 # PostgreSQL is CONTROL-owned. Agents never provision or modify PostgreSQL.
