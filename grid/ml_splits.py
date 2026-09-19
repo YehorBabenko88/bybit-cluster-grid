@@ -1,5 +1,9 @@
 from datetime import timedelta
 
+def _get(r,key,default=None):
+    try:return r[key]
+    except (KeyError,TypeError):return default
+
 def walk_forward(rows,folds=5,embargo_minutes=240):
     """Chronological expanding folds. Training labels must finish before validation embargo."""
     rows=sorted(rows,key=lambda r:r["event_ts"])
@@ -11,12 +15,12 @@ def walk_forward(rows,folds=5,embargo_minutes=240):
         if val_start>=n:break
         validation=rows[val_start:val_end]
         boundary=validation[0]["event_ts"]-timedelta(minutes=embargo_minutes)
-        validation_groups={r.get("split_group") for r in validation if r.get("split_group")}
+        validation_groups={_get(r,"split_group") for r in validation if _get(r,"split_group")}
         train=[]
         for r in rows[:val_start]:
-            label_end=r.get("label_end_ts") or r["event_ts"]
+            label_end=_get(r,"label_end_ts") or r["event_ts"]
             if label_end>=boundary:continue
-            if r.get("split_group") and r.get("split_group") in validation_groups:continue
+            if _get(r,"split_group") and _get(r,"split_group") in validation_groups:continue
             train.append(r)
         if train and validation:out.append((train,validation))
     return out
