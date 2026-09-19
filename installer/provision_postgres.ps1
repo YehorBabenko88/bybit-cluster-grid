@@ -5,11 +5,43 @@ param(
 $ErrorActionPreference="Stop"
 $d=Get-Content $DiscoveryPath -Raw | ConvertFrom-Json
 $EnvFile=Join-Path $DataRoot ".env"
+$Manifest=Join-Path $DataRoot "postgres-owned.json"
 
-# A pre-provisioned Grid DSN always wins.
+function Get-EnvValue([string]$Path,[string]$Name){
+    if(!(Test-Path $Path)){return $null}
+    $line=Get-Content $Path | Where-Object {$_ -match ("^"+[regex]::Escape($Name)+"=")} | Select-Object -Last 1
+    if(!$line){return $null}
+    return $line.Substring($Name.Length+1)
+}
+function Add-EnvOnce([string]$Name,[string]$Value){
+    $existing=Get-EnvValue $EnvFile $Name
+    if($existing){return}
+    Add-Content -Encoding UTF8 $EnvFile "$Name=$Value"
+}
+
+# First priority: an instance previously created by this Grid installation.
+if(Test-Path $Manifest){
+    $m=Get-Content $Manifest -Raw | ConvertFrom-Json
+    $safe=[IO.Path]::GetFullPath($DataRoot).TrimEnd('\')+'\'
+    $root=[IO.Path]::GetFullPath([string]$m.root)
+    $valid=($m.owned_by_grid -eq $true) -and
+           ([string]$m.service_name -eq "BybitClusterGridPostgres") -and
+           ([int]$m.port -eq 55432) -and
+           $root.StartsWith($safe,[StringComparison]::OrdinalIgnoreCase)
+    if(!$valid){throw "Existing Grid PostgreSQL ownership manifest is invalid; refusing repair"}
+    $dsn=Get-EnvValue $EnvFile "POSTGRES_DSN"
+    if(!$dsn){throw "Grid PostgreSQL exists but its DSN is missing; refusing to rotate credentials automatically"}
+    $svc=Get-Service -Name $m.service_name -ErrorAction SilentlyContinue
+    if($svc -and $svc.Status -ne "Running"){Start-Service -Name $m.service_name}
+    Write-Host "Reusing Grid-owned PostgreSQL instance."
+    exit 0
+}
+
+# A deliberately pre-provisioned Grid DSN also wins and is never modified.
 $existing=[Environment]::GetEnvironmentVariable("GRID_POSTGRES_DSN","Machine")
 if($existing){
-    Add-Content -Encoding UTF8 $EnvFile "POSTGRES_DSN=$existing"
+    Add-EnvOnce "POSTGRES_DSN" $existing
+    Write-Host "Using pre-provisioned GRID_POSTGRES_DSN."
     exit 0
 }
 
@@ -19,10 +51,8 @@ if(!$psql){
         if($p.bin -and (Test-Path (Join-Path $p.bin "psql.exe"))){$psql=Join-Path $p.bin "psql.exe";break}
     }
 }
-
 if($psql){
-    # We intentionally do not guess or alter credentials of an unrelated server.
-    throw "PostgreSQL exists but no Grid-owned DSN is provisioned. Refusing to modify the existing server automatically."
+    throw "Unrelated PostgreSQL exists but no Grid DSN is provisioned. Refusing to modify it automatically."
 }
 
 $Installer=Join-Path $PSScriptRoot "postgres-installer.exe"
@@ -30,7 +60,6 @@ if(!(Test-Path $Installer)){
     throw "PostgreSQL is absent and approved postgres-installer.exe is not included in the deployment bundle."
 }
 
-# Generate credentials only for the isolated Grid-owned PostgreSQL instance.
 $bytes=New-Object byte[] 32
 [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
 $Super=[Convert]::ToBase64String($bytes).Replace("/","_").Replace("+","-").TrimEnd("=")
@@ -42,10 +71,9 @@ $env:PGPASSWORD=$Super
 $DbPassBytes=New-Object byte[] 32
 [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($DbPassBytes)
 $DbPass=[Convert]::ToBase64String($DbPassBytes).Replace("/","_").Replace("+","-").TrimEnd("=")
-
 & $PsqlLocal -h 127.0.0.1 -p 55432 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE cluster_grid LOGIN PASSWORD '$DbPass';"
 if($LASTEXITCODE -ne 0){throw "Failed creating Grid PostgreSQL role"}
 & $PsqlLocal -h 127.0.0.1 -p 55432 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE bybit_cluster_grid OWNER cluster_grid;"
 if($LASTEXITCODE -ne 0){throw "Failed creating Grid PostgreSQL database"}
 Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
-Add-Content -Encoding UTF8 $EnvFile "POSTGRES_DSN=postgresql://cluster_grid:$DbPass@127.0.0.1:55432/bybit_cluster_grid"
+Add-EnvOnce "POSTGRES_DSN" "postgresql://cluster_grid:$DbPass@127.0.0.1:55432/bybit_cluster_grid"
