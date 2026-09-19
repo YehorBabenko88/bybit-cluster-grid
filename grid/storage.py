@@ -1,12 +1,22 @@
 import asyncpg
 from datetime import datetime,timezone
 from .config import settings
+from .write_queue import BoundedWriteQueue
 
 class Storage:
-    def __init__(self): self.pool=None
+    def __init__(self):
+        self.pool=None
+        self.write_queue=BoundedWriteQueue(self._save_direct,maxsize=5000,workers=2)
     async def start(self):
         self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=5)
+        await self.write_queue.start()
     async def save(self,row):
+        await self.write_queue.put(row)
+
+    def metrics(self):
+        return self.write_queue.metrics()
+
+    async def _save_direct(self,row):
         ts=datetime.fromtimestamp(row["start_ms"]/1000,tz=timezone.utc)
         async with self.pool.acquire() as c:
             async with c.transaction():
