@@ -176,13 +176,20 @@ async def handle_command(db,session,chat_id,text,nodes):
     else:
         await tg_send(session,chat_id,"Commands: /pilot [NODE] /health /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /restart NODE /rollback NODE /uninstall NODE /cleanup /db")
 
-async def _notify_expansion_ready(db,session,chat_id):
+async def _notify_expansion_ready(db,session):
     rows=await expansion_ready(db.pool)
+    chats=[x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()]
+    if not chats:return
     for r in rows:
         if r.get("expansion_notified_at") is not None: continue
-        await tg_send(session,chat_id,
-          f"Pilot {r['node_id']} completed bootstrap and live validation. Grid is READY_FOR_EXPANSION; other agents may now be installed.")
-        await mark_expansion_notified(db.pool,r["node_id"])
+        message=f"Pilot {r['node_id']} completed bootstrap and live validation. Grid is READY_FOR_EXPANSION; other agents may now be installed."
+        sent=False
+        for chat_id in chats:
+            try:
+                await tg_send(session,chat_id,message); sent=True
+            except Exception:
+                log.exception("pilot readiness notification failed",extra={"event":"pilot_notify_failed"})
+        if sent: await mark_expansion_notified(db.pool,r["node_id"])
 
 async def telegram_loop(db,nodes):
     if not settings.telegram_bot_token:
@@ -199,6 +206,7 @@ async def telegram_loop(db,nodes):
                 url=f"https://api.telegram.org/bot{settings.telegram_bot_token}/getUpdates"
                 async with session.get(url,params={"timeout":30,"offset":offset},timeout=40) as r:
                     data=await r.json()
+                await _notify_expansion_ready(db,session)
                 for upd in data.get("result",[]):
                     next_offset=max(offset,upd["update_id"]+1)
                     msg=upd.get("message") or {}
@@ -210,7 +218,7 @@ async def telegram_loop(db,nodes):
                         log.warning("telegram unauthorized",extra={"event":"telegram_denied"})
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     await handle_command(db,session,chat,txt,nodes)
-                    await _notify_expansion_ready(db,session,chat)
+                    await _notify_expansion_ready(db,session)
                     offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
             except asyncio.CancelledError:
                 raise
