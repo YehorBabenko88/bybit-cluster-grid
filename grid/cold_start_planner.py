@@ -1,3 +1,4 @@
+from .archive_discovery_service import seed_discovery
 from .data_capabilities import ensure_symbol,set_capability
 
 async def seed_cold_start(pool,symbols):
@@ -8,6 +9,7 @@ async def seed_cold_start(pool,symbols):
           VALUES($1,'1','queued') ON CONFLICT(symbol,timeframe) DO NOTHING""",symbol)
         await set_capability(pool,symbol,"ohlcv_history","QUEUED")
         await set_capability(pool,symbol,"trade_history","UNKNOWN")
+    await seed_discovery(pool,symbols)
     return len(symbols)
 
 async def readiness_by_research(pool):
