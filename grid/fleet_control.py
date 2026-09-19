@@ -27,20 +27,34 @@ async def latest_operation(pool, action=None):
         row=await pool.fetchrow("SELECT * FROM fleet_operations ORDER BY created_at DESC LIMIT 1")
     return dict(row) if row else None
 
+async def _registered_targets(pool,nodes):
+    try:
+        rows=await pool.fetch("SELECT node_id FROM agent_credentials WHERE revoked_at IS NULL ORDER BY node_id")
+        return sorted(set(nodes) | {r["node_id"] for r in rows})
+    except Exception:
+        return sorted(nodes)
+
+async def _last_local_intent(pool,nid,node):
+    if node:
+        return {"operator_stopped":bool(node.get("operator_stopped",False)),
+                "bootstrap_paused":bool(node.get("bootstrap_paused",False))}
+    row=await pool.fetchrow("""SELECT action FROM agent_commands
+      WHERE node_id=$1 AND action IN ('stop','start','pause','resume') AND status='done'
+      ORDER BY completed_at DESC NULLS LAST LIMIT 1""",nid)
+    action=row["action"] if row else "start"
+    return {"operator_stopped":action=="stop","bootstrap_paused":action=="pause",
+            "inferred_offline":True}
+
 async def fleet_stop(pool,nodes,requested_by):
     await ensure_fleet_schema(pool)
     current=await runtime_state(pool)
     if current["state"]=="PAUSED":
         return {"state":"PAUSED","commands":[],"already":True}
     snapshot={}
-    targets=[]
-    for nid,n in sorted(nodes.items()):
-        # Preserve nodes that were already locally stopped/paused.
-        snapshot[nid]={
-          "operator_stopped":bool(n.get("operator_stopped",False)),
-          "bootstrap_paused":bool(n.get("bootstrap_paused",False)),
-        }
-        targets.append(nid)
+    targets=await _registered_targets(pool,nodes)
+    for nid in targets:
+        # Preserve local intent, including offline registered nodes where possible.
+        snapshot[nid]=await _last_local_intent(pool,nid,nodes.get(nid))
     op=uuid.uuid4()
     await pool.execute("""INSERT INTO fleet_operations(id,action,status,requested_by,snapshot,targets)
       VALUES($1,'STOP','RUNNING',$2,$3::jsonb,$4::jsonb)""",op,str(requested_by),json.dumps(snapshot),json.dumps(targets))
@@ -56,7 +70,7 @@ async def fleet_resume(pool,nodes,requested_by):
     await ensure_fleet_schema(pool)
     prev=await latest_operation(pool,"STOP")
     snapshot=(prev or {}).get("snapshot") or {}
-    op=uuid.uuid4(); targets=sorted(nodes)
+    op=uuid.uuid4(); targets=await _registered_targets(pool,nodes)
     await pool.execute("""INSERT INTO fleet_operations(id,action,status,requested_by,snapshot,targets)
       VALUES($1,'RESUME','RUNNING',$2,$3::jsonb,$4::jsonb)""",op,str(requested_by),json.dumps(snapshot),json.dumps(targets))
     commands=[]
@@ -76,7 +90,7 @@ async def begin_fleet_delete(pool,nodes,requested_by):
     existing=await latest_operation(pool,"DELETE")
     if existing and existing["status"] in ("WAITING","READY_CONTROL_PURGE"):
         return {"operation_id":str(existing["id"]),"targets":existing["targets"],"existing":True}
-    targets=sorted(nodes)
+    targets=await _registered_targets(pool,nodes)
     op=uuid.uuid4()
     await set_runtime_state(pool,"PAUSED",requested_by,"global DELETE pending")
     await pool.execute("""INSERT INTO fleet_operations(id,action,status,requested_by,targets)
