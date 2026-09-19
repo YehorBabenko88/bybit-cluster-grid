@@ -213,6 +213,14 @@ symbol text NOT NULL,status text NOT NULL DEFAULT 'queued',attempts integer NOT 
 started_at timestamptz,finished_at timestamptz,last_error text,
 PRIMARY KEY(run_id,symbol))""",
 "CREATE INDEX IF NOT EXISTS historical_experiment_cp_status_idx ON historical_experiment_checkpoints(run_id,status,symbol)"
+]),
+(24,"cold_start_backfill",[
+"""CREATE TABLE IF NOT EXISTS market_backfill_state(
+symbol text NOT NULL,timeframe text NOT NULL DEFAULT '1',status text NOT NULL DEFAULT 'queued',
+oldest_loaded_ts timestamptz,newest_loaded_ts timestamptz,next_end_ms bigint,
+attempts integer NOT NULL DEFAULT 0,last_error text,updated_at timestamptz NOT NULL DEFAULT now(),
+PRIMARY KEY(symbol,timeframe))""",
+"CREATE INDEX IF NOT EXISTS market_backfill_status_idx ON market_backfill_state(status,updated_at)"
 ])
 ]
 
