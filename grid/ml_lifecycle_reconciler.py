@@ -22,9 +22,7 @@ async def reconcile_lifecycle(pool):
 
 async def _enqueue_once(pool,job_type,payload,logical_key):
     job_id=uuid.uuid4()
-    result=await pool.execute("""INSERT INTO ml_jobs(id,job_type,payload,status)
-      SELECT $1,$2,$3::jsonb,'queued'
-      WHERE NOT EXISTS(SELECT 1 FROM ml_jobs WHERE payload->>'logical_key'=$4
-        AND status IN ('queued','assigned','running','done'))""",
+    result=await pool.execute("""INSERT INTO ml_jobs(id,job_type,payload,status,dedupe_key)
+      VALUES($1,$2,$3::jsonb,'queued',$4) ON CONFLICT DO NOTHING""",
       job_id,job_type,json.dumps({**payload,"logical_key":logical_key}),logical_key)
     return result.endswith(" 1")
