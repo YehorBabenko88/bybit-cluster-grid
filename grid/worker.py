@@ -10,7 +10,7 @@ from .service import prepare_database, bootstrap_logging, health_monitor
 from .microstructure import MicrostructureCollector
 from .resilience import backoff_delays, wait_for_internet
 from .retention import ensure_retention_schema, retention_scheduler
-from .telegram_bot import telegram_loop\nfrom .strategy_jobs import ensure_strategy_schema\nfrom .strategy_plugins import ensure_plugin_schema\nfrom .strategy_runner import strategy_worker
+from .telegram_bot import telegram_loop\nfrom .strategy_jobs import ensure_strategy_schema\nfrom .strategy_plugins import ensure_plugin_schema\nfrom .strategy_runner import strategy_worker\nfrom .agent_commands import execute_command
 
 log=logging.getLogger("worker")
 
