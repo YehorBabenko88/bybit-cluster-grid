@@ -92,12 +92,30 @@ async def handle_command(db,session,chat_id,text,nodes):
         if len(parts)!=2:
             await tg_send(session,chat_id,"Usage: /logs NODE")
             return
-        # Logs are returned only from coordinator-known telemetry; no arbitrary remote file access/shell.
-        nid=parts[1]; n=nodes.get(nid)
-        if not n:
+        nid=parts[1]
+        if nid not in nodes:
             await tg_send(session,chat_id,f"Unknown node: {nid}")
+            return
+        cid=await enqueue_command(db.pool,nid,"log_tail",{"lines":120})
+        await tg_send(session,chat_id,f"Log tail requested from {nid} ({cid}). Use /logresult {cid} in a few seconds.")
+    elif cmd=="/logresult":
+        if len(parts)!=2:
+            await tg_send(session,chat_id,"Usage: /logresult COMMAND_ID")
+            return
+        try:
+            row=await db.pool.fetchrow("""SELECT node_id,status,result,error FROM agent_commands
+                WHERE id=$1::uuid AND action='log_tail'""",parts[1])
+        except Exception:
+            row=None
+        if not row:
+            await tg_send(session,chat_id,"Unknown log request.")
+        elif row["status"]!="done":
+            await tg_send(session,chat_id,f"{row['node_id']}: {row['status']} {row['error'] or ''}".strip())
         else:
-            await tg_send(session,chat_id,f"{nid}: last_seen={int(now-float(n.get('last_seen',0)))}s, version={n.get('agent_version','?')}, process_rss={n.get('process_rss','?')}, uptime_s={n.get('uptime_s','?')}")
+            result=row["result"] or {}
+            lines=result.get("lines",[])
+            body="\n".join(lines[-80:])
+            await tg_send(session,chat_id,body or result.get("message","No log lines."))
     elif cmd=="/uninstall":
         if len(parts)!=2:
             await tg_send(session,chat_id,"Usage: /uninstall NODE")
@@ -131,7 +149,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /pause NODE /resume NODE /restart NODE /rollback NODE /uninstall NODE /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /restart NODE /rollback NODE /uninstall NODE /cleanup /db")
 
 async def telegram_loop(db,nodes):
     if not settings.telegram_bot_token:
