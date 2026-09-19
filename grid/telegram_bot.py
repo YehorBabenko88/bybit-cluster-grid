@@ -6,6 +6,7 @@ from .db_stats import database_stats
 from .retention import cleanup_all
 from .update_protocol import start_canary
 from .control_replication import telegram_cursor,commit_telegram_cursor
+from .fleet_health import fleet_health
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -40,7 +41,17 @@ async def handle_command(db,session,chat_id,text,nodes):
     parts=text.strip().split()
     cmd=parts[0].lower()
     now=time.time()
-    if cmd=="/nodes":
+    if cmd=="/health":
+        h=await fleet_health(db.pool,nodes,settings.heartbeat_seconds)
+        leader=h["leader"]["owner"] if h["leader"] else "none"
+        lines=[f"Grid health: leader={leader}",f"online={len(h['online'])} offline={len(h['offline'])}"]
+        lines.append("integrity: "+(", ".join(h["integrity"]) if h["integrity"] else "OK"))
+        lines.append("pressure: "+(", ".join(h["pressure"]) if h["pressure"] else "OK"))
+        lines.append("DB queue/spool: "+(", ".join(h["queues"]) if h["queues"] else "OK"))
+        if h["repairs"]:
+            lines.append("repairs: "+", ".join(f"{x['node_id']}={x['status']}" for x in h["repairs"][:5]))
+        await tg_send(session,chat_id,"\n".join(lines))
+    elif cmd=="/nodes":
         lines=["Grid nodes:"]+[_node_line(nid,n,now) for nid,n in sorted(nodes.items())]
         await tg_send(session,chat_id,"\n".join(lines) if len(lines)>1 else "No nodes registered.")
     elif cmd=="/status":
@@ -150,7 +161,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /restart NODE /rollback NODE /uninstall NODE /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /health /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /restart NODE /rollback NODE /uninstall NODE /cleanup /db")
 
 async def telegram_loop(db,nodes):
     if not settings.telegram_bot_token:
