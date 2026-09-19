@@ -8,6 +8,6 @@ def live_canary_health(heartbeats,min_healthy=5):
             return {"healthy":False,"reason":"pressure"}
         if float(h.get("db_write_failures",0) or 0)>0:return {"healthy":False,"reason":"db_write_failure"}
         if float(h.get("db_queue_ratio",0) or 0)>=.8:return {"healthy":False,"reason":"db_queue"}
-        if int(h.get("active_symbols",h.get("wanted_symbols",1)) or 1)<1:
+        if int(h.get("wanted_symbols",0) or 0)<1 or int(h.get("active_trade_streams",0) or 0)<1:
             return {"healthy":False,"reason":"no_live_symbols"}
     return {"healthy":True,"reason":None,"count":len(recent)}
