@@ -10,9 +10,9 @@ class TrainingWorker:
         ds=await self.pool.fetchrow("""SELECT * FROM dataset_snapshots
           WHERE id=$1 AND status='READY'""",dataset_id)
         if not ds: raise ValueError("dataset is not READY")
-        rows=await self.pool.fetch("""SELECT * FROM ml_event_samples
-          WHERE target_ready=true AND quality_status='GOOD' AND event_ts<=$1
-            AND feature_ts<event_ts ORDER BY event_ts,sample_id""",ds["cutoff_ts"])
+        rows=await self.pool.fetch("""SELECT s.* FROM dataset_samples d
+          JOIN ml_event_samples s ON s.sample_id=d.sample_id
+          WHERE d.dataset_id=$1 ORDER BY d.ordinal""",dataset_id)
         folds=walk_forward([dict(r) for r in rows])
         if not folds: raise ValueError("not enough samples for walk-forward training")
         fold_metrics=[]
