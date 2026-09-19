@@ -1,6 +1,6 @@
 import json, uuid
 
-ALLOWED_ACTIONS={"pause","resume","restart","update","rollback","uninstall","log_tail","repair"}
+ALLOWED_ACTIONS={"pause","resume","stop","start","restart","update","rollback","uninstall","log_tail","repair"}
 
 async def ensure_control_schema(pool):
     async with pool.acquire() as c:
