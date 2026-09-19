@@ -19,17 +19,17 @@ async def readiness(pool,policy=ColdStartPolicy()):
     tables=await pool.fetch("""SELECT table_name FROM information_schema.tables
       WHERE table_schema='public'""")
     names={r["table_name"] for r in tables}
-    required={"candles_1m","market_features_1m","poc_lifecycle","level_events"}
+    required={"ohlcv_1m","candles_1m","market_features_1m","poc_lifecycle","level_events"}
     if not required.issubset(names):
         return {"state":DB_READY,"ready":False,"reason":"schema_incomplete"}
 
-    symbols=await pool.fetchval("SELECT count(DISTINCT symbol) FROM candles_1m")
+    symbols=await pool.fetchval("SELECT count(DISTINCT symbol) FROM ohlcv_1m")
     if not symbols:
         return {"state":COLLECTING,"ready":False,"symbols":0,"reason":"no_market_data"}
 
     rows=await pool.fetch("""SELECT c.symbol,count(*) candles,
       (SELECT count(*) FROM market_features_1m f WHERE f.symbol=c.symbol) features
-      FROM candles_1m c GROUP BY c.symbol""")
+      FROM ohlcv_1m c GROUP BY c.symbol""")
     mature=[r for r in rows if r["candles"]>=policy.min_candles_per_symbol
             and r["features"]>=policy.min_feature_rows_per_symbol]
     poc=await pool.fetchval("SELECT count(*) FROM poc_lifecycle WHERE first_touch_ts IS NOT NULL")
