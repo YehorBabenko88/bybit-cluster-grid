@@ -1,11 +1,13 @@
 import json
 from datetime import timedelta
 from .features import FeatureEngine
+from .volatility_regime import VolatilityRegimeDetector
 
 class UnifiedFeatureBuilder:
     """Builds one reproducible 1m feature row from candle + nearest prior microstructure."""
     def __init__(self,lookback=60,micro_max_age_s=5):
         self.engine=FeatureEngine(lookback)
+        self.regime=VolatilityRegimeDetector(lookback=max(lookback,120))
         self.micro_max_age_s=int(micro_max_age_s)
 
     async def build(self,pool,row):
@@ -36,17 +38,21 @@ class UnifiedFeatureBuilder:
         caps={"candle":True,"footprint":True,"orderbook":bool(book),"derivatives":bool(deriv)}
         # Candle/trade quality is a hard gate. Missing optional feeds remain explicit capabilities.
         eligible=bool(base["eligible"])
+        regime=self.regime.update(symbol,features,eligible=eligible)
+        features.update(regime)
         return {"symbol":symbol,"ts":ts,"eligible":eligible,
-                "quality_status":base["data_quality"],"features":features,"capabilities":caps}
+                "quality_status":base["data_quality"],"regime":regime["regime"],
+                "regime_score":regime["regime_score"],"features":features,"capabilities":caps}
 
     async def persist(self,pool,built):
-        await pool.execute("""INSERT INTO market_features_1m(symbol,ts,eligible,quality_status,features,capabilities)
-          VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb)
+        await pool.execute("""INSERT INTO market_features_1m(symbol,ts,eligible,quality_status,regime,regime_score,features,capabilities)
+          VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb)
           ON CONFLICT(symbol,ts) DO UPDATE SET eligible=EXCLUDED.eligible,
-          quality_status=EXCLUDED.quality_status,features=EXCLUDED.features,
+          quality_status=EXCLUDED.quality_status,regime=EXCLUDED.regime,
+          regime_score=EXCLUDED.regime_score,features=EXCLUDED.features,
           capabilities=EXCLUDED.capabilities,built_at=now()""",
           built["symbol"],built["ts"],built["eligible"],built["quality_status"],
-          json.dumps(built["features"]),json.dumps(built["capabilities"]))
+          built["regime"],built["regime_score"],json.dumps(built["features"]),json.dumps(built["capabilities"]))
 
 def _num(v):
     try: return float(v) if v is not None else None
