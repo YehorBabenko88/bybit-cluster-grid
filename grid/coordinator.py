@@ -160,7 +160,7 @@ async def startup():
     await ensure_enrollment_schema(db.pool)
     await ensure_runtime_gate(db.pool)
     async def loop():
-        global instruments
+        global instruments,assignments
         while True:
             try:
                 gate=await runtime_state(db.pool)
