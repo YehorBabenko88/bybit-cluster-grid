@@ -20,6 +20,7 @@ from .repair_health import expired_repairs
 from .archive_discovery_service import seed_discovery
 from .pilot_state import node_accepts_live_assignments,node_live_mode
 from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
+from .storage import Storage
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -115,6 +116,30 @@ async def promote_release(version:str,x_grid_token:str=Header(default="")):
     launched=await begin_stable_rollout(db.pool,version,alive,state["canary_node"])
     return {"ok":True,"version":version,"channel":"stable","launched_nodes":launched}
 
+
+@app.post("/ingest/minute")
+async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    global ingest_storage
+    if not constant_time_equal(x_grid_token,settings.grid_shared_token):
+        raise HTTPException(403)
+    payload=await request.json()
+    nid=payload.get("_node_id") or ""
+    # Credential is required; resolve the node from the credential rather than trusting payload.
+    try:
+        from .enrollment import node_for_credential
+        credential_node=await node_for_credential(db.pool,x_node_credential)
+    except Exception:
+        credential_node=None
+    if not credential_node:
+        raise HTTPException(403)
+    gate=await runtime_state(db.pool)
+    if gate["state"]!="ACTIVE":
+        raise HTTPException(423,"market ingestion locked")
+    if ingest_storage is None:
+        raise HTTPException(503,"ingestion unavailable")
+    await ingest_storage._save_direct(payload)
+    return {"ok":True}
+
 @app.get("/status")
 async def status(x_grid_token:str=Header(default="")):
     auth(x_grid_token)
@@ -163,6 +188,10 @@ async def startup():
     await ensure_update_schema(db.pool)
     await ensure_enrollment_schema(db.pool)
     await ensure_runtime_gate(db.pool)
+    ingest_storage=Storage()
+    ingest_storage.pool=db.pool
+    ingest_storage.derived=__import__('grid.derived_pipeline',fromlist=['DerivedPipeline']).DerivedPipeline(db.pool)
+    await ingest_storage.derived.start()
     async def loop():
         global instruments,assignments
         while True:
