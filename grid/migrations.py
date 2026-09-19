@@ -106,6 +106,26 @@ status text NOT NULL DEFAULT 'ACTIVE', reusable boolean NOT NULL DEFAULT false,
 expires_at timestamptz, last_used_at timestamptz NOT NULL DEFAULT now(),
 created_at timestamptz NOT NULL DEFAULT now(), metadata jsonb NOT NULL DEFAULT '{}'::jsonb)""",
 "CREATE INDEX IF NOT EXISTS ml_artifacts_gc_idx ON ml_artifacts(status,reusable,expires_at,last_used_at)"
+]),
+(14,"ml_lifecycle_registry",[
+"ALTER TABLE dataset_snapshots ADD COLUMN IF NOT EXISTS dataset_hash text",
+"ALTER TABLE dataset_snapshots ADD COLUMN IF NOT EXISTS sample_count bigint NOT NULL DEFAULT 0",
+"ALTER TABLE dataset_snapshots ADD COLUMN IF NOT EXISTS feature_version text",
+"""CREATE TABLE IF NOT EXISTS model_registry(
+id uuid PRIMARY KEY, model_family text NOT NULL, symbol_scope jsonb NOT NULL DEFAULT '[]'::jsonb,
+dataset_id uuid NOT NULL REFERENCES dataset_snapshots(id), parent_model_id uuid,
+status text NOT NULL DEFAULT 'CANDIDATE', artifact_id uuid,
+code_version text, feature_version text, hyperparameters jsonb NOT NULL DEFAULT '{}'::jsonb,
+created_at timestamptz NOT NULL DEFAULT now(), promoted_at timestamptz)""",
+"""CREATE TABLE IF NOT EXISTS model_evaluations(
+id uuid PRIMARY KEY, model_id uuid NOT NULL REFERENCES model_registry(id),
+stage text NOT NULL, dataset_id uuid REFERENCES dataset_snapshots(id),
+metrics jsonb NOT NULL, passed boolean NOT NULL, evaluator_version text,
+created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(model_id,stage,dataset_id))""",
+"""CREATE TABLE IF NOT EXISTS shadow_predictions(
+model_id uuid NOT NULL REFERENCES model_registry(id), symbol text NOT NULL,
+event_ts timestamptz NOT NULL, setup_type text NOT NULL, prediction jsonb NOT NULL,
+outcome jsonb, evaluated_at timestamptz, PRIMARY KEY(model_id,symbol,event_ts,setup_type))"""
 ])
 ]
 
