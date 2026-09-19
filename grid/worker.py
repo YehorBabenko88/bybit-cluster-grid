@@ -36,11 +36,33 @@ class Worker:
                     async with s.post(
                         settings.coordinator_url+"/heartbeat",
                         json=snap,
-                        headers={"X-Grid-Token":settings.grid_shared_token},
+                        headers={
+                            "X-Grid-Token":settings.grid_shared_token,
+                            "X-Node-Credential":settings.node_credential,
+                        },
                         timeout=10
                     ) as r:
                         if r.status==200:
-                            new=set((await r.json())["symbols"])
+                            reply=await r.json()
+                            for cmd in reply.get("commands",[]):
+                                ok=True; result=None; error=None
+                                try:
+                                    result=await execute_command(self,cmd)
+                                except Exception as e:
+                                    ok=False; error=str(e)
+                                    log.exception("agent command failed",extra={"event":"agent_command_failed"})
+                                try:
+                                    await s.post(
+                                        settings.coordinator_url+f"/commands/{cmd['id']}/result",
+                                        json={"ok":ok,"result":result,"error":error},
+                                        headers={
+                                            "X-Grid-Token":settings.grid_shared_token,
+                                            "X-Node-Credential":settings.node_credential,
+                                        },timeout=10
+                                    )
+                                except Exception:
+                                    log.exception("command acknowledgement failed",extra={"event":"command_ack_failed"})
+                            new=set(reply.get("symbols",[])) if self.enabled else set()
                             if new != self.wanted:
                                 self.wanted=new
                                 await self.reconcile()
