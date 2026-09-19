@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     role: str = "worker"
     coordinator_url: str = "http://127.0.0.1:8787"
-    grid_shared_token: str
+    grid_shared_token: str = ""\n    enrollment_token: str = ""\n    node_credential: str = ""
     postgres_dsn: str
     bybit_ws_url: str = "wss://stream.bybit.com/v5/public/linear"
     bybit_rest_url: str = "https://api.bybit.com"
