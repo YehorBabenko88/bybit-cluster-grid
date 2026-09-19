@@ -13,7 +13,7 @@ from .retention import RETENTION_DEFAULTS
 from .telegram_idempotency import claim_update,complete_update
 from .ha_status import ha_status
 from .runtime_gate import runtime_state,set_runtime_state
-from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_delete_status,latest_operation
+from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_delete_status,latest_operation,reconcile_fleet_operation
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -86,11 +86,11 @@ async def handle_command(db,session,chat_id,text,nodes):
         await tg_send(session,chat_id,"START will enable Bybit discovery, market collection, archive/backfill, feature generation, simulations and learning for the whole Grid.\nConfirm within 120s: /confirm "+code)
     elif cmd in ("/fleetpause","/fleetstop"):
         r=await fleet_stop(db.pool,nodes,f"telegram:{chat_id}")
-        await tg_send(session,chat_id,f"SYSTEM: STOPPED. Workloads stopped on {len(r.get('commands',[]))} agents. Control heartbeat remains online so ПРОДОЛЖИТЬ can reach them.",_main_keyboard())
+        await tg_send(session,chat_id,f"SYSTEM: STOPPING. Stop queued for {len(r.get('commands',[]))} agents; STOPPED will be reported only after all required ACKs. Control heartbeat remains online.",_main_keyboard())
     elif cmd=="/fleetresume":
         r=await fleet_resume(db.pool,nodes,f"telegram:{chat_id}")
         kept=r.get("preserved_stopped") or []
-        msg=f"SYSTEM: ACTIVE. Resume queued for {len(r.get('commands',[]))} agents."
+        msg=f"SYSTEM: RESUMING. Resume queued for {len(r.get('commands',[]))} agents; ACTIVE will open only after all required ACKs."
         if kept: msg+=" Previously stopped nodes preserved: "+", ".join(kept)
         await tg_send(session,chat_id,msg,_main_keyboard())
     elif cmd=="/fleetdelete":
@@ -334,6 +334,11 @@ async def telegram_loop(db,nodes):
                 url=f"https://api.telegram.org/bot{settings.telegram_bot_token}/getUpdates"
                 async with session.get(url,params={"timeout":30,"offset":offset},timeout=40) as r:
                     data=await r.json()
+                op_result=await reconcile_fleet_operation(db.pool)
+                if op_result and op_result.get("status")=="DONE":
+                    for notify_chat in [x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()]:
+                        try: await tg_send(session,notify_chat,f"SYSTEM: {op_result['state']}. Global {op_result['action']} acknowledged by all required agents.",_main_keyboard())
+                        except Exception: pass
                 await _notify_expansion_ready(db,session)
                 await _maybe_finalize_fleet_delete(db,session)
                 for upd in data.get("result",[]):
