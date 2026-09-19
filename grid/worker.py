@@ -39,12 +39,14 @@ class Worker:
             while True:
                 snap=snapshot()
                 dbm=self.storage.metrics()
-                state=self.pressure.update(snap,dbm["queue_ratio"])
+                state=self.pressure.update(snap,max(dbm["queue_ratio"],dbm.get("spool_ratio",0.0)))
                 snap.update({"db_queue_depth":dbm["queue_depth"],
                              "db_queue_capacity":dbm["queue_capacity"],
                              "db_queue_ratio":round(dbm["queue_ratio"],4),
                              "db_writes_per_sec":round(dbm["writes_per_sec"],3),
                              "db_write_failures":dbm["write_failures"],
+                             "db_spool_bytes":dbm.get("spool_bytes",0),
+                             "db_spool_ratio":round(dbm.get("spool_ratio",0.0),4),
                              "db_avg_write_latency_ms":round(dbm["avg_write_latency_ms"],3)})
                 snap['pressure_state']=state
                 snap['pressure_drained']=len(self.pressure_drained)
