@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     bybit_ws_url: str = "wss://stream.bybit.com/v5/public/linear"
     bybit_rest_url: str = "https://api.bybit.com"
     bybit_archive_base_url: str = "https://public.bybit.com/trading"
-    archive_root: str = "archive-cache"
+    archive_root: str = "C:/ProgramData/BybitClusterGrid/archive-cache"
     archive_probe_days: int = 30
     resource_cpu_limit: float = 75
     resource_ram_limit: float = 78
