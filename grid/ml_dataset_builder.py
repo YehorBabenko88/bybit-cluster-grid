@@ -14,19 +14,26 @@ class DatasetBuilder:
           did,purpose,cutoff_ts,owner,json.dumps(criteria),self.feature_version)
         try:
             rows=await self.pool.fetch("""SELECT sample_id,symbol,event_ts,feature_ts,features,
-              instrument_features,target,quality_status,split_group FROM ml_event_samples
+              instrument_features,target,quality_status,split_group,label_end_ts FROM ml_event_samples
               WHERE target_ready=true AND quality_status='GOOD' AND event_ts<=$1
                 AND feature_ts<event_ts ORDER BY event_ts,sample_id""",cutoff_ts)
-            manifest=[_canonical(r) for r in rows if _matches(r,criteria)]
+            selected=[r for r in rows if _matches(r,criteria)]
+            manifest=[_canonical(r) for r in selected]
             if not manifest: raise ValueError("dataset has no eligible samples")
-            digest=hashlib.sha256("\n".join(manifest).encode()).hexdigest()
+            hashes=[hashlib.sha256(x.encode()).hexdigest() for x in manifest]
+            digest=hashlib.sha256("\n".join(hashes).encode()).hexdigest()
             async with self.pool.acquire() as c:
                 async with c.transaction():
                     await c.executemany("INSERT INTO dataset_samples(dataset_id,sample_id,ordinal) VALUES($1,$2,$3)",
-                        [(did,r["sample_id"],i) for i,r in enumerate(rows) if _matches(r,criteria)])
-            await self.pool.execute("""UPDATE dataset_snapshots SET dataset_hash=$2,
-              sample_count=$3,status='READY' WHERE id=$1 AND status='BUILDING'""",
-              did,digest,len(manifest))
+                        [(did,r["sample_id"],i) for i,r in enumerate(selected)])
+                    await c.executemany("""INSERT INTO dataset_sample_payloads
+                      (dataset_id,sample_id,ordinal,payload,payload_hash,event_ts,feature_ts,label_end_ts,split_group)
+                      VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9)""",
+                        [(did,r["sample_id"],i,manifest[i],hashes[i],r["event_ts"],r["feature_ts"],
+                          r["label_end_ts"],r["split_group"]) for i,r in enumerate(selected)])
+                    await c.execute("""UPDATE dataset_snapshots SET dataset_hash=$2,
+                      sample_count=$3,status='READY' WHERE id=$1 AND status='BUILDING'""",
+                      did,digest,len(manifest))
             return {"id":str(did),"dataset_hash":digest,"sample_count":len(manifest),
                     "cutoff_ts":cutoff_ts,"feature_version":self.feature_version}
         except Exception:
@@ -35,7 +42,7 @@ class DatasetBuilder:
 
 def _canonical(r):
     d={k:r[k] for k in ("sample_id","symbol","event_ts","feature_ts","features",
-                         "instrument_features","target","quality_status","split_group")}
+                         "instrument_features","target","quality_status","split_group","label_end_ts")}
     return json.dumps(d,sort_keys=True,default=str,separators=(",",":"))
 
 def _matches(r,c):
