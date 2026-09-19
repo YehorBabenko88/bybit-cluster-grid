@@ -4,6 +4,7 @@ from .strategy_jobs import claim_job, finish_job, requeue_job
 from .strategy_executor import execute_job_subprocess
 from .strategy_resources import strategy_allowed, database_pressure
 from .config import settings
+from .background_guard import background_work_allowed
 
 log=logging.getLogger("strategy_runner")
 
@@ -12,6 +13,12 @@ async def strategy_worker(db,poll_seconds=None):
     while True:
         job=None
         try:
+            bg_ok,bg_reasons=await background_work_allowed(db.pool)
+            if not bg_ok:
+                log.info("strategy paused by shared workload guard",extra={
+                    "event":"strategy_shared_pause","component":",".join(bg_reasons)
+                })
+                await asyncio.sleep(max(3,poll_seconds)); continue
             ok,snap,reasons=strategy_allowed(settings)
             if not ok:
                 log.info("strategy paused by resource guard",extra={
