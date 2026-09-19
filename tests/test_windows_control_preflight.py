@@ -35,3 +35,19 @@ def test_legacy_handoff_is_staged_not_imported_before_start():
     assert 'import_allowed=$false' in text
     assert "Await explicit global START" in text
     assert "grid.legacy_bootstrap_import" not in text
+
+
+def test_bundle_runtime_layout_matches_bootstrap():
+    wf=Path(".github/workflows/windows-bundle.yml").read_text(encoding="utf-8")
+    bootstrap=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    assert 'Join-Path $bundle "runtime"' in wf
+    assert 'Join-Path $runtime "python.exe"' in wf
+    assert 'Join-Path $Release "runtime\\python.exe"' in bootstrap
+
+def test_control_bootstrap_accepts_telegram_secrets_without_empty_overwrite():
+    text=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    assert '[string]$TelegramBotToken=""' in text
+    assert '[string]$TelegramAllowedChatIds=""' in text
+    assert 'if($TelegramBotToken)' in text
+    assert 'TELEGRAM_BOT_TOKEN=$TelegramBotToken' in text
+    assert 'if($TelegramAllowedChatIds)' in text
