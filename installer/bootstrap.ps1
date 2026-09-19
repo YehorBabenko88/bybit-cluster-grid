@@ -2,7 +2,8 @@
 param(
   [string]$CoordinatorUrl="",
   [string]$EnrollmentToken="",
-  [string]$LegacyHandoff=""
+  [string]$LegacyHandoff="",
+  [ValidateSet("PILOT","NORMAL")][string]$AgentMode="NORMAL"
 )
 $ErrorActionPreference="Stop"
 $InstallRoot="$env:ProgramFiles\BybitClusterGrid"
@@ -102,7 +103,7 @@ if(!(Test-Path $EnvFile)){
 
 # First-node legacy import must finish before Agent/ArchivePipeline start. This prevents
 # Grid from blindly downloading OHLCV that already exists in the repaired SQLite cache.
-if($LegacyHandoff){
+if($LegacyHandoff -and $AgentMode -eq "NORMAL"){
     if(!(Test-Path $LegacyHandoff)){throw "Legacy handoff not found: $LegacyHandoff"}
     $HandoffCopy=Join-Path $DataRoot "bootstrap-handoff.json"
     Copy-Item $LegacyHandoff $HandoffCopy -Force
@@ -125,6 +126,12 @@ if($LegacyHandoff){
     Write-Host "Legacy handoff imported and verified before service startup."
 }
 
+if($LegacyHandoff -and $AgentMode -eq "PILOT"){
+    if(!(Test-Path $LegacyHandoff)){throw "Legacy handoff not found: $LegacyHandoff"}
+    Copy-Item $LegacyHandoff (Join-Path $DataRoot "bootstrap-handoff.json") -Force
+    Write-Host "Pilot handoff staged; import will be orchestrated after agent enrollment."
+}
+
 $CredentialFile=Join-Path $DataRoot "secrets\node.credential"
 if(!(Test-Path $CredentialFile)){
     if(!$CoordinatorUrl -or !$EnrollmentToken){
@@ -141,7 +148,7 @@ if(!(Test-Path $CredentialFile)){
 try {
     & (Join-Path $PSScriptRoot "preflight.ps1") -ReleaseDir $Release -Python $Python
     if($LASTEXITCODE -ne 0){throw "Grid preflight failed"}
-    & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python
+    & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
     if($LASTEXITCODE -ne 0){throw "Grid service installation failed"}
     @{mode=$Mode;status="installed";completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
         ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
