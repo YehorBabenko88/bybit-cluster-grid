@@ -42,3 +42,29 @@ def weighted_assign(symbols,node_scores,nodes):
         result[node].append(symbol)
         load[node]+=cost
     return result
+
+
+def stabilize_assignments(proposed,current,nodes,max_churn_fraction=.10):
+    """Keep healthy assignments sticky; pressure/offline moves immediately."""
+    proposed={n:list(v) for n,v in proposed.items()}
+    current=current or {}
+    live=set(proposed)
+    forced=set()
+    for n,syms in current.items():
+        state=(nodes.get(n,{}).get("pressure_state") or "OFFLINE").upper()
+        if n not in live or state in ("REDUCE_LOAD","CRITICAL"):
+            forced.update(syms)
+    # Proposed remains authoritative for forced moves. For healthy nodes, cap churn.
+    old_owner={s:n for n,syms in current.items() for s in syms}
+    new_owner={s:n for n,syms in proposed.items() for s in syms}
+    moves=[s for s,n in new_owner.items() if old_owner.get(s) not in (None,n) and s not in forced]
+    cap=max(1,int(max(1,len(new_owner))*float(max_churn_fraction)))
+    allowed=set(sorted(moves)[:cap])
+    out={n:[] for n in proposed}
+    for symbol,new in new_owner.items():
+        old=old_owner.get(symbol)
+        if old in live and symbol not in forced and old!=new and symbol not in allowed:
+            out[old].append(symbol)
+        else:
+            out[new].append(symbol)
+    return out
