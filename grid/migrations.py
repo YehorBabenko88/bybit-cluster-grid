@@ -309,6 +309,12 @@ progress numeric NOT NULL DEFAULT 0,source_path text,research_path text,
 details jsonb NOT NULL DEFAULT '{}'::jsonb,updated_at timestamptz NOT NULL DEFAULT now(),
 completed_at timestamptz,expansion_notified_at timestamptz)""",
 "CREATE INDEX IF NOT EXISTS pilot_bootstrap_mode_idx ON pilot_bootstrap_state(mode,phase)"
+]),
+(33,"telegram_update_idempotency",[
+"""CREATE TABLE IF NOT EXISTS telegram_updates(
+update_id bigint PRIMARY KEY,chat_id text,command text,status text NOT NULL DEFAULT 'CLAIMED',
+claimed_by text NOT NULL,claimed_at timestamptz NOT NULL DEFAULT now(),
+completed_at timestamptz,error text)"""
 ])
 ]
 
