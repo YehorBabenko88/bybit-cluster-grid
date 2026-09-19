@@ -257,6 +257,31 @@ symbol text PRIMARY KEY,status text NOT NULL DEFAULT 'queued',mode text,
 earliest_date date,latest_date date,discovered_files integer NOT NULL DEFAULT 0,
 last_scan_at timestamptz,last_error text,details jsonb NOT NULL DEFAULT '{}'::jsonb)""",
 "CREATE INDEX IF NOT EXISTS trade_archive_discovery_status_idx ON trade_archive_discovery(status,last_scan_at)"
+]),
+(28,"legacy_bootstrap_import",[
+"""CREATE TABLE IF NOT EXISTS legacy_bootstrap_imports(
+source_id text PRIMARY KEY,source_path text NOT NULL,research_path text,
+research_cutoff timestamptz,status text NOT NULL DEFAULT 'PENDING',
+coverage_symbols integer NOT NULL DEFAULT 0,imported_candles bigint NOT NULL DEFAULT 0,
+imported_levels bigint NOT NULL DEFAULT 0,imported_samples bigint NOT NULL DEFAULT 0,
+manifest jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAULT now(),
+verified_at timestamptz,last_error text)""",
+"""CREATE TABLE IF NOT EXISTS legacy_symbol_coverage(
+source_id text NOT NULL REFERENCES legacy_bootstrap_imports(source_id) ON DELETE CASCADE,
+symbol text NOT NULL,min_ts timestamptz,max_ts timestamptz,candles bigint NOT NULL,
+gap_minutes bigint NOT NULL DEFAULT 0,coverage_fingerprint text NOT NULL,
+PRIMARY KEY(source_id,symbol))""",
+"""CREATE TABLE IF NOT EXISTS imported_historical_levels(
+source_id text NOT NULL REFERENCES legacy_bootstrap_imports(source_id) ON DELETE CASCADE,
+symbol text NOT NULL,timeframe text NOT NULL,level_type text NOT NULL,source_start timestamptz NOT NULL,
+available_at timestamptz NOT NULL,price numeric NOT NULL,trigger numeric NOT NULL,
+broken boolean NOT NULL,broken_at timestamptz,entries integer NOT NULL DEFAULT 0,
+PRIMARY KEY(source_id,symbol,timeframe,level_type,source_start,price))""",
+"""CREATE TABLE IF NOT EXISTS legacy_research_samples(
+source_id text NOT NULL REFERENCES legacy_bootstrap_imports(source_id) ON DELETE CASCADE,
+symbol text NOT NULL,sample_key text NOT NULL,sample_type text NOT NULL,event_ts timestamptz NOT NULL,
+split text,payload jsonb NOT NULL,PRIMARY KEY(source_id,symbol,sample_key))""",
+"CREATE INDEX IF NOT EXISTS legacy_research_samples_type_idx ON legacy_research_samples(sample_type,event_ts)"
 ])
 ]
 
