@@ -98,7 +98,24 @@ if(!(Test-Path $CredentialFile)){
     Write-Host "Existing node credential found; preserving node identity."
 }
 
-& (Join-Path $PSScriptRoot "preflight.ps1") -ReleaseDir $Release -Python $Python
-& (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python
-@{mode=$Mode;status="installed";completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
-    ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
+try {
+    & (Join-Path $PSScriptRoot "preflight.ps1") -ReleaseDir $Release -Python $Python
+    if($LASTEXITCODE -ne 0){throw "Grid preflight failed"}
+    & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python
+    if($LASTEXITCODE -ne 0){throw "Grid service installation failed"}
+    @{mode=$Mode;status="installed";completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
+        ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
+    $Backup=Join-Path $InstallRoot "bootstrap.previous"
+    if(Test-Path $Backup){Remove-Item -Recurse -Force $Backup}
+} catch {
+    $err=$_.Exception.Message
+    @{mode=$Mode;status="failed";error=$err;failed_at=(Get-Date).ToUniversalTime().ToString("o")} |
+        ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
+    $Backup=Join-Path $InstallRoot "bootstrap.previous"
+    if(Test-Path $Backup){
+        if(Test-Path $Release){Remove-Item -Recurse -Force $Release}
+        Move-Item $Backup $Release
+        Write-Warning "Bootstrap rolled back to previous release."
+    }
+    throw
+}
