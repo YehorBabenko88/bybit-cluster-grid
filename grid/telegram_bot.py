@@ -77,7 +77,7 @@ async def handle_command(db,session,chat_id,text,nodes):
             nid=parts[1]
             n=nodes.get(nid)
             await tg_send(session,chat_id,_node_line(nid,n,now) if n else f"Unknown node: {nid}")
-    elif cmd in ("/pause","/resume","/restart","/rollback"):
+    elif cmd in ("/pause","/resume","/stop","/start","/restart","/rollback"):
         if len(parts)!=2:
             await tg_send(session,chat_id,f"Usage: {cmd} NODE")
             return
@@ -182,7 +182,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /pilot [NODE] /health /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /pilot [NODE] /health /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
 
 async def _notify_expansion_ready(db,session):
     rows=await expansion_ready(db.pool)
