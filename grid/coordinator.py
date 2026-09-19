@@ -8,7 +8,7 @@ from .instrument_lifecycle import ensure_instrument_schema,reconcile_instruments
 from .strategy_jobs import ensure_strategy_schema,submit_job
 from .strategy_plugins import ensure_plugin_schema,register_plugin,list_plugins
 from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result
-from .update_protocol import ensure_update_schema
+from .update_protocol import ensure_update_schema\nfrom .enrollment import ensure_enrollment_schema,enroll,authenticate_agent
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -86,7 +86,7 @@ async def startup():
     await ensure_strategy_schema(db.pool)
     await ensure_plugin_schema(db.pool)
     await ensure_control_schema(db.pool)
-    await ensure_update_schema(db.pool)
+    await ensure_update_schema(db.pool)\n    await ensure_enrollment_schema(db.pool)
     async def loop():
         global instruments
         while True:
