@@ -5,6 +5,7 @@ from .bybit import linear_symbols
 from .archive_discovery_service import seed_discovery
 from .market_backfill import seed_backfill,run_backfill_worker
 from .archive_pipeline_service import run_discovery_worker,run_archive_worker
+from .background_guard import background_work_allowed
 
 log=logging.getLogger("archive_service")
 
@@ -14,6 +15,12 @@ async def service_loop(stop_event=None):
     os.makedirs(settings.archive_root,exist_ok=True)
     while not stop_event.is_set():
         try:
+            allowed,reasons=await background_work_allowed(db.pool)
+            if not allowed:
+                log.info("archive pipeline paused by resource guard",extra={"event":"archive_resource_pause","component":",".join(reasons)})
+                try: await asyncio.wait_for(stop_event.wait(),timeout=15)
+                except asyncio.TimeoutError: pass
+                continue
             xs=await linear_symbols(settings.bybit_rest_url)
             await seed_discovery(db.pool,xs)
             await seed_backfill(db.pool,xs)
