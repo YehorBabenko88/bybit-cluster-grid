@@ -10,6 +10,7 @@ from .strategy_plugins import ensure_plugin_schema,register_plugin,list_plugins
 from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result
 from .update_protocol import ensure_update_schema,note_heartbeat,register_release,start_canary,promote_stable,expired_canaries
 from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent
+from .rollout import begin_stable_rollout,note_rollout_heartbeat,expire_rollout_nodes
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -80,7 +81,10 @@ async def promote_release(version:str,x_grid_token:str=Header(default="")):
         await promote_stable(db.pool,version)
     except ValueError as e:
         raise HTTPException(409,str(e))
-    return {"ok":True,"version":version,"channel":"stable"}
+    alive=[nid for nid,v in nodes.items() if time.time()-v["last_seen"] < settings.heartbeat_seconds*3]
+    state=await db.pool.fetchrow("SELECT canary_node FROM rollout_state WHERE version=$1",version)
+    launched=await begin_stable_rollout(db.pool,version,alive,state["canary_node"])
+    return {"ok":True,"version":version,"channel":"stable","launched_nodes":launched}
 
 @app.get("/status")
 async def status(x_grid_token:str=Header(default="")):
@@ -141,6 +145,10 @@ async def startup():
                     log.info("instrument universe changed",extra={"event":"instrument_reconcile",
                              "component":f"added={added} retired={retired}"})
                 await purge_retired(db.pool,grace_days=30)
+                for failed in await expire_rollout_nodes(db.pool):
+                    nid=failed["node_id"]
+                    if nid in nodes and time.time()-nodes[nid]["last_seen"] < settings.heartbeat_seconds*3:
+                        await enqueue_command(db.pool,nid,"rollback",{})
                 for failed in await expired_canaries(db.pool):
                     nid=failed["canary_node"]
                     # Queue rollback only when the node is currently reachable; otherwise it remains failed
