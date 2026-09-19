@@ -19,6 +19,7 @@ class PocLevel:
     touch_count: int=0
     max_distance_pct: float=0.0
     consecutive_accept: int=0
+    last_checked_ts: object=None
 
 class PocLifecycleTracker:
     """Tracks whether each historical minute POC is revisited; no assumption that revisit is inevitable."""
@@ -39,6 +40,7 @@ class PocLifecycleTracker:
         o,h,l,c=map(float,(open_,high,low,close))
         for x in self.open.get(symbol,[]):
             if ts<=x.source_ts: continue
+            if x.last_checked_ts is not None and ts<=x.last_checked_ts: continue
             p=x.price; tol=max(abs(p)*self.tolerance_pct,1e-18)
             x.max_distance_pct=max(x.max_distance_pct,abs(c-p)/max(abs(p),1e-18))
             touched=l-tol<=p<=h+tol
@@ -68,6 +70,7 @@ class PocLifecycleTracker:
                     x.acceptance_ts=ts; x.status=ACCEPTED; events.append(("ACCEPTED",x))
             else:
                 x.consecutive_accept=0
+            x.last_checked_ts=ts
         return events
 
     def horizons(self,symbol,now_ts,horizons=(5,15,60,240,1440)):
