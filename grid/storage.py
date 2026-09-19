@@ -2,23 +2,24 @@ import asyncpg
 from datetime import datetime,timezone
 from .config import settings
 from .write_queue import BoundedWriteQueue
-from .spool import DiskSpool
+from .segment_wal import SegmentWAL
 import os
 
 class Storage:
     def __init__(self):
         self.pool=None
         root=os.path.join(os.getenv("ProgramData",os.getcwd()),"BybitClusterGrid","spool")
-        self.spool=DiskSpool(root)
-        self.write_queue=BoundedWriteQueue(self._save_spooled,maxsize=5000,workers=2)
+        self.spool=SegmentWAL(root)
+        # WAL checkpoint advances monotonically, therefore commit/ack is deliberately ordered.
+        self.write_queue=BoundedWriteQueue(self._save_spooled,maxsize=5000,workers=1)
     async def start(self):
         self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=5)
         await self.write_queue.start()
-        for path,row in self.spool.recover():
-            await self.write_queue.put(path,row)
+        for record_id,row in self.spool.recover():
+            await self.write_queue.put(record_id,row)
     async def save(self,row):
-        path=await self.spool.append(row)
-        await self.write_queue.put(path,row)
+        record_id=await self.spool.append(row)
+        await self.write_queue.put(record_id,row)
 
     def metrics(self):
         m=self.write_queue.metrics()
@@ -26,9 +27,9 @@ class Storage:
         m['spool_ratio']=self.spool.ratio()
         return m
 
-    async def _save_spooled(self,path,row):
+    async def _save_spooled(self,record_id,row):
         await self._save_direct(row)
-        await self.spool.ack(path)
+        await self.spool.ack(record_id)
 
     async def _save_direct(self,row):
         ts=datetime.fromtimestamp(row["start_ms"]/1000,tz=timezone.utc)
