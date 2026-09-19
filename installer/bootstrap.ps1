@@ -7,8 +7,15 @@ $ErrorActionPreference="Stop"
 $InstallRoot="$env:ProgramFiles\BybitClusterGrid"
 $DataRoot="$env:ProgramData\BybitClusterGrid"
 $RuntimeRoot=Join-Path $DataRoot "runtime"
+$StateFile=Join-Path $DataRoot "install-state.json"
+$Mode="fresh"
+if(Test-Path $StateFile){$Mode="repair"}
+elseif((Test-Path $InstallRoot) -or (Test-Path (Join-Path $DataRoot ".env"))){$Mode="upgrade"}
 $Venv=Join-Path $RuntimeRoot "venv"
 New-Item -ItemType Directory -Force -Path $InstallRoot,$DataRoot,$RuntimeRoot,(Join-Path $DataRoot "logs") | Out-Null
+@{mode=$Mode;status="installing";started_at=(Get-Date).ToUniversalTime().ToString("o")} |
+    ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
+Write-Host "Grid install mode: $Mode"
 
 $Discovery=& (Join-Path $PSScriptRoot "discover.ps1") | ConvertFrom-Json
 $Discovery | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 (Join-Path $DataRoot "discovery.json")
@@ -75,3 +82,5 @@ if(!(Test-Path $CredentialFile)){
 
 & (Join-Path $PSScriptRoot "preflight.ps1") -ReleaseDir $Release -Python $Python
 & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python
+@{mode=$Mode;status="installed";completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
+    ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
