@@ -15,6 +15,7 @@ from .strategy_jobs import ensure_strategy_schema
 from .strategy_plugins import ensure_plugin_schema
 from .strategy_runner import strategy_worker
 from .agent_commands import execute_command
+from .credential_store import node_credential
 
 log=logging.getLogger("worker")
 
@@ -38,7 +39,7 @@ class Worker:
                         json=snap,
                         headers={
                             "X-Grid-Token":settings.grid_shared_token,
-                            "X-Node-Credential":settings.node_credential,
+                            "X-Node-Credential":node_credential(),
                         },
                         timeout=10
                     ) as r:
@@ -57,7 +58,7 @@ class Worker:
                                         json={"node_id":snap["node_id"],"ok":ok,"result":result,"error":error},
                                         headers={
                                             "X-Grid-Token":settings.grid_shared_token,
-                                            "X-Node-Credential":settings.node_credential,
+                                            "X-Node-Credential":node_credential(),
                                         },timeout=10
                                     )
                                 except Exception:
