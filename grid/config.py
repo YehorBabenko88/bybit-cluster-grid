@@ -32,10 +32,9 @@ class Settings(BaseSettings):
     strategy_disk_free_gb: float = 30
     strategy_db_active_limit: int = 20
     strategy_poll_seconds: int = 3
-    deadman_enabled: bool = True
-    deadman_days: int = 7
-    deadman_state_path: str = ""
-    deadman_uninstall_script: str = ""
+    offline_warn_hours: int = 24
+    quarantine_days: int = 3
+    decommission_days: int = 7
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
