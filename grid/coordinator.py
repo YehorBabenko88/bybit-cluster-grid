@@ -14,11 +14,15 @@ from .rollout import begin_stable_rollout,note_rollout_heartbeat,expire_rollout_
 from .telegram_bot import telegram_loop
 from .scheduler import weighted_assign
 from .control_replica_builder import build_replica
+from .integrity_coordinator import handle_integrity_heartbeat
+from .repair_circuit_breaker import RepairCircuitBreaker
+from .repair_health import expired_repairs
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
 nodes={}; instruments={}; assignments={}
 db=None
+repair_breaker=RepairCircuitBreaker()
 
 def auth(token):
     if token != settings.grid_shared_token: raise HTTPException(401,"bad grid token")
@@ -41,6 +45,8 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     nid=payload["node_id"]
     await node_auth(nid,x_node_credential,x_grid_token)
     payload["last_seen"]=time.time(); nodes[nid]=payload
+    repair_info=await handle_integrity_heartbeat(db.pool,nid,payload,repair_breaker)
+    payload.update(repair_info)
     commands=await pending_commands(db.pool,nid)
     replica=await build_replica(db.pool)
     return {"symbols":assignments.get(nid,[]),"commands":commands,"control_replica":replica}
@@ -147,6 +153,10 @@ async def startup():
                              "component":f"added={added} retired={retired}"})
                 await purge_retired(db.pool,grace_days=30)
                 for failed in await expire_rollout_nodes(db.pool):
+                    nid=failed["node_id"]
+                    if nid in nodes and time.time()-nodes[nid]["last_seen"] < settings.heartbeat_seconds*3:
+                        await enqueue_command(db.pool,nid,"rollback",{})
+                for failed in await expired_repairs(db.pool):
                     nid=failed["node_id"]
                     if nid in nodes and time.time()-nodes[nid]["last_seen"] < settings.heartbeat_seconds*3:
                         await enqueue_command(db.pool,nid,"rollback",{})
