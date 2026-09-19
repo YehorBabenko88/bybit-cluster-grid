@@ -2,7 +2,7 @@ import os
 from .archive_disk_budget import archive_allowed
 from .archive_download import download_verified,safe_delete_owned
 from .archive_stream_parser import iter_minute_aggregates
-from .archive_materializer import materialize_archive
+from .archive_materializer import materialize_archive_stream
 from .archive_compaction import CompactionEvidence,record_compaction,mark_raw_deleted
 from .data_capabilities import set_capability
 
@@ -12,10 +12,9 @@ async def process_archive(pool,job,archive_root,tick_size):
     dl=await download_verified(job["source_uri"],archive_root,job.get("sha256"),job.get("bytes"))
     path=dl["path"]
     try:
-        aggregates=list(iter_minute_aggregates(path,job["symbol"],tick_size))
-        # Bounded by one archive/day; raw trades are never retained in this list.
-        derived=await materialize_archive(pool,aggregates)
-        source_rows=sum(int(x["trade_count"]) for x in aggregates)
+        derived=await materialize_archive_stream(
+            pool,iter_minute_aggregates(path,job["symbol"],tick_size),batch_minutes=30)
+        source_rows=derived["source_rows"]
         ev=CompactionEvidence(source_rows,derived["derived_candles"],derived["derived_footprint_rows"],
                               derived["min_ts"],derived["max_ts"])
         await record_compaction(pool,job["symbol"],job["archive_date"],dl["sha256"],ev,
