@@ -154,7 +154,7 @@ if($AgentMode -ne "CONTROL"){
 }
 
 try {
-    & (Join-Path $PSScriptRoot "preflight.ps1") -ReleaseDir $Release -Python $Python
+    & (Join-Path $PSScriptRoot "preflight.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
     if($LASTEXITCODE -ne 0){throw "Grid preflight failed"}
     & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
     if($LASTEXITCODE -ne 0){throw "Grid service installation failed"}
