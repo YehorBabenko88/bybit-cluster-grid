@@ -44,7 +44,8 @@ class PocLifecycleTracker:
             touched=l-tol<=p<=h+tol
             if touched:
                 x.touch_count+=1
-                if x.first_touch_ts is None:
+                first_touch_now=x.first_touch_ts is None
+                if first_touch_now:
                     x.first_touch_ts=ts
                     try: x.first_touch_minutes=max(1,int((ts-x.source_ts).total_seconds()//60))
                     except Exception: x.first_touch_minutes=None
@@ -53,8 +54,12 @@ class PocLifecycleTracker:
                     else: x.first_touch_kind="WICK_TOUCH"
                     x.status=TOUCHED
                     events.append(("FIRST_TOUCH",x))
+                elif not first_touch_now:
+                    events.append(("TOUCH",x))
                 if (o<p<c) or (o>p>c):
-                    if x.cross_ts is None: x.cross_ts=ts
+                    if x.cross_ts is None:
+                        x.cross_ts=ts
+                        events.append(("CROSSED",x))
                     x.status=CROSSED
             # Acceptance: consecutive closes near POC, deliberately stricter than a wick touch.
             if abs(c-p)<=tol:
