@@ -9,6 +9,8 @@ class FeatureEngine:
 
     def on_candle(self,row):
         h=self.hist.setdefault(row["symbol"],deque(maxlen=self.lookback+1))
+        quality=(row.get("quality_status") or "UNKNOWN").upper()
+        eligible=quality=="GOOD"
         prev=list(h)
         close=float(row["close"]); high=float(row["high"]); low=float(row["low"])
         volume=float(row["buy_volume"])+float(row["sell_volume"])
@@ -32,6 +34,8 @@ class FeatureEngine:
         delta_ratio=delta/volume if volume else 0.0
         poc=float(row["poc_price"]) if row.get("poc_price") is not None else close
         feature={
+            "data_quality":quality,
+            "eligible":eligible,
             "return_1m":ret,
             "realized_volatility":rv,
             "range_pct":rng/close if close else 0.0,
@@ -43,5 +47,6 @@ class FeatureEngine:
             "close_vs_poc":(close-poc)/close if close else 0.0,
             "poc_location":(poc-low)/rng,
         }
-        h.append(row)
+        if eligible:
+            h.append(row)
         return feature
