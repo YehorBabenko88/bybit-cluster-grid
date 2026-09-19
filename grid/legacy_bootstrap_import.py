@@ -100,8 +100,6 @@ async def import_research(pool,research_path,source_id):
     try:
         cols={x[1] for x in rdb.execute("PRAGMA table_info(legacy_levels)")}
         if cols:
-            for rows in iter(lambda:rdb.execute("""SELECT symbol,timeframe,level_type,source_start,available_at,
-              price,trigger,broken,broken_at,entries FROM legacy_levels""").fetchmany(0),[]): pass
             cur=rdb.execute("""SELECT symbol,timeframe,level_type,source_start,available_at,
               price,trigger,broken,broken_at,entries FROM legacy_levels""")
             while True:
@@ -196,7 +194,9 @@ async def import_handoff(pool,handoff_path,batch_size=5000):
 async def _amain(args):
     db=await prepare_database()
     try:return await import_handoff(db.pool,args.handoff,args.batch_size)
-    finally:await db.close()
+    finally:
+        if db.pool is not None:
+            await db.pool.close()
 
 def main():
     p=argparse.ArgumentParser()
