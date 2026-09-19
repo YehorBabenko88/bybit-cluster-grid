@@ -11,6 +11,7 @@ from .control_plane import ensure_control_schema,enqueue_command,pending_command
 from .update_protocol import ensure_update_schema,note_heartbeat,register_release,start_canary,promote_stable,expired_canaries
 from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent
 from .rollout import begin_stable_rollout,note_rollout_heartbeat,expire_rollout_nodes
+from .telegram_bot import telegram_loop
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -159,3 +160,4 @@ async def startup():
                 log.exception("coordinator refresh failed",extra={"event":"universe_refresh_failed"})
             await asyncio.sleep(settings.rebalance_seconds)
     asyncio.create_task(loop())
+    asyncio.create_task(telegram_loop(db,nodes))
