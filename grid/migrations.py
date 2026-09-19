@@ -42,6 +42,19 @@ first_touch_kind text, cross_ts timestamptz, acceptance_ts timestamptz,
 touch_count integer NOT NULL DEFAULT 0, max_distance_pct double precision NOT NULL DEFAULT 0,
 last_checked_ts timestamptz, PRIMARY KEY(symbol,source_ts))""",
 "CREATE INDEX IF NOT EXISTS poc_lifecycle_open_idx ON poc_lifecycle(symbol,status,source_ts)"
+]),
+(7,"historical_level_events",[
+"""CREATE TABLE IF NOT EXISTS historical_levels(
+symbol text NOT NULL, timeframe text NOT NULL, level_kind text NOT NULL,
+source_ts timestamptz NOT NULL, price numeric NOT NULL, active boolean NOT NULL DEFAULT true,
+first_cross_ts timestamptz, test_count integer NOT NULL DEFAULT 0,
+PRIMARY KEY(symbol,timeframe,level_kind,source_ts))""",
+"""CREATE TABLE IF NOT EXISTS level_events(
+id bigserial PRIMARY KEY, symbol text NOT NULL, timeframe text NOT NULL, level_kind text NOT NULL,
+source_ts timestamptz NOT NULL, level_price numeric NOT NULL, event_ts timestamptz NOT NULL,
+event_type text NOT NULL, direction text, pre_features jsonb NOT NULL DEFAULT '{}'::jsonb,
+event_features jsonb NOT NULL DEFAULT '{}'::jsonb, outcome jsonb NOT NULL DEFAULT '{}'::jsonb)""",
+"CREATE INDEX IF NOT EXISTS level_events_lookup_idx ON level_events(symbol,timeframe,event_type,event_ts DESC)"
 ])
 ]
 
