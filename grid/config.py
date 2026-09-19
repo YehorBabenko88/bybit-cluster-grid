@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     retention_orderbook_snapshots_days: int = 14
     retention_footprint_days: int = 90
     retention_derivatives_days: int = 365
+    strategy_cache_dir: str = "runtime_strategies"
+    strategy_job_timeout_seconds: int = 21600
+    strategy_cpu_soft_limit: float = 60
+    strategy_ram_soft_limit: float = 72
+    strategy_disk_free_gb: float = 30
+    strategy_db_active_limit: int = 20
+    strategy_poll_seconds: int = 3
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
