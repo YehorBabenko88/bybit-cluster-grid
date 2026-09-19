@@ -2,7 +2,7 @@ import asyncio, json, logging, time
 import websockets
 from .config import settings
 from .resilience import backoff_delays, wait_for_internet
-from .orderbook import analyze_book
+from .orderbook import analyze_book\nfrom .data_quality import FeedQuality, safe_float, AVAILABLE, MISSING
 
 log=logging.getLogger("microstructure")
 
@@ -50,7 +50,7 @@ class MicrostructureCollector:
 
                         if topic.startswith("tickers."):
                             sym=topic.split(".",1)[1]
-                            state=tickers.setdefault(sym,{})
+                            state=tickers.setdefault(sym,{})\n                            quality.setdefault(sym,FeedQuality(sym)).mark("ticker",AVAILABLE)
                             state.update({k:v for k,v in data.items() if v is not None})
                             if ts-last_ticker_write.get(sym,0) >= self.snapshot_ms:
                                 payload={
@@ -70,12 +70,12 @@ class MicrostructureCollector:
                                     "volume24h":state.get("volume24h"),
                                     "turnover24h":state.get("turnover24h"),
                                 }
-                                await self.db.insert_event(sym,ts,"derivatives_ticker",payload)
+                                q=quality.setdefault(sym,FeedQuality(sym))\n                                q.mark("open_interest", AVAILABLE if payload["open_interest"] is not None else MISSING, "field unavailable")\n                                q.mark("funding", AVAILABLE if payload["funding_rate"] is not None else MISSING, "not supplied/applicable")\n                                payload["_quality"]=q.snapshot()\n                                await self.db.insert_event(sym,ts,"derivatives_ticker",payload)
                                 last_ticker_write[sym]=ts
 
                         elif topic.startswith("orderbook."):
                             sym=topic.split(".")[-1]
-                            state=books.setdefault(sym,{"b":{},"a":{},"u":None,"seq":None})
+                            state=books.setdefault(sym,{"b":{},"a":{},"u":None,"seq":None})\n                            q=quality.setdefault(sym,FeedQuality(sym))
                             # A fresh snapshot must replace the local book.
                             if msg.get("type")=="snapshot" or data.get("u")==1:
                                 state["b"]={float(p):float(q) for p,q in data.get("b",[])}
@@ -96,7 +96,7 @@ class MicrostructureCollector:
                                 metrics=analyze_book(list(state["b"].items()),list(state["a"].items()))
                                 metrics["update_id"]=state["u"]
                                 metrics["sequence"]=state["seq"]
-                                metrics["cts"]=data.get("cts")
+                                metrics["cts"]=data.get("cts")\n                                metrics["_quality"]=q.snapshot()
                                 await self.db.insert_event(sym,ts,"orderbook_snapshot",metrics)
                                 for wall in metrics["walls"]:
                                     if wall["ratio"] >= self.wall_event_ratio:
