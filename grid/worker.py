@@ -35,6 +35,8 @@ class Worker:
         self.db=None
         self.meta={}
         self.enabled=True
+        self.bootstrap_paused=False
+        self.bootstrap_phase=os.getenv('GRID_BOOTSTRAP_PHASE','NORMAL')
         self.pressure=PressureController(settings.resource_cpu_limit,settings.resource_ram_limit,settings.resource_disk_free_gb)
         self.pressure_drained=set()
         self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json'))
@@ -65,6 +67,8 @@ class Worker:
                              "db_spool_ratio":round(dbm.get("spool_ratio",0.0),4),
                              "db_avg_write_latency_ms":round(dbm["avg_write_latency_ms"],3)})
                 snap['pressure_state']=state
+                snap['bootstrap_paused']=self.bootstrap_paused
+                snap['bootstrap_phase']=self.bootstrap_phase
                 snap['pressure_drained']=len(self.pressure_drained)
                 snap['drained_symbols']=sorted(self.pressure_drained)
                 snap['symbol_cost']={k:round(v,3) for k,v in self.pressure.symbol_cost.items() if k in self.wanted}
@@ -128,6 +132,16 @@ class Worker:
                         finally:
                             os._exit(0)
                 await asyncio.sleep(settings.heartbeat_seconds)
+
+    async def set_bootstrap_pause(self,paused):
+        self.bootstrap_paused=bool(paused)
+        flag=os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","bootstrap.pause")
+        os.makedirs(os.path.dirname(flag),exist_ok=True)
+        if paused:
+            with open(flag,"w",encoding="utf-8") as f:f.write("paused\n")
+        else:
+            try:os.remove(flag)
+            except FileNotFoundError:pass
 
     async def reconcile(self):
         for sym in list(self.trade_tasks):
