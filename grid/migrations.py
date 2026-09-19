@@ -288,6 +288,12 @@ split text,payload jsonb NOT NULL,PRIMARY KEY(source_id,symbol,sample_key))""",
 "ALTER TABLE legacy_symbol_coverage ADD COLUMN IF NOT EXISTS imported_candles bigint NOT NULL DEFAULT 0",
 "ALTER TABLE legacy_symbol_coverage ADD COLUMN IF NOT EXISTS verified_at timestamptz",
 "ALTER TABLE legacy_symbol_coverage ADD COLUMN IF NOT EXISTS last_error text"
+]),
+(30,"required_retention_consumer_registry",[
+"""CREATE TABLE IF NOT EXISTS retention_consumers(
+dataset text NOT NULL,consumer text NOT NULL,required boolean NOT NULL DEFAULT true,
+active boolean NOT NULL DEFAULT true,created_at timestamptz NOT NULL DEFAULT now(),
+updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(dataset,consumer))"""
 ])
 ]
 
