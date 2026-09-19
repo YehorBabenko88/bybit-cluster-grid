@@ -42,7 +42,23 @@ async def start_canary(pool,version,node_id,required_acks=3):
           ON CONFLICT(version) DO UPDATE SET phase='canary',canary_node=EXCLUDED.canary_node,
           required_health_acks=EXCLUDED.required_health_acks,status='running',last_error=NULL""",
           version,node_id,required_acks)
+        await c.execute("""INSERT INTO agent_update_status(node_id,target_version,status,health_acks,deadline)
+          VALUES($1,$2,'awaiting_restart',0,now()+interval '5 minutes')
+          ON CONFLICT(node_id) DO UPDATE SET target_version=$2,status='awaiting_restart',
+          health_acks=0,deadline=now()+interval '5 minutes',last_error=NULL,updated_at=now()""",node_id,version)
         return dict(rel)
+
+async def expired_canaries(pool):
+    async with pool.acquire() as c:
+        rows=await c.fetch("""SELECT r.version,r.canary_node FROM rollout_state r
+          JOIN agent_update_status s ON s.node_id=r.canary_node AND s.target_version=r.version
+          WHERE r.status='running' AND s.deadline IS NOT NULL AND s.deadline<now()""")
+        for row in rows:
+            await c.execute("""UPDATE rollout_state SET status='failed',
+              last_error='canary health timeout' WHERE version=$1""",row["version"])
+            await c.execute("""UPDATE agent_update_status SET status='rollback_pending',
+              last_error='canary health timeout',updated_at=now() WHERE node_id=$1""",row["canary_node"])
+        return [dict(r) for r in rows]
 
 async def note_heartbeat(pool,node_id,version):
     async with pool.acquire() as c:
