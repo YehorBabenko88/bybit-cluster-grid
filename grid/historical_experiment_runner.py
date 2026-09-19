@@ -5,6 +5,9 @@ from .barrier_simulator import load_forward_candles,simulate_barrier
 from .trading_evaluation import evaluate_trades
 from .incremental_edge import compare_variant,paired_signal_effect
 from .strategy_statistics import paired_expectancy_bootstrap,block_bootstrap_expectancy
+from .event_conditioned_markov import EventConditionedMarkov
+from .markov_training_data import attach_future_regime
+from datetime import timedelta
 
 async def _simulate(pool,signals,fold,sim_cfg):
     out=[]
@@ -40,10 +43,16 @@ async def run_symbol(pool,run_id,dataset_id,strategy_name,symbol,config):
         variant_all={v:[] for v in variants}
         availability={}
         for fold,train,val in folds:
+            markov_horizon=int(config.get("markov_horizon_minutes",15))
+            validation_start=min(x["event_ts"] for x in val)
+            causal_train=[x for x in train if x["event_ts"]+timedelta(minutes=markov_horizon)<validation_start]
+            markov_train=await attach_future_regime(pool,causal_train,markov_horizon)
+            event_markov=EventConditionedMarkov(
+              min_transitions=int(config.get("markov_min_transitions",30))).fit(markov_train)
             for variant in variants:
-                selected,meta=select_validation(variant,setup,train,val,
+                selected,meta=select_validation(variant,setup,causal_train,val,
                   markov_threshold=threshold,ml_threshold=ml_threshold,
-                  min_transitions=int(config.get("markov_min_transitions",30)))
+                  min_transitions=int(config.get("markov_min_transitions",30)),model=event_markov)
                 trades=await _simulate(pool,selected,fold,sim_cfg)
                 variant_all[variant].extend(trades)
                 availability.setdefault(variant,[]).append(meta)
