@@ -18,7 +18,7 @@ from .integrity_coordinator import handle_integrity_heartbeat
 from .repair_circuit_breaker import RepairCircuitBreaker
 from .repair_health import expired_repairs
 from .archive_discovery_service import seed_discovery
-from .pilot_state import node_accepts_live_assignments
+from .pilot_state import node_accepts_live_assignments,node_live_mode
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -51,9 +51,16 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     payload.update(repair_info)
     commands=await pending_commands(db.pool,nid)
     replica=await build_replica(db.pool)
-    live_ok=await node_accepts_live_assignments(db.pool,nid)
-    return {"symbols":assignments.get(nid,[]) if live_ok else [],
-            "commands":commands,"control_replica":replica,"live_assignments_enabled":live_ok}
+    live_mode=await node_live_mode(db.pool,nid)
+    if live_mode=="NORMAL":
+        symbols=assignments.get(nid,[])
+    elif live_mode=="PILOT_VALIDATING":
+        preferred=["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","DOGEUSDT"]
+        symbols=[x for x in preferred if x in instruments][:5]
+    else:
+        symbols=[]
+    return {"symbols":symbols,"commands":commands,"control_replica":replica,
+            "live_assignments_enabled":bool(symbols),"live_mode":live_mode}
 
 @app.post("/commands/{command_id}/result")
 async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
