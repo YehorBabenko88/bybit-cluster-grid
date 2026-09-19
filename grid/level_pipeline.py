@@ -1,6 +1,7 @@
 import json
 from .level_generator import HistoricalLevelGenerator
 from .historical_levels import HistoricalLevelTracker
+from .observer_quality import event_quality
 
 class LevelPipeline:
     """Causal HTF level generation, persistence and event classification."""
@@ -35,6 +36,7 @@ class LevelPipeline:
             self.tracker.register(lv.symbol,lv.timeframe,lv.kind,lv.source_ts,lv.price,side)
 
         features=built_features.get("features",built_features)
+        quality=event_quality(built_features)
         events=self.tracker.observe(symbol,ts,row["open"],row["high"],row["low"],row["close"],features)
         for typ,level,detail in events:
             direction=detail.get("direction")
@@ -43,11 +45,12 @@ class LevelPipeline:
             outcome={k:v for k,v in detail.items() if k not in ("pre_features","event_features","direction")}
             await self.pool.execute("""INSERT INTO level_events
                 (symbol,timeframe,level_kind,source_ts,level_price,event_ts,event_type,direction,
-                 pre_features,event_features,outcome)
-                VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb)
+                 pre_features,event_features,outcome,quality_status,completeness,ml_eligible)
+                VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13,$14)
                 ON CONFLICT(symbol,timeframe,level_kind,source_ts,event_ts,event_type) DO NOTHING""",
                 symbol,level.timeframe,level.kind,level.source_ts,level.price,ts,typ,direction,
-                json.dumps(pre,default=str),json.dumps(event_features,default=str),json.dumps(outcome,default=str))
+                json.dumps(pre,default=str),json.dumps(event_features,default=str),json.dumps(outcome,default=str),
+                quality["quality_status"],quality["completeness"],quality["ml_eligible"])
             if typ=="FIRST_CROSS":
                 await self.pool.execute("""UPDATE historical_levels SET first_cross_ts=$1,test_count=test_count+1
                     WHERE symbol=$2 AND timeframe=$3 AND level_kind=$4 AND source_ts=$5""",
