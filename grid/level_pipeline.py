@@ -44,7 +44,8 @@ class LevelPipeline:
             await self.pool.execute("""INSERT INTO level_events
                 (symbol,timeframe,level_kind,source_ts,level_price,event_ts,event_type,direction,
                  pre_features,event_features,outcome)
-                VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb)""",
+                VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb)
+                ON CONFLICT(symbol,timeframe,level_kind,source_ts,event_ts,event_type) DO NOTHING""",
                 symbol,level.timeframe,level.kind,level.source_ts,level.price,ts,typ,direction,
                 json.dumps(pre,default=str),json.dumps(event_features,default=str),json.dumps(outcome,default=str))
             if typ=="FIRST_CROSS":
