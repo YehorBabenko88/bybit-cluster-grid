@@ -26,9 +26,12 @@ async def handle_command(db,session,chat_id,text):
     cmd=text.strip().split()[0].lower()
     if cmd in ("/db","/dbsize","/storage"):
         s=await database_stats(db.pool)
+        import shutil
+        disk=shutil.disk_usage(".")
         lines=[
             f"DB: {s['database']['name']}",
             f"Size: {s['database']['pretty']}",
+            f"Disk free: {fmt_bytes(disk.free)} / {fmt_bytes(disk.total)}",
             "Largest tables:",
         ]
         for t in s["tables"][:8]:
