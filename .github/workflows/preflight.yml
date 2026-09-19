@@ -9,6 +9,9 @@ on:
 jobs:
   python-preflight:
     runs-on: ubuntu-latest
+    env:
+      GRID_SHARED_TOKEN: test-token
+      POSTGRES_DSN: postgresql://grid:grid@127.0.0.1:5432/grid
     strategy:
       matrix:
         python-version:
