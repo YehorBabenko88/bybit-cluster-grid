@@ -1,4 +1,4 @@
-import json,uuid
+import json,uuid,hashlib
 from .ml_splits import walk_forward
 
 class TrainingWorker:
@@ -10,17 +10,25 @@ class TrainingWorker:
         ds=await self.pool.fetchrow("""SELECT * FROM dataset_snapshots
           WHERE id=$1 AND status='READY'""",dataset_id)
         if not ds: raise ValueError("dataset is not READY")
-        rows=await self.pool.fetch("""SELECT s.* FROM dataset_samples d
-          JOIN ml_event_samples s ON s.sample_id=d.sample_id
-          WHERE d.dataset_id=$1 ORDER BY d.ordinal""",dataset_id)
-        folds=walk_forward([dict(r) for r in rows])
+        frozen=await self.pool.fetch("""SELECT ordinal,payload,payload_hash FROM dataset_sample_payloads
+          WHERE dataset_id=$1 ORDER BY ordinal""",dataset_id)
+        if len(frozen)!=ds["sample_count"]: raise ValueError("immutable dataset payload count mismatch")
+        hashes=[]; rows=[]
+        for r in frozen:
+            raw=json.dumps(r["payload"],sort_keys=True,default=str,separators=(",",":"))
+            h=hashlib.sha256(raw.encode()).hexdigest()
+            if h!=r["payload_hash"]: raise ValueError("immutable dataset payload hash mismatch")
+            hashes.append(h); rows.append(dict(r["payload"]))
+        aggregate=hashlib.sha256("\n".join(hashes).encode()).hexdigest()
+        if aggregate!=ds["dataset_hash"]: raise ValueError("dataset aggregate hash mismatch")
+        folds=walk_forward(rows)
         if not folds: raise ValueError("not enough samples for walk-forward training")
         fold_metrics=[]
         for train,valid in folds:
             model=self.backend.fit(train,hyperparameters or {})
             pred=self.backend.predict(model,valid)
             fold_metrics.append(self.backend.evaluate(valid,pred))
-        final=self.backend.fit([dict(r) for r in rows],hyperparameters or {})
+        final=self.backend.fit(rows,hyperparameters or {})
         artifact=await self.backend.serialize(final)
         mid=uuid.uuid4()
         await self.pool.execute("""INSERT INTO model_registry
