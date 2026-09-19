@@ -33,8 +33,9 @@ def weighted_assign(symbols,node_scores,nodes):
         cost=max(.01,costs.get(symbol,fallback))
         eligible=[n for n in node_scores if not node_avoids(nodes.get(n,{}),symbol)]
         if not eligible:
-            # Availability wins over avoidance: if every live node is pressured, keep one collector.
-            eligible=list(node_scores)
+            # Never defeat CRITICAL load shedding by assigning the full universe back to
+            # overloaded nodes. The coordinator may preserve a separate priority core.
+            continue
         node=min(eligible,key=lambda n:(load[n]/node_scores[n],n))
         result[node].append(symbol)
         load[node]+=cost
