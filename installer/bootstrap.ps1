@@ -98,8 +98,12 @@ if(!(Test-Path $EnvFile)){
     ) | Set-Content -Encoding UTF8 $EnvFile
 }
 
-# Existing PostgreSQL is discovered, never upgraded/reconfigured automatically.
-& (Join-Path $PSScriptRoot "provision_postgres.ps1") -DiscoveryPath (Join-Path $DataRoot "discovery.json") -DataRoot $DataRoot
+# PostgreSQL is CONTROL-owned. Agents never provision or modify PostgreSQL.
+if($AgentMode -eq "CONTROL"){
+    & (Join-Path $PSScriptRoot "provision_postgres.ps1") -DiscoveryPath (Join-Path $DataRoot "discovery.json") -DataRoot $DataRoot
+}else{
+    Write-Host "Agent mode: PostgreSQL provisioning skipped; data ingress is CONTROL-owned."
+}
 
 # First-node legacy import must finish before Agent/ArchivePipeline start. This prevents
 # Grid from blindly downloading OHLCV that already exists in the repaired SQLite cache.
