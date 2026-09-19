@@ -2,19 +2,33 @@ import asyncpg
 from datetime import datetime,timezone
 from .config import settings
 from .write_queue import BoundedWriteQueue
+from .spool import DiskSpool
+import os
 
 class Storage:
     def __init__(self):
         self.pool=None
-        self.write_queue=BoundedWriteQueue(self._save_direct,maxsize=5000,workers=2)
+        root=os.path.join(os.getenv("ProgramData",os.getcwd()),"BybitClusterGrid","spool")
+        self.spool=DiskSpool(root)
+        self.write_queue=BoundedWriteQueue(self._save_spooled,maxsize=5000,workers=2)
     async def start(self):
         self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=5)
         await self.write_queue.start()
+        for path,row in self.spool.recover():
+            await self.write_queue.put(path,row)
     async def save(self,row):
-        await self.write_queue.put(row)
+        path=await self.spool.append(row)
+        await self.write_queue.put(path,row)
 
     def metrics(self):
-        return self.write_queue.metrics()
+        m=self.write_queue.metrics()
+        m['spool_bytes']=self.spool.bytes_used()
+        m['spool_ratio']=self.spool.ratio()
+        return m
+
+    async def _save_spooled(self,path,row):
+        await self._save_direct(row)
+        await self.spool.ack(path)
 
     async def _save_direct(self,row):
         ts=datetime.fromtimestamp(row["start_ms"]/1000,tz=timezone.utc)
