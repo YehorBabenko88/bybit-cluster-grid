@@ -45,7 +45,10 @@ if(!(Test-Path $OwnedPython)){
     if(Test-Path $Bundled){
         $OwnedRoot=Split-Path $OwnedPython -Parent
         New-Item -ItemType Directory -Force -Path $OwnedRoot | Out-Null
-        Copy-Item (Split-Path $Bundled -Parent) $OwnedRoot -Recurse -Force
+        # Copy the runtime contents into OwnedRoot, not the runtime directory itself.
+        # Copy-Item <directory> <existing-directory> would create an unwanted
+        # ...\\python\\runtime\\python.exe nesting.
+        Copy-Item (Join-Path (Split-Path $Bundled -Parent) "*") $OwnedRoot -Recurse -Force
     } else {
         throw "Grid-owned Python runtime is missing from deployment bundle."
     }
