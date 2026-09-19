@@ -54,7 +54,7 @@ class Worker:
                                 try:
                                     await s.post(
                                         settings.coordinator_url+f"/commands/{cmd['id']}/result",
-                                        json={"ok":ok,"result":result,"error":error},
+                                        json={"node_id":snap["node_id"],"ok":ok,"result":result,"error":error},
                                         headers={
                                             "X-Grid-Token":settings.grid_shared_token,
                                             "X-Node-Credential":settings.node_credential,
