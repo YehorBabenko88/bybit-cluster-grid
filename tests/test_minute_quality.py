@@ -21,3 +21,16 @@ def test_degraded_candle_not_added_to_feature_baseline():
     assert a["eligible"] is True
     assert b["eligible"] is False
     assert len(e.hist["BTC"])==1
+
+def test_reconnect_degrades_all_open_symbol_buckets_only():
+    f=FootprintBuilder(1)
+    f.add(Trade(symbol="BTCUSDT",ts_ms=1000,price=100,qty=1,side="Buy"))
+    f.add(Trade(symbol="BTCUSDT",ts_ms=61000,price=101,qty=1,side="Buy"))
+    f.add(Trade(symbol="ETHUSDT",ts_ms=61000,price=50,qty=1,side="Buy"))
+    f.mark_open_degraded("BTCUSDT","ws_reconnect")
+    rows=f.pop_closed(121000)
+    btc=[r for r in rows if r["symbol"]=="BTCUSDT"]
+    eth=[r for r in rows if r["symbol"]=="ETHUSDT"]
+    assert len(btc)==2 and all(r["quality_status"]=="DEGRADED" for r in btc)
+    assert all("ws_reconnect" in r["quality_reasons"] for r in btc)
+    assert eth[0]["quality_status"]=="GOOD"
