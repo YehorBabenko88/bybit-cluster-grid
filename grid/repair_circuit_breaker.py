@@ -6,7 +6,10 @@ class RepairCircuitBreaker:
         self.history={};self.blocked_until={}
     def allow(self,node_id,now=None):
         now=time.time() if now is None else float(now)
-        if now<self.blocked_until.get(node_id,0):return False
+        blocked=self.blocked_until.get(node_id,0)
+        if now<blocked:return False
+        if blocked and now>=blocked:
+            self.blocked_until.pop(node_id,None); self.history[node_id]=[]
         xs=[x for x in self.history.get(node_id,[]) if now-x<=self.window]
         self.history[node_id]=xs
         if len(xs)>=self.max_attempts:
