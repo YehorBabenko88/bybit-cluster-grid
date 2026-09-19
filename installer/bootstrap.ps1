@@ -3,6 +3,7 @@ param(
   [string]$CoordinatorUrl="",
   [string]$EnrollmentToken="",
   [string]$LegacyHandoff="",
+  [string]$ExistingPostgresDsn="",
   [ValidateSet("CONTROL","PILOT","NORMAL")][string]$AgentMode="NORMAL"
 )
 $ErrorActionPreference="Stop"
@@ -106,42 +107,38 @@ if(!(Test-Path $EnvFile)){
     $lines | Set-Content -Encoding UTF8 $EnvFile
 }
 
-# PostgreSQL is CONTROL-owned. Agents never provision or modify PostgreSQL.
+# PostgreSQL is CONTROL-owned logically, but an externally installed instance remains external.
+# ExistingPostgresDsn opts into that instance without creating an ownership manifest.
 if($AgentMode -eq "CONTROL"){
-    & (Join-Path $PSScriptRoot "provision_postgres.ps1") -DiscoveryPath (Join-Path $DataRoot "discovery.json") -DataRoot $DataRoot
+    if($ExistingPostgresDsn){
+        $probe=$ExistingPostgresDsn
+        $lines=@(Get-Content $EnvFile | Where-Object {$_ -notmatch '^POSTGRES_DSN='})
+        $lines += "POSTGRES_DSN=$probe"
+        $lines | Set-Content -Encoding UTF8 $EnvFile
+        Write-Host "Using operator-provisioned PostgreSQL; Grid will not claim ownership of the service."
+    } else {
+        & (Join-Path $PSScriptRoot "provision_postgres.ps1") -DiscoveryPath (Join-Path $DataRoot "discovery.json") -DataRoot $DataRoot
+    }
 }else{
     Write-Host "Agent mode: PostgreSQL provisioning skipped; data ingress is CONTROL-owned."
 }
 
-# First-node legacy import must finish before Agent/ArchivePipeline start. This prevents
-# Grid from blindly downloading OHLCV that already exists in the repaired SQLite cache.
-if($LegacyHandoff -and $AgentMode -eq "NORMAL"){
+# Legacy research handoff is staged only. Market/research payload import is forbidden
+# before the global runtime gate is explicitly activated with START.
+if($LegacyHandoff){
     if(!(Test-Path $LegacyHandoff)){throw "Legacy handoff not found: $LegacyHandoff"}
     $HandoffCopy=Join-Path $DataRoot "bootstrap-handoff.json"
     Copy-Item $LegacyHandoff $HandoffCopy -Force
-    foreach($line in Get-Content $EnvFile){
-        $x=$line.Trim()
-        if(!$x -or $x.StartsWith("#")){continue}
-        $i=$x.IndexOf("=")
-        if($i -le 0){continue}
-        [Environment]::SetEnvironmentVariable($x.Substring(0,$i).Trim(),$x.Substring($i+1),"Process")
-    }
-    Push-Location $Release
-    try {
-        & $Python -m grid.legacy_bootstrap_import --handoff $HandoffCopy
-        if($LASTEXITCODE -ne 0){throw "Legacy SQLite/Grid handoff import failed"}
-    } finally { Pop-Location }
-    $Verified=Join-Path $DataRoot "grid_import_verified.json"
-    $SideMarker=Join-Path $DataRoot "grid_import_verified.json"
-    $ImporterMarker=Join-Path (Split-Path $HandoffCopy -Parent) "grid_import_verified.json"
-    if(!(Test-Path $ImporterMarker)){throw "Legacy importer did not produce VERIFIED marker"}
-    Write-Host "Legacy handoff imported and verified before service startup."
-}
-
-if($LegacyHandoff -and $AgentMode -eq "PILOT"){
-    if(!(Test-Path $LegacyHandoff)){throw "Legacy handoff not found: $LegacyHandoff"}
-    Copy-Item $LegacyHandoff (Join-Path $DataRoot "bootstrap-handoff.json") -Force
-    Write-Host "Pilot handoff staged; import will be orchestrated after agent enrollment."
+    $hash=(Get-FileHash -Algorithm SHA256 $HandoffCopy).Hash.ToLowerInvariant()
+    [ordered]@{
+      schema=1
+      status="STAGED"
+      sha256=$hash
+      staged_at=(Get-Date).ToUniversalTime().ToString("o")
+      import_allowed=$false
+      reason="Await explicit global START"
+    } | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $DataRoot "bootstrap-handoff.staged.json")
+    Write-Host "Legacy handoff staged only; no market payload imported before START."
 }
 
 $CredentialFile=Join-Path $DataRoot "secrets\node.credential"
