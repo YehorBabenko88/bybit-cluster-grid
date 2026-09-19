@@ -30,7 +30,7 @@ class DatasetBuilder:
                       (dataset_id,sample_id,ordinal,payload,payload_hash,event_ts,feature_ts,label_end_ts,split_group)
                       VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9)""",
                         [(did,r["sample_id"],i,manifest[i],hashes[i],r["event_ts"],r["feature_ts"],
-                          r["label_end_ts"],r["split_group"]) for i,r in enumerate(selected)])
+                          _get(r,"label_end_ts"),_get(r,"split_group")) for i,r in enumerate(selected)])
                     await c.execute("""UPDATE dataset_snapshots SET dataset_hash=$2,
                       sample_count=$3,status='READY' WHERE id=$1 AND status='BUILDING'""",
                       did,digest,len(manifest))
@@ -40,9 +40,14 @@ class DatasetBuilder:
             await self.pool.execute("UPDATE dataset_snapshots SET status='FAILED' WHERE id=$1",did)
             raise
 
+def _get(r,key,default=None):
+    try:return r[key]
+    except (KeyError,TypeError):return default
+
 def _canonical(r):
-    d={k:r[k] for k in ("sample_id","symbol","event_ts","feature_ts","features",
+    d={k:_get(r,k) for k in ("sample_id","symbol","event_ts","feature_ts","features",
                          "instrument_features","target","quality_status","split_group","label_end_ts")}
+    d["sample_id"]=_get(r,"sample_id"); d["symbol"]=_get(r,"symbol"); d["event_ts"]=_get(r,"event_ts"); d["feature_ts"]=_get(r,"feature_ts")
     return json.dumps(d,sort_keys=True,default=str,separators=(",",":"))
 
 def _matches(r,c):
