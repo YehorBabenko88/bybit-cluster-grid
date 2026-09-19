@@ -1,36 +1,45 @@
-import asyncio, json, logging
+import asyncio, logging
 from .resources import NODE_ID
-from .strategy_jobs import claim_job, finish_job
+from .strategy_jobs import claim_job, finish_job, requeue_job
+from .strategy_executor import execute_job_subprocess
+from .strategy_resources import strategy_allowed, database_pressure
+from .config import settings
 
 log=logging.getLogger("strategy_runner")
 
-class StrategyRegistry:
-    def __init__(self):
-        self._strategies={}
-    def register(self,name,fn):
-        self._strategies[name]=fn
-    def get(self,name):
-        return self._strategies.get(name)
-
-registry=StrategyRegistry()
-
-async def run_job(db,job):
-    fn=registry.get(job["strategy_name"])
-    if fn is None:
-        raise ValueError(f"unknown strategy: {job['strategy_name']}")
-    params=job["params"] if isinstance(job["params"],dict) else json.loads(job["params"])
-    symbols=job["symbols"] if isinstance(job["symbols"],list) else json.loads(job["symbols"])
-    await fn(db,job["id"],symbols,job["start_ts"],job["end_ts"],params)
-
-async def strategy_worker(db,poll_seconds=3):
+async def strategy_worker(db,poll_seconds=None):
+    poll_seconds=poll_seconds or settings.strategy_poll_seconds
     while True:
         job=None
         try:
+            ok,snap,reasons=strategy_allowed(settings)
+            if not ok:
+                log.info("strategy paused by resource guard",extra={
+                    "event":"strategy_resource_pause","component":",".join(reasons)
+                })
+                await asyncio.sleep(max(3,poll_seconds)); continue
+
+            dbp=await database_pressure(db.pool,settings)
+            if not dbp["ok"]:
+                log.info("strategy paused by db pressure",extra={
+                    "event":"strategy_db_pause","component":str(dbp)
+                })
+                await asyncio.sleep(max(3,poll_seconds)); continue
+
             job=await claim_job(db.pool,NODE_ID)
             if not job:
                 await asyncio.sleep(poll_seconds); continue
-            await run_job(db,job)
+
+            # Re-check immediately before expensive work.
+            ok,_,reasons=strategy_allowed(settings)
+            if not ok:
+                await requeue_job(db.pool,job["id"],"resource pressure: "+",".join(reasons))
+                job=None
+                await asyncio.sleep(max(3,poll_seconds)); continue
+
+            await execute_job_subprocess(db,job)
             await finish_job(db.pool,job["id"])
+            log.info("strategy job completed",extra={"event":"strategy_job_done","component":str(job["id"])})
         except asyncio.CancelledError:
             raise
         except Exception as e:
