@@ -32,6 +32,16 @@ built_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(symbol,ts))""",
 "ALTER TABLE market_features_1m ADD COLUMN IF NOT EXISTS regime text NOT NULL DEFAULT 'QUIET'",
 "ALTER TABLE market_features_1m ADD COLUMN IF NOT EXISTS regime_score double precision NOT NULL DEFAULT 1.0",
 "CREATE INDEX IF NOT EXISTS market_features_1m_regime_idx ON market_features_1m(regime,ts DESC)"
+]),
+(6,"poc_lifecycle",[
+"""CREATE TABLE IF NOT EXISTS poc_lifecycle(
+symbol text NOT NULL, source_ts timestamptz NOT NULL, poc_price numeric NOT NULL,
+source_close numeric, source_regime text, source_features jsonb NOT NULL DEFAULT '{}'::jsonb,
+status text NOT NULL DEFAULT 'NAKED', first_touch_ts timestamptz, first_touch_minutes integer,
+first_touch_kind text, cross_ts timestamptz, acceptance_ts timestamptz,
+touch_count integer NOT NULL DEFAULT 0, max_distance_pct double precision NOT NULL DEFAULT 0,
+last_checked_ts timestamptz, PRIMARY KEY(symbol,source_ts))""",
+"CREATE INDEX IF NOT EXISTS poc_lifecycle_open_idx ON poc_lifecycle(symbol,status,source_ts)"
 ])
 ]
 
