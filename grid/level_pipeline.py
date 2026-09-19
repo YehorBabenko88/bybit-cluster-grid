@@ -2,6 +2,8 @@ import json
 from .level_generator import HistoricalLevelGenerator
 from .historical_levels import HistoricalLevelTracker
 from .observer_quality import event_quality
+from .rolling_event_features import RollingEventFeatures
+from .instrument_profile import InstrumentProfile
 
 class LevelPipeline:
     """Causal HTF level generation, persistence and event classification."""
@@ -9,6 +11,8 @@ class LevelPipeline:
         self.pool=pool
         self.generator=generator or HistoricalLevelGenerator()
         self.tracker=tracker or HistoricalLevelTracker()
+        self.rolling=RollingEventFeatures()
+        self.instrument_profile=InstrumentProfile()
 
     async def restore_active(self,symbol=None):
         sql="""SELECT symbol,timeframe,level_kind,source_ts,price,available_ts,test_count
@@ -36,11 +40,13 @@ class LevelPipeline:
             self.tracker.register(lv.symbol,lv.timeframe,lv.kind,lv.source_ts,lv.price,side)
 
         features=built_features.get("features",built_features)
+        rolling_pre=self.rolling.snapshot(symbol,ts)
+        profile=self.instrument_profile.snapshot(symbol)
         quality=event_quality(built_features)
         events=self.tracker.observe(symbol,ts,row["open"],row["high"],row["low"],row["close"],features)
         for typ,level,detail in events:
             direction=detail.get("direction")
-            pre=detail.get("pre_features",level.pre_features)
+            pre=dict(detail.get("pre_features",level.pre_features)); pre.update(rolling_pre); pre["instrument_profile"]=profile
             event_features=detail.get("event_features",features)
             outcome={k:v for k,v in detail.items() if k not in ("pre_features","event_features","direction")}
             await self.pool.execute("""INSERT INTO level_events
@@ -59,4 +65,6 @@ class LevelPipeline:
                 await self.pool.execute("""UPDATE historical_levels SET active=false
                     WHERE symbol=$1 AND timeframe=$2 AND level_kind=$3 AND source_ts=$4""",
                     symbol,level.timeframe,level.kind,level.source_ts)
+        self.rolling.push(symbol,ts,features)
+        if quality["quality_status"]=="GOOD": self.instrument_profile.push(symbol,features)
         return events
