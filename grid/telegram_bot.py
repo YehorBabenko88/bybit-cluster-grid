@@ -5,6 +5,7 @@ from .control_plane import enqueue_command
 from .db_stats import database_stats
 from .retention import cleanup_all
 from .update_protocol import start_canary
+from .control_replication import telegram_cursor,commit_telegram_cursor
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -158,7 +159,8 @@ async def telegram_loop(db,nodes):
     if not settings.telegram_allowed_chat_ids.strip():
         log.error("telegram disabled: allowlist is empty",extra={"event":"telegram_no_allowlist"})
         return
-    offset=0
+    offset=await telegram_cursor(db.pool)
+    node_id=getattr(db,'node_id','telegram-leader')
     async with aiohttp.ClientSession() as session:
         while True:
             try:
@@ -166,15 +168,17 @@ async def telegram_loop(db,nodes):
                 async with session.get(url,params={"timeout":30,"offset":offset},timeout=40) as r:
                     data=await r.json()
                 for upd in data.get("result",[]):
-                    offset=max(offset,upd["update_id"]+1)
+                    next_offset=max(offset,upd["update_id"]+1)
                     msg=upd.get("message") or {}
                     chat=(msg.get("chat") or {}).get("id")
                     txt=msg.get("text","")
-                    if not chat or not txt.startswith("/"): continue
+                    if not chat or not txt.startswith("/"):
+                        offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     if not allowed(chat):
                         log.warning("telegram unauthorized",extra={"event":"telegram_denied"})
-                        continue
+                        offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     await handle_command(db,session,chat,txt,nodes)
+                    offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
             except asyncio.CancelledError:
                 raise
             except Exception:
