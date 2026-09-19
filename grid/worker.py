@@ -250,7 +250,8 @@ class Worker:
         await ensure_strategy_schema(self.db.pool)
         await ensure_plugin_schema(self.db.pool)
         await self.storage.start()
-        self.meta={x["symbol"]:x for x in await linear_symbols(settings.bybit_rest_url)}
+        # Strict INFRA_ONLY: no Bybit discovery is permitted before CONTROL opens ACTIVE.
+        self.meta={}
         stop_flag=os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","operator.stop")
         if os.path.exists(stop_flag):
             self.operator_stopped=True; self.enabled=False
