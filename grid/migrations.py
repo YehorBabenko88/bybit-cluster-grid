@@ -132,6 +132,20 @@ outcome jsonb, evaluated_at timestamptz, PRIMARY KEY(model_id,symbol,event_ts,se
 dataset_id uuid NOT NULL REFERENCES dataset_snapshots(id) ON DELETE CASCADE,
 sample_id bigint NOT NULL REFERENCES ml_event_samples(sample_id),
 ordinal bigint NOT NULL, PRIMARY KEY(dataset_id,sample_id), UNIQUE(dataset_id,ordinal))"""
+]),
+(16,"consumer_safe_retention_and_control_state",[
+"""CREATE TABLE IF NOT EXISTS consumer_watermarks(
+dataset text NOT NULL, consumer text NOT NULL, symbol text NOT NULL,
+consumed_through timestamptz NOT NULL, required boolean NOT NULL DEFAULT true,
+updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(dataset,consumer,symbol))""",
+"""CREATE TABLE IF NOT EXISTS retention_holds(
+id uuid PRIMARY KEY, dataset text NOT NULL, symbol text, from_ts timestamptz,
+through_ts timestamptz, reason text NOT NULL, owner_type text NOT NULL,
+owner_id text NOT NULL, expires_at timestamptz, created_at timestamptz NOT NULL DEFAULT now())""",
+"CREATE INDEX IF NOT EXISTS retention_holds_lookup_idx ON retention_holds(dataset,symbol,from_ts,through_ts)",
+"""CREATE TABLE IF NOT EXISTS replicated_control_state(
+state_key text PRIMARY KEY, value jsonb NOT NULL, version bigint NOT NULL DEFAULT 1,
+updated_at timestamptz NOT NULL DEFAULT now(), updated_by text NOT NULL)"""
 ])
 ]
 
