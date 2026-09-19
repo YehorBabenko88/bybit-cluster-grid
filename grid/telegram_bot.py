@@ -10,6 +10,7 @@ from .fleet_health import fleet_health
 from .pilot_state import pilot_state,expansion_ready,mark_expansion_notified
 from .retention_plan import cleanup_plan
 from .retention import RETENTION_DEFAULTS
+from .telegram_idempotency import claim_update,complete_update
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -242,7 +243,15 @@ async def telegram_loop(db,nodes):
                     if not allowed(chat):
                         log.warning("telegram unauthorized",extra={"event":"telegram_denied"})
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
-                    await handle_command(db,session,chat,txt,nodes)
+                    claimed=await claim_update(db.pool,upd["update_id"],chat,txt,node_id)
+                    if not claimed:
+                        offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
+                    try:
+                        await handle_command(db,session,chat,txt,nodes)
+                        await complete_update(db.pool,upd["update_id"])
+                    except Exception as e:
+                        await complete_update(db.pool,upd["update_id"],str(e)[:500])
+                        raise
                     await _notify_expansion_ready(db,session)
                     offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
             except asyncio.CancelledError:
