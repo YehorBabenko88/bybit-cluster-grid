@@ -8,6 +8,8 @@ from .update_protocol import start_canary
 from .control_replication import telegram_cursor,commit_telegram_cursor
 from .fleet_health import fleet_health
 from .pilot_state import pilot_state,expansion_ready,mark_expansion_notified
+from .retention_plan import cleanup_plan
+from .retention import RETENTION_DEFAULTS
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -148,6 +150,12 @@ async def handle_command(db,session,chat_id,text,nodes):
         code=secrets.token_hex(3).upper()
         _pending_confirms[(str(chat_id),code)]=("uninstall",parts[1],time.time()+120)
         await tg_send(session,chat_id,f"Confirm uninstall of {parts[1]} within 120s: /confirm {code}")
+    elif cmd=="/cleanupplan":
+        lines=["Retention dry-run:"]
+        for dataset,days in RETENTION_DEFAULTS.items():
+            p=await cleanup_plan(db.pool,dataset,days)
+            lines.append(f"{dataset}: deletable={p['deletable']} blocked={p.get('blocked') or '-'}")
+        await tg_send(session,chat_id,"\n".join(lines))
     elif cmd=="/cleanup":
         code=secrets.token_hex(3).upper()
         _pending_confirms[(str(chat_id),code)]=("cleanup",None,time.time()+120)
@@ -174,7 +182,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /pilot [NODE] /health /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /restart NODE /rollback NODE /uninstall NODE /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /pilot [NODE] /health /nodes /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
 
 async def _notify_expansion_ready(db,session):
     rows=await expansion_ready(db.pool)
