@@ -3,7 +3,7 @@
 Infrastructure/control/update traffic is always allowed. Market acquisition, archive
 backfill, strategy jobs and learning are allowed only while state == ACTIVE.
 """
-VALID_STATES={"INFRA_ONLY","START_REQUESTED","ACTIVE","PAUSED"}
+VALID_STATES={"INFRA_ONLY","START_REQUESTED","ACTIVE","PAUSED","STOPPING","STOPPED","RESUMING","DELETING"}
 
 async def ensure_runtime_gate(pool):
     await pool.execute("""CREATE TABLE IF NOT EXISTS grid_runtime_state(
@@ -12,7 +12,7 @@ async def ensure_runtime_gate(pool):
       requested_by text,
       reason text,
       updated_at timestamptz NOT NULL DEFAULT now(),
-      CHECK(state IN ('INFRA_ONLY','START_REQUESTED','ACTIVE','PAUSED'))
+      CHECK(state IN ('INFRA_ONLY','START_REQUESTED','ACTIVE','PAUSED','STOPPING','STOPPED','RESUMING','DELETING'))
     )""")
     await pool.execute("""INSERT INTO grid_runtime_state(singleton,state,reason)
       VALUES(true,'INFRA_ONLY','safe default')
