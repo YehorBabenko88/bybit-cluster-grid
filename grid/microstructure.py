@@ -5,6 +5,7 @@ from .resilience import backoff_delays, wait_for_internet
 from .orderbook import analyze_book
 from .data_quality import FeedQuality, safe_float, AVAILABLE, MISSING
 from .continuity import SequenceGuard
+from .book_velocity import BookVelocity
 
 log=logging.getLogger("microstructure")
 
@@ -30,6 +31,7 @@ class MicrostructureCollector:
         last_ticker_write={}
         quality={}
         guards={}
+        velocity=BookVelocity()
 
         while True:
             try:
@@ -112,6 +114,7 @@ class MicrostructureCollector:
 
                             if ts-last_book_write.get(sym,0) >= self.snapshot_ms:
                                 metrics=analyze_book(list(state["b"].items()),list(state["a"].items()))
+                                metrics.update(velocity.update(sym,ts,state["b"],state["a"]))
                                 metrics["update_id"]=state["u"]
                                 metrics["sequence"]=state["seq"]
                                 metrics["cts"]=data.get("cts")
