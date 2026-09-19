@@ -182,6 +182,15 @@ scratch_gb double precision NOT NULL,gpu boolean NOT NULL DEFAULT false,
 lease_generation bigint NOT NULL DEFAULT 0,expires_at timestamptz NOT NULL,
 created_at timestamptz NOT NULL DEFAULT now())""",
 "CREATE INDEX IF NOT EXISTS ml_reservations_node_idx ON ml_resource_reservations(node_id,expires_at)"
+]),
+(21,"markov_transition_edge_results",[
+"""CREATE TABLE IF NOT EXISTS markov_transition_edges(
+dataset_id uuid REFERENCES dataset_snapshots(id),model_id uuid REFERENCES model_registry(id),
+strategy_name text NOT NULL,symbol text NOT NULL DEFAULT '*',setup_type text NOT NULL,
+state_from text NOT NULL,state_to text NOT NULL,trades bigint NOT NULL,net_pnl double precision NOT NULL,
+expectancy double precision NOT NULL,hit_rate double precision NOT NULL,
+created_at timestamptz NOT NULL DEFAULT now(),
+PRIMARY KEY(dataset_id,model_id,strategy_name,symbol,setup_type,state_from,state_to))"""
 ])
 ]
 
