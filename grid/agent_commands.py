@@ -1,4 +1,4 @@
-import asyncio, logging, os, pathlib, subprocess, tempfile
+import asyncio, logging, os, pathlib, subprocess, tempfile, collections
 import aiohttp
 from .update_manager import rollback,verify_package,install_release,switch_current,current_version
 log=logging.getLogger("agent_commands")
@@ -44,6 +44,24 @@ async def _update(payload):
     switch_current(install_root,version)
     return {"state":"update_staged","version":version,"previous":previous}
 
+def _grid_log_tail(lines=120,max_bytes=24000):
+    _,data_root=_roots()
+    candidates=[data_root/"logs"/"grid.jsonl",pathlib.Path("logs")/"grid.jsonl"]
+    path=next((p for p in candidates if p.exists() and p.is_file()),None)
+    if not path: return {"lines":[],"message":"grid log not found"}
+    lines=max(1,min(int(lines),300))
+    with open(path,"rb") as fh:
+        dq=collections.deque(fh,maxlen=lines)
+    text_lines=[]
+    used=0
+    for raw in reversed(dq):
+        line=raw.decode("utf-8","replace").rstrip()
+        size=len(line.encode("utf-8"))
+        if used+size>max_bytes: break
+        text_lines.append(line); used+=size
+    text_lines.reverse()
+    return {"lines":text_lines,"bytes":used}
+
 async def execute_command(worker,cmd):
     action=cmd["action"]; payload=cmd.get("payload") or {}
     if action=="pause":
@@ -54,6 +72,8 @@ async def execute_command(worker,cmd):
     if action=="resume":
         worker.enabled=True
         return {"state":"running"}
+    if action=="log_tail":
+        return _grid_log_tail(payload.get("lines",120))
     if action=="restart":
         asyncio.get_running_loop().call_later(1.0,lambda:os._exit(75))
         return {"state":"restarting"}
