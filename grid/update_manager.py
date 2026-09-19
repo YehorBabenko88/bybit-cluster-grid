@@ -39,10 +39,13 @@ def install_release(package_path,version,install_root):
         raise
     return target
 
+def _release_runnable(target):
+    return (target/"run_worker.py").exists() or (target/"run_coordinator.py").exists()
+
 def switch_current(install_root,version):
     root=pathlib.Path(install_root)
     target=root/"releases"/version
-    if not (target/"run_worker.py").exists():
+    if not _release_runnable(target):
         raise ValueError("release is not runnable")
     tmp=root/"current.version.tmp"; marker=root/"current.version"
     tmp.write_text(version,encoding="utf-8")
@@ -65,6 +68,6 @@ def rollback(install_root):
         candidates=versions[i+1:]
     else:
         candidates=versions
-    prev=next((v for v in candidates if (root/v/"run_worker.py").exists()),None)
+    prev=next((v for v in candidates if _release_runnable(root/v)),None)
     if prev: switch_current(install_root,prev)
     return prev
