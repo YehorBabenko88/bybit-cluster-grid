@@ -27,6 +27,11 @@ symbol text NOT NULL, ts timestamptz NOT NULL, eligible boolean NOT NULL,
 quality_status text NOT NULL, features jsonb NOT NULL, capabilities jsonb NOT NULL,
 built_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(symbol,ts))""",
 "CREATE INDEX IF NOT EXISTS market_features_1m_eligible_idx ON market_features_1m(eligible,ts DESC)"
+]),
+(5,"volatility_regime_columns",[
+"ALTER TABLE market_features_1m ADD COLUMN IF NOT EXISTS regime text NOT NULL DEFAULT 'QUIET'",
+"ALTER TABLE market_features_1m ADD COLUMN IF NOT EXISTS regime_score double precision NOT NULL DEFAULT 1.0",
+"CREATE INDEX IF NOT EXISTS market_features_1m_regime_idx ON market_features_1m(regime,ts DESC)"
 ])
 ]
 
