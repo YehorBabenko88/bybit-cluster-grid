@@ -168,6 +168,11 @@ payload_hash text NOT NULL,event_ts timestamptz NOT NULL,feature_ts timestamptz 
 label_end_ts timestamptz,split_group text,
 PRIMARY KEY(dataset_id,sample_id),UNIQUE(dataset_id,ordinal))""",
 "CREATE INDEX IF NOT EXISTS dataset_payload_event_idx ON dataset_sample_payloads(dataset_id,event_ts,ordinal)"
+]),
+(19,"ml_job_deduplication",[
+"ALTER TABLE ml_jobs ADD COLUMN IF NOT EXISTS dedupe_key text",
+"""CREATE UNIQUE INDEX IF NOT EXISTS ml_jobs_active_dedupe_idx ON ml_jobs(dedupe_key)
+WHERE dedupe_key IS NOT NULL AND status IN ('queued','assigned','running')"""
 ])
 ]
 
