@@ -1,0 +1,11 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.log
+data/
+secrets/
+.pytest_cache/
+.idea/
+.vscode/
