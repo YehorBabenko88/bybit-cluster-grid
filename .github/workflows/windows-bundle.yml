@@ -38,14 +38,18 @@ jobs:
           Copy-Item $pyRoot (Join-Path $bundle "python") -Recurse
           & (Join-Path $bundle "python\python.exe") -m pip install --disable-pip-version-check -r (Join-Path $bundle "requirements.txt")
 
-      - name: Download pinned PostgreSQL installer
+      - name: Optionally include pinned PostgreSQL installer
         shell: pwsh
         env:
           PG_URL: ${{ vars.GRID_POSTGRES_INSTALLER_URL }}
           PG_SHA256: ${{ vars.GRID_POSTGRES_INSTALLER_SHA256 }}
         run: |
           $ErrorActionPreference="Stop"
-          if(!$env:PG_URL -or !$env:PG_SHA256){ throw "Set repository variables GRID_POSTGRES_INSTALLER_URL and GRID_POSTGRES_INSTALLER_SHA256 to an approved pinned PostgreSQL installer." }
+          if(!$env:PG_URL -and !$env:PG_SHA256){
+            Write-Host "No bundled PostgreSQL requested; artifact supports externally provisioned CONTROL PostgreSQL."
+            exit 0
+          }
+          if(!$env:PG_URL -or !$env:PG_SHA256){ throw "Set both GRID_POSTGRES_INSTALLER_URL and GRID_POSTGRES_INSTALLER_SHA256, or neither." }
           $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
           $dst=Join-Path $bundle "postgres-installer.exe"
           Invoke-WebRequest -UseBasicParsing -Uri $env:PG_URL -OutFile $dst
