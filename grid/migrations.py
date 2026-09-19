@@ -15,6 +15,11 @@ book jsonb NOT NULL DEFAULT '{}'::jsonb, extra jsonb NOT NULL DEFAULT '{}'::json
 symbol text NOT NULL, ts timestamptz NOT NULL, open_interest numeric, funding_rate numeric,
 mark_price numeric, index_price numeric, basis numeric, extra jsonb NOT NULL DEFAULT '{}'::jsonb,
 PRIMARY KEY(symbol,ts))"""
+]),
+(3,"minute_data_quality",[
+"ALTER TABLE candles_1m ADD COLUMN IF NOT EXISTS quality_status text NOT NULL DEFAULT 'UNKNOWN'",
+"ALTER TABLE candles_1m ADD COLUMN IF NOT EXISTS quality_reasons jsonb NOT NULL DEFAULT '[]'::jsonb",
+"CREATE INDEX IF NOT EXISTS candles_1m_quality_idx ON candles_1m(quality_status,ts DESC)"
 ])
 ]
 
