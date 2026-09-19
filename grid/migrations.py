@@ -300,6 +300,15 @@ updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(dataset,consumer))"""
 symbol text NOT NULL,ts timestamptz NOT NULL,status text NOT NULL DEFAULT 'DONE',
 processed_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(symbol,ts))""",
 "CREATE INDEX IF NOT EXISTS derived_minute_state_ts_idx ON derived_minute_state(ts)"
+]),
+(32,"pilot_bootstrap_state",[
+"""CREATE TABLE IF NOT EXISTS pilot_bootstrap_state(
+node_id text PRIMARY KEY,mode text NOT NULL DEFAULT 'PILOT_BOOTSTRAP',
+phase text NOT NULL DEFAULT 'WAITING',paused boolean NOT NULL DEFAULT false,
+progress numeric NOT NULL DEFAULT 0,source_path text,research_path text,
+details jsonb NOT NULL DEFAULT '{}'::jsonb,updated_at timestamptz NOT NULL DEFAULT now(),
+completed_at timestamptz,expansion_notified_at timestamptz)""",
+"CREATE INDEX IF NOT EXISTS pilot_bootstrap_mode_idx ON pilot_bootstrap_state(mode,phase)"
 ])
 ]
 
