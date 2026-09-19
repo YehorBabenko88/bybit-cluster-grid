@@ -226,6 +226,21 @@ oldest_loaded_ts timestamptz,newest_loaded_ts timestamptz,next_end_ms bigint,
 attempts integer NOT NULL DEFAULT 0,last_error text,updated_at timestamptz NOT NULL DEFAULT now(),
 PRIMARY KEY(symbol,timeframe))""",
 "CREATE INDEX IF NOT EXISTS market_backfill_status_idx ON market_backfill_state(status,updated_at)"
+]),
+(25,"market_data_capabilities",[
+"""CREATE TABLE IF NOT EXISTS market_data_capabilities(
+symbol text PRIMARY KEY,ohlcv_history text NOT NULL DEFAULT 'UNKNOWN',
+trade_history text NOT NULL DEFAULT 'UNKNOWN',live_trades text NOT NULL DEFAULT 'UNKNOWN',
+live_orderbook text NOT NULL DEFAULT 'UNKNOWN',footprint_history text NOT NULL DEFAULT 'UNKNOWN',
+orderbook_history text NOT NULL DEFAULT 'UNAVAILABLE',
+trade_history_from timestamptz,trade_history_through timestamptz,
+updated_at timestamptz NOT NULL DEFAULT now(),details jsonb NOT NULL DEFAULT '{}'::jsonb)""",
+"""CREATE TABLE IF NOT EXISTS trade_archive_backfill(
+symbol text NOT NULL,archive_date date NOT NULL,status text NOT NULL DEFAULT 'queued',
+source_uri text,bytes bigint,rows bigint,sha256 text,attempts integer NOT NULL DEFAULT 0,
+last_error text,updated_at timestamptz NOT NULL DEFAULT now(),
+PRIMARY KEY(symbol,archive_date))""",
+"CREATE INDEX IF NOT EXISTS trade_archive_backfill_status_idx ON trade_archive_backfill(status,archive_date,symbol)"
 ])
 ]
 
