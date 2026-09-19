@@ -5,7 +5,7 @@ from .bybit import linear_symbols
 from .resources import capacity_score
 from .service import prepare_database,bootstrap_logging
 from .instrument_lifecycle import ensure_instrument_schema,reconcile_instruments,purge_retired
-from .strategy_jobs import ensure_strategy_schema,submit_job
+from .strategy_jobs import ensure_strategy_schema,submit_job\nfrom .strategy_plugins import ensure_plugin_schema,register_plugin,list_plugins
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -25,6 +25,18 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default="")):
 async def status(x_grid_token:str=Header(default="")):
     auth(x_grid_token)
     return {"nodes":nodes,"assignments":assignments,"instrument_count":len(instruments)}
+
+@app.post("/strategy/plugins")
+async def upload_strategy_plugin(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    sha=await register_plugin(db.pool,payload["strategy_name"],payload["strategy_version"],
+                              payload["source_code"],payload.get("metadata"))
+    return {"strategy_name":payload["strategy_name"],"strategy_version":payload["strategy_version"],"sha256":sha}
+
+@app.get("/strategy/plugins")
+async def get_strategy_plugins(x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    return {"plugins":await list_plugins(db.pool)}
 
 @app.post("/strategy/jobs")
 async def create_strategy_job(payload:dict,x_grid_token:str=Header(default="")):
@@ -54,7 +66,7 @@ async def startup():
     bootstrap_logging()
     db=await prepare_database()
     await ensure_instrument_schema(db.pool)
-    await ensure_strategy_schema(db.pool)
+    await ensure_strategy_schema(db.pool)\n    await ensure_plugin_schema(db.pool)
     async def loop():
         global instruments
         while True:
