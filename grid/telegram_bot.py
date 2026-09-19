@@ -20,16 +20,16 @@ async def tg_send(session,chat_id,text):
 def _node_line(nid,n,now):
     age=max(0,int(now-float(n.get("last_seen",0))))
     state="ONLINE" if age < settings.heartbeat_seconds*3 else "OFFLINE"
-    return f"{nid}: {state}, v={n.get('agent_version','?')}, cpu={n.get('cpu_percent','?')}%, ram={n.get('ram_percent','?')}%, seen={age}s"
+    return f"{nid}: {state}, v={n.get('agent_version','?')}, cpu={n.get('cpu_pct','?')}%, ram={n.get('ram_pct','?')}%, seen={age}s"
 
 def _healthy_canary(nodes):
     now=time.time()
     candidates=[]
     for nid,n in nodes.items():
         if now-float(n.get("last_seen",0)) >= settings.heartbeat_seconds*3: continue
-        cpu=float(n.get("cpu_percent",100) or 100)
-        ram=float(n.get("ram_percent",100) or 100)
-        disk=float(n.get("disk_free_gb",0) or 0)
+        cpu=float(n.get("cpu_pct",100) or 100)
+        ram=float(n.get("ram_pct",100) or 100)
+        disk=float(n.get("disk_free",0) or 0)/(1024**3)
         if cpu>=settings.resource_cpu_limit or ram>=settings.resource_ram_limit or disk<settings.resource_disk_free_gb:
             continue
         candidates.append((cpu+ram,nid))
@@ -97,7 +97,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         if not n:
             await tg_send(session,chat_id,f"Unknown node: {nid}")
         else:
-            await tg_send(session,chat_id,f"{nid}: last_seen={int(now-float(n.get('last_seen',0)))}s, version={n.get('agent_version','?')}, process_mem_mb={n.get('process_mem_mb','?')}, uptime_s={n.get('uptime_s','?')}")
+            await tg_send(session,chat_id,f"{nid}: last_seen={int(now-float(n.get('last_seen',0)))}s, version={n.get('agent_version','?')}, process_rss={n.get('process_rss','?')}, uptime_s={n.get('uptime_s','?')}")
     elif cmd=="/uninstall":
         if len(parts)!=2:
             await tg_send(session,chat_id,"Usage: /uninstall NODE")
