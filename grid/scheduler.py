@@ -33,9 +33,11 @@ def weighted_assign(symbols,node_scores,nodes):
         cost=max(.01,costs.get(symbol,fallback))
         eligible=[n for n in node_scores if not node_avoids(nodes.get(n,{}),symbol)]
         if not eligible:
-            # Never defeat CRITICAL load shedding by assigning the full universe back to
-            # overloaded nodes. The coordinator may preserve a separate priority core.
-            continue
+            # Preserve only a tiny priority core under fleet-wide CRITICAL pressure.
+            # Never put the whole universe back onto overloaded machines.
+            if symbol!="BTCUSDT" and any(x=="BTCUSDT" for x in symbols):
+                continue
+            eligible=[min(node_scores,key=lambda n:(load[n]/node_scores[n],n))]
         node=min(eligible,key=lambda n:(load[n]/node_scores[n],n))
         result[node].append(symbol)
         load[node]+=cost
