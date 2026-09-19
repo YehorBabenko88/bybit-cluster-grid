@@ -20,6 +20,13 @@ PRIMARY KEY(symbol,ts))"""
 "ALTER TABLE candles_1m ADD COLUMN IF NOT EXISTS quality_status text NOT NULL DEFAULT 'UNKNOWN'",
 "ALTER TABLE candles_1m ADD COLUMN IF NOT EXISTS quality_reasons jsonb NOT NULL DEFAULT '[]'::jsonb",
 "CREATE INDEX IF NOT EXISTS candles_1m_quality_idx ON candles_1m(quality_status,ts DESC)"
+]),
+(4,"market_features_1m",[
+"""CREATE TABLE IF NOT EXISTS market_features_1m(
+symbol text NOT NULL, ts timestamptz NOT NULL, eligible boolean NOT NULL,
+quality_status text NOT NULL, features jsonb NOT NULL, capabilities jsonb NOT NULL,
+built_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(symbol,ts))""",
+"CREATE INDEX IF NOT EXISTS market_features_1m_eligible_idx ON market_features_1m(eligible,ts DESC)"
 ])
 ]
 
