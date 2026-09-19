@@ -8,7 +8,7 @@ from .instrument_lifecycle import ensure_instrument_schema,reconcile_instruments
 from .strategy_jobs import ensure_strategy_schema,submit_job
 from .strategy_plugins import ensure_plugin_schema,register_plugin,list_plugins
 from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result
-from .update_protocol import ensure_update_schema,note_heartbeat,register_release,start_canary,promote_stable
+from .update_protocol import ensure_update_schema,note_heartbeat,register_release,start_canary,promote_stable,expired_canaries
 from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent
 
 log=logging.getLogger("coordinator")
@@ -141,6 +141,12 @@ async def startup():
                     log.info("instrument universe changed",extra={"event":"instrument_reconcile",
                              "component":f"added={added} retired={retired}"})
                 await purge_retired(db.pool,grace_days=30)
+                for failed in await expired_canaries(db.pool):
+                    nid=failed["canary_node"]
+                    # Queue rollback only when the node is currently reachable; otherwise it remains failed
+                    # and can never be promoted to stable.
+                    if nid in nodes and time.time()-nodes[nid]["last_seen"] < settings.heartbeat_seconds*3:
+                        await enqueue_command(db.pool,nid,"rollback",{})
             except Exception:
                 log.exception("coordinator refresh failed",extra={"event":"universe_refresh_failed"})
             await asyncio.sleep(settings.rebalance_seconds)
