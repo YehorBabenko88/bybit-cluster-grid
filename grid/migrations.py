@@ -59,6 +59,9 @@ event_features jsonb NOT NULL DEFAULT '{}'::jsonb, outcome jsonb NOT NULL DEFAUL
 (8,"historical_level_availability",[
 "ALTER TABLE historical_levels ADD COLUMN IF NOT EXISTS available_ts timestamptz",
 "CREATE INDEX IF NOT EXISTS historical_levels_active_idx ON historical_levels(symbol,active,timeframe,price)"
+]),
+(9,"level_event_idempotency",[
+"CREATE UNIQUE INDEX IF NOT EXISTS level_events_unique_event_idx ON level_events(symbol,timeframe,level_kind,source_ts,event_ts,event_type)"
 ])
 ]
 
