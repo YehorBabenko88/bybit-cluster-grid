@@ -1,5 +1,6 @@
 import math
 from .control_plane import enqueue_command
+from .update_protocol import release_health_ok
 
 WAVE_PCTS=(0.25,0.50,1.00)
 
@@ -62,7 +63,10 @@ async def launch_next_wave(pool,version):
         await enqueue_command(pool,row["node_id"],"update",payload)
     return [r["node_id"] for r in nodes]
 
-async def note_rollout_heartbeat(pool,node_id,version,required_acks=3):
+async def note_rollout_heartbeat(pool,node_id,version,required_acks=3,heartbeat=None):
+    ok,reason=release_health_ok(heartbeat)
+    if not ok:
+        return "unhealthy:"+str(reason)
     async with pool.acquire() as c:
         row=await c.fetchrow("""SELECT status,health_acks FROM rollout_nodes
           WHERE version=$1 AND node_id=$2""",version,node_id)
