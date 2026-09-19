@@ -27,7 +27,7 @@ class Worker:
         self.micro_signature=()
         self.storage=Storage()
         self.db=None
-        self.meta={}
+        self.meta={}\n        self.enabled=True
 
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
