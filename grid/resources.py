@@ -2,7 +2,7 @@ import os, platform, socket, uuid, time
 import psutil
 
 NODE_ID = os.getenv("NODE_ID") or f"{socket.gethostname()}-{uuid.getnode():x}"
-STARTED_AT=time.time()
+STARTED_AT=time.time()\n\ndef agent_version():\n    root=os.getenv("ProgramFiles")\n    if not root: return os.getenv("GRID_VERSION","bootstrap")\n    p=os.path.join(root,"BybitClusterGrid","current.version")\n    try:\n        with open(p,"r",encoding="utf-8") as f: return f.read().strip() or "bootstrap"\n    except OSError:\n        return os.getenv("GRID_VERSION","bootstrap")
 
 def snapshot():
     vm=psutil.virtual_memory()
@@ -22,7 +22,7 @@ def snapshot():
         "disk_free":disk.free,
         "process_rss":proc.memory_info().rss,
         "process_cpu_pct":proc.cpu_percent(interval=None),
-        "uptime_s":int(time.time()-STARTED_AT),
+        "uptime_s":int(time.time()-STARTED_AT),\n        "agent_version":agent_version(),
     }
 
 def capacity_score(s,cpu_limit=75,ram_limit=78,min_disk_gb=25,reserve_cores=2):
