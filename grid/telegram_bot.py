@@ -12,6 +12,7 @@ from .retention_plan import cleanup_plan
 from .retention import RETENTION_DEFAULTS
 from .telegram_idempotency import claim_update,complete_update
 from .ha_status import ha_status
+from .runtime_gate import runtime_state,set_runtime_state
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -46,7 +47,22 @@ async def handle_command(db,session,chat_id,text,nodes):
     parts=text.strip().split()
     cmd=parts[0].lower()
     now=time.time()
-    if cmd=="/pilot":
+    if cmd=="/system":
+        s=await runtime_state(db.pool)
+        online=sum(1 for n in nodes.values() if now-float(n.get("last_seen",0))<settings.heartbeat_seconds*3)
+        await tg_send(session,chat_id,f"SYSTEM: {s['state']}\nNodes: {len(nodes)}, online: {online}\nMarket data: {'ENABLED' if s['state']=='ACTIVE' else 'LOCKED'}\nReason: {s.get('reason') or '-'}")
+    elif cmd=="/begin":
+        s=await runtime_state(db.pool)
+        if s["state"]=="ACTIVE":
+            await tg_send(session,chat_id,"System is already ACTIVE.")
+            return
+        code=secrets.token_hex(3).upper()
+        _pending_confirms[(str(chat_id),code)]=("fleet_begin",None,time.time()+120)
+        await tg_send(session,chat_id,"START will enable Bybit discovery, market collection, archive/backfill, feature generation, simulations and learning for the whole Grid.\nConfirm within 120s: /confirm "+code)
+    elif cmd=="/fleetpause":
+        await set_runtime_state(db.pool,"PAUSED",f"telegram:{chat_id}","operator paused fleet")
+        await tg_send(session,chat_id,"SYSTEM: PAUSED. Market workloads are locked; infrastructure, heartbeat, Telegram and updates remain online.")
+    elif cmd=="/pilot":
         rows=await pilot_state(db.pool,parts[1] if len(parts)>1 else None)
         rows=[rows] if isinstance(rows,dict) else rows
         if not rows:
@@ -194,6 +210,9 @@ async def handle_command(db,session,chat_id,text,nodes):
         if action=="uninstall":
             cid=await enqueue_command(db.pool,node_id,"uninstall",{"purge_data":False})
             await tg_send(session,chat_id,f"Uninstall queued for {node_id} ({cid}); data preserved.")
+        elif action=="fleet_begin":
+            state=await set_runtime_state(db.pool,"ACTIVE",f"telegram:{chat_id}","explicit operator START")
+            await tg_send(session,chat_id,f"SYSTEM: {state['state']}. Market workloads may now start.")
         else:
             result=await cleanup_all(db.pool)
             await tg_send(session,chat_id,"Cleanup completed: "+", ".join(f"{k}={v}" for k,v in result.items()))
@@ -203,7 +222,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /pilot [NODE] /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /system /begin /fleetpause /pilot [NODE] /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
 
 async def _notify_expansion_ready(db,session):
     rows=await expansion_ready(db.pool)
