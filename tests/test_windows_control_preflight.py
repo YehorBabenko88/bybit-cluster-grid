@@ -19,3 +19,19 @@ def test_bootstrap_repairs_role_but_preserves_env_secrets():
     assert "ROLE=$DesiredRole" in text
     assert "$lines=@(Get-Content $EnvFile" in text
     assert "POSTGRES_DSN" not in text.split("$lines=@(Get-Content $EnvFile",1)[1].split("# PostgreSQL",1)[0]
+
+
+def test_external_control_postgres_is_not_claimed_as_grid_owned():
+    text=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    assert '[string]$ExistingPostgresDsn=""' in text
+    block=text.split("if($ExistingPostgresDsn){",1)[1].split("} else {",1)[0]
+    assert "POSTGRES_DSN=$probe" in block
+    assert "postgres-owned.json" not in block
+    assert "provision_postgres.ps1" not in block
+
+def test_legacy_handoff_is_staged_not_imported_before_start():
+    text=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    assert 'status="STAGED"' in text
+    assert 'import_allowed=$false' in text
+    assert "Await explicit global START" in text
+    assert "grid.legacy_bootstrap_import" not in text
