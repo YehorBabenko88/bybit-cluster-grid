@@ -294,6 +294,12 @@ split text,payload jsonb NOT NULL,PRIMARY KEY(source_id,symbol,sample_key))""",
 dataset text NOT NULL,consumer text NOT NULL,required boolean NOT NULL DEFAULT true,
 active boolean NOT NULL DEFAULT true,created_at timestamptz NOT NULL DEFAULT now(),
 updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(dataset,consumer))"""
+]),
+(31,"derived_minute_completion",[
+"""CREATE TABLE IF NOT EXISTS derived_minute_state(
+symbol text NOT NULL,ts timestamptz NOT NULL,status text NOT NULL DEFAULT 'DONE',
+processed_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(symbol,ts))""",
+"CREATE INDEX IF NOT EXISTS derived_minute_state_ts_idx ON derived_minute_state(ts)"
 ])
 ]
 
