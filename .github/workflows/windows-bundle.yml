@@ -1,0 +1,84 @@
+name: windows-bundle
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "grid/**"
+      - "installer/**"
+      - "run_worker.py"
+      - "run_coordinator.py"
+      - "requirements.txt"
+      - ".github/workflows/windows-bundle.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-bundle:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build isolated Python runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
+          New-Item -ItemType Directory -Force $bundle | Out-Null
+          Copy-Item grid,installer,strategies -Destination $bundle -Recurse
+          Copy-Item run_worker.py,run_coordinator.py,requirements.txt -Destination $bundle
+          $py=(Get-Command python).Source
+          $pyRoot=Split-Path $py -Parent
+          Copy-Item $pyRoot (Join-Path $bundle "python") -Recurse
+          & (Join-Path $bundle "python\python.exe") -m pip install --disable-pip-version-check -r (Join-Path $bundle "requirements.txt")
+
+      - name: Download pinned PostgreSQL installer
+        shell: pwsh
+        env:
+          PG_URL: ${{ vars.GRID_POSTGRES_INSTALLER_URL }}
+          PG_SHA256: ${{ vars.GRID_POSTGRES_INSTALLER_SHA256 }}
+        run: |
+          $ErrorActionPreference="Stop"
+          if(!$env:PG_URL -or !$env:PG_SHA256){ throw "Set repository variables GRID_POSTGRES_INSTALLER_URL and GRID_POSTGRES_INSTALLER_SHA256 to an approved pinned PostgreSQL installer." }
+          $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
+          $dst=Join-Path $bundle "postgres-installer.exe"
+          Invoke-WebRequest -UseBasicParsing -Uri $env:PG_URL -OutFile $dst
+          $actual=(Get-FileHash $dst -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($actual -ne $env:PG_SHA256.ToLowerInvariant()){ throw "PostgreSQL installer SHA256 mismatch" }
+
+      - name: CONTROL preflight on finished bundle
+        shell: pwsh
+        env:
+          GRID_SHARED_TOKEN: test-token
+          POSTGRES_DSN: postgresql://grid:grid@127.0.0.1:55432/grid
+        run: |
+          $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
+          & (Join-Path $bundle "installer\preflight.ps1") -ReleaseDir $bundle -Python (Join-Path $bundle "python\python.exe") -Mode CONTROL
+
+      - name: Build SHA256 manifest and zip
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
+          $manifest=@()
+          Get-ChildItem $bundle -File -Recurse | Sort-Object FullName | ForEach-Object {
+            $rel=$_.FullName.Substring($bundle.Length+1).Replace("\","/")
+            $manifest += [ordered]@{path=$rel;sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant();size=$_.Length}
+          }
+          [ordered]@{schema=1;commit="${{ github.sha }}";files=$manifest} | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 (Join-Path $bundle "bundle-manifest.json")
+          Compress-Archive -Path (Join-Path $bundle "*") -DestinationPath (Join-Path $env:RUNNER_TEMP "BybitClusterGrid-${{ github.sha }}.zip")
+          (Get-FileHash (Join-Path $env:RUNNER_TEMP "BybitClusterGrid-${{ github.sha }}.zip") -Algorithm SHA256).Hash.ToLowerInvariant() | Set-Content (Join-Path $env:RUNNER_TEMP "BybitClusterGrid-${{ github.sha }}.zip.sha256")
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BybitClusterGrid-windows-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/BybitClusterGrid-${{ github.sha }}.zip
+            ${{ runner.temp }}/BybitClusterGrid-${{ github.sha }}.zip.sha256
+          retention-days: 14
