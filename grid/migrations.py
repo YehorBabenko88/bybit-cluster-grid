@@ -250,6 +250,13 @@ min_ts timestamptz,max_ts timestamptz,status text NOT NULL DEFAULT 'DERIVED',
 verified_at timestamptz,raw_deleted_at timestamptz,details jsonb NOT NULL DEFAULT '{}'::jsonb,
 PRIMARY KEY(symbol,archive_date))""",
 "CREATE INDEX IF NOT EXISTS archive_compaction_status_idx ON archive_compaction_manifests(status,archive_date)"
+]),
+(27,"trade_archive_discovery",[
+"""CREATE TABLE IF NOT EXISTS trade_archive_discovery(
+symbol text PRIMARY KEY,status text NOT NULL DEFAULT 'queued',mode text,
+earliest_date date,latest_date date,discovered_files integer NOT NULL DEFAULT 0,
+last_scan_at timestamptz,last_error text,details jsonb NOT NULL DEFAULT '{}'::jsonb)""",
+"CREATE INDEX IF NOT EXISTS trade_archive_discovery_status_idx ON trade_archive_discovery(status,last_scan_at)"
 ])
 ]
 
