@@ -198,6 +198,21 @@ dataset_id uuid REFERENCES dataset_snapshots(id),strategy_name text NOT NULL,var
 comparison_group text NOT NULL,metrics jsonb NOT NULL,incremental jsonb,uncertainty jsonb,
 created_at timestamptz NOT NULL DEFAULT now(),
 PRIMARY KEY(dataset_id,strategy_name,variant,comparison_group))"""
+]),
+(23,"historical_experiment_runs",[
+"""CREATE TABLE IF NOT EXISTS historical_experiment_runs(
+id uuid PRIMARY KEY,dataset_id uuid NOT NULL REFERENCES dataset_snapshots(id),
+strategy_name text NOT NULL,status text NOT NULL DEFAULT 'queued',
+config jsonb NOT NULL DEFAULT '{}'::jsonb,total_symbols integer NOT NULL DEFAULT 0,
+completed_symbols integer NOT NULL DEFAULT 0,failed_symbols integer NOT NULL DEFAULT 0,
+created_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,finished_at timestamptz,
+last_error text)""",
+"""CREATE TABLE IF NOT EXISTS historical_experiment_checkpoints(
+run_id uuid NOT NULL REFERENCES historical_experiment_runs(id) ON DELETE CASCADE,
+symbol text NOT NULL,status text NOT NULL DEFAULT 'queued',attempts integer NOT NULL DEFAULT 0,
+started_at timestamptz,finished_at timestamptz,last_error text,
+PRIMARY KEY(run_id,symbol))""",
+"CREATE INDEX IF NOT EXISTS historical_experiment_cp_status_idx ON historical_experiment_checkpoints(run_id,status,symbol)"
 ])
 ]
 
