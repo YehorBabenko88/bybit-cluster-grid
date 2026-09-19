@@ -3,7 +3,7 @@ param(
   [string]$CoordinatorUrl="",
   [string]$EnrollmentToken="",
   [string]$LegacyHandoff="",
-  [ValidateSet("PILOT","NORMAL")][string]$AgentMode="NORMAL"
+  [ValidateSet("CONTROL","PILOT","NORMAL")][string]$AgentMode="NORMAL"
 )
 $ErrorActionPreference="Stop"
 $InstallRoot="$env:ProgramFiles\BybitClusterGrid"
@@ -91,7 +91,7 @@ if($NeedDeps){
 $EnvFile=Join-Path $DataRoot ".env"
 if(!(Test-Path $EnvFile)){
     @(
-      "ROLE=worker",
+      ("ROLE="+($(if($AgentMode -eq "CONTROL"){"coordinator"}else{"worker"}))),
       "GRID_DATA_PATH=$DataRoot",
       "STRATEGY_CACHE_DIR=$DataRoot\\runtime_strategies",
       "COORDINATOR_URL=$CoordinatorUrl"
@@ -133,16 +133,20 @@ if($LegacyHandoff -and $AgentMode -eq "PILOT"){
 }
 
 $CredentialFile=Join-Path $DataRoot "secrets\node.credential"
-if(!(Test-Path $CredentialFile)){
-    if(!$CoordinatorUrl -or !$EnrollmentToken){
-        throw "Node is not enrolled and CoordinatorUrl/EnrollmentToken were not supplied."
+if($AgentMode -ne "CONTROL"){
+    if(!(Test-Path $CredentialFile)){
+        if(!$CoordinatorUrl -or !$EnrollmentToken){
+            throw "Node is not enrolled and CoordinatorUrl/EnrollmentToken were not supplied."
+        }
+        Push-Location $Release
+        try {
+            & (Join-Path $PSScriptRoot "enroll.ps1") -CoordinatorUrl $CoordinatorUrl -EnrollmentToken $EnrollmentToken -Python $Python -DataRoot $DataRoot | Out-Null
+        } finally { Pop-Location }
+    } else {
+        Write-Host "Existing node credential found; preserving node identity."
     }
-    Push-Location $Release
-    try {
-        & (Join-Path $PSScriptRoot "enroll.ps1") -CoordinatorUrl $CoordinatorUrl -EnrollmentToken $EnrollmentToken -Python $Python -DataRoot $DataRoot | Out-Null
-    } finally { Pop-Location }
 } else {
-    Write-Host "Existing node credential found; preserving node identity."
+    Write-Host "CONTROL node uses local coordinator identity; agent enrollment skipped."
 }
 
 try {
