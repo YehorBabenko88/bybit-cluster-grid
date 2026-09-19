@@ -23,3 +23,88 @@ def test_ingestion_is_active_gated_and_authenticated():
     assert '@app.post("/ingest/minute")' in text
     assert "authenticate_agent(db.pool,x_node_id,x_node_credential)" in text
     assert 'gate["state"]!="ACTIVE"' in text
+
+def test_coordinator_ingest_storage_has_module_lifecycle():
+    import ast
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "grid"
+        / "coordinator.py"
+    ).read_text(encoding="utf-8")
+
+    tree = ast.parse(source)
+
+    module_names = set()
+
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    module_names.add(target.id)
+
+    assert "ingest_storage" in module_names
+
+    startup = next(
+        node
+        for node in tree.body
+        if isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef))
+        and node.name == "startup"
+    )
+
+    global_names = {
+        name
+        for node in startup.body
+        if isinstance(node, ast.Global)
+        for name in node.names
+    }
+
+    assert "db" in global_names
+    assert "ingest_storage" in global_names
+
+def test_coordinator_background_tasks_have_shutdown_lifecycle():
+    import ast
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "grid"
+        / "coordinator.py"
+    ).read_text(encoding="utf-8")
+
+    tree = ast.parse(source)
+
+    module_names = set()
+    functions = {}
+
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    module_names.add(target.id)
+
+        if isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef)):
+            functions[node.name] = node
+
+    assert "background_tasks" in module_names
+    assert "startup" in functions
+    assert "shutdown" in functions
+
+    startup_source = ast.get_source_segment(
+        source,
+        functions["startup"],
+    )
+    shutdown_source = ast.get_source_segment(
+        source,
+        functions["shutdown"],
+    )
+
+    assert startup_source.count("asyncio.create_task(") >= 2
+    assert "background_tasks" in startup_source
+
+    assert "task.cancel()" in shutdown_source
+    assert "asyncio.gather(" in shutdown_source
+    assert "return_exceptions=True" in shutdown_source
+    assert "background_tasks = []" in shutdown_source
+    assert "ingest_storage = None" in shutdown_source

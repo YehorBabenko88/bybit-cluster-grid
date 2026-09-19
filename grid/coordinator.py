@@ -26,6 +26,8 @@ log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
 nodes={}; instruments={}; assignments={}
 db=None
+ingest_storage=None
+background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
 
 def auth(token):
@@ -172,7 +174,7 @@ def rebalance():
 
 @app.on_event("startup")
 async def startup():
-    global db
+    global db, ingest_storage, background_tasks
     bootstrap_logging(); db=await prepare_database()
     await ensure_instrument_schema(db.pool)
     await ensure_strategy_schema(db.pool)
@@ -220,5 +222,22 @@ async def startup():
             except Exception:
                 log.exception("coordinator refresh failed",extra={"event":"universe_refresh_failed"})
             await asyncio.sleep(settings.rebalance_seconds)
-    asyncio.create_task(loop())
-    asyncio.create_task(telegram_loop(db,nodes))
+    background_tasks = [
+        asyncio.create_task(loop()),
+        asyncio.create_task(telegram_loop(db,nodes)),
+    ]
+
+@app.on_event("shutdown")
+async def shutdown():
+    global ingest_storage, background_tasks
+
+    tasks = list(background_tasks)
+    background_tasks = []
+
+    for task in tasks:
+        task.cancel()
+
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    ingest_storage = None
