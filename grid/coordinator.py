@@ -12,6 +12,7 @@ from .update_protocol import ensure_update_schema,note_heartbeat,register_releas
 from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent
 from .rollout import begin_stable_rollout,note_rollout_heartbeat,expire_rollout_nodes
 from .telegram_bot import telegram_loop
+from .scheduler import weighted_assign
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -117,13 +118,10 @@ def rebalance():
     scores={k:capacity_score(v,settings.resource_cpu_limit,settings.resource_ram_limit,
                              settings.resource_disk_free_gb,settings.resource_reserve_cores) for k,v in alive.items()}
     scores={k:v for k,v in scores.items() if v>0}
-    new={k:[] for k in scores}
-    if not scores: assignments=new; return
-    load={k:0.0 for k in scores}
-    for sym in sorted(instruments):
-        nid=min(scores,key=lambda n:load[n]/scores[n])
-        new[nid].append(sym); load[nid]+=1
-    assignments=new
+    if not scores:
+        assignments={}
+        return
+    assignments=weighted_assign(instruments.keys(),scores,alive)
 
 @app.on_event("startup")
 async def startup():
