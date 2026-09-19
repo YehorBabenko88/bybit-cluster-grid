@@ -10,6 +10,7 @@ from .legacy_gap_repair import repair_gaps
 from .legacy_research_adapter import run_research_command
 from .legacy_bootstrap_import import import_handoff
 from .pilot_bootstrap import PilotBootstrap
+from .legacy_preflight import preflight
 
 def lifecycle_map(items):
     out={}
@@ -26,6 +27,8 @@ async def run(args):
     await pilot.begin()
     try:
         cutoff=int(state["research_cutoff_ms"])
+        pf=preflight(args.sqlite)
+        await pilot.report("INVENTORY",3,legacy_preflight=pf)
         current=await linear_symbols(settings.bybit_rest_url);life=lifecycle_map(current)
         if state["stage"] in ("INVENTORY","REPAIR"):
             inv=inventory(args.sqlite,cutoff,life)
