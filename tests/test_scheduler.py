@@ -31,3 +31,28 @@ def test_unknown_symbol_has_nonzero_fallback():
     assert fallback>0
     out=weighted_assign(["BTC","NEW"],{"A":1,"B":1},nodes)
     assert sorted(out["A"]+out["B"])==["BTC","NEW"]
+
+def test_drained_symbol_moves_off_reduce_load_node():
+    nodes={
+      "A":{"pressure_state":"REDUCE_LOAD","drained_symbols":["BTC"],"symbol_cost":{"BTC":100}},
+      "B":{"pressure_state":"NORMAL","symbol_cost":{"BTC":100}},
+    }
+    out=weighted_assign(["BTC"],{"A":10,"B":1},nodes)
+    assert out["A"]==[]
+    assert out["B"]==["BTC"]
+
+def test_critical_node_is_avoided_for_all_symbols():
+    nodes={"A":{"pressure_state":"CRITICAL"},"B":{"pressure_state":"NORMAL"}}
+    out=weighted_assign(["BTC","ETH"],{"A":100,"B":1},nodes)
+    assert out["A"]==[]
+    assert sorted(out["B"])==["BTC","ETH"]
+
+def test_recovered_node_can_receive_symbol_again():
+    nodes={"A":{"pressure_state":"NORMAL","drained_symbols":[]},"B":{"pressure_state":"NORMAL"}}
+    out=weighted_assign(["BTC"],{"A":10,"B":1},nodes)
+    assert out["A"]==["BTC"]
+
+def test_all_pressured_still_preserves_collection():
+    nodes={"A":{"pressure_state":"CRITICAL"},"B":{"pressure_state":"CRITICAL"}}
+    out=weighted_assign(["BTC"],{"A":1,"B":1},nodes)
+    assert len(out["A"])+len(out["B"])==1
