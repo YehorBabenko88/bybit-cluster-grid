@@ -92,7 +92,7 @@ async def execute_command(worker,cmd):
         script=data_root/"installer"/"uninstall.ps1"
         if not script.exists(): raise RuntimeError("local uninstall script missing")
         args=["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(script)]
-        if payload.get("purge_data"): args.append("--purge-data")
+        if payload.get("purge_data"): args.append("-PurgeData")
         subprocess.Popen(args,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
         return {"state":"uninstall_started"}
     raise ValueError(f"unsupported command: {action}")
