@@ -14,7 +14,7 @@ class Storage:
         self.feature_builder=UnifiedFeatureBuilder()
         self.derived=None
         root=os.path.join(os.getenv("ProgramData",os.getcwd()),"BybitClusterGrid","spool")
-        self.spool=SegmentWAL(root)
+        self.spool=SegmentWAL(root,max_bytes=int(settings.spool_max_gb*1024**3))
         # WAL checkpoint advances monotonically, therefore commit/ack is deliberately ordered.
         self.write_queue=BoundedWriteQueue(self._save_spooled,maxsize=5000,workers=1)
     async def start(self):
@@ -25,6 +25,8 @@ class Storage:
         for record_id,row in self.spool.recover():
             await self.write_queue.put(record_id,row)
     async def save(self,row):
+        if self.spool.ratio()>=settings.spool_critical_ratio:
+            raise BufferError("Grid WAL critical threshold reached; load shedding required")
         record_id=await self.spool.append(row)
         await self.write_queue.put(record_id,row)
 
