@@ -6,24 +6,25 @@ async def claim_ml_job(pool,owner,lease_seconds=120):
         async with c.transaction():
             row=await c.fetchrow("""SELECT * FROM ml_jobs
               WHERE (status='queued' OR (status='running' AND lease_until<now()))
+                AND attempts<max_attempts AND (not_before IS NULL OR not_before<=now())
               ORDER BY priority,created_at FOR UPDATE SKIP LOCKED LIMIT 1""")
             if not row: return None
             updated=await c.fetchrow("""UPDATE ml_jobs SET status='running',lease_owner=$2,
               lease_until=now()+($3*interval '1 second'),started_at=COALESCE(started_at,now()),
-              attempts=attempts+1,error=NULL WHERE id=$1 RETURNING *""",
+              attempts=attempts+1,lease_generation=lease_generation+1,error=NULL WHERE id=$1 RETURNING *""",
               row["id"],owner,int(lease_seconds))
             return dict(updated)
 
-async def renew_ml_job(pool,job_id,owner,lease_seconds=120):
+async def renew_ml_job(pool,job_id,owner,lease_generation,lease_seconds=120):
     r=await pool.execute("""UPDATE ml_jobs SET lease_until=now()+($3*interval '1 second')
-      WHERE id=$1 AND status='running' AND lease_owner=$2 AND lease_until>=now()""",
-      job_id,owner,int(lease_seconds))
+      WHERE id=$1 AND status='running' AND lease_owner=$2 AND lease_generation=$4 AND lease_until>=now()""",
+      job_id,owner,int(lease_seconds),int(lease_generation))
     return r.endswith(" 1")
 
-async def finish_ml_job(pool,job_id,owner,error=None):
+async def finish_ml_job(pool,job_id,owner,lease_generation,error=None):
     r=await pool.execute("""UPDATE ml_jobs SET status=$3,finished_at=now(),lease_until=NULL,error=$4
-      WHERE id=$1 AND lease_owner=$2 AND status='running'""",
-      job_id,owner,"failed" if error else "done",error)
+      WHERE id=$1 AND lease_owner=$2 AND lease_generation=$5 AND status='running' AND lease_until>=now()""",
+      job_id,owner,"failed" if error else "done",error,int(lease_generation))
     return r.endswith(" 1")
 
 async def acquire_service_lease(pool,key,owner,lease_seconds=30,metadata=None):
