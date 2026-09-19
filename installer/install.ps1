@@ -2,11 +2,12 @@
 param(
  [Parameter(Mandatory=$true)][string]$ReleaseDir,
  [Parameter(Mandatory=$true)][string]$Python,
- [ValidateSet("PILOT","NORMAL")][string]$Mode="NORMAL"
+ [ValidateSet("CONTROL","PILOT","NORMAL")][string]$Mode="NORMAL"
 )
 $ErrorActionPreference="Stop"
 $TaskName="BybitClusterGridAgent"
 $ArchiveTaskName="BybitClusterGridArchivePipeline"
+$CoordinatorTaskName="BybitClusterGridCoordinator"
 $InstallRoot="$env:ProgramFiles\BybitClusterGrid"
 $DataRoot="$env:ProgramData\BybitClusterGrid"
 $InstallerRoot=Join-Path $DataRoot "installer"
@@ -18,6 +19,8 @@ Copy-Item (Join-Path $ReleaseDir "installer\preflight.ps1") (Join-Path $Installe
 
 $Launcher=Join-Path $InstallerRoot "launcher.ps1"
 $ArchiveLauncher=Join-Path $InstallerRoot "archive-launcher.ps1"
+$CoordinatorLauncher=Join-Path $InstallerRoot "coordinator-launcher.ps1"
+if(Test-Path (Join-Path $ReleaseDir "installer\coordinator-launcher.ps1")){ Copy-Item (Join-Path $ReleaseDir "installer\coordinator-launcher.ps1") $CoordinatorLauncher -Force }
 $arg='-NoProfile -ExecutionPolicy Bypass -File "'+$Launcher+'" -Python "'+$Python+'" -InstallRoot "'+$InstallRoot+'"'
 $Action=New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arg -WorkingDirectory $InstallRoot
 $Trigger=New-ScheduledTaskTrigger -AtStartup
@@ -33,6 +36,16 @@ if($Mode -eq "NORMAL"){
   Unregister-ScheduledTask $ArchiveTaskName -Confirm:$false -ErrorAction SilentlyContinue
 }
 
-Start-ScheduledTask $TaskName
-if($Mode -eq "NORMAL"){ Start-ScheduledTask $ArchiveTaskName }
+if($Mode -eq "CONTROL"){
+  if(!(Test-Path $CoordinatorLauncher)){throw "CONTROL launcher missing"}
+  $CoordArg='-NoProfile -ExecutionPolicy Bypass -File "'+$CoordinatorLauncher+'" -Python "'+$Python+'" -InstallRoot "'+$InstallRoot+'"'
+  $CoordAction=New-ScheduledTaskAction -Execute "powershell.exe" -Argument $CoordArg -WorkingDirectory $InstallRoot
+  Register-ScheduledTask -TaskName $CoordinatorTaskName -Action $CoordAction -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
+  Unregister-ScheduledTask $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+  Start-ScheduledTask $CoordinatorTaskName
+}else{
+  Unregister-ScheduledTask $CoordinatorTaskName -Confirm:$false -ErrorAction SilentlyContinue
+  Start-ScheduledTask $TaskName
+  if($Mode -eq "NORMAL"){ Start-ScheduledTask $ArchiveTaskName }
+}
 Write-Host "Bybit Cluster Grid installed in $Mode mode."
