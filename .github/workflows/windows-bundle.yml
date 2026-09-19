@@ -35,8 +35,10 @@ jobs:
           Copy-Item run_worker.py,run_coordinator.py,requirements.txt -Destination $bundle
           $py=(Get-Command python).Source
           $pyRoot=Split-Path $py -Parent
-          Copy-Item $pyRoot (Join-Path $bundle "python") -Recurse
-          & (Join-Path $bundle "python\python.exe") -m pip install --disable-pip-version-check -r (Join-Path $bundle "requirements.txt")
+          $runtime=Join-Path $bundle "runtime"
+          New-Item -ItemType Directory -Force $runtime | Out-Null
+          Copy-Item (Join-Path $pyRoot "*") $runtime -Recurse -Force
+          & (Join-Path $runtime "python.exe") -m pip install --disable-pip-version-check -r (Join-Path $bundle "requirements.txt")
 
       - name: Optionally include pinned PostgreSQL installer
         shell: pwsh
@@ -63,7 +65,7 @@ jobs:
           POSTGRES_DSN: postgresql://grid:grid@127.0.0.1:55432/grid
         run: |
           $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
-          & (Join-Path $bundle "installer\preflight.ps1") -ReleaseDir $bundle -Python (Join-Path $bundle "python\python.exe") -Mode CONTROL
+          & (Join-Path $bundle "installer\preflight.ps1") -ReleaseDir $bundle -Python (Join-Path $bundle "runtime\python.exe") -Mode CONTROL
 
       - name: Build SHA256 manifest and zip
         shell: pwsh
