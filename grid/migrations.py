@@ -55,6 +55,10 @@ source_ts timestamptz NOT NULL, level_price numeric NOT NULL, event_ts timestamp
 event_type text NOT NULL, direction text, pre_features jsonb NOT NULL DEFAULT '{}'::jsonb,
 event_features jsonb NOT NULL DEFAULT '{}'::jsonb, outcome jsonb NOT NULL DEFAULT '{}'::jsonb)""",
 "CREATE INDEX IF NOT EXISTS level_events_lookup_idx ON level_events(symbol,timeframe,event_type,event_ts DESC)"
+]),
+(8,"historical_level_availability",[
+"ALTER TABLE historical_levels ADD COLUMN IF NOT EXISTS available_ts timestamptz",
+"CREATE INDEX IF NOT EXISTS historical_levels_active_idx ON historical_levels(symbol,active,timeframe,price)"
 ])
 ]
 
