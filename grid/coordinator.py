@@ -12,7 +12,7 @@ from .update_protocol import ensure_update_schema,note_heartbeat,register_releas
 from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent
 from .rollout import begin_stable_rollout,note_rollout_heartbeat,expire_rollout_nodes
 from .telegram_bot import telegram_loop
-from .scheduler import weighted_assign
+from .scheduler import weighted_assign,stabilize_assignments
 from .control_replica_builder import build_replica
 from .integrity_coordinator import handle_integrity_heartbeat
 from .repair_circuit_breaker import RepairCircuitBreaker
@@ -140,7 +140,9 @@ def rebalance():
     if not scores:
         assignments={}
         return
-    assignments=weighted_assign(instruments.keys(),scores,alive)
+    proposed=weighted_assign(instruments.keys(),scores,alive)
+    assignments=stabilize_assignments(proposed,assignments,alive,
+                                      getattr(settings,"assignment_max_churn_fraction",.10))
 
 @app.on_event("startup")
 async def startup():
