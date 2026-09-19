@@ -36,6 +36,7 @@ class Worker:
         self.meta={}
         self.enabled=True
         self.bootstrap_paused=False
+        self.operator_stopped=False
         self.bootstrap_phase=os.getenv('GRID_BOOTSTRAP_PHASE','NORMAL')
         self.pressure=PressureController(settings.resource_cpu_limit,settings.resource_ram_limit,settings.resource_disk_free_gb)
         self.pressure_drained=set()
@@ -68,6 +69,7 @@ class Worker:
                              "db_avg_write_latency_ms":round(dbm["avg_write_latency_ms"],3)})
                 snap['pressure_state']=state
                 snap['bootstrap_paused']=self.bootstrap_paused
+                snap['operator_stopped']=self.operator_stopped
                 snap['bootstrap_phase']=self.bootstrap_phase
                 snap['wanted_symbols']=len(self.wanted)
                 snap['active_trade_streams']=sum(1 for t in self.trade_tasks.values() if not t.done())
@@ -134,6 +136,15 @@ class Worker:
                         finally:
                             os._exit(0)
                 await asyncio.sleep(settings.heartbeat_seconds)
+
+    async def set_operator_stop(self,stopped):
+        flag=os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","operator.stop")
+        os.makedirs(os.path.dirname(flag),exist_ok=True)
+        if stopped:
+            with open(flag,"w",encoding="utf-8") as f:f.write("stopped\n")
+        else:
+            try:os.remove(flag)
+            except FileNotFoundError:pass
 
     async def set_bootstrap_pause(self,paused):
         self.bootstrap_paused=bool(paused)
@@ -225,6 +236,9 @@ class Worker:
         await ensure_plugin_schema(self.db.pool)
         await self.storage.start()
         self.meta={x["symbol"]:x for x in await linear_symbols(settings.bybit_rest_url)}
+        stop_flag=os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","operator.stop")
+        if os.path.exists(stop_flag):
+            self.operator_stopped=True; self.enabled=False
 
         asyncio.create_task(health_monitor())
         asyncio.create_task(retention_scheduler(self.db.pool,settings))
