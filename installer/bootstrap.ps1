@@ -4,6 +4,8 @@ param(
   [string]$EnrollmentToken="",
   [string]$LegacyHandoff="",
   [string]$ExistingPostgresDsn="",
+  [string]$TelegramBotToken="",
+  [string]$TelegramAllowedChatIds="",
   [ValidateSet("CONTROL","PILOT","NORMAL")][string]$AgentMode="NORMAL"
 )
 $ErrorActionPreference="Stop"
@@ -105,6 +107,21 @@ if(!(Test-Path $EnvFile)){
     $lines += "ROLE=$DesiredRole"
     $lines += ("COORDINATOR_URL="+$(if($CoordinatorUrl){$CoordinatorUrl}else{"http://127.0.0.1:8765"}))
     $lines | Set-Content -Encoding UTF8 $EnvFile
+}
+
+# Optional CONTROL Telegram secrets are supplied locally by the operator.
+# Never overwrite an existing secret with an empty value during repair.
+if($AgentMode -eq "CONTROL"){
+    if($TelegramBotToken){
+        $lines=@(Get-Content $EnvFile | Where-Object {$_ -notmatch '^TELEGRAM_BOT_TOKEN='})
+        $lines += "TELEGRAM_BOT_TOKEN=$TelegramBotToken"
+        $lines | Set-Content -Encoding UTF8 $EnvFile
+    }
+    if($TelegramAllowedChatIds){
+        $lines=@(Get-Content $EnvFile | Where-Object {$_ -notmatch '^TELEGRAM_ALLOWED_CHAT_IDS='})
+        $lines += "TELEGRAM_ALLOWED_CHAT_IDS=$TelegramAllowedChatIds"
+        $lines | Set-Content -Encoding UTF8 $EnvFile
+    }
 }
 
 # PostgreSQL is CONTROL-owned logically, but an externally installed instance remains external.
