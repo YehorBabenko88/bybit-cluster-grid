@@ -4,6 +4,7 @@ from .config import settings
 from .resilience import backoff_delays, wait_for_internet
 from .orderbook import analyze_book
 from .data_quality import FeedQuality, safe_float, AVAILABLE, MISSING
+from .continuity import SequenceGuard
 
 log=logging.getLogger("microstructure")
 
@@ -27,6 +28,8 @@ class MicrostructureCollector:
         tickers={}
         last_book_write={}
         last_ticker_write={}
+        quality={}
+        guards={}
 
         while True:
             try:
@@ -83,19 +86,27 @@ class MicrostructureCollector:
                             sym=topic.split(".")[-1]
                             state=books.setdefault(sym,{"b":{},"a":{},"u":None,"seq":None})
                             q=quality.setdefault(sym,FeedQuality(sym))
-                            # A fresh snapshot must replace the local book.
-                            if msg.get("type")=="snapshot" or data.get("u")==1:
+                            guard=guards.setdefault(sym,SequenceGuard())
+                            is_snapshot=msg.get("type")=="snapshot" or data.get("u")==1
+                            if is_snapshot:
                                 state["b"]={float(p):float(q) for p,q in data.get("b",[])}
                                 state["a"]={float(p):float(q) for p,q in data.get("a",[])}
+                                guard.snapshot(data.get("seq"),data.get("u"))
+                                q.mark("orderbook",AVAILABLE)
+                            elif not guard.delta(data.get("seq"),data.get("u")):
+                                state["b"].clear(); state["a"].clear()
+                                q.mark("orderbook",MISSING,"sequence gap; waiting for fresh snapshot")
+                                log.warning("orderbook sequence gap",extra={"event":"orderbook_gap","component":sym})
+                                continue
                             else:
-                                for p,q in data.get("b",[]):
-                                    p=float(p); q=float(q)
-                                    if q==0: state["b"].pop(p,None)
-                                    else: state["b"][p]=q
-                                for p,q in data.get("a",[]):
-                                    p=float(p); q=float(q)
-                                    if q==0: state["a"].pop(p,None)
-                                    else: state["a"][p]=q
+                                for p,qv in data.get("b",[]):
+                                    p=float(p); qv=float(qv)
+                                    if qv==0: state["b"].pop(p,None)
+                                    else: state["b"][p]=qv
+                                for p,qv in data.get("a",[]):
+                                    p=float(p); qv=float(qv)
+                                    if qv==0: state["a"].pop(p,None)
+                                    else: state["a"][p]=qv
                             state["u"]=data.get("u",state["u"])
                             state["seq"]=data.get("seq",state["seq"])
 
