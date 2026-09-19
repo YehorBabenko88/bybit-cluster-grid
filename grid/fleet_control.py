@@ -59,12 +59,11 @@ async def fleet_stop(pool,nodes,requested_by):
     await pool.execute("""INSERT INTO fleet_operations(id,action,status,requested_by,snapshot,targets)
       VALUES($1,'STOP','RUNNING',$2,$3::jsonb,$4::jsonb)""",op,str(requested_by),json.dumps(snapshot),json.dumps(targets))
     # Gate first: no heartbeat race can re-enable market work while commands fan out.
-    await set_runtime_state(pool,"PAUSED",requested_by,"global STOP")
+    await set_runtime_state(pool,"STOPPING",requested_by,"global STOP fanout")
     commands=[]
     for nid in targets:
         commands.append((nid,await enqueue_command(pool,nid,"stop",{"scope":"fleet","operation_id":str(op)})))
-    await pool.execute("UPDATE fleet_operations SET status='DONE',completed_at=now() WHERE id=$1",op)
-    return {"state":"PAUSED","operation_id":str(op),"commands":commands}
+    return {"state":"STOPPING","operation_id":str(op),"commands":commands}
 
 async def fleet_resume(pool,nodes,requested_by):
     await ensure_fleet_schema(pool)
@@ -81,9 +80,8 @@ async def fleet_resume(pool,nodes,requested_by):
             continue
         action="pause" if before.get("bootstrap_paused") else "start"
         commands.append((nid,await enqueue_command(pool,nid,action,{"scope":"fleet","operation_id":str(op)})))
-    await set_runtime_state(pool,"ACTIVE",requested_by,"global RESUME")
-    await pool.execute("UPDATE fleet_operations SET status='DONE',completed_at=now() WHERE id=$1",op)
-    return {"state":"ACTIVE","operation_id":str(op),"commands":commands,"preserved_stopped":[n for n,v in snapshot.items() if v.get("operator_stopped")]}
+    await set_runtime_state(pool,"RESUMING",requested_by,"global RESUME fanout")
+    return {"state":"RESUMING","operation_id":str(op),"commands":commands,"preserved_stopped":[n for n,v in snapshot.items() if v.get("operator_stopped")]}
 
 async def begin_fleet_delete(pool,nodes,requested_by):
     await ensure_fleet_schema(pool)
@@ -92,7 +90,7 @@ async def begin_fleet_delete(pool,nodes,requested_by):
         return {"operation_id":str(existing["id"]),"targets":existing["targets"],"existing":True}
     targets=await _registered_targets(pool,nodes)
     op=uuid.uuid4()
-    await set_runtime_state(pool,"PAUSED",requested_by,"global DELETE pending")
+    await set_runtime_state(pool,"DELETING",requested_by,"global DELETE pending")
     await pool.execute("""INSERT INTO fleet_operations(id,action,status,requested_by,targets)
       VALUES($1,'DELETE','WAITING',$2,$3::jsonb)""",op,str(requested_by),json.dumps(targets))
     commands=[]
@@ -114,3 +112,37 @@ async def fleet_delete_status(pool,operation_id):
     await pool.execute("UPDATE fleet_operations SET status=$2,details=$3::jsonb WHERE id=$1::uuid",
                        str(operation_id),status,json.dumps({"pending":pending,"failed":failed}))
     return {"status":status,"pending":pending,"failed":failed,"targets":targets}
+
+
+async def reconcile_fleet_operation(pool):
+    """Advance STOP/RESUME only after every required node command ACKs."""
+    await ensure_fleet_schema(pool)
+    op=await pool.fetchrow("""SELECT * FROM fleet_operations
+      WHERE action IN ('STOP','RESUME') AND status='RUNNING'
+      ORDER BY created_at DESC LIMIT 1""")
+    if not op:
+        return None
+    action=op["action"]; oid=str(op["id"])
+    rows=await pool.fetch("""SELECT node_id,action,status,error FROM agent_commands
+      WHERE payload->>'operation_id'=$1 AND payload->>'scope'='fleet'""",oid)
+    by={r["node_id"]:dict(r) for r in rows}
+    snapshot=op["snapshot"] or {}
+    if action=="STOP":
+        required=list(op["targets"] or [])
+    else:
+        required=[n for n in list(op["targets"] or []) if not (snapshot.get(n) or {}).get("operator_stopped")]
+    failed={n:by[n].get("error") for n in required if by.get(n,{}).get("status")=="failed"}
+    pending=[n for n in required if by.get(n,{}).get("status")!="done"]
+    if failed:
+        await pool.execute("UPDATE fleet_operations SET status='FAILED',details=$2::jsonb WHERE id=$1",
+                           op["id"],json.dumps({"pending":pending,"failed":failed}))
+        # Fail closed. Never open ACTIVE on a partial resume.
+        await set_runtime_state(pool,"STOPPED","system","fleet operation failed")
+        return {"action":action,"status":"FAILED","pending":pending,"failed":failed}
+    if pending:
+        return {"action":action,"status":"RUNNING","pending":pending,"failed":{}}
+    final_state="STOPPED" if action=="STOP" else "ACTIVE"
+    await set_runtime_state(pool,final_state,"system",f"global {action} acknowledged")
+    await pool.execute("UPDATE fleet_operations SET status='DONE',completed_at=now(),details=$2::jsonb WHERE id=$1",
+                       op["id"],json.dumps({"pending":[],"failed":{}}))
+    return {"action":action,"status":"DONE","pending":[],"failed":{},"state":final_state}
