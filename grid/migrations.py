@@ -71,6 +71,16 @@ PRIMARY KEY(observer,symbol))""",
 "ALTER TABLE level_events ADD COLUMN IF NOT EXISTS quality_status text NOT NULL DEFAULT 'UNKNOWN'",
 "ALTER TABLE level_events ADD COLUMN IF NOT EXISTS completeness double precision NOT NULL DEFAULT 0",
 "ALTER TABLE level_events ADD COLUMN IF NOT EXISTS ml_eligible boolean NOT NULL DEFAULT false"
+]),
+(11,"ml_event_samples",[
+"""CREATE TABLE IF NOT EXISTS ml_event_samples(
+sample_id bigserial PRIMARY KEY, symbol text NOT NULL, event_id bigint REFERENCES level_events(id),
+sample_type text NOT NULL, feature_ts timestamptz NOT NULL, event_ts timestamptz NOT NULL,
+features jsonb NOT NULL, instrument_features jsonb NOT NULL DEFAULT '{}'::jsonb,
+target jsonb NOT NULL DEFAULT '{}'::jsonb, target_ready boolean NOT NULL DEFAULT false,
+quality_status text NOT NULL, split_group text, created_at timestamptz NOT NULL DEFAULT now())""",
+"CREATE UNIQUE INDEX IF NOT EXISTS ml_event_samples_event_type_idx ON ml_event_samples(event_id,sample_type)",
+"CREATE INDEX IF NOT EXISTS ml_event_samples_train_idx ON ml_event_samples(target_ready,quality_status,event_ts)"
 ])
 ]
 
