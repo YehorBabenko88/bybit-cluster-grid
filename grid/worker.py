@@ -38,7 +38,14 @@ class Worker:
         async with aiohttp.ClientSession() as s:
             while True:
                 snap=snapshot()
-                state=self.pressure.update(snap)
+                dbm=self.storage.metrics()
+                state=self.pressure.update(snap,dbm["queue_ratio"])
+                snap.update({"db_queue_depth":dbm["queue_depth"],
+                             "db_queue_capacity":dbm["queue_capacity"],
+                             "db_queue_ratio":round(dbm["queue_ratio"],4),
+                             "db_writes_per_sec":round(dbm["writes_per_sec"],3),
+                             "db_write_failures":dbm["write_failures"],
+                             "db_avg_write_latency_ms":round(dbm["avg_write_latency_ms"],3)})
                 snap['pressure_state']=state
                 snap['pressure_drained']=len(self.pressure_drained)
                 snap['drained_symbols']=sorted(self.pressure_drained)
@@ -149,6 +156,7 @@ class Worker:
                             ))
                         for row in fp.pop_closed(int(time.time()*1000)):
                             await self.storage.save(row)
+                            self.pressure.observe_symbol(symbol,db_writes=1)
             except asyncio.CancelledError:
                 raise
             except Exception:
