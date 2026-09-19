@@ -67,10 +67,24 @@ if($RebuildVenv){
     if($LASTEXITCODE -ne 0){throw "Failed to create Grid virtual environment"}
 }
 $Python=$VenvPython
-& $Python -m pip install --upgrade pip
-if($LASTEXITCODE -ne 0){throw "Failed to update Grid pip"}
-& $Python -m pip install --upgrade -r (Join-Path $Release "requirements.txt")
-if($LASTEXITCODE -ne 0){throw "Failed to install Grid dependencies"}
+$Requirements=Join-Path $Release "requirements.txt"
+$ReqHash=(Get-FileHash -Algorithm SHA256 $Requirements).Hash.ToLowerInvariant()
+$ReqState=Join-Path $RuntimeRoot "requirements.sha256"
+$InstalledHash=if(Test-Path $ReqState){(Get-Content $ReqState -Raw).Trim()}else{""}
+$NeedDeps=$RebuildVenv -or ($ReqHash -ne $InstalledHash)
+if(!$NeedDeps){
+    & $Python -c "import aiohttp,asyncpg,psutil,websockets,pydantic,fastapi,httpx" 2>$null
+    if($LASTEXITCODE -ne 0){$NeedDeps=$true}
+}
+if($NeedDeps){
+    & $Python -m pip install --upgrade pip
+    if($LASTEXITCODE -ne 0){throw "Failed to update Grid pip"}
+    & $Python -m pip install --upgrade -r $Requirements
+    if($LASTEXITCODE -ne 0){throw "Failed to install Grid dependencies"}
+    Set-Content -Encoding ascii -NoNewline $ReqState $ReqHash
+} else {
+    Write-Host "Grid dependencies already match requirements fingerprint."
+}
 
 $EnvFile=Join-Path $DataRoot ".env"
 if(!(Test-Path $EnvFile)){
