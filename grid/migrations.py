@@ -215,6 +215,11 @@ PRIMARY KEY(run_id,symbol))""",
 "CREATE INDEX IF NOT EXISTS historical_experiment_cp_status_idx ON historical_experiment_checkpoints(run_id,status,symbol)"
 ]),
 (24,"cold_start_backfill",[
+"""CREATE TABLE IF NOT EXISTS ohlcv_1m(
+symbol text NOT NULL,ts timestamptz NOT NULL,open numeric NOT NULL,high numeric NOT NULL,
+low numeric NOT NULL,close numeric NOT NULL,volume numeric NOT NULL,turnover numeric,
+source text NOT NULL DEFAULT 'BYBIT_REST',PRIMARY KEY(symbol,ts))""",
+"CREATE INDEX IF NOT EXISTS ohlcv_1m_symbol_ts_idx ON ohlcv_1m(symbol,ts DESC)",
 """CREATE TABLE IF NOT EXISTS market_backfill_state(
 symbol text NOT NULL,timeframe text NOT NULL DEFAULT '1',status text NOT NULL DEFAULT 'queued',
 oldest_loaded_ts timestamptz,newest_loaded_ts timestamptz,next_end_ms bigint,
