@@ -31,6 +31,18 @@ def _log_dir():
     return Path(program_data) / "BybitClusterGrid" / "logs"
 
 
+def _same_log_file(handler, target_path):
+    if not isinstance(handler, logging.FileHandler):
+        return False
+
+    try:
+        current = Path(handler.baseFilename).resolve()
+        target = Path(target_path).resolve()
+        return current == target
+    except Exception:
+        return False
+
+
 def setup_logging():
     level = getattr(
         logging,
@@ -41,24 +53,40 @@ def setup_logging():
     root = logging.getLogger()
     root.setLevel(level)
 
-    if root.handlers:
-        return
-
     log_dir = _log_dir()
     log_dir.mkdir(parents=True, exist_ok=True)
 
+    log_path = log_dir / "grid.jsonl"
     formatter = JsonFormatter()
 
-    sh = logging.StreamHandler(sys.stdout)
-    sh.setFormatter(formatter)
-
-    fh = logging.handlers.RotatingFileHandler(
-        log_dir / "grid.jsonl",
-        maxBytes=50_000_000,
-        backupCount=10,
-        encoding="utf-8",
+    # Uvicorn may already have installed console/root handlers.
+    # Do not return early: ensure our JSON file handler exists.
+    has_grid_file_handler = any(
+        _same_log_file(handler, log_path)
+        for handler in root.handlers
     )
-    fh.setFormatter(formatter)
 
-    root.addHandler(sh)
-    root.addHandler(fh)
+    if not has_grid_file_handler:
+        fh = logging.handlers.RotatingFileHandler(
+            log_path,
+            maxBytes=50_000_000,
+            backupCount=10,
+            encoding="utf-8",
+        )
+        fh.setLevel(level)
+        fh.setFormatter(formatter)
+        root.addHandler(fh)
+
+    # Keep an application stdout handler only when root has none
+    # other than our own file handler.
+    has_stream_handler = any(
+        isinstance(handler, logging.StreamHandler)
+        and not isinstance(handler, logging.FileHandler)
+        for handler in root.handlers
+    )
+
+    if not has_stream_handler:
+        sh = logging.StreamHandler(sys.stdout)
+        sh.setLevel(level)
+        sh.setFormatter(formatter)
+        root.addHandler(sh)
