@@ -146,6 +146,15 @@ owner_id text NOT NULL, expires_at timestamptz, created_at timestamptz NOT NULL 
 """CREATE TABLE IF NOT EXISTS replicated_control_state(
 state_key text PRIMARY KEY, value jsonb NOT NULL, version bigint NOT NULL DEFAULT 1,
 updated_at timestamptz NOT NULL DEFAULT now(), updated_by text NOT NULL)"""
+]),
+(17,"integrity_repair_state",[
+"""CREATE TABLE IF NOT EXISTS integrity_repairs(
+id uuid PRIMARY KEY,node_id text NOT NULL,target_version text NOT NULL,
+status text NOT NULL DEFAULT 'queued',required_health_acks integer NOT NULL DEFAULT 3,
+health_acks integer NOT NULL DEFAULT 0,previous_version text,
+files jsonb NOT NULL DEFAULT '[]'::jsonb,created_at timestamptz NOT NULL DEFAULT now(),
+deadline timestamptz NOT NULL DEFAULT now()+interval '10 minutes',last_error text)""",
+"CREATE INDEX IF NOT EXISTS integrity_repairs_node_status_idx ON integrity_repairs(node_id,status,created_at DESC)"
 ])
 ]
 
