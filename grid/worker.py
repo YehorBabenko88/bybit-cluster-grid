@@ -38,6 +38,7 @@ class Worker:
         self.bootstrap_paused=False
         self.operator_stopped=False
         self.bootstrap_phase=os.getenv('GRID_BOOTSTRAP_PHASE','NORMAL')
+        self.runtime_state='INFRA_ONLY'
         self.pressure=PressureController(settings.resource_cpu_limit,settings.resource_ram_limit,settings.resource_disk_free_gb)
         self.pressure_drained=set()
         self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json'))
@@ -71,6 +72,7 @@ class Worker:
                 snap['bootstrap_paused']=self.bootstrap_paused
                 snap['operator_stopped']=self.operator_stopped
                 snap['bootstrap_phase']=self.bootstrap_phase
+                snap['runtime_state']=self.runtime_state
                 snap['wanted_symbols']=len(self.wanted)
                 snap['active_trade_streams']=sum(1 for t in self.trade_tasks.values() if not t.done())
                 snap['pressure_drained']=len(self.pressure_drained)
@@ -114,7 +116,16 @@ class Worker:
                                     )
                                 except Exception:
                                     log.exception("command acknowledgement failed",extra={"event":"command_ack_failed"})
-                            assigned=set(reply.get("symbols",[])) if self.enabled else set()
+                            self.runtime_state=str(reply.get("runtime_state","INFRA_ONLY"))
+                            market_enabled=bool(reply.get("market_work_enabled",False)) and self.runtime_state=="ACTIVE"
+                            if market_enabled and not self.meta:
+                                try:
+                                    # No Bybit market request in INFRA_ONLY. Metadata is loaded lazily after the
+        # coordinator explicitly reports the persistent fleet gate as ACTIVE.
+        self.meta={}
+                                except Exception:
+                                    log.exception("instrument metadata refresh failed",extra={"event":"metadata_refresh_failed"})
+                            assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
                             if state in (NORMAL,SOFT_PRESSURE):
                                 self.pressure_drained.clear()
                             else:
