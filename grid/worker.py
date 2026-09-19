@@ -1,4 +1,4 @@
-import asyncio,json,time
+import asyncio, json, time, logging
 import aiohttp, websockets
 from .config import settings
 from .resources import snapshot
@@ -6,47 +6,115 @@ from .models import Trade
 from .cluster import FootprintBuilder
 from .storage import Storage
 from .bybit import linear_symbols
+from .service import prepare_database, bootstrap_logging, health_monitor
+from .microstructure import MicrostructureCollector
+from .resilience import backoff_delays, wait_for_internet
+
+log=logging.getLogger("worker")
 
 class Worker:
     def __init__(self):
-        self.wanted=set(); self.tasks={}; self.storage=Storage(); self.meta={}
+        self.wanted=set()
+        self.trade_tasks={}
+        self.micro_tasks=[]
+        self.micro_signature=()
+        self.storage=Storage()
+        self.db=None
+        self.meta={}
+
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
             while True:
                 snap=snapshot()
                 try:
-                    async with s.post(settings.coordinator_url+"/heartbeat",json=snap,
-                        headers={"X-Grid-Token":settings.grid_shared_token},timeout=10) as r:
-                        if r.status==200: self.wanted=set((await r.json())["symbols"])
-                    await self.reconcile()
-                except Exception as e: print("heartbeat",repr(e),flush=True)
+                    async with s.post(
+                        settings.coordinator_url+"/heartbeat",
+                        json=snap,
+                        headers={"X-Grid-Token":settings.grid_shared_token},
+                        timeout=10
+                    ) as r:
+                        if r.status==200:
+                            new=set((await r.json())["symbols"])
+                            if new != self.wanted:
+                                self.wanted=new
+                                await self.reconcile()
+                        else:
+                            log.warning("coordinator heartbeat rejected",extra={"event":"heartbeat_rejected"})
+                except Exception:
+                    log.exception("heartbeat failed",extra={"event":"heartbeat_failed"})
                 await asyncio.sleep(settings.heartbeat_seconds)
+
     async def reconcile(self):
-        for sym in list(self.tasks):
-            if sym not in self.wanted: self.tasks.pop(sym).cancel()
+        # Trade stream lifecycle
+        for sym in list(self.trade_tasks):
+            if sym not in self.wanted:
+                self.trade_tasks.pop(sym).cancel()
         for sym in self.wanted:
-            if sym not in self.tasks:
-                self.tasks[sym]=asyncio.create_task(self.stream(sym))
-    async def stream(self,symbol):
-        tick=self.meta[symbol]["tick_size"]; fp=FootprintBuilder(tick,settings.cluster_interval_seconds)
-        backoff=1
+            if sym in self.meta and sym not in self.trade_tasks:
+                self.trade_tasks[sym]=asyncio.create_task(self.trade_stream(sym))
+
+        # Microstructure streams are batched. Rebuild only when assignment changes.
+        signature=tuple(sorted(self.wanted))
+        if signature != self.micro_signature:
+            self.micro_signature=signature
+            for t in self.micro_tasks:
+                t.cancel()
+            if self.micro_tasks:
+                await asyncio.gather(*self.micro_tasks,return_exceptions=True)
+            self.micro_tasks=[]
+            collector=MicrostructureCollector(self.db,snapshot_ms=1000)
+            symbols=list(signature)
+            for i in range(0,len(symbols),8):
+                batch=symbols[i:i+8]
+                if batch:
+                    self.micro_tasks.append(asyncio.create_task(collector.run_batch(batch)))
+            log.info("assignment reconciled",extra={"event":"assignment","component":f"{len(symbols)} symbols"})
+
+    async def trade_stream(self,symbol):
+        tick=self.meta[symbol]["tick_size"]
+        fp=FootprintBuilder(tick,settings.cluster_interval_seconds)
+        delays=backoff_delays()
         while True:
             try:
-                async with websockets.connect(settings.bybit_ws_url,ping_interval=20,ping_timeout=20,max_queue=10000) as ws:
+                await wait_for_internet()
+                async with websockets.connect(
+                    settings.bybit_ws_url,
+                    ping_interval=20,ping_timeout=20,max_queue=50000,close_timeout=5
+                ) as ws:
                     await ws.send(json.dumps({"op":"subscribe","args":[f"publicTrade.{symbol}"]}))
-                    backoff=1
-                    while True:
-                        msg=json.loads(await ws.recv())
+                    delays=backoff_delays()
+                    async for raw in ws:
+                        msg=json.loads(raw)
                         for x in msg.get("data",[]):
-                            fp.add(Trade(symbol,int(x["T"]),float(x["p"]),float(x["v"]),x["S"],x.get("i","")))
-                        for row in fp.pop_closed(int(time.time()*1000)): await self.storage.save(row)
-            except asyncio.CancelledError: raise
-            except Exception as e:
-                print(symbol,"stream error",repr(e),flush=True); await asyncio.sleep(backoff); backoff=min(30,backoff*2)
+                            fp.add(Trade(
+                                symbol=symbol,
+                                ts_ms=int(x["T"]),
+                                price=float(x["p"]),
+                                qty=float(x["v"]),
+                                side=x["S"],
+                                trade_id=x.get("i","")
+                            ))
+                        for row in fp.pop_closed(int(time.time()*1000)):
+                            await self.storage.save(row)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                d=next(delays)
+                log.exception("trade stream failed",extra={
+                    "event":"reconnect","symbol":symbol,"delay":d
+                })
+                await asyncio.sleep(d)
+
     async def run(self):
+        bootstrap_logging()
+        self.db=await prepare_database()
         await self.storage.start()
         self.meta={x["symbol"]:x for x in await linear_symbols(settings.bybit_rest_url)}
+        asyncio.create_task(health_monitor())
         await self.heartbeat()
 
-async def main(): await Worker().run()
-if __name__=="__main__": asyncio.run(main())
+async def main():
+    await Worker().run()
+
+if __name__=="__main__":
+    asyncio.run(main())
