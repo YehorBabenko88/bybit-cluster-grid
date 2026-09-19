@@ -17,6 +17,7 @@ from .control_replica_builder import build_replica
 from .integrity_coordinator import handle_integrity_heartbeat
 from .repair_circuit_breaker import RepairCircuitBreaker
 from .repair_health import expired_repairs
+from .archive_discovery_service import seed_discovery
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -147,6 +148,7 @@ async def startup():
             try:
                 xs=await linear_symbols(settings.bybit_rest_url)
                 added,retired=await reconcile_instruments(db.pool,xs)
+                await seed_discovery(db.pool,xs)
                 instruments={x["symbol"]:x for x in xs}; rebalance()
                 if added or retired:
                     log.info("instrument universe changed",extra={"event":"instrument_reconcile",
