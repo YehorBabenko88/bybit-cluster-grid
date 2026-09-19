@@ -40,19 +40,24 @@ $Python=Join-Path $Venv "Scripts\python.exe"
 & $Python -m pip install --upgrade pip
 & $Python -m pip install --upgrade -r (Join-Path $Release "requirements.txt")
 
-# Existing PostgreSQL is discovered, never upgraded/reconfigured automatically.
-# Provisioning is delegated to provision_postgres.ps1, which creates only Grid-owned DB/user.
-& (Join-Path $PSScriptRoot "provision_postgres.ps1") -DiscoveryPath (Join-Path $DataRoot "discovery.json") -DataRoot $DataRoot
-
 $EnvFile=Join-Path $DataRoot ".env"
 if(!(Test-Path $EnvFile)){
     @(
       "ROLE=worker",
       "GRID_DATA_PATH=$DataRoot",
-      "STRATEGY_CACHE_DIR=$DataRoot\runtime_strategies",
-      "COORDINATOR_URL=$CoordinatorUrl",
-      "ENROLLMENT_TOKEN=$EnrollmentToken"
+      "STRATEGY_CACHE_DIR=$DataRoot\\runtime_strategies",
+      "COORDINATOR_URL=$CoordinatorUrl"
     ) | Set-Content -Encoding UTF8 $EnvFile
+}
+
+# Existing PostgreSQL is discovered, never upgraded/reconfigured automatically.
+& (Join-Path $PSScriptRoot "provision_postgres.ps1") -DiscoveryPath (Join-Path $DataRoot "discovery.json") -DataRoot $DataRoot
+
+if($CoordinatorUrl -and $EnrollmentToken){
+    Push-Location $Release
+    try {
+        & (Join-Path $PSScriptRoot "enroll.ps1") -CoordinatorUrl $CoordinatorUrl -EnrollmentToken $EnrollmentToken -Python $Python -DataRoot $DataRoot | Out-Null
+    } finally { Pop-Location }
 }
 
 & (Join-Path $PSScriptRoot "preflight.ps1") -ReleaseDir $Release
