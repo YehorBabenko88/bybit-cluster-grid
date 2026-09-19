@@ -126,6 +126,12 @@ created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(model_id,stage,dataset_id)
 model_id uuid NOT NULL REFERENCES model_registry(id), symbol text NOT NULL,
 event_ts timestamptz NOT NULL, setup_type text NOT NULL, prediction jsonb NOT NULL,
 outcome jsonb, evaluated_at timestamptz, PRIMARY KEY(model_id,symbol,event_ts,setup_type))"""
+]),
+(15,"immutable_dataset_membership",[
+"""CREATE TABLE IF NOT EXISTS dataset_samples(
+dataset_id uuid NOT NULL REFERENCES dataset_snapshots(id) ON DELETE CASCADE,
+sample_id bigint NOT NULL REFERENCES ml_event_samples(sample_id),
+ordinal bigint NOT NULL, PRIMARY KEY(dataset_id,sample_id), UNIQUE(dataset_id,ordinal))"""
 ])
 ]
 
