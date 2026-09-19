@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio,json,os,shlex
 from pathlib import Path
+from .pilot_inventory import verified_inventory
 
 async def run_research_command(command,source_db,cutoff_ms,output_dir,pause_flag=None):
     out=Path(output_dir);out.mkdir(parents=True,exist_ok=True)
@@ -26,4 +27,11 @@ async def run_research_command(command,source_db,cutoff_ms,output_dir,pause_flag
         raise RuntimeError("research handoff is not import-ready")
     if int(data.get("research_cutoff_ms",-1))!=int(cutoff_ms):
         raise RuntimeError("research cutoff differs from frozen pilot cutoff")
+    inv=verified_inventory(source_db,cutoff_ms)
+    data["source_candle_db"]=str(Path(source_db).resolve())
+    data["coverage"]=[{k:v for k,v in row.items() if k!="coverage_fingerprint"} for row in inv["coverage"]]
+    data["coverage_fingerprints"]={row["symbol"]:row["coverage_fingerprint"] for row in inv["coverage"]}
+    tmp=handoff.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data,indent=2,sort_keys=True),encoding="utf-8")
+    os.replace(tmp,handoff)
     return str(handoff),data
