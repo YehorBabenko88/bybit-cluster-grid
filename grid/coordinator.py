@@ -9,7 +9,7 @@ from .strategy_jobs import ensure_strategy_schema,submit_job
 from .strategy_plugins import ensure_plugin_schema,register_plugin,list_plugins
 from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result
 from .update_protocol import ensure_update_schema,note_heartbeat,register_release,start_canary,promote_stable,expired_canaries
-from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent
+from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent,registered_install_mode
 from .rollout import begin_stable_rollout,note_rollout_heartbeat,expire_rollout_nodes
 from .telegram_bot import telegram_loop
 from .scheduler import weighted_assign,stabilize_assignments
@@ -19,6 +19,7 @@ from .repair_circuit_breaker import RepairCircuitBreaker
 from .repair_health import expired_repairs
 from .archive_discovery_service import seed_discovery
 from .pilot_state import node_accepts_live_assignments,node_live_mode
+from .live_assignment_policy import guarded_live_symbols
 from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .storage import Storage
 
@@ -30,13 +31,19 @@ ingest_storage=None
 background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
 
+
 def auth(token):
     if token != settings.grid_shared_token: raise HTTPException(401,"bad grid token")
 
 @app.post("/enroll")
 async def enroll_node(payload:dict):
     try:
-        credential=await enroll(db.pool,payload["enrollment_token"],payload["node_id"])
+        credential=await enroll(
+            db.pool,
+            payload["enrollment_token"],
+            payload["node_id"],
+            payload.get("install_mode"),
+        )
     except ValueError as e:
         raise HTTPException(401,str(e))
     return {"node_id":payload["node_id"],"credential":credential}
@@ -60,17 +67,20 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     commands=await pending_commands(db.pool,nid)
     replica=await build_replica(db.pool)
     live_mode=await node_live_mode(db.pool,nid)
+    install_mode=await registered_install_mode(db.pool,nid)
     fleet_state=await runtime_state(db.pool)
     market_enabled=fleet_state["state"]=="ACTIVE"
-    if market_enabled and live_mode=="NORMAL":
-        symbols=assignments.get(nid,[])
-    elif market_enabled and live_mode=="PILOT_VALIDATING":
-        preferred=["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","DOGEUSDT"]
-        symbols=[x for x in preferred if x in instruments][:5]
-    else:
-        symbols=[]
+
+    symbols=guarded_live_symbols(
+        market_enabled=market_enabled,
+        install_mode=install_mode,
+        live_mode=live_mode,
+        node_assignments=assignments.get(nid,[]),
+        instrument_symbols=instruments,
+    )
     return {"symbols":symbols,"commands":commands,"control_replica":replica,
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
+            "install_mode":install_mode,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
 
 @app.post("/commands/{command_id}/result")

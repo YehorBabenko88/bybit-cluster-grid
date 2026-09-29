@@ -17,9 +17,12 @@ async def ensure_enrollment_schema(pool):
         CREATE TABLE IF NOT EXISTS agent_credentials(
           node_id text PRIMARY KEY,
           credential_hash text NOT NULL,
+          install_mode text NOT NULL DEFAULT 'UNKNOWN',
           created_at timestamptz NOT NULL DEFAULT now(),
           revoked_at timestamptz
         );
+        ALTER TABLE agent_credentials
+          ADD COLUMN IF NOT EXISTS install_mode text NOT NULL DEFAULT 'UNKNOWN';
         """)
 
 async def create_enrollment_token(pool,label,expires_at):
@@ -29,7 +32,10 @@ async def create_enrollment_token(pool,label,expires_at):
                         hash_token(token),label,expires_at)
     return token
 
-async def enroll(pool,token,node_id):
+async def enroll(pool,token,node_id,install_mode):
+    install_mode=str(install_mode or "").upper()
+    if install_mode not in {"PILOT","NORMAL"}:
+        raise ValueError("invalid install mode")
     th=hash_token(token)
     credential=secrets.token_urlsafe(48)
     async with pool.acquire() as c:
@@ -39,9 +45,12 @@ async def enroll(pool,token,node_id):
               FOR UPDATE""",th)
             if not row: raise ValueError("invalid/expired enrollment token")
             await c.execute("UPDATE enrollment_tokens SET used_at=now() WHERE token_hash=$1",th)
-            await c.execute("""INSERT INTO agent_credentials(node_id,credential_hash)
-              VALUES($1,$2) ON CONFLICT(node_id) DO UPDATE SET credential_hash=EXCLUDED.credential_hash,
-              revoked_at=NULL,created_at=now()""",node_id,hash_token(credential))
+            await c.execute("""INSERT INTO agent_credentials(node_id,credential_hash,install_mode)
+              VALUES($1,$2,$3) ON CONFLICT(node_id) DO UPDATE SET
+              credential_hash=EXCLUDED.credential_hash,
+              install_mode=EXCLUDED.install_mode,
+              revoked_at=NULL,created_at=now()""",
+              node_id,hash_token(credential),install_mode)
     return credential
 
 async def authenticate_agent(pool,node_id,credential):
@@ -49,3 +58,14 @@ async def authenticate_agent(pool,node_id,credential):
         expected=await c.fetchval("""SELECT credential_hash FROM agent_credentials
           WHERE node_id=$1 AND revoked_at IS NULL""",node_id)
     return bool(expected) and secrets.compare_digest(expected,hash_token(credential))
+
+
+async def registered_install_mode(pool,node_id):
+    """CONTROL-owned enrollment role. Unknown/missing state is fail-closed."""
+    mode=await pool.fetchval(
+        """SELECT install_mode FROM agent_credentials
+           WHERE node_id=$1 AND revoked_at IS NULL""",
+        node_id,
+    )
+    mode=str(mode or "UNKNOWN").upper()
+    return mode if mode in {"PILOT","NORMAL"} else "UNKNOWN"

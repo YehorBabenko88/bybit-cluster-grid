@@ -27,10 +27,25 @@ async def pilot_state(pool,node_id=None):
     return [dict(r) for r in await pool.fetch("SELECT * FROM pilot_bootstrap_state ORDER BY node_id")]
 
 async def node_live_mode(pool,node_id):
-    r=await pool.fetchrow("SELECT mode,paused FROM pilot_bootstrap_state WHERE node_id=$1",node_id)
-    if not r:return "NORMAL"
-    if r["paused"]:return "PAUSED"
-    return r["mode"]
+    """Return the explicitly persisted live mode for a node.
+
+    Missing or invalid pilot state is fail-closed. A newly enrolled or
+    incompletely initialized node must never inherit NORMAL live-market
+    permissions merely because its pilot state is absent or malformed.
+    """
+    r=await pool.fetchrow(
+        "SELECT mode,paused FROM pilot_bootstrap_state WHERE node_id=$1",
+        node_id,
+    )
+    if not r:
+        return "PAUSED"
+    if r["paused"]:
+        return "PAUSED"
+
+    mode=r["mode"]
+    if mode not in MODES:
+        return "PAUSED"
+    return mode
 
 async def node_accepts_live_assignments(pool,node_id):
     return (await node_live_mode(pool,node_id))=="NORMAL"

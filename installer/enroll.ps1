@@ -1,13 +1,14 @@
 param(
  [Parameter(Mandatory=$true)][string]$CoordinatorUrl,
  [Parameter(Mandatory=$true)][string]$EnrollmentToken,
+  [Parameter(Mandatory=$true)][ValidateSet("PILOT","NORMAL")][string]$InstallMode,
  [Parameter(Mandatory=$true)][string]$Python,
  [Parameter(Mandatory=$true)][string]$DataRoot
 )
 $ErrorActionPreference="Stop"
 $NodeId=& $Python -c "from grid.resources import NODE_ID; print(NODE_ID)"
 if($LASTEXITCODE -ne 0 -or !$NodeId){throw "Unable to determine node id"}
-$body=@{node_id=$NodeId.Trim();enrollment_token=$EnrollmentToken} | ConvertTo-Json
+$body=@{node_id=$NodeId.Trim();enrollment_token=$EnrollmentToken;install_mode=$InstallMode} | ConvertTo-Json
 $r=Invoke-RestMethod -Method Post -Uri ($CoordinatorUrl.TrimEnd("/")+"/enroll") -ContentType "application/json" -Body $body
 if(!$r.credential){throw "Coordinator did not return node credential"}
 $SecretDir=Join-Path $DataRoot "secrets"
