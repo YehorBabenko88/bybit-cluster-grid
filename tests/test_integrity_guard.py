@@ -20,3 +20,22 @@ def test_manifest_cannot_escape_grid_root():
         m=Path(d)/"manifest.json";m.write_text(json.dumps({"files":{"../x":"00"}}))
         try:verify_manifest(root,m);assert False
         except ValueError:pass
+
+
+def test_manifest_accepts_utf8_bom():
+    with tempfile.TemporaryDirectory() as d:
+        root=Path(d)/"grid"
+        root.mkdir()
+        (root/"a.py").write_text("ok",encoding="utf-8")
+        h=hashlib.sha256(b"ok").hexdigest()
+
+        manifest=Path(d)/"manifest.json"
+        payload=json.dumps({"version":"bom-test","files":{"a.py":h}})
+        manifest.write_bytes(b"\xef\xbb\xbf"+payload.encode("utf-8"))
+
+        result=verify_manifest(root,manifest)
+
+        assert result["ok"] is True
+        assert result["bad"] == []
+        assert result["missing"] == []
+        assert result["version"] == "bom-test"

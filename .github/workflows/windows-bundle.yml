@@ -67,20 +67,68 @@ jobs:
           $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
           & (Join-Path $bundle "installer\preflight.ps1") -ReleaseDir $bundle -Python (Join-Path $bundle "runtime\python.exe") -Mode CONTROL
 
-      - name: Build SHA256 manifest and zip
+      - name: Build SHA256 manifests and zip
         shell: pwsh
         run: |
           $ErrorActionPreference="Stop"
           $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
-          $manifest=@()
-          Get-ChildItem $bundle -File -Recurse | Sort-Object FullName | ForEach-Object {
-            $rel=$_.FullName.Substring($bundle.Length+1).Replace("\","/")
-            $manifest += [ordered]@{path=$rel;sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant();size=$_.Length}
-          }
-          [ordered]@{schema=1;commit="${{ github.sha }}";files=$manifest} | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 (Join-Path $bundle "bundle-manifest.json")
-          Compress-Archive -Path (Join-Path $bundle "*") -DestinationPath (Join-Path $env:RUNNER_TEMP "BybitClusterGrid-${{ github.sha }}.zip")
-          (Get-FileHash (Join-Path $env:RUNNER_TEMP "BybitClusterGrid-${{ github.sha }}.zip") -Algorithm SHA256).Hash.ToLowerInvariant() | Set-Content (Join-Path $env:RUNNER_TEMP "BybitClusterGrid-${{ github.sha }}.zip.sha256")
 
+          # Installer/bundle manifest.
+          $bundleManifest=@()
+          Get-ChildItem $bundle -File -Recurse |
+            Sort-Object FullName |
+            ForEach-Object {
+              $rel=$_.FullName.Substring($bundle.Length+1).Replace("\","/")
+              $bundleManifest += [ordered]@{
+                path=$rel
+                sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                size=$_.Length
+              }
+            }
+
+          [ordered]@{
+            schema=1
+            commit="${{ github.sha }}"
+            files=$bundleManifest
+          } |
+            ConvertTo-Json -Depth 5 |
+            Set-Content -Encoding UTF8 (Join-Path $bundle "bundle-manifest.json")
+
+          # Runtime integrity manifest consumed by grid.integrity_guard.
+          # Manifest files themselves are excluded to avoid self-referential hashes.
+          $releaseFiles=[ordered]@{}
+
+          Get-ChildItem $bundle -File -Recurse |
+            Where-Object {
+              $_.Name -ne "release-manifest.json" -and
+              $_.Name -ne "bundle-manifest.json"
+            } |
+            Sort-Object FullName |
+            ForEach-Object {
+              $rel=$_.FullName.Substring($bundle.Length+1).Replace("\","/")
+              $releaseFiles[$rel]=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+
+          $releaseManifest=[ordered]@{
+            version="${{ github.sha }}"
+            files=$releaseFiles
+          } | ConvertTo-Json -Depth 10
+
+          $releaseManifestPath=Join-Path $bundle "release-manifest.json"
+          [System.IO.File]::WriteAllText(
+            $releaseManifestPath,
+            $releaseManifest,
+            [System.Text.UTF8Encoding]::new($false)
+          )
+
+          $zip=Join-Path $env:RUNNER_TEMP "BybitClusterGrid-${{ github.sha }}.zip"
+
+          Compress-Archive `
+            -Path (Join-Path $bundle "*") `
+            -DestinationPath $zip
+
+          (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant() |
+            Set-Content (Join-Path $env:RUNNER_TEMP "BybitClusterGrid-${{ github.sha }}.zip.sha256")
       - uses: actions/upload-artifact@v4
         with:
           name: BybitClusterGrid-windows-${{ github.sha }}

@@ -2,7 +2,7 @@ import hashlib,json
 from pathlib import Path
 
 def verify_manifest(root,manifest_path):
-    root=Path(root).resolve(); manifest=json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    root=Path(root).resolve(); manifest=json.loads(Path(manifest_path).read_text(encoding="utf-8-sig"))
     bad=[];missing=[]
     for rel,expected in manifest.get("files",{}).items():
         p=(root/rel).resolve()
