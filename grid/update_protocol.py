@@ -23,6 +23,12 @@ async def ensure_update_schema(pool):
           status text NOT NULL DEFAULT 'pending',created_at timestamptz NOT NULL DEFAULT now(),
           promoted_at timestamptz,last_error text
         );
+        CREATE TABLE IF NOT EXISTS rollout_nodes(
+          version text NOT NULL,node_id text NOT NULL,wave integer NOT NULL,
+          status text NOT NULL DEFAULT 'pending',health_acks integer NOT NULL DEFAULT 0,
+          deadline timestamptz,last_error text,updated_at timestamptz NOT NULL DEFAULT now(),
+          PRIMARY KEY(version,node_id)
+        );
         """)
 
 async def register_release(pool,version,channel,package_url,sha256,metadata=None):
