@@ -142,4 +142,3 @@ def test_reenrollment_cannot_reset_existing_lifecycle():
     assert "ON CONFLICT(node_id) DO NOTHING" in block
     assert "mode=EXCLUDED.mode" not in block
     assert "phase=EXCLUDED.phase" not in block
-
