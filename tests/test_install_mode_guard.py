@@ -68,18 +68,20 @@ def test_pilot_only_receives_available_preferred_symbols():
     assert result == ["BTCUSDT","SOLUSDT"]
 
 
-def test_enrollment_persists_control_owned_install_mode():
+def test_enrollment_role_is_control_authorized():
     s=Path("grid/enrollment.py").read_text(encoding="utf-8")
-    assert "install_mode text NOT NULL DEFAULT 'UNKNOWN'" in s
-    assert "async def enroll(pool,token,node_id,install_mode):" in s
-    assert 'install_mode not in {"PILOT","NORMAL"}' in s
-    assert "INSERT INTO agent_credentials(node_id,credential_hash,install_mode)" in s
+
+    assert "authorized_mode text NOT NULL DEFAULT 'UNKNOWN'" in s
+    assert "async def create_enrollment_token(pool, label, expires_at, authorized_mode):" in s
+    assert "async def enroll(pool, token, node_id):" in s
+    assert 'row["authorized_mode"]' in s
     assert "async def registered_install_mode(pool,node_id):" in s
 
 
-def test_installer_transmits_install_mode():
+def test_installer_cannot_transmit_install_mode():
     e=Path("installer/enroll.ps1").read_text(encoding="utf-8")
     b=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
-    assert '[ValidateSet("PILOT","NORMAL")][string]$InstallMode' in e
-    assert "install_mode=$InstallMode" in e
-    assert "-InstallMode $AgentMode" in b
+
+    assert "$InstallMode" not in e
+    assert "install_mode" not in e.lower()
+    assert "-InstallMode $AgentMode" not in b

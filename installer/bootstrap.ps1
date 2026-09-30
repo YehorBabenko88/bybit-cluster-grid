@@ -169,7 +169,7 @@ if($AgentMode -ne "CONTROL"){
         }
         Push-Location $Release
         try {
-            & (Join-Path $PSScriptRoot "enroll.ps1") -CoordinatorUrl $CoordinatorUrl -EnrollmentToken $EnrollmentToken -InstallMode $AgentMode -Python $Python -DataRoot $DataRoot | Out-Null
+            & (Join-Path $PSScriptRoot "enroll.ps1") -CoordinatorUrl $CoordinatorUrl -EnrollmentToken $EnrollmentToken -Python $Python -DataRoot $DataRoot | Out-Null
         } finally { Pop-Location }
     } else {
         Write-Host "Existing node credential found; preserving node identity."

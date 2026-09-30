@@ -42,7 +42,6 @@ async def enroll_node(payload:dict):
             db.pool,
             payload["enrollment_token"],
             payload["node_id"],
-            payload.get("install_mode"),
         )
     except ValueError as e:
         raise HTTPException(401,str(e))
