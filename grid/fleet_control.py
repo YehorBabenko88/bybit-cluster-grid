@@ -9,6 +9,25 @@ import json, uuid
 from .control_plane import enqueue_command
 from .runtime_gate import set_runtime_state, runtime_state
 
+
+def _json_value(value, default):
+    """Normalize asyncpg JSON/JSONB values at the database boundary.
+
+    The current asyncpg connection returns jsonb as JSON text unless a
+    custom codec is registered.  Fleet lifecycle code must therefore
+    accept both decoded Python values and JSON strings.
+    """
+    if value is None:
+        return default
+
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return default
+
+    return value
+
 async def ensure_fleet_schema(pool):
     await pool.execute("""CREATE TABLE IF NOT EXISTS fleet_operations(
       id uuid PRIMARY KEY, action text NOT NULL, status text NOT NULL,
@@ -68,7 +87,9 @@ async def fleet_stop(pool,nodes,requested_by):
 async def fleet_resume(pool,nodes,requested_by):
     await ensure_fleet_schema(pool)
     prev=await latest_operation(pool,"STOP")
-    snapshot=(prev or {}).get("snapshot") or {}
+    snapshot=_json_value((prev or {}).get("snapshot"), {})
+    if not isinstance(snapshot, dict):
+        snapshot={}
     op=uuid.uuid4(); targets=await _registered_targets(pool,nodes)
     await pool.execute("""INSERT INTO fleet_operations(id,action,status,requested_by,snapshot,targets)
       VALUES($1,'RESUME','RUNNING',$2,$3::jsonb,$4::jsonb)""",op,str(requested_by),json.dumps(snapshot),json.dumps(targets))
@@ -102,7 +123,9 @@ async def fleet_delete_status(pool,operation_id):
     await ensure_fleet_schema(pool)
     op=await pool.fetchrow("SELECT * FROM fleet_operations WHERE id=$1::uuid",operation_id)
     if not op: return None
-    targets=list(op["targets"] or [])
+    targets=_json_value(op["targets"], [])
+    if not isinstance(targets, list):
+        targets=[]
     rows=await pool.fetch("""SELECT node_id,status,error FROM agent_commands
       WHERE action='uninstall' AND payload->>'operation_id'=$1""",str(operation_id))
     by={r["node_id"]:dict(r) for r in rows}
@@ -126,11 +149,16 @@ async def reconcile_fleet_operation(pool):
     rows=await pool.fetch("""SELECT node_id,action,status,error FROM agent_commands
       WHERE payload->>'operation_id'=$1 AND payload->>'scope'='fleet'""",oid)
     by={r["node_id"]:dict(r) for r in rows}
-    snapshot=op["snapshot"] or {}
+    snapshot=_json_value(op["snapshot"], {})
+    targets=_json_value(op["targets"], [])
+    if not isinstance(snapshot, dict):
+        snapshot={}
+    if not isinstance(targets, list):
+        targets=[]
     if action=="STOP":
-        required=list(op["targets"] or [])
+        required=list(targets)
     else:
-        required=[n for n in list(op["targets"] or []) if not (snapshot.get(n) or {}).get("operator_stopped")]
+        required=[n for n in targets if not (snapshot.get(n) or {}).get("operator_stopped")]
     failed={n:by[n].get("error") for n in required if by.get(n,{}).get("status")=="failed"}
     pending=[n for n in required if by.get(n,{}).get("status")!="done"]
     if failed:
