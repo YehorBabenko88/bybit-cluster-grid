@@ -89,7 +89,17 @@ async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Heade
         await node_auth(node_id,x_node_credential,x_grid_token)
     else:
         auth(x_grid_token)
-    await command_result(db.pool,command_id,bool(payload.get("ok")),payload.get("result"),payload.get("error"))
+    await command_result(
+        db.pool,
+        command_id,
+        bool(payload.get("ok")),
+        payload.get("result"),
+        payload.get("error"),
+    )
+    # Fleet STOP/RESUME completion is driven by durable command ACKs.
+    # Reconcile immediately after every command result so the global
+    # runtime gate cannot remain indefinitely in STOPPING/RESUMING.
+    await reconcile_fleet_operation(db.pool)
     return {"ok":True}
 
 @app.post("/nodes/{node_id}/commands")
@@ -205,6 +215,10 @@ async def startup():
         global instruments,assignments
         while True:
             try:
+                # Recovery path for a crash/restart occurring after an agent
+                # persisted its command result but before the request-path
+                # reconcile completed.
+                await reconcile_fleet_operation(db.pool)
                 gate=await runtime_state(db.pool)
                 if gate["state"]!="ACTIVE":
                     instruments={}
