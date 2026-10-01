@@ -17,6 +17,7 @@ from .runtime_gate import runtime_state,set_runtime_state
 from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_delete_status,latest_operation,reconcile_fleet_operation
 from .start_readiness import start_readiness
 from .enrollment import create_enrollment_token
+from .server_pilot import begin_server_pilot_validation
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -134,6 +135,18 @@ async def handle_command(db,session,chat_id,text,nodes):
                 missing=(r.get("details") or {}).get("missing_readiness")
                 if missing: lines.append("  waiting: "+", ".join(missing))
             await tg_send(session,chat_id,"\n".join(lines))
+    elif cmd=="/pilotvalidate":
+        if len(parts)!=2:
+            await tg_send(session,chat_id,"Usage: /pilotvalidate NODE"); return
+        nid=parts[1]
+        code=secrets.token_hex(3).upper()
+        _pending_confirms[(str(chat_id),code)]=("pilot_validate",nid,time.time()+120)
+        await tg_send(
+            session,chat_id,
+            f"Pilot validation requested for {nid}. This only changes the durable pilot lifecycle; "
+            "the global runtime must remain STOPPED and no market workload is opened by this step.\n"
+            f"Confirm within 120s: /confirm {code}"
+        )
     elif cmd=="/health":
         h=await fleet_health(db.pool,nodes,settings.heartbeat_seconds)
         leader=h["leader"]["owner"] if h["leader"] else "none"
@@ -275,6 +288,20 @@ async def handle_command(db,session,chat_id,text,nodes):
         if action=="uninstall":
             cid=await enqueue_command(db.pool,node_id,"uninstall",{"purge_data":False})
             await tg_send(session,chat_id,f"Uninstall queued for {node_id} ({cid}); data preserved.")
+        elif action=="pilot_validate":
+            try:
+                state=await begin_server_pilot_validation(
+                    db.pool,node_id,nodes,settings.heartbeat_seconds
+                )
+            except ValueError as e:
+                await tg_send(session,chat_id,f"Pilot validation rejected: {e}")
+                return
+            await tg_send(
+                session,chat_id,
+                f"Pilot {node_id}: {state['mode']} / {state['phase']}, "
+                f"progress={float(state['progress']):.1f}%, paused={state['paused']}. "
+                "Global runtime remains STOPPED; use the separate fleet lifecycle only when ready."
+            )
         elif action=="fleet_begin":
             current=await runtime_state(db.pool)
             if current["state"]!="INFRA_ONLY":
@@ -307,7 +334,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
 
 async def _maybe_finalize_fleet_delete(db,session):
     op=await latest_operation(db.pool,"DELETE")
