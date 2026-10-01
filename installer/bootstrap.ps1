@@ -6,6 +6,7 @@ param(
   [string]$ExistingPostgresDsn="",
   [string]$TelegramBotToken="",
   [string]$TelegramAllowedChatIds="",
+  [string]$BundlePath="",
   [ValidateSet("CONTROL","PILOT","NORMAL")][string]$AgentMode="NORMAL"
 )
 $ErrorActionPreference="Stop"
@@ -25,8 +26,8 @@ Write-Host "Grid install mode: $Mode"
 $Discovery=& (Join-Path $PSScriptRoot "discover.ps1") | ConvertFrom-Json
 $Discovery | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 (Join-Path $DataRoot "discovery.json")
 
-$Bundle=Join-Path $PSScriptRoot "bybit-cluster-grid.zip"
-if(!(Test-Path $Bundle)){throw "Missing bybit-cluster-grid.zip"}
+$Bundle=$(if($BundlePath){$BundlePath}else{Join-Path $PSScriptRoot "bybit-cluster-grid.zip"})
+if(!(Test-Path $Bundle)){throw "Missing deployment bundle: $Bundle"}
 $Release=Join-Path $InstallRoot "bootstrap"
 $Stage=Join-Path $InstallRoot "bootstrap.staging"
 if(Test-Path $Stage){Remove-Item -Recurse -Force $Stage}
