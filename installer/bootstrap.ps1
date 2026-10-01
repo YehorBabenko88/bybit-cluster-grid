@@ -7,7 +7,7 @@ param(
   [string]$TelegramBotToken="",
   [string]$TelegramAllowedChatIds="",
   [string]$BundlePath="",
-  [ValidateSet("CONTROL","PILOT","NORMAL")][string]$AgentMode="NORMAL"
+  [ValidateSet("CONTROL","PILOT","NORMAL","AUTO")][string]$AgentMode="NORMAL"
 )
 $ErrorActionPreference="Stop"
 $InstallRoot="$env:ProgramFiles\BybitClusterGrid"
@@ -95,6 +95,20 @@ if($NeedDeps){
     Write-Host "Grid dependencies already match requirements fingerprint."
 }
 
+$CredentialFile=Join-Path $DataRoot "secrets\\node.credential"
+if($AgentMode -eq "AUTO"){
+    if(Test-Path $CredentialFile){ throw "AUTO onboarding is for a new node; existing credential requires repair/upgrade workflow." }
+    if(!$CoordinatorUrl -or !$EnrollmentToken){ throw "AUTO onboarding requires CoordinatorUrl and EnrollmentToken." }
+    Push-Location $Release
+    try {
+        $EnrollmentJson=& (Join-Path $PSScriptRoot "enroll.ps1") -CoordinatorUrl $CoordinatorUrl -EnrollmentToken $EnrollmentToken -Python $Python -DataRoot $DataRoot
+        if($LASTEXITCODE -ne 0){ throw "Enrollment failed" }
+        $Enrollment=$EnrollmentJson | ConvertFrom-Json
+        if($Enrollment.install_mode -notin @("PILOT","NORMAL")){ throw "Invalid server-authorized install mode" }
+        $AgentMode=[string]$Enrollment.install_mode
+        Write-Host "CONTROL authorized node mode: $AgentMode"
+    } finally { Pop-Location }
+}
 $EnvFile=Join-Path $DataRoot ".env"
 $DesiredRole=$(if($AgentMode -eq "CONTROL"){"coordinator"}else{"worker"})
 if(!(Test-Path $EnvFile)){

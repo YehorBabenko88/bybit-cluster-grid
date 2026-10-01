@@ -36,3 +36,18 @@ def test_bootstrap_applies_control_firewall_and_uninstall_removes_it():
     assert 'if($AgentMode -eq "CONTROL")' in b
     assert "BybitClusterGrid Coordinator Management" in u
     assert "Remove-NetFirewallRule" in u
+
+
+def test_join_agent_cannot_choose_install_role():
+    s=Path("installer/join-agent.ps1").read_text(encoding="utf-8")
+    assert '[ValidateSet("PILOT","NORMAL")]' not in s
+    assert '-AgentMode AUTO' in s
+
+def test_server_returns_authorized_role_and_bootstrap_uses_it():
+    coordinator=Path("grid/coordinator.py").read_text(encoding="utf-8")
+    enroll=Path("installer/enroll.ps1").read_text(encoding="utf-8")
+    bootstrap=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    assert '"install_mode":install_mode' in coordinator
+    assert "install_mode=$r.install_mode" in enroll
+    assert '$AgentMode=[string]$Enrollment.install_mode' in bootstrap
+    assert "CONTROL authorized node mode" in bootstrap
