@@ -1,4 +1,5 @@
 import asyncio, logging, secrets, time, os, pathlib, subprocess
+from datetime import datetime, timedelta, timezone
 import aiohttp
 from .config import settings
 from .control_plane import enqueue_command
@@ -15,6 +16,7 @@ from .ha_status import ha_status
 from .runtime_gate import runtime_state,set_runtime_state
 from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_delete_status,latest_operation,reconcile_fleet_operation
 from .start_readiness import start_readiness
+from .enrollment import create_enrollment_token
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -77,6 +79,21 @@ async def handle_command(db,session,chat_id,text,nodes):
         s=await runtime_state(db.pool)
         online=sum(1 for n in nodes.values() if now-float(n.get("last_seen",0))<settings.heartbeat_seconds*3)
         await tg_send(session,chat_id,f"SYSTEM: {s['state']}\nNodes: {len(nodes)}, online: {online}\nMarket data: {'ENABLED' if s['state']=='ACTIVE' else 'LOCKED'}\nReason: {s.get('reason') or '-'}")
+    elif cmd in ("/joinpilot","/joinagent"):
+        mode="PILOT" if cmd=="/joinpilot" else "NORMAL"
+        label=parts[1] if len(parts)>1 else f"telegram:{chat_id}"
+        expires=datetime.now(timezone.utc)+timedelta(minutes=15)
+        try:
+            token=await create_enrollment_token(db.pool,label,expires,mode)
+        except ValueError as e:
+            await tg_send(session,chat_id,f"Enrollment rejected: {e}")
+            return
+        await tg_send(
+            session,chat_id,
+            f"{mode} enrollment token (one use, expires in 15 minutes):\n{token}\n"
+            "Run the signed/hash-verified onboarding bundle as Administrator on the new Windows PC. "
+            "The client does not choose its server-authorized role."
+        )
     elif cmd=="/begin":
         s=await runtime_state(db.pool)
         if s["state"]=="ACTIVE":
@@ -290,7 +307,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /menu /system /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
 
 async def _maybe_finalize_fleet_delete(db,session):
     op=await latest_operation(db.pool,"DELETE")

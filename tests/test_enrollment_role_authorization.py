@@ -52,7 +52,8 @@ def test_installer_never_sends_role():
     bootstrap = Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
 
     assert "$InstallMode" not in enroll
-    assert "install_mode" not in enroll.lower()
+    body_line=next(line for line in enroll.splitlines() if "$body=" in line)
+    assert "install_mode" not in body_line.lower()
     assert "-InstallMode $AgentMode" not in bootstrap
 
 def test_normal_token_has_expansion_gate():
@@ -142,3 +143,11 @@ def test_reenrollment_cannot_reset_existing_lifecycle():
     assert "ON CONFLICT(node_id) DO NOTHING" in block
     assert "mode=EXCLUDED.mode" not in block
     assert "phase=EXCLUDED.phase" not in block
+
+
+def test_reenrollment_cannot_change_existing_server_role():
+    source=Path("grid/enrollment.py").read_text(encoding="utf-8")
+    assert "existing node role does not match enrollment authorization" in source
+    assert "existing_mode != install_mode" in source
+    # The mismatch check must happen before token consumption.
+    assert source.index("existing_mode != install_mode") < source.index("UPDATE enrollment_tokens SET used_at=now()")

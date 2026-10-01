@@ -45,7 +45,8 @@ async def enroll_node(payload:dict):
         )
     except ValueError as e:
         raise HTTPException(401,str(e))
-    return {"node_id":payload["node_id"],"credential":credential}
+    install_mode=await registered_install_mode(db.pool,payload["node_id"])
+    return {"node_id":payload["node_id"],"credential":credential,"install_mode":install_mode}
 
 async def node_auth(node_id,credential,fleet_token):
     if credential and await authenticate_agent(db.pool,node_id,credential):

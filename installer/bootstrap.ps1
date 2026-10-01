@@ -6,7 +6,8 @@ param(
   [string]$ExistingPostgresDsn="",
   [string]$TelegramBotToken="",
   [string]$TelegramAllowedChatIds="",
-  [ValidateSet("CONTROL","PILOT","NORMAL")][string]$AgentMode="NORMAL"
+  [string]$BundlePath="",
+  [ValidateSet("CONTROL","PILOT","NORMAL","AUTO")][string]$AgentMode="NORMAL"
 )
 $ErrorActionPreference="Stop"
 $InstallRoot="$env:ProgramFiles\BybitClusterGrid"
@@ -25,8 +26,8 @@ Write-Host "Grid install mode: $Mode"
 $Discovery=& (Join-Path $PSScriptRoot "discover.ps1") | ConvertFrom-Json
 $Discovery | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 (Join-Path $DataRoot "discovery.json")
 
-$Bundle=Join-Path $PSScriptRoot "bybit-cluster-grid.zip"
-if(!(Test-Path $Bundle)){throw "Missing bybit-cluster-grid.zip"}
+$Bundle=$(if($BundlePath){$BundlePath}else{Join-Path $PSScriptRoot "bybit-cluster-grid.zip"})
+if(!(Test-Path $Bundle)){throw "Missing deployment bundle: $Bundle"}
 $Release=Join-Path $InstallRoot "bootstrap"
 $Stage=Join-Path $InstallRoot "bootstrap.staging"
 if(Test-Path $Stage){Remove-Item -Recurse -Force $Stage}
@@ -94,6 +95,19 @@ if($NeedDeps){
     Write-Host "Grid dependencies already match requirements fingerprint."
 }
 
+$CredentialFile=Join-Path $DataRoot "secrets\\node.credential"
+if($AgentMode -eq "AUTO"){
+    if(!$CoordinatorUrl -or !$EnrollmentToken){ throw "AUTO onboarding requires CoordinatorUrl and a fresh one-time EnrollmentToken." }
+    Push-Location $Release
+    try {
+        $EnrollmentJson=& (Join-Path $PSScriptRoot "enroll.ps1") -CoordinatorUrl $CoordinatorUrl -EnrollmentToken $EnrollmentToken -Python $Python -DataRoot $DataRoot
+        if($LASTEXITCODE -ne 0){ throw "Enrollment failed" }
+        $Enrollment=$EnrollmentJson | ConvertFrom-Json
+        if($Enrollment.install_mode -notin @("PILOT","NORMAL")){ throw "Invalid server-authorized install mode" }
+        $AgentMode=[string]$Enrollment.install_mode
+        Write-Host "CONTROL authorized node mode: $AgentMode"
+    } finally { Pop-Location }
+}
 $EnvFile=Join-Path $DataRoot ".env"
 $DesiredRole=$(if($AgentMode -eq "CONTROL"){"coordinator"}else{"worker"})
 if(!(Test-Path $EnvFile)){
@@ -183,6 +197,11 @@ try {
     if($LASTEXITCODE -ne 0){throw "Grid preflight failed"}
     & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
     if($LASTEXITCODE -ne 0){throw "Grid service installation failed"}
+    $FirewallScript=Join-Path $PSScriptRoot "configure-control-firewall.ps1"
+    if(Test-Path $FirewallScript){
+        if($AgentMode -eq "CONTROL"){ & $FirewallScript }
+        else { & $FirewallScript -Remove }
+    }
     @{mode=$Mode;status="installed";completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
         ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
     $Backup=Join-Path $InstallRoot "bootstrap.previous"

@@ -83,5 +83,6 @@ def test_installer_cannot_transmit_install_mode():
     b=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
 
     assert "$InstallMode" not in e
-    assert "install_mode" not in e.lower()
+    body_line=next(line for line in e.splitlines() if "$body=" in line)
+    assert "install_mode" not in body_line.lower()
     assert "-InstallMode $AgentMode" not in b

@@ -9,6 +9,20 @@ on:
 jobs:
   python-preflight:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: grid
+          POSTGRES_PASSWORD: grid
+          POSTGRES_DB: grid
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U grid -d grid"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       GRID_SHARED_TOKEN: test-token
       POSTGRES_DSN: postgresql://grid:grid@127.0.0.1:5432/grid
@@ -37,3 +51,5 @@ jobs:
         run: python -c "import grid.config, grid.worker, grid.coordinator, grid.control_plane, grid.enrollment, grid.update_manager"
       - name: Unit tests
         run: python -m pytest -q
+      - name: Enrollment lifecycle integration tests
+        run: python -m pytest -q tests/test_enrollment_postgres_integration.py
