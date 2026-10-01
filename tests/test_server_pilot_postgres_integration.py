@@ -116,8 +116,7 @@ def test_postgres_clean_pilot_validation_transition_is_durable_and_gate_stays_st
                 await pool2.close()
             return
         finally:
-            if not pool._closed:
-                await pool.close()
+            await pool.close()
 
     asyncio.run(scenario())
 
