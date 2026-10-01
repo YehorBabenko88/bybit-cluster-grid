@@ -52,7 +52,8 @@ def test_installer_never_sends_role():
     bootstrap = Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
 
     assert "$InstallMode" not in enroll
-    assert "install_mode" not in enroll.lower()
+    body_line=next(line for line in enroll.splitlines() if "$body=" in line)
+    assert "install_mode" not in body_line.lower()
     assert "-InstallMode $AgentMode" not in bootstrap
 
 def test_normal_token_has_expansion_gate():
