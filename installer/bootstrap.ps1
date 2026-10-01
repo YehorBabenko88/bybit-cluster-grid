@@ -184,6 +184,11 @@ try {
     if($LASTEXITCODE -ne 0){throw "Grid preflight failed"}
     & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
     if($LASTEXITCODE -ne 0){throw "Grid service installation failed"}
+    $FirewallScript=Join-Path $PSScriptRoot "configure-control-firewall.ps1"
+    if(Test-Path $FirewallScript){
+        if($AgentMode -eq "CONTROL"){ & $FirewallScript }
+        else { & $FirewallScript -Remove }
+    }
     @{mode=$Mode;status="installed";completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
         ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
     $Backup=Join-Path $InstallRoot "bootstrap.previous"

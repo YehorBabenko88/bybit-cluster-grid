@@ -7,6 +7,7 @@ $CoordinatorTaskName="BybitClusterGridCoordinator"
 $InstallRoot="$env:ProgramFiles\BybitClusterGrid"
 $DataRoot="$env:ProgramData\BybitClusterGrid"
 $Manifest=Join-Path $DataRoot "postgres-owned.json"
+$FirewallRule="BybitClusterGrid Coordinator Management"
 
 Stop-ScheduledTask $TaskName -ErrorAction SilentlyContinue
 Stop-ScheduledTask $ArchiveTaskName -ErrorAction SilentlyContinue
@@ -14,6 +15,7 @@ Stop-ScheduledTask $CoordinatorTaskName -ErrorAction SilentlyContinue
 Unregister-ScheduledTask $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 Unregister-ScheduledTask $ArchiveTaskName -Confirm:$false -ErrorAction SilentlyContinue
 Unregister-ScheduledTask $CoordinatorTaskName -Confirm:$false -ErrorAction SilentlyContinue
+Get-NetFirewallRule -DisplayName $FirewallRule -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
 
 if($PurgeData -and (Test-Path $Manifest)){
     try {

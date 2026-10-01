@@ -27,3 +27,12 @@ def test_telegram_can_issue_server_authorized_join_tokens():
     assert 'cmd in ("/joinpilot","/joinagent")' in s
     assert "create_enrollment_token" in s
     assert "timedelta(minutes=15)" in s
+
+
+def test_bootstrap_applies_control_firewall_and_uninstall_removes_it():
+    b=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    u=Path("installer/uninstall.ps1").read_text(encoding="utf-8")
+    assert "configure-control-firewall.ps1" in b
+    assert 'if($AgentMode -eq "CONTROL")' in b
+    assert "BybitClusterGrid Coordinator Management" in u
+    assert "Remove-NetFirewallRule" in u
