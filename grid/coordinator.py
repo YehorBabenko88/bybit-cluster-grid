@@ -21,6 +21,7 @@ from .archive_discovery_service import seed_discovery
 from .pilot_state import node_accepts_live_assignments,node_live_mode
 from .live_assignment_policy import guarded_live_symbols
 from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
+from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
 
 log=logging.getLogger("coordinator")
