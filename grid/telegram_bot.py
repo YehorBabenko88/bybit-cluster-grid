@@ -1,4 +1,5 @@
-import asyncio, logging, secrets, time, os, pathlib, subprocess
+import asyncio
+import json, logging, secrets, time, os, pathlib, subprocess
 from datetime import datetime, timedelta, timezone
 import aiohttp
 from .config import settings
@@ -255,6 +256,13 @@ async def handle_command(db,session,chat_id,text,nodes):
             await tg_send(session,chat_id,f"{row['node_id']}: {row['status']} {row['error'] or ''}".strip())
         else:
             result=row["result"] or {}
+            if isinstance(result,str):
+                try:
+                    result=json.loads(result)
+                except (TypeError,ValueError):
+                    result={"message":result}
+            if not isinstance(result,dict):
+                result={"message":str(result)}
             lines=result.get("lines",[])
             body="\n".join(lines[-80:])
             await tg_send(session,chat_id,body or result.get("message","No log lines."))
