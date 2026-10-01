@@ -1,4 +1,5 @@
-import asyncio, logging, secrets, time, os, pathlib, subprocess
+import asyncio
+import json, logging, secrets, time, os, pathlib, subprocess
 from datetime import datetime, timedelta, timezone
 import aiohttp
 from .config import settings
@@ -21,6 +22,19 @@ from .server_pilot import begin_server_pilot_validation
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
+
+def _decode_command_result(value):
+    if not value:
+        return {}
+    if isinstance(value,dict):
+        return value
+    if isinstance(value,str):
+        try:
+            decoded=json.loads(value)
+        except (TypeError,ValueError):
+            return {"message":value}
+        return decoded if isinstance(decoded,dict) else {"message":value}
+    return {"message":str(value)}
 
 def allowed(chat_id):
     raw={x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()}
@@ -254,7 +268,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         elif row["status"]!="done":
             await tg_send(session,chat_id,f"{row['node_id']}: {row['status']} {row['error'] or ''}".strip())
         else:
-            result=row["result"] or {}
+            result=_decode_command_result(row["result"])
             lines=result.get("lines",[])
             body="\n".join(lines[-80:])
             await tg_send(session,chat_id,body or result.get("message","No log lines."))
