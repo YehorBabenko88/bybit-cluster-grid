@@ -3,6 +3,9 @@
 This path is intentionally independent from the legacy PilotBootstrap runner.
 It never opens the global runtime gate and never promotes a pilot to NORMAL.
 """
+import json
+import time
+
 from .enrollment import registered_install_mode
 from .pilot_state import pilot_state, update_pilot
 from .runtime_gate import runtime_state
@@ -13,11 +16,25 @@ _ALLOWED_FROM = {
 }
 
 
+def _json_object(value):
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
+        return dict(decoded) if isinstance(decoded, dict) else {}
+    return {}
+
+
 async def begin_server_pilot_validation(pool, node_id, nodes, heartbeat_seconds):
     """Move an enrolled PILOT into LIVE_CANARY after strict fail-closed guards.
 
-    The caller must explicitly open the global runtime gate separately.  This
-    function only changes the pilot lifecycle row.
+    The caller must explicitly open the global runtime gate separately. This
+    function changes only the pilot lifecycle row.
     """
     install_mode = await registered_install_mode(pool, node_id)
     if install_mode != "PILOT":
@@ -40,7 +57,6 @@ async def begin_server_pilot_validation(pool, node_id, nodes, heartbeat_seconds)
     if not node:
         raise ValueError("pilot node is not present in coordinator heartbeat state")
 
-    import time
     age = max(0.0, time.time() - float(node.get("last_seen", 0) or 0))
     if age >= float(heartbeat_seconds) * 3:
         raise ValueError("pilot node is offline")
@@ -63,7 +79,7 @@ async def begin_server_pilot_validation(pool, node_id, nodes, heartbeat_seconds)
             f"fleet operation blocks pilot validation: {blocking['action']}/{blocking['status']}"
         )
 
-    details = dict(state.get("details") or {})
+    details = _json_object(state.get("details"))
     details.update({
         "server_controlled_validation": True,
         "legacy_runner": False,
