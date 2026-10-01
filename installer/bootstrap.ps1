@@ -97,8 +97,7 @@ if($NeedDeps){
 
 $CredentialFile=Join-Path $DataRoot "secrets\\node.credential"
 if($AgentMode -eq "AUTO"){
-    if(Test-Path $CredentialFile){ throw "AUTO onboarding is for a new node; existing credential requires repair/upgrade workflow." }
-    if(!$CoordinatorUrl -or !$EnrollmentToken){ throw "AUTO onboarding requires CoordinatorUrl and EnrollmentToken." }
+    if(!$CoordinatorUrl -or !$EnrollmentToken){ throw "AUTO onboarding requires CoordinatorUrl and a fresh one-time EnrollmentToken." }
     Push-Location $Release
     try {
         $EnrollmentJson=& (Join-Path $PSScriptRoot "enroll.ps1") -CoordinatorUrl $CoordinatorUrl -EnrollmentToken $EnrollmentToken -Python $Python -DataRoot $DataRoot

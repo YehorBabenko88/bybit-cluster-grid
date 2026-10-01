@@ -115,6 +115,19 @@ async def enroll(pool, token, node_id):
 
             install_mode = _normalize_authorized_mode(row["authorized_mode"])
 
+            existing_mode = await c.fetchval(
+                """SELECT install_mode FROM agent_credentials
+                   WHERE node_id=$1 AND revoked_at IS NULL
+                   FOR UPDATE""",
+                node_id,
+            )
+            if existing_mode is not None:
+                existing_mode = str(existing_mode or "UNKNOWN").upper()
+                if existing_mode != install_mode:
+                    raise ValueError(
+                        "existing node role does not match enrollment authorization"
+                    )
+
             await c.execute(
                 "UPDATE enrollment_tokens SET used_at=now() WHERE token_hash=$1",
                 th,

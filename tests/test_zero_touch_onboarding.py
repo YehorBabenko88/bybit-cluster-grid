@@ -51,3 +51,9 @@ def test_server_returns_authorized_role_and_bootstrap_uses_it():
     assert "install_mode=$r.install_mode" in enroll
     assert '$AgentMode=[string]$Enrollment.install_mode' in bootstrap
     assert "CONTROL authorized node mode" in bootstrap
+
+
+def test_auto_onboarding_can_retry_after_partial_failure_with_fresh_token():
+    s=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    assert "existing credential requires repair/upgrade workflow" not in s
+    assert "fresh one-time EnrollmentToken" in s
