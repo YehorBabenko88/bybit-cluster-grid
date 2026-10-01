@@ -6,8 +6,19 @@ from .write_queue import BoundedWriteQueue
 from .segment_wal import SegmentWAL
 from .unified_features import UnifiedFeatureBuilder
 from .derived_pipeline import DerivedPipeline
+from .resources import NODE_ID
 import os
 import aiohttp
+
+
+def ingest_headers():
+    from .credential_store import node_credential
+    return {
+        "X-Grid-Token":settings.grid_shared_token,
+        "X-Node-Credential":node_credential(),
+        "X-Node-ID":NODE_ID,
+    }
+
 
 class Storage:
     def __init__(self):
@@ -41,12 +52,9 @@ class Storage:
 
     async def _save_spooled(self,record_id,row):
         if self.remote:
-            from .credential_store import node_credential
             async with aiohttp.ClientSession() as session:
                 async with session.post(settings.coordinator_url+"/ingest/minute",
-                    json=row,headers={"X-Grid-Token":settings.grid_shared_token,
-                                      "X-Node-Credential":node_credential(),
-                                      "X-Node-ID":os.getenv("COMPUTERNAME","unknown")},timeout=20) as resp:
+                    json=row,headers=ingest_headers(),timeout=20) as resp:
                     if resp.status!=200:
                         raise RuntimeError("CONTROL ingest rejected: "+str(resp.status))
         else:

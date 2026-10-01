@@ -1,4 +1,4 @@
-import asyncio,time,logging
+import asyncio,time,logging,secrets
 from fastapi import FastAPI,Header,HTTPException,Request
 from .config import settings
 from .bybit import linear_symbols
@@ -33,8 +33,14 @@ background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
 
 
+def constant_time_equal(left,right):
+    """Compare authentication tokens without leaking early string mismatch timing."""
+    return secrets.compare_digest(str(left or ""),str(right or ""))
+
+
 def auth(token):
-    if token != settings.grid_shared_token: raise HTTPException(401,"bad grid token")
+    if not constant_time_equal(token,settings.grid_shared_token):
+        raise HTTPException(401,"bad grid token")
 
 @app.post("/enroll")
 async def enroll_node(payload:dict):
