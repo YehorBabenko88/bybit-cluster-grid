@@ -38,3 +38,29 @@ def test_degraded_candle_is_hard_ineligible_even_with_microstructure():
         x=await UnifiedFeatureBuilder().build(p,row("DEGRADED"))
         assert x["eligible"] is False
     asyncio.run(run())
+
+
+from grid.unified_features import _payload_dict
+
+
+def test_payload_dict_accepts_mapping():
+    payload={"mark_price":"2693.44"}
+    assert _payload_dict(payload) is payload
+
+
+def test_payload_dict_decodes_json_string():
+    assert _payload_dict('{"mark_price":"2693.44","funding_rate":"0.0001"}') == {
+        "mark_price":"2693.44","funding_rate":"0.0001"
+    }
+
+
+def test_payload_dict_handles_none():
+    assert _payload_dict(None) == {}
+
+
+def test_payload_dict_rejects_malformed_json():
+    assert _payload_dict('{"mark_price":') == {}
+
+
+def test_payload_dict_rejects_non_object_json():
+    assert _payload_dict('["not","an","object"]') == {}
