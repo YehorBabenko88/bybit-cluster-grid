@@ -85,7 +85,10 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
         node_assignments=assignments.get(nid,[]),
         instrument_symbols=instruments,
     )
-    return {"symbols":symbols,"commands":commands,"control_replica":replica,
+    # High-rate microstructure capture remains pilot-only until the volatility
+    # selector is implemented; this prevents accidental fleet-wide 250 ms capture.
+    micro_symbols=symbols if install_mode=="PILOT" else []
+    return {"symbols":symbols,"micro_symbols":micro_symbols,"commands":commands,"control_replica":replica,
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
             "install_mode":install_mode,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
