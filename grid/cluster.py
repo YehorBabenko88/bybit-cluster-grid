@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from .models import Trade, PriceCluster
 
 class FootprintBuilder:
-    def __init__(self, tick_size: float, interval_s: int = 60, finalization_delay_ms: int = 2000):
+    def __init__(self, tick_size: float, interval_s: int = 60, finalization_delay_ms: int = 0):
         self.tick_size = tick_size
         self.interval_ms = interval_s * 1000
         self.finalization_delay_ms = max(0, int(finalization_delay_ms))
