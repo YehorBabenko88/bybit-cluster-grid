@@ -202,7 +202,7 @@ class Worker:
 
     async def trade_stream(self,symbol):
         tick=self.meta[symbol]["tick_size"]
-        fp=FootprintBuilder(tick,settings.cluster_interval_seconds)
+        fp=FootprintBuilder(tick,settings.cluster_interval_seconds,finalization_delay_ms=2000)
         delays=backoff_delays()
         continuity=TradeContinuity(gap_ms=max(5000,settings.cluster_interval_seconds*1000//2))
         connected_once=False
