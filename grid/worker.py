@@ -8,6 +8,8 @@ from .storage import Storage
 from .bybit import linear_symbols
 from .service import prepare_database, bootstrap_logging, health_monitor
 from .microstructure import MicrostructureCollector
+from .micro_event_storage import MicroEventStorage
+from .micro_tape import MicroTapeAggregator
 from .resilience import backoff_delays, wait_for_internet
 from .retention import ensure_retention_schema, retention_scheduler
 from .telegram_bot import telegram_loop
@@ -31,7 +33,10 @@ class Worker:
         self.trade_tasks={}
         self.micro_tasks=[]
         self.micro_signature=()
+        self.micro_wanted=set()
         self.storage=Storage()
+        self.micro_storage=MicroEventStorage()
+        self.micro_tape=MicroTapeAggregator(settings.micro_tape_bucket_ms)
         self.db=None
         self.meta={}
         self.enabled=True
@@ -129,8 +134,11 @@ class Worker:
                             else:
                                 self.pressure_drained.update(self.pressure.symbols_to_drain(assigned-self.pressure_drained))
                             new=assigned-self.pressure_drained
-                            if new != self.wanted:
+                            requested_micro=set(reply.get("micro_symbols",[]))
+                            new_micro=requested_micro & new
+                            if new != self.wanted or new_micro != self.micro_wanted:
                                 self.wanted=new
+                                self.micro_wanted=new_micro
                                 await self.reconcile()
                         else:
                             log.warning("coordinator heartbeat rejected",extra={"event":"heartbeat_rejected"})
@@ -173,7 +181,7 @@ class Worker:
             if sym in self.meta and sym not in self.trade_tasks:
                 self.trade_tasks[sym]=asyncio.create_task(self.trade_stream(sym))
 
-        signature=tuple(sorted(self.wanted))
+        signature=tuple(sorted(self.micro_wanted))
         if signature != self.micro_signature:
             self.micro_signature=signature
             for t in self.micro_tasks:
@@ -181,13 +189,16 @@ class Worker:
             if self.micro_tasks:
                 await asyncio.gather(*self.micro_tasks,return_exceptions=True)
             self.micro_tasks=[]
-            collector=MicrostructureCollector(self.db,snapshot_ms=1000)
+            collector=MicrostructureCollector(
+                self.micro_storage,
+                snapshot_ms=settings.microstructure_snapshot_ms,
+            )
             symbols=list(signature)
             for i in range(0,len(symbols),8):
                 batch=symbols[i:i+8]
                 if batch:
                     self.micro_tasks.append(asyncio.create_task(collector.run_batch(batch)))
-            log.info("assignment reconciled",extra={"event":"assignment","component":f"{len(symbols)} symbols"})
+            log.info("microstructure assignment reconciled",extra={"event":"micro_assignment","component":f"{len(symbols)} symbols"})
 
     async def trade_stream(self,symbol):
         tick=self.meta[symbol]["tick_size"]
@@ -215,14 +226,24 @@ class Worker:
                         for x in batch:
                             trade_ts=int(x["T"])
                             suspect_gap=continuity.observe(trade_ts)
-                            fp.add(Trade(
+                            trade=Trade(
                                 symbol=symbol,
                                 ts_ms=trade_ts,
                                 price=float(x["p"]),
                                 qty=float(x["v"]),
                                 side=x["S"],
                                 trade_id=x.get("i","")
-                            ))
+                            )
+                            fp.add(trade)
+                            if symbol in self.micro_wanted:
+                                tape_row=self.micro_tape.add(trade)
+                                if tape_row is not None:
+                                    await self.micro_storage.insert_event(
+                                        symbol,
+                                        tape_row["start_ms"],
+                                        "trade_tape_250ms",
+                                        tape_row,
+                                    )
                             if suspect_gap:
                                 fp.mark_degraded(symbol,trade_ts,"trade_time_gap")
                         for row in fp.pop_closed(int(time.time()*1000)):
@@ -249,6 +270,7 @@ class Worker:
         # authenticated ingestion. This keeps database credentials off agent PCs.
         self.db=None
         await self.storage.start()
+        await self.micro_storage.start()
         # Strict INFRA_ONLY: no Bybit discovery is permitted before CONTROL opens ACTIVE.
         self.meta={}
         stop_flag=os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","operator.stop")
