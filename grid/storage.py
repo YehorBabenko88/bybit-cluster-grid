@@ -65,16 +65,32 @@ class Storage:
         ts=datetime.fromtimestamp(row["start_ms"]/1000,tz=timezone.utc)
         async with self.pool.acquire() as c:
             async with c.transaction():
-                await c.execute("""INSERT INTO candles_1m(symbol,ts,open,high,low,close,buy_volume,sell_volume,delta,trade_count,poc_price,quality_status,quality_reasons)
+                accepted=await c.fetchval("""INSERT INTO candles_1m(symbol,ts,open,high,low,close,buy_volume,sell_volume,delta,trade_count,poc_price,quality_status,quality_reasons)
                 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
                 ON CONFLICT(symbol,ts) DO UPDATE SET open=EXCLUDED.open,high=EXCLUDED.high,low=EXCLUDED.low,close=EXCLUDED.close,
-                buy_volume=EXCLUDED.buy_volume,sell_volume=EXCLUDED.sell_volume,delta=EXCLUDED.delta,trade_count=EXCLUDED.trade_count,poc_price=EXCLUDED.poc_price,quality_status=EXCLUDED.quality_status,quality_reasons=EXCLUDED.quality_reasons""",
+                buy_volume=EXCLUDED.buy_volume,sell_volume=EXCLUDED.sell_volume,delta=EXCLUDED.delta,trade_count=EXCLUDED.trade_count,poc_price=EXCLUDED.poc_price,quality_status=EXCLUDED.quality_status,quality_reasons=EXCLUDED.quality_reasons
+                WHERE EXCLUDED.trade_count > candles_1m.trade_count
+                RETURNING TRUE""",
                 row["symbol"],ts,row["open"],row["high"],row["low"],row["close"],row["buy_volume"],row["sell_volume"],row["delta"],row["trade_count"],row["poc_price"],row.get("quality_status","UNKNOWN"),json.dumps(row.get("quality_reasons",[])))
-                await c.executemany("""INSERT INTO footprint_1m(symbol,ts,price,buy_volume,sell_volume,delta,volume,buy_count,sell_count)
-                VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
-                ON CONFLICT(symbol,ts,price) DO UPDATE SET buy_volume=EXCLUDED.buy_volume,sell_volume=EXCLUDED.sell_volume,
-                delta=EXCLUDED.delta,volume=EXCLUDED.volume,buy_count=EXCLUDED.buy_count,sell_count=EXCLUDED.sell_count""",
-                [(row["symbol"],ts,x["price"],x["buy_volume"],x["sell_volume"],x["delta"],x["volume"],x["buy_count"],x["sell_count"]) for x in row["levels"]])
+                # A smaller/equal late fragment must not overwrite the footprint that
+                # belongs to the already accepted, more complete minute. Equal WAL
+                # retries still continue below so a prior partial commit can finish
+                # feature/derived persistence idempotently.
+                regressive=False
+                if accepted:
+                    await c.executemany("""INSERT INTO footprint_1m(symbol,ts,price,buy_volume,sell_volume,delta,volume,buy_count,sell_count)
+                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                    ON CONFLICT(symbol,ts,price) DO UPDATE SET buy_volume=EXCLUDED.buy_volume,sell_volume=EXCLUDED.sell_volume,
+                    delta=EXCLUDED.delta,volume=EXCLUDED.volume,buy_count=EXCLUDED.buy_count,sell_count=EXCLUDED.sell_count""",
+                    [(row["symbol"],ts,x["price"],x["buy_volume"],x["sell_volume"],x["delta"],x["volume"],x["buy_count"],x["sell_count"]) for x in row["levels"]])
+                else:
+                    current_trade_count=await c.fetchval(
+                        "SELECT trade_count FROM candles_1m WHERE symbol=$1 AND ts=$2",
+                        row["symbol"],ts,
+                    )
+                    regressive=(current_trade_count is not None and current_trade_count > row["trade_count"])
+        if regressive:
+            return
         feature_row=dict(row); feature_row["ts"]=ts
         built=await self.feature_builder.build(self.pool,feature_row)
         await self.feature_builder.persist(self.pool,built)
