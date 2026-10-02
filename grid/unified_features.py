@@ -22,8 +22,8 @@ class UnifiedFeatureBuilder:
             WHERE symbol=$1 AND event_type='derivatives_ticker'
               AND event_ts<=$2 AND event_ts>=$2-($3 * interval '1 second')
             ORDER BY event_ts DESC LIMIT 1""",symbol,ts,self.micro_max_age_s)
-        bp=dict(book["payload"]) if book else {}
-        dp=dict(deriv["payload"]) if deriv else {}
+        bp=_payload_dict(book["payload"]) if book else {}
+        dp=_payload_dict(deriv["payload"]) if deriv else {}
         features=dict(base)
         features.update({
             "book_imbalance":_num(bp.get("imbalance")),
@@ -59,3 +59,21 @@ class UnifiedFeatureBuilder:
 def _num(v):
     try: return float(v) if v is not None else None
     except (TypeError,ValueError): return None
+
+
+def _payload_dict(value):
+    """Normalize asyncpg JSON/JSONB payloads to a mapping without breaking ingestion."""
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed=json.loads(value)
+        except (json.JSONDecodeError,TypeError,ValueError):
+            return {}
+        return parsed if isinstance(parsed,dict) else {}
+    try:
+        return dict(value)
+    except (TypeError,ValueError):
+        return {}
