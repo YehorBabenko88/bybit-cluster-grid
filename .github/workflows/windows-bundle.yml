@@ -108,8 +108,11 @@ jobs:
 
           Get-ChildItem $bundle -File -Recurse |
             Where-Object {
+              $rel=$_.FullName.Substring($bundle.Length+1).Replace("\\","/")
               $_.Name -ne "release-manifest.json" -and
-              $_.Name -ne "bundle-manifest.json"
+              $_.Name -ne "bundle-manifest.json" -and
+              $_.Extension -notin @(".pyc",".pyo") -and
+              $rel -notmatch "(^|/)__pycache__(/|$)"
             } |
             Sort-Object FullName |
             ForEach-Object {
