@@ -76,12 +76,21 @@ class Storage:
                 # belongs to the already accepted, more complete minute. Equal WAL
                 # retries still continue below so a prior partial commit can finish
                 # feature/derived persistence idempotently.
+                regressive=False
                 if accepted:
                     await c.executemany("""INSERT INTO footprint_1m(symbol,ts,price,buy_volume,sell_volume,delta,volume,buy_count,sell_count)
                     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
                     ON CONFLICT(symbol,ts,price) DO UPDATE SET buy_volume=EXCLUDED.buy_volume,sell_volume=EXCLUDED.sell_volume,
                     delta=EXCLUDED.delta,volume=EXCLUDED.volume,buy_count=EXCLUDED.buy_count,sell_count=EXCLUDED.sell_count""",
                     [(row["symbol"],ts,x["price"],x["buy_volume"],x["sell_volume"],x["delta"],x["volume"],x["buy_count"],x["sell_count"]) for x in row["levels"]])
+                else:
+                    current_trade_count=await c.fetchval(
+                        "SELECT trade_count FROM candles_1m WHERE symbol=$1 AND ts=$2",
+                        row["symbol"],ts,
+                    )
+                    regressive=(current_trade_count is not None and current_trade_count > row["trade_count"])
+        if regressive:
+            return
         feature_row=dict(row); feature_row["ts"]=ts
         built=await self.feature_builder.build(self.pool,feature_row)
         await self.feature_builder.persist(self.pool,built)
