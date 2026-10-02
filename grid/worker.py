@@ -129,10 +129,10 @@ class Worker:
                                 except Exception:
                                     log.exception("instrument metadata refresh failed",extra={"event":"metadata_refresh_failed"})
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
-                            if state in (NORMAL,SOFT_PRESSURE):
-                                self.pressure_drained.clear()
-                            else:
-                                self.pressure_drained.update(self.pressure.symbols_to_drain(assigned-self.pressure_drained))
+                            # Recompute the complete drain set from the full assignment on
+                            # every heartbeat. Accumulating drained symbols across heartbeats
+                            # can progressively shed the entire pilot while pressure persists.
+                            self.pressure_drained=self.pressure.desired_drained_symbols(assigned)
                             new=assigned-self.pressure_drained
                             requested_micro=set(reply.get("micro_symbols",[]))
                             new_micro=requested_micro & new

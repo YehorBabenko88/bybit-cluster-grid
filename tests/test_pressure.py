@@ -32,3 +32,29 @@ def test_heaviest_symbols_are_drained_first():
 def test_soft_pressure_does_not_shed():
     p=PressureController(state=SOFT_PRESSURE)
     assert p.symbols_to_drain(["BTCUSDT"])==[]
+
+
+def test_reduce_load_drain_set_is_stable_across_heartbeats():
+    p=PressureController(state=REDUCE_LOAD)
+    assigned={"BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","DOGEUSDT"}
+    for _ in range(5):
+        drained=p.desired_drained_symbols(assigned)
+        assert len(drained)==1
+        assert len(assigned-drained)==4
+
+
+def test_critical_drain_set_is_stable_across_heartbeats():
+    p=PressureController(state=CRITICAL)
+    assigned={"BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","DOGEUSDT"}
+    for _ in range(5):
+        drained=p.desired_drained_symbols(assigned)
+        assert len(drained)==2
+        assert len(assigned-drained)==3
+
+
+def test_normal_and_soft_pressure_drain_nothing():
+    assigned={"BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","DOGEUSDT"}
+    p=PressureController(state=NORMAL)
+    assert p.desired_drained_symbols(assigned)==set()
+    p.state=SOFT_PRESSURE
+    assert p.desired_drained_symbols(assigned)==set()
