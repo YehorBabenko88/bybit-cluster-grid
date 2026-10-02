@@ -3,16 +3,23 @@ from datetime import datetime, timezone
 from .models import Trade, PriceCluster
 
 class FootprintBuilder:
-    def __init__(self, tick_size: float, interval_s: int = 60):
+    def __init__(self, tick_size: float, interval_s: int = 60, finalization_delay_ms: int = 2000):
         self.tick_size = tick_size
         self.interval_ms = interval_s * 1000
+        self.finalization_delay_ms = max(0, int(finalization_delay_ms))
         self.buckets = {}
+        # Once a minute has been finalized, late trades must never recreate it.
+        # This watermark is per builder (workers use one builder per symbol stream).
+        self.finalized_through_ms = {}
 
     def _price_key(self, price: float) -> int:
         return round(price / self.tick_size)
 
     def add(self, t: Trade):
         start = (t.ts_ms // self.interval_ms) * self.interval_ms
+        finalized = self.finalized_through_ms.get(t.symbol)
+        if finalized is not None and start <= finalized:
+            return False
         b = self.buckets.setdefault((t.symbol, start), {
             "open": t.price, "high": t.price, "low": t.price, "close": t.price,
             "buy": 0.0, "sell": 0.0, "trades": 0, "levels": defaultdict(PriceCluster),
@@ -26,6 +33,7 @@ class FootprintBuilder:
         else:
             b["sell"] += t.qty; lvl.sell_qty += t.qty; lvl.sell_count += 1
         b["trades"] += 1
+        return True
 
     def mark_degraded(self, symbol: str, ts_ms: int, reason: str):
         start=(ts_ms // self.interval_ms)*self.interval_ms
@@ -44,8 +52,11 @@ class FootprintBuilder:
         out=[]
         for key in list(self.buckets):
             symbol,start=key
-            if start + self.interval_ms > now_ms: continue
+            if start + self.interval_ms + self.finalization_delay_ms > now_ms: continue
             b=self.buckets.pop(key)
+            previous=self.finalized_through_ms.get(symbol)
+            if previous is None or start > previous:
+                self.finalized_through_ms[symbol]=start
             poc_key=max(b["levels"], key=lambda k:b["levels"][k].volume)
             out.append({
                 "symbol":symbol,"start_ms":start,"open":b["open"],"high":b["high"],"low":b["low"],"close":b["close"],
