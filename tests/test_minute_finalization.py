@@ -46,3 +46,11 @@ def test_finalization_watermark_is_per_symbol():
     assert len(fp.pop_closed(60_000)) == 1
     eth=Trade("ETHUSDT", 1_000, 200.0, 1.0, "Buy", "eth")
     assert fp.add(eth) is True
+
+
+def test_default_close_timing_remains_backward_compatible():
+    fp=FootprintBuilder(0.1, interval_s=60)
+    assert fp.add(trade(1_000))
+    rows=fp.pop_closed(60_000)
+    assert len(rows) == 1
+    assert rows[0]["start_ms"] == 0
