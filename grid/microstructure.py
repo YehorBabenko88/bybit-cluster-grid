@@ -6,6 +6,7 @@ from .orderbook import analyze_book
 from .data_quality import FeedQuality, safe_float, AVAILABLE, MISSING
 from .continuity import SequenceGuard
 from .book_velocity import BookVelocity
+from .wall_tracker import WallTracker
 
 log=logging.getLogger("microstructure")
 
@@ -32,6 +33,7 @@ class MicrostructureCollector:
         quality={}
         guards={}
         velocity=BookVelocity()
+        wall_tracker=WallTracker()
 
         while True:
             try:
@@ -115,14 +117,18 @@ class MicrostructureCollector:
                             if ts-last_book_write.get(sym,0) >= self.snapshot_ms:
                                 metrics=analyze_book(list(state["b"].items()),list(state["a"].items()))
                                 metrics.update(velocity.update(sym,ts,state["b"],state["a"]))
+                                walls,removed=wall_tracker.update(sym,ts,metrics["walls"])
+                                metrics["walls"]=walls
                                 metrics["update_id"]=state["u"]
                                 metrics["sequence"]=state["seq"]
                                 metrics["cts"]=data.get("cts")
                                 metrics["_quality"]=q.snapshot()
                                 await self.db.insert_event(sym,ts,"orderbook_snapshot",metrics)
-                                for wall in metrics["walls"]:
+                                for wall in walls:
                                     if wall["ratio"] >= self.wall_event_ratio:
                                         await self.db.insert_event(sym,ts,"liquidity_wall",wall)
+                                for wall in removed:
+                                    await self.db.insert_event(sym,ts,"liquidity_wall_removed",wall)
                                 last_book_write[sym]=ts
 
             except asyncio.CancelledError:

@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     spool_max_gb: float = 8.0
     spool_critical_ratio: float = 0.90
     cluster_interval_seconds: int = 60
+    microstructure_snapshot_ms: int = 250
+    micro_tape_bucket_ms: int = 250
+    micro_event_spool_max_gb: float = 4.0
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
     retention_enabled: bool = True

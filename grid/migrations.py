@@ -315,6 +315,16 @@ completed_at timestamptz,expansion_notified_at timestamptz)""",
 update_id bigint PRIMARY KEY,chat_id text,command text,status text NOT NULL DEFAULT 'CLAIMED',
 claimed_by text NOT NULL,claimed_at timestamptz NOT NULL DEFAULT now(),
 completed_at timestamptz,error text)"""
+]),
+(34,"microstructure_research_capture",[
+"""CREATE TABLE IF NOT EXISTS setup_candidates(
+id bigserial PRIMARY KEY,symbol text NOT NULL,setup_type text NOT NULL,
+direction text NOT NULL,detected_at timestamptz NOT NULL,reference_price numeric,
+confidence double precision,features jsonb NOT NULL DEFAULT '{}'::jsonb,
+state text NOT NULL DEFAULT 'DETECTED',invalidated_at timestamptz,
+outcome jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAULT now())""",
+"CREATE INDEX IF NOT EXISTS setup_candidates_lookup_idx ON setup_candidates(setup_type,symbol,detected_at DESC)",
+"CREATE INDEX IF NOT EXISTS setup_candidates_state_idx ON setup_candidates(state,detected_at DESC)"
 ])
 ]
 

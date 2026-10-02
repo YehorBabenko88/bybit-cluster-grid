@@ -85,7 +85,10 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
         node_assignments=assignments.get(nid,[]),
         instrument_symbols=instruments,
     )
-    return {"symbols":symbols,"commands":commands,"control_replica":replica,
+    # High-rate microstructure capture remains pilot-only until the volatility
+    # selector is implemented; this prevents accidental fleet-wide 250 ms capture.
+    micro_symbols=symbols if install_mode=="PILOT" else []
+    return {"symbols":symbols,"micro_symbols":micro_symbols,"commands":commands,"control_replica":replica,
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
             "install_mode":install_mode,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
@@ -161,6 +164,25 @@ async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_no
         raise HTTPException(503,"ingestion unavailable")
     await ingest_storage._save_direct(payload)
     return {"ok":True}
+
+@app.post("/ingest/event")
+async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
+    if not constant_time_equal(x_grid_token,settings.grid_shared_token):
+        raise HTTPException(403)
+    if not x_node_id or not await authenticate_agent(db.pool,x_node_id,x_node_credential):
+        raise HTTPException(403)
+    gate=await runtime_state(db.pool)
+    if gate["state"]!="ACTIVE":
+        raise HTTPException(423,"market ingestion locked")
+    symbol=str(payload.get("symbol","")).strip()
+    event_type=str(payload.get("event_type","")).strip()
+    event_ts=payload.get("event_ts")
+    event_payload=payload.get("payload")
+    if not symbol or not event_type or event_ts is None or not isinstance(event_payload,dict):
+        raise HTTPException(400,"invalid micro-event payload")
+    await db.insert_event(symbol,int(event_ts),event_type,event_payload)
+    return {"ok":True}
+
 
 @app.get("/status")
 async def status(x_grid_token:str=Header(default="")):
