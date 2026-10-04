@@ -44,11 +44,13 @@ async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,stratte
         async with c.transaction():
             if dataset_id is None:
                 raise ValueError("distributed research requires an immutable dataset_id")
-            ds=await c.fetchrow("SELECT status,dataset_hash FROM dataset_snapshots WHERE id=$1",dataset_id)
+            ds=await c.fetchrow("SELECT status,dataset_hash,artifact_id FROM dataset_snapshots WHERE id=$1",dataset_id)
             if not ds or ds["status"]!="READY": raise ValueError("research requires READY dataset")
             if str(ds["dataset_hash"])!=str(dataset_hash): raise ValueError("research dataset hash mismatch")
             dataset_artifact_sha=None
             dataset_artifact_uuid=None
+            if dataset_artifact_id is None and ds["artifact_id"] is not None:
+                dataset_artifact_id=ds["artifact_id"]
             if dataset_artifact_id is not None:
                 dataset_artifact_uuid=uuid.UUID(str(dataset_artifact_id))
                 art=await c.fetchrow("""SELECT storage_uri,status FROM ml_artifacts WHERE id=$1""",
