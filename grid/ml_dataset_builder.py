@@ -40,6 +40,42 @@ class DatasetBuilder:
             await self.pool.execute("UPDATE dataset_snapshots SET status='FAILED' WHERE id=$1",did)
             raise
 
+    async def build_microstructure(self,purpose,owner,cutoff_ts,criteria=None):
+        """Build an immutable dataset directly from continuously labelled live snapshots."""
+        criteria=criteria or {}; did=uuid.uuid4()
+        await self.pool.execute("""INSERT INTO dataset_snapshots
+          (id,purpose,cutoff_ts,created_by,criteria,status,feature_version)
+          VALUES($1,$2,$3,$4,$5::jsonb,'BUILDING',$6)""",
+          did,purpose,cutoff_ts,owner,json.dumps(criteria),self.feature_version)
+        try:
+            rows=await self.pool.fetch("""SELECT id AS sample_id,symbol,feature_ts AS event_ts,
+              known_at AS feature_ts,features,'{}'::jsonb AS instrument_features,target,
+              quality_status,NULL::text AS split_group,label_end_ts
+              FROM microstructure_ml_samples
+              WHERE target_ready=true AND quality_status='GOOD'
+                AND feature_ts<=$1 AND known_at<=feature_ts
+                AND label_end_ts<=$1 ORDER BY feature_ts,id""",cutoff_ts)
+            selected=[r for r in rows if _matches(r,criteria)]
+            manifest=[_canonical(r) for r in selected]
+            if not manifest: raise ValueError("dataset has no eligible microstructure samples")
+            hashes=[hashlib.sha256(x.encode()).hexdigest() for x in manifest]
+            digest=hashlib.sha256("\n".join(hashes).encode()).hexdigest()
+            async with self.pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.executemany("""INSERT INTO dataset_sample_payloads
+                      (dataset_id,sample_id,ordinal,payload,payload_hash,event_ts,feature_ts,label_end_ts,split_group)
+                      VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9)""",
+                      [(did,r["sample_id"],i,manifest[i],hashes[i],r["event_ts"],r["feature_ts"],
+                        _get(r,"label_end_ts"),None) for i,r in enumerate(selected)])
+                    await conn.execute("""UPDATE dataset_snapshots SET dataset_hash=$2,
+                      sample_count=$3,status='READY' WHERE id=$1 AND status='BUILDING'""",
+                      did,digest,len(manifest))
+            return {"id":str(did),"dataset_hash":digest,"sample_count":len(manifest),
+                    "cutoff_ts":cutoff_ts,"feature_version":self.feature_version}
+        except Exception:
+            await self.pool.execute("UPDATE dataset_snapshots SET status='FAILED' WHERE id=$1",did)
+            raise
+
 def _get(r,key,default=None):
     try:return r[key]
     except (KeyError,TypeError):return default
