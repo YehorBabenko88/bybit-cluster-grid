@@ -96,9 +96,23 @@ async def strattester_compute_loop(stop_event=None,poll_seconds=3):
                     job=(await r.json()).get("job")
                 if job:
                     required=str((job.get("payload") or {}).get("strattester_version") or "")
-                    if required and required!=settings.strattester_version:
-                        raise RuntimeError("assigned Strattester version mismatch")
-                    await _run_job(session,job)
+                    try:
+                        if required and required!=settings.strattester_version:
+                            raise ValueError("assigned Strattester version mismatch")
+                        await _run_job(session,job)
+                    except Exception as exc:
+                        text=str(exc)
+                        permanent=isinstance(exc,ValueError) or "result rejected status=409" in text or "unsupported Grid job_type" in text
+                        try:
+                            async with session.post(settings.coordinator_url+f"/compute/strattester/{job['id']}/fail",
+                                json={"node_id":NODE_ID,"lease_generation":int(job["lease_generation"]),
+                                      "kind":"permanent" if permanent else "retryable","error":text[:4000]},
+                                headers=_headers(),timeout=15) as fr:
+                                if fr.status not in (200,409):
+                                    log.error("strattester failure report rejected",extra={"event":"strattester_fail_report"})
+                        except Exception:
+                            log.exception("strattester failure report failed",extra={"event":"strattester_fail_report_failed"})
+                        raise
                 else:
                     await asyncio.sleep(poll_seconds)
             except asyncio.CancelledError:
