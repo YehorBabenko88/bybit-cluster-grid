@@ -85,5 +85,8 @@ class ContentAddressedCache:
             if digest in protected or (not expired and not over):continue
             try:
                 p.unlink();deleted+=1;bytes_deleted+=size;total-=size
+                try:
+                    if not any(p.parent.iterdir()):p.parent.rmdir()
+                except (FileNotFoundError,OSError):pass
             except FileNotFoundError:pass
         return {"deleted":deleted,"bytes_deleted":bytes_deleted,"bytes_remaining":total}
