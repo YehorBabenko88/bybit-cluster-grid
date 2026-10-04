@@ -90,13 +90,13 @@ class SegmentWAL:
         async with self._lock:
             current=self._checkpoint_id()
             if record_id<=current: return
-            tmp=self.checkpoint.with_suffix(".tmp")
+            tmp=self.root/"checkpoint.next"
             with open(tmp,"w",encoding="ascii") as f:
                 f.write(str(record_id)); f.flush(); os.fsync(f.fileno())
             # Preserve the previous known-good generation before publishing the
             # new primary. Recovery chooses the highest valid generation.
             if self.checkpoint.exists():
-                backup_tmp=self.checkpoint_backup.with_suffix(".tmp")
+                backup_tmp=self.root/"checkpoint.backup.next"
                 try:
                     data=self.checkpoint.read_text(encoding="ascii")
                     int(data.strip() or "0")
