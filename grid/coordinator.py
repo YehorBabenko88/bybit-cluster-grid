@@ -357,16 +357,17 @@ async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Heade
         await node_auth(node_id,x_node_credential,x_grid_token)
     else:
         auth(x_grid_token)
-    changed=await command_result(
-        db.pool,
-        command_id,
-        bool(payload.get("ok")),
-        payload.get("result"),
-        payload.get("error"),
-        node_id=node_id,
-    )
-    if node_id and not changed:
-        raise HTTPException(409,"command does not belong to authenticated node")
+    try:
+        await command_result(
+            db.pool,
+            command_id,
+            bool(payload.get("ok")),
+            payload.get("result"),
+            payload.get("error"),
+            node_id=node_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
     # Fleet STOP/RESUME completion is driven by durable command ACKs.
     # Reconcile immediately after every command result so the global
     # runtime gate cannot remain indefinitely in STOPPING/RESUMING.
