@@ -144,6 +144,7 @@ class MicrostructureCollector:
                                     p=float(p); qv=float(qv)
                                     if qv==0: state["a"].pop(p,None)
                                     else: state["a"][p]=qv
+                                q.mark("orderbook",AVAILABLE)
 
                             state["u"]=data.get("u",state["u"]); state["seq"]=data.get("seq",state["seq"])
 
