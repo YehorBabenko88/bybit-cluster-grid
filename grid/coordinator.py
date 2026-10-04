@@ -24,7 +24,7 @@ from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
 from .ml_microstructure_lifecycle import MicrostructureMLLifecycle,parse_horizons
-from .strattester_bridge import claim_assigned_strattester_job,renew_strattester_job,complete_strattester_job
+from .strattester_bridge import create_research_run,enqueue_research_shards,claim_assigned_strattester_job,renew_strattester_job,complete_strattester_job
 from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
 
@@ -98,6 +98,36 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
             "install_mode":install_mode,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
+
+@app.post("/research/runs")
+async def create_distributed_research(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    required=("kind","dataset_hash","config","strattester_version","shards")
+    missing=[k for k in required if k not in payload]
+    if missing: raise HTTPException(400,"missing: "+",".join(missing))
+    try:
+        run_id=await create_research_run(
+            db.pool,kind=payload["kind"],dataset_id=payload.get("dataset_id"),
+            dataset_hash=payload["dataset_hash"],config=payload.get("config") or {},
+            strattester_version=payload["strattester_version"],shards=payload.get("shards") or [])
+        queued=await enqueue_research_shards(db.pool,run_id)
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
+    return {"run_id":run_id,"queued_shards":queued}
+
+@app.get("/research/runs/{run_id}")
+async def get_distributed_research(run_id:str,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    run=await db.pool.fetchrow("SELECT * FROM research_runs WHERE id=$1",run_id)
+    if not run: raise HTTPException(404,"research run not found")
+    shards=await db.pool.fetch("""SELECT id,job_type,shard_key,status,result_hash,created_at,finished_at
+      FROM research_shards WHERE run_id=$1 ORDER BY job_type,shard_key""",run_id)
+    def serial(row):
+        out=dict(row)
+        for k,v in list(out.items()):
+            if v is not None and k in ("id","created_at","finished_at","dataset_id"): out[k]=str(v)
+        return out
+    return {"run":serial(run),"shards":[serial(x) for x in shards]}
 
 @app.post("/compute/strattester/claim")
 async def claim_strattester_compute(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
