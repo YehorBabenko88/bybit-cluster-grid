@@ -28,3 +28,22 @@ async def fail_or_retry(pool,job_id,owner,generation,error,kind="retryable"):
       not_before=now()+($2*interval '1 second'),error=$3 WHERE id=$1 AND lease_generation=$4""",
       job_id,delay,str(error)[:4000],int(generation))
     return "retry"
+
+
+async def recover_expired_ml_jobs(pool):
+    rows=await pool.fetch("""SELECT id,attempts,max_attempts FROM ml_jobs
+      WHERE status IN ('assigned','running') AND lease_until<now()""")
+    recovered=failed=0
+    for row in rows:
+        if int(row["attempts"] or 0)>=int(row["max_attempts"] or 1):
+            r=await pool.execute("""UPDATE ml_jobs SET status='failed',finished_at=now(),
+              lease_owner=NULL,lease_until=NULL,error=COALESCE(error,'expired compute lease')
+              WHERE id=$1 AND status IN ('assigned','running') AND lease_until<now()""",row["id"])
+            if r.endswith(" 1"):failed+=1
+        else:
+            r=await pool.execute("""UPDATE ml_jobs SET status='queued',lease_owner=NULL,lease_until=NULL,
+              not_before=now(),error=COALESCE(error,'expired compute lease')
+              WHERE id=$1 AND status IN ('assigned','running') AND lease_until<now()""",row["id"])
+            if r.endswith(" 1"):recovered+=1
+        await pool.execute("DELETE FROM ml_resource_reservations WHERE job_id=$1",row["id"])
+    return {"recovered":recovered,"failed":failed}
