@@ -151,11 +151,17 @@ class Worker:
                     if internet_available():
                         mark_internet_success()
                     elif decommission_due(settings.decommission_days):
-                        log.critical("offline decommission threshold reached",extra={"event":"self_decommission"})
-                        try:
-                            await execute_command(self,{"action":"uninstall","payload":{"purge_data":True}})
-                        finally:
-                            os._exit(0)
+                        # Extended total network isolation must never destroy the installation.
+                        # Quarantine local market work and wait for explicit CONTROL re-enrollment.
+                        if not self.operator_stopped:
+                            log.critical("offline quarantine threshold reached",extra={"event":"offline_quarantine"})
+                            self.enabled=False
+                            self.operator_stopped=True
+                            self.wanted=set()
+                            self.micro_wanted=set()
+                            await self.reconcile()
+                            await self.set_operator_stop(True)
+                            await self.set_bootstrap_pause(True)
                 await asyncio.sleep(settings.heartbeat_seconds)
 
     async def set_operator_stop(self,stopped):
