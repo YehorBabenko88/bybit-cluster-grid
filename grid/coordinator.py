@@ -23,6 +23,7 @@ from .live_assignment_policy import guarded_live_symbols
 from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
+from .ml_microstructure_lifecycle import MicrostructureMLLifecycle,parse_horizons
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -31,6 +32,7 @@ db=None
 ingest_storage=None
 background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
+micro_ml_lifecycle=None
 
 
 def constant_time_equal(left,right):
@@ -223,7 +225,7 @@ def rebalance():
 
 @app.on_event("startup")
 async def startup():
-    global db, ingest_storage, background_tasks
+    global db, ingest_storage, background_tasks, micro_ml_lifecycle
     bootstrap_logging()
     log.info(
         "coordinator startup",
@@ -284,11 +286,18 @@ async def startup():
         asyncio.create_task(loop()),
         asyncio.create_task(telegram_loop(db,nodes)),
     ]
+    if settings.micro_ml_lifecycle_enabled:
+        micro_ml_lifecycle=MicrostructureMLLifecycle(
+            db.pool,parse_horizons(settings.micro_ml_horizons_seconds),
+            settings.micro_ml_lifecycle_seconds)
+        background_tasks.append(asyncio.create_task(micro_ml_lifecycle.run()))
 
 @app.on_event("shutdown")
 async def shutdown():
-    global ingest_storage, background_tasks
+    global ingest_storage, background_tasks, micro_ml_lifecycle
 
+    if micro_ml_lifecycle is not None:
+        micro_ml_lifecycle.stop()
     tasks = list(background_tasks)
     background_tasks = []
 
@@ -299,3 +308,4 @@ async def shutdown():
         await asyncio.gather(*tasks, return_exceptions=True)
 
     ingest_storage = None
+    micro_ml_lifecycle = None
