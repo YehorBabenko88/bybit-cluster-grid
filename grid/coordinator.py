@@ -19,6 +19,9 @@ from .integrity_coordinator import handle_integrity_heartbeat
 from .repair_circuit_breaker import RepairCircuitBreaker
 from .repair_health import expired_repairs
 from .archive_discovery_service import seed_discovery
+from .archive_pipeline_service import run_discovery_worker
+from .market_backfill import seed_backfill,run_backfill_worker
+from .background_guard import background_work_allowed
 from .pilot_state import node_accepts_live_assignments,node_live_mode
 from .live_assignment_policy import guarded_live_symbols
 from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
@@ -548,6 +551,35 @@ async def startup():
                 log.exception("research DAG reconcile failed",extra={"event":"research_reconcile_failed"})
             await asyncio.sleep(5)
 
+    async def historical_bootstrap_loop():
+        # CONTROL owns historical discovery/backfill. Agent PCs never receive
+        # PostgreSQL credentials; archive transformation is delegated through
+        # the distributed archive-compute queue after discovery.
+        while True:
+            try:
+                gate=await runtime_state(db.pool)
+                if gate["state"]!="ACTIVE":
+                    await asyncio.sleep(15);continue
+                allowed,reasons=await background_work_allowed(db.pool)
+                if not allowed:
+                    log.info("historical bootstrap paused by resource guard",
+                             extra={"event":"historical_bootstrap_pause","component":",".join(reasons)})
+                    await asyncio.sleep(15);continue
+                xs=await linear_symbols(settings.bybit_rest_url)
+                await seed_discovery(db.pool,xs)
+                await seed_backfill(db.pool,xs)
+                await run_discovery_worker(db.pool,settings.bybit_archive_base_url,
+                                           settings.archive_probe_days)
+                # REST OHLCV is the independent price-history plane used for
+                # cold-start/research readiness; archive trades feed footprint history.
+                await run_backfill_worker(db.pool,settings.bybit_rest_url,max_pages=10)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("historical bootstrap cycle failed",
+                              extra={"event":"historical_bootstrap_failed"})
+            await asyncio.sleep(30)
+
     async def archive_compute_reconciler_loop():
         while True:
             try:
@@ -612,6 +644,7 @@ async def startup():
         asyncio.create_task(telegram_loop(db,nodes)),
         asyncio.create_task(ml_orchestrator.run()),
         asyncio.create_task(research_reconciler_loop()),
+        asyncio.create_task(historical_bootstrap_loop()),
         asyncio.create_task(archive_compute_reconciler_loop()),
         asyncio.create_task(operational_gc_loop()),
         asyncio.create_task(node_lifecycle_loop()),
