@@ -30,10 +30,11 @@ async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,stratte
     run_id=uuid.uuid4(); config_hash=digest(config or {})
     async with pool.acquire() as c:
         async with c.transaction():
-            if dataset_id is not None:
-                ds=await c.fetchrow("SELECT status,dataset_hash FROM dataset_snapshots WHERE id=$1",dataset_id)
-                if not ds or ds["status"]!="READY": raise ValueError("research requires READY dataset")
-                if str(ds["dataset_hash"])!=str(dataset_hash): raise ValueError("research dataset hash mismatch")
+            if dataset_id is None:
+                raise ValueError("distributed research requires an immutable dataset_id")
+            ds=await c.fetchrow("SELECT status,dataset_hash FROM dataset_snapshots WHERE id=$1",dataset_id)
+            if not ds or ds["status"]!="READY": raise ValueError("research requires READY dataset")
+            if str(ds["dataset_hash"])!=str(dataset_hash): raise ValueError("research dataset hash mismatch")
             await c.execute("""INSERT INTO research_runs
               (id,kind,dataset_id,dataset_hash,config,config_hash,strattester_version,status)
               VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,'BUILDING')""",
