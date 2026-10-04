@@ -30,7 +30,9 @@ Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Pr
 
 $ArchiveArg='-NoProfile -ExecutionPolicy Bypass -File "'+$ArchiveLauncher+'" -Python "'+$Python+'" -InstallRoot "'+$InstallRoot+'"'
 $ArchiveAction=New-ScheduledTaskAction -Execute "powershell.exe" -Argument $ArchiveArg -WorkingDirectory $InstallRoot
-if($Mode -eq "NORMAL"){
+# Archive/backfill owns direct PostgreSQL work and therefore belongs on CONTROL.
+# PILOT/NORMAL agents are intentionally DB-less and must never start this service.
+if($Mode -eq "CONTROL"){
   Register-ScheduledTask -TaskName $ArchiveTaskName -Action $ArchiveAction -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
 }else{
   Unregister-ScheduledTask $ArchiveTaskName -Confirm:$false -ErrorAction SilentlyContinue
@@ -43,9 +45,9 @@ if($Mode -eq "CONTROL"){
   Register-ScheduledTask -TaskName $CoordinatorTaskName -Action $CoordAction -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
   Unregister-ScheduledTask $TaskName -Confirm:$false -ErrorAction SilentlyContinue
   Start-ScheduledTask $CoordinatorTaskName
+  Start-ScheduledTask $ArchiveTaskName
 }else{
   Unregister-ScheduledTask $CoordinatorTaskName -Confirm:$false -ErrorAction SilentlyContinue
   Start-ScheduledTask $TaskName
-  if($Mode -eq "NORMAL"){ Start-ScheduledTask $ArchiveTaskName }
 }
 Write-Host "Bybit Cluster Grid installed in $Mode mode."
