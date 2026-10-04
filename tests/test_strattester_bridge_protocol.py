@@ -22,3 +22,7 @@ def test_handoff_rejects_wrong_dataset_or_version():
         validate_manifest(m,{"dataset_hash":"other"})
     with pytest.raises(ValueError,match="code_version mismatch"):
         validate_manifest(m,{"code_version":"def"})
+
+
+def test_protocol_hash_test_vector():
+    assert digest({"a":1,"b":[2,"x"],"nested":{"z":True}})=="74c101bd59c7cf137e69768c60e479eda10d578af171fa8f5192ba68858a8d96"
