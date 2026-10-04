@@ -26,6 +26,7 @@ from .control_snapshot_ring import ControlSnapshotRing,replica_meta
 from .integrity_guard import verify_manifest
 from .strattester_compute_worker import strattester_compute_loop
 from .archive_compute_worker import archive_compute_loop
+from .command_receipts import get as command_receipt_get,put as command_receipt_put
 
 log=logging.getLogger("worker")
 
@@ -108,12 +109,24 @@ class Worker:
                                 except Exception:
                                     log.exception("control replica apply failed",extra={"event":"control_replica_failed"})
                             for cmd in reply.get("commands",[]):
-                                ok=True; result=None; error=None
-                                try:
-                                    result=await execute_command(self,cmd)
-                                except Exception as e:
-                                    ok=False; error=str(e)
-                                    log.exception("agent command failed",extra={"event":"agent_command_failed"})
+                                receipt=command_receipt_get(cmd["id"])
+                                if receipt:
+                                    ok=bool(receipt.get("ok"));result=receipt.get("result");error=receipt.get("error")
+                                else:
+                                    ok=True; result=None; error=None
+                                    try:
+                                        result=await execute_command(self,cmd)
+                                    except Exception as e:
+                                        ok=False; error=str(e)
+                                        log.exception("agent command failed",extra={"event":"agent_command_failed"})
+                                    try:
+                                        command_receipt_put(cmd["id"],ok,result,error)
+                                    except Exception:
+                                        # For destructive/restart commands, receipt persistence is a safety boundary:
+                                        # do not ACK a result that could be replayed after CONTROL retry.
+                                        log.exception("command receipt persistence failed",extra={"event":"command_receipt_failed"})
+                                        if cmd.get("action") in ("restart","update","rollback","uninstall","repair"):
+                                            continue
                                 try:
                                     await s.post(
                                         settings.coordinator_url+f"/commands/{cmd['id']}/result",
