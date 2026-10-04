@@ -27,8 +27,15 @@ async def _renew_loop(session,job,lost,period=90):
                 if r.status!=200:
                     lost.set();return
         except Exception:
-            # CONTROL still fences late results. A later renewal may recover a transient outage.
-            pass
+            # Do not keep expensive work alive indefinitely without CONTROL.  One
+            # missed renewal may be transient; two consecutive misses fence the
+            # local job well before its server-side lease can be reassigned.
+            misses=getattr(lost,"_renew_misses",0)+1
+            setattr(lost,"_renew_misses",misses)
+            if misses>=2:
+                lost.set();return
+        else:
+            setattr(lost,"_renew_misses",0)
 
 
 async def _execute(job):
