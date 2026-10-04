@@ -583,7 +583,7 @@ async def startup():
                                            settings.archive_probe_days)
                 # REST OHLCV is the independent price-history plane used for
                 # cold-start/research readiness; archive trades feed footprint history.
-                await run_backfill_worker(db.pool,settings.bybit_rest_url,max_pages=10)
+                await run_backfill_worker(db.pool,settings.bybit_rest_url,max_pages=10,max_jobs=8)
             except asyncio.CancelledError:
                 raise
             except Exception:
