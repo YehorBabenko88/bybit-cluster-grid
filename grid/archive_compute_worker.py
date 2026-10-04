@@ -14,6 +14,20 @@ def _headers():
     return {"X-Grid-Token":settings.grid_shared_token,"X-Node-Credential":node_credential()}
 
 
+async def _renew_loop(session,job,lost,period=90):
+    while not lost.is_set():
+        await asyncio.sleep(period)
+        try:
+            async with session.post(settings.coordinator_url+f"/compute/archive/{job['id']}/renew",
+                json={"node_id":NODE_ID,"lease_generation":int(job["lease_generation"]),"lease_seconds":300},
+                headers=_headers(),timeout=15) as r:
+                if r.status!=200:
+                    lost.set();return
+        except Exception:
+            # CONTROL still fences late results. A later renewal may recover a transient outage.
+            pass
+
+
 async def _execute(job):
     cache=ContentAddressedCache(settings.content_cache_root)
     with tempfile.TemporaryDirectory(prefix="grid-archive-compute-") as td:
@@ -54,12 +68,19 @@ async def archive_compute_loop(stop_event=None,poll_seconds=3):
                     job=(await r.json()).get("job")
                 if not job:
                     await asyncio.sleep(poll_seconds);continue
-                manifest=await _execute(job)
-                async with session.post(settings.coordinator_url+f"/compute/archive/{job['id']}/result",
-                    json={"node_id":NODE_ID,"lease_generation":int(job["lease_generation"]),"manifest":manifest},
-                    headers=_headers(),timeout=30) as r:
-                    body=await r.text()
-                    if r.status!=200:raise RuntimeError(f"archive result rejected {r.status}: {body[:1000]}")
+                lost=asyncio.Event()
+                renew=asyncio.create_task(_renew_loop(session,job,lost))
+                try:
+                    manifest=await _execute(job)
+                    if lost.is_set():raise RuntimeError("archive compute lease lost")
+                    async with session.post(settings.coordinator_url+f"/compute/archive/{job['id']}/result",
+                        json={"node_id":NODE_ID,"lease_generation":int(job["lease_generation"]),"manifest":manifest},
+                        headers=_headers(),timeout=30) as r:
+                        body=await r.text()
+                        if r.status!=200:raise RuntimeError(f"archive result rejected {r.status}: {body[:1000]}")
+                finally:
+                    lost.set();renew.cancel()
+                    await asyncio.gather(renew,return_exceptions=True)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
