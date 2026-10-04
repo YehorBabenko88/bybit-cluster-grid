@@ -47,8 +47,15 @@ async def pending_commands(pool,node_id,limit=10):
                   WHERE id=ANY($1::uuid[])""",ids)
             return [dict(r) for r in rows]
 
-async def command_result(pool,command_id,ok,result=None,error=None):
+async def command_result(pool,command_id,ok,result=None,error=None,node_id=None):
     async with pool.acquire() as c:
-        await c.execute("""UPDATE agent_commands SET status=$2,completed_at=now(),
-          lease_until=NULL,result=$3::jsonb,error=$4 WHERE id=$1""",command_id,
-          "done" if ok else "failed",json.dumps(result or {}),error)
+        if node_id is None:
+            changed=await c.execute("""UPDATE agent_commands SET status=$2,completed_at=now(),
+              lease_until=NULL,result=$3::jsonb,error=$4 WHERE id=$1""",command_id,
+              "done" if ok else "failed",json.dumps(result or {}),error)
+        else:
+            changed=await c.execute("""UPDATE agent_commands SET status=$2,completed_at=now(),
+              lease_until=NULL,result=$3::jsonb,error=$4
+              WHERE id=$1 AND node_id=$5""",command_id,
+              "done" if ok else "failed",json.dumps(result or {}),error,str(node_id))
+        return str(changed).endswith(" 1")
