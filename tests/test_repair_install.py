@@ -19,3 +19,10 @@ def test_install_state_modes_exist():
     for mode in ('"fresh"','"repair"','"upgrade"'):
         assert mode in text
     assert 'install-state.json' in text
+
+
+def test_worker_install_never_starts_legacy_direct_db_archive_service():
+    text=Path("installer/install.ps1").read_text(encoding="utf-8")
+    assert 'Unregister-ScheduledTask $ArchiveTaskName' in text
+    assert 'Register-ScheduledTask -TaskName $ArchiveTaskName' not in text
+    assert 'Start-ScheduledTask $ArchiveTaskName' not in text
