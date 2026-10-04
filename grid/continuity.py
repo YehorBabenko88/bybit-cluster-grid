@@ -3,9 +3,10 @@ import time
 class SequenceGuard:
     """Validate Bybit order-book continuity.
 
-    Cross-sequence (seq) is monotonic but not guaranteed to be consecutive.
-    Update ID (u) is the continuity field and should advance by exactly one
-    between deltas; u=1 is handled by the caller as a fresh snapshot/reset.
+    Cross-sequence (seq) and update ID (u) must move forward, but Bybit's
+    public contract does not promise that every observed u differs by exactly
+    one. TCP/WebSocket ordering plus a fresh snapshot after reconnect is the
+    recovery boundary; u=1 is handled by the caller as a reset snapshot.
     """
     def __init__(self):
         self.last_seq=None
@@ -39,11 +40,6 @@ class SequenceGuard:
             if update_id <= self.last_update:
                 self.stale+=1
                 self.last_reason="stale_update_id"
-                return False
-            if update_id != self.last_update+1:
-                self.valid=False
-                self.gaps+=1
-                self.last_reason="update_id_gap"
                 return False
 
         self.last_seq=seq if seq is not None else self.last_seq
