@@ -14,6 +14,15 @@ def digest(value):
     raw=value if isinstance(value,(bytes,bytearray)) else canonical_json(value).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
 
+_RUNTIME_INPUT_KEYS={"local_market_db","local_results_db","workspace","cache_path"}
+
+def logical_input_spec(value):
+    if not isinstance(value,dict):return value
+    return {k:v for k,v in value.items() if k not in _RUNTIME_INPUT_KEYS}
+
+def input_digest(value):
+    return digest(logical_input_spec(value or {}))
+
 
 def make_manifest(*,run_id,job_id,job_type,dataset_hash,code_version,config,input_spec,result=None,status="COMPLETE",metrics=None,artifacts=None):
     result_payload={"result":result or {},"metrics":metrics or {},"artifacts":artifacts or []}
@@ -21,7 +30,7 @@ def make_manifest(*,run_id,job_id,job_type,dataset_hash,code_version,config,inpu
         "protocol_version":PROTOCOL_VERSION,
         "run_id":str(run_id),"job_id":str(job_id),"job_type":str(job_type),
         "dataset_hash":str(dataset_hash),"code_version":str(code_version),
-        "config_hash":digest(config or {}),"input_hash":digest(input_spec or {}),
+        "config_hash":digest(config or {}),"input_hash":input_digest(input_spec or {}),
         "result_hash":digest(result_payload),"status":str(status),
         "result":result or {},"metrics":metrics or {},"artifacts":artifacts or [],
     }
