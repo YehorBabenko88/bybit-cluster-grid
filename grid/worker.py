@@ -75,7 +75,7 @@ class Worker:
                              "db_spool_ratio":round(dbm.get("spool_ratio",0.0),4),
                              "db_avg_write_latency_ms":round(dbm["avg_write_latency_ms"],3)})
                 snap['pressure_state']=state
-                snap['compute_capabilities']={'strattester':bool(settings.strattester_enabled and settings.strattester_version and settings.strattester_command)}
+                snap['compute_capabilities']={'strattester':bool(settings.strattester_enabled and settings.strattester_version and settings.strattester_command),'archive':bool(settings.archive_compute_enabled)}
                 snap['strattester_version']=settings.strattester_version if snap['compute_capabilities']['strattester'] else ''
                 snap['bootstrap_paused']=self.bootstrap_paused
                 snap['operator_stopped']=self.operator_stopped
