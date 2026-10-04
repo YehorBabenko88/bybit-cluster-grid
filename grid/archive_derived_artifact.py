@@ -68,3 +68,12 @@ def iter_derived_artifact(path,expected_metadata=None):
                    "buy_volume":float(p["buy_volume"]),"sell_volume":float(p["sell_volume"]),
                    "delta":float(p["delta"]),"trade_count":int(p["trade_count"]),
                    "poc_price":float(p["poc_price"]),"levels":levels}
+
+
+def inspect_derived_artifact(path,expected_metadata=None):
+    candles=levels=source_rows=0;min_ts=max_ts=None
+    for row in iter_derived_artifact(path,expected_metadata):
+        candles+=1;levels+=len(row["levels"]);source_rows+=int(row["trade_count"])
+        ts=row["ts"];min_ts=ts if min_ts is None else min(min_ts,ts);max_ts=ts if max_ts is None else max(max_ts,ts)
+    return {"source_rows":source_rows,"derived_candles":candles,
+            "derived_footprint_rows":levels,"min_ts":min_ts,"max_ts":max_ts}
