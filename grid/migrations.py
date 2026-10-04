@@ -332,6 +332,7 @@ id bigserial PRIMARY KEY,symbol text NOT NULL,event_ts timestamptz NOT NULL,
 event_type text NOT NULL,payload jsonb NOT NULL,ingest_ts timestamptz NOT NULL DEFAULT now())""",
 "CREATE INDEX IF NOT EXISTS microstructure_raw_symbol_ts_idx ON microstructure_raw_events(symbol,event_ts DESC)",
 "CREATE INDEX IF NOT EXISTS microstructure_raw_type_ts_idx ON microstructure_raw_events(event_type,event_ts DESC)",
+"CREATE UNIQUE INDEX IF NOT EXISTS microstructure_raw_dedupe_idx ON microstructure_raw_events(symbol,event_ts,event_type,md5(payload::text))",
 """CREATE TABLE IF NOT EXISTS microstructure_samples(
 symbol text NOT NULL,ts timestamptz NOT NULL,known_at timestamptz NOT NULL,
 payload jsonb NOT NULL,ingest_ts timestamptz NOT NULL DEFAULT now(),
