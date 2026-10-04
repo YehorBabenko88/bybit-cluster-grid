@@ -25,7 +25,7 @@ from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
 from .ml_microstructure_lifecycle import MicrostructureMLLifecycle,parse_horizons
-from .strattester_bridge import create_research_run,enqueue_research_shards,reconcile_research_runs,claim_assigned_strattester_job,renew_strattester_job,complete_strattester_job
+from .strattester_bridge import create_research_run,create_strategy_backtest_research,enqueue_research_shards,reconcile_research_runs,claim_assigned_strattester_job,renew_strattester_job,complete_strattester_job
 from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
 from .ml_retry import fail_or_retry,recover_expired_ml_jobs
@@ -184,6 +184,22 @@ async def export_research_dataset(payload:dict,x_grid_token:str=Header(default="
             max_rows=payload.get("max_rows"))
     except ValueError as exc:
         raise HTTPException(409,str(exc))
+
+@app.post("/research/backtests")
+async def create_distributed_backtest(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    required=("dataset_id","strategies","strattester_version")
+    missing=[k for k in required if k not in payload]
+    if missing:raise HTTPException(400,"missing: "+",".join(missing))
+    try:
+        run_id=await create_strategy_backtest_research(db.pool,
+            dataset_id=payload["dataset_id"],strategies=payload["strategies"],
+            strattester_version=payload["strattester_version"],
+            symbols=payload.get("symbols"),config=payload.get("config") or {})
+        queued=await enqueue_research_shards(db.pool,run_id)
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
+    return {"run_id":run_id,"queued_shards":queued}
 
 @app.post("/research/runs")
 async def create_distributed_research(payload:dict,x_grid_token:str=Header(default="")):
