@@ -1,11 +1,12 @@
 import asyncio, json, time, logging, os
+from collections import deque
 import aiohttp, websockets
 from .config import settings
 from .resources import snapshot
 from .models import Trade
 from .cluster import FootprintBuilder
 from .storage import Storage
-from .bybit import linear_symbols
+from .bybit import linear_symbols,parse_public_trade,BybitProtocolError
 from .service import prepare_database, bootstrap_logging, health_monitor
 from .microstructure import MicrostructureCollector
 from .micro_event_storage import MicroEventStorage
@@ -232,6 +233,9 @@ class Worker:
         connected_once=False
         raw_trade_messages=[]
         last_raw_trade_flush=0
+        # Bybit trade IDs are the safe dedupe key. seq cannot be used because
+        # one futures trade sequence may legitimately span multiple messages.
+        seen_trade_ids=set();seen_trade_order=deque();dedupe_limit=100000
         while True:
             try:
                 await wait_for_internet()
@@ -266,12 +270,26 @@ class Worker:
                                 last_raw_trade_flush=receive_ts
                         self.pressure.observe_symbol(symbol,events=len(batch))
                         for x in batch:
-                            trade_ts=int(x["T"])
+                            try:
+                                parsed=parse_public_trade(x,symbol)
+                            except BybitProtocolError:
+                                log.warning("invalid Bybit public trade ignored",
+                                  extra={"event":"bybit_trade_invalid","symbol":symbol})
+                                fp.mark_open_degraded(symbol,"invalid_trade_payload")
+                                continue
+                            trade_id=parsed["trade_id"]
+                            if trade_id and trade_id in seen_trade_ids:
+                                continue
+                            if trade_id:
+                                seen_trade_ids.add(trade_id);seen_trade_order.append(trade_id)
+                                if len(seen_trade_order)>dedupe_limit:
+                                    seen_trade_ids.discard(seen_trade_order.popleft())
+                            trade_ts=parsed["ts_ms"]
                             suspect_gap=continuity.observe(trade_ts)
                             trade=Trade(
-                                symbol=symbol,ts_ms=trade_ts,price=float(x["p"]),qty=float(x["v"]),side=x["S"],
-                                trade_id=x.get("i",""),seq=x.get("seq"),block_trade=bool(x.get("BT",False)),
-                                rpi=bool(x.get("RPI",False)),system_ts_ms=system_ts,receive_ts_ms=receive_ts,
+                                symbol=symbol,ts_ms=trade_ts,price=parsed["price"],qty=parsed["qty"],side=parsed["side"],
+                                trade_id=trade_id,seq=parsed["seq"],block_trade=parsed["block_trade"],
+                                rpi=parsed["rpi"],system_ts_ms=system_ts,receive_ts_ms=receive_ts,
                                 continuity_gap=bool(suspect_gap)
                             )
                             fp.add(trade)
