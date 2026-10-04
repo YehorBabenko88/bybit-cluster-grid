@@ -386,6 +386,11 @@ max_attempts integer NOT NULL DEFAULT 5,result_manifest jsonb,result_hash text,l
 created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),
 UNIQUE(symbol,archive_date))""",
 "CREATE INDEX IF NOT EXISTS archive_compute_jobs_status_idx ON archive_compute_jobs(status,archive_date,symbol)"
+]),
+(41,"bounded_operational_retention",[
+"CREATE INDEX IF NOT EXISTS ml_jobs_finished_idx ON ml_jobs(status,finished_at)",
+"CREATE INDEX IF NOT EXISTS research_runs_finished_idx ON research_runs(status,finished_at)",
+"CREATE INDEX IF NOT EXISTS archive_compute_jobs_updated_idx ON archive_compute_jobs(status,updated_at)"
 ])
 ]
 
