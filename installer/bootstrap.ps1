@@ -242,6 +242,13 @@ try {
         if(Test-Path $Release){Remove-Item -Recurse -Force $Release}
         Move-Item $Backup $Release
         Write-Warning "Bootstrap rolled back to previous release."
+    } elseif($Mode -eq "fresh") {
+        # A failed fresh install must not leave Task Scheduler endlessly
+        # restarting a release that never passed its health check.
+        foreach($taskName in @("BybitClusterGridAgent","BybitClusterGridArchivePipeline","BybitClusterGridCoordinator")){
+            Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+            Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        }
     }
     throw
 }
