@@ -47,6 +47,10 @@ async def pending_commands(pool,node_id,limit=10):
                   WHERE id=ANY($1::uuid[])""",ids)
             return [dict(r) for r in rows]
 
+async def command_belongs_to_node(pool,command_id,node_id):
+    owner=await pool.fetchval("SELECT node_id FROM agent_commands WHERE id=$1",command_id)
+    return owner is not None and str(owner)==str(node_id)
+
 async def command_result(pool,command_id,ok,result=None,error=None,node_id=None):
     async with pool.acquire() as c:
         if node_id is None:
