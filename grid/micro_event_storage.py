@@ -23,6 +23,7 @@ class MicroEventStorage:
             root,
             max_bytes=int(settings.micro_event_spool_max_gb*1024**3),
         )
+        self.http=None
         self.write_queue=BoundedWriteQueue(
             self._save_spooled,
             maxsize=20000,
@@ -30,6 +31,7 @@ class MicroEventStorage:
         )
 
     async def start(self):
+        self.http=aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20))
         await self.write_queue.start()
         for record_id,row in self.spool.recover():
             await self.write_queue.put(record_id,row)
@@ -46,6 +48,11 @@ class MicroEventStorage:
         record_id=await self.spool.append(row)
         await self.write_queue.put(record_id,row)
 
+    async def close(self,drain_timeout=5):
+        await self.write_queue.close(drain_timeout)
+        if self.http is not None:
+            await self.http.close(); self.http=None
+
     async def _save_spooled(self,record_id,row):
         from .credential_store import node_credential
 
@@ -54,17 +61,17 @@ class MicroEventStorage:
             "X-Node-Credential":node_credential(),
             "X-Node-ID":NODE_ID,
         }
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                settings.coordinator_url+"/ingest/event",
-                json=row,
-                headers=headers,
-                timeout=20,
-            ) as resp:
-                if resp.status!=200:
-                    raise RuntimeError(
-                        "CONTROL micro-event ingest rejected: "+str(resp.status)
-                    )
+        if self.http is None:
+            raise RuntimeError("micro-event ingest session is not started")
+        async with self.http.post(
+            settings.coordinator_url+"/ingest/event",
+            json=row,
+            headers=headers,
+        ) as resp:
+            if resp.status!=200:
+                raise RuntimeError(
+                    "CONTROL micro-event ingest rejected: "+str(resp.status)
+                )
         await self.spool.ack(record_id)
 
     def metrics(self):
