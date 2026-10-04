@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     archive_compute_enabled: bool = False
     worker_process_memory_mb: int = 2048
     worker_child_memory_mb: int = 4096
+    worker_job_timeout_minutes: int = 180
     content_cache_max_gb: float = 20.0
     content_cache_ttl_days: int = 14
     workspace_ttl_hours: int = 24
