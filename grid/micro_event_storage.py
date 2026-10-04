@@ -35,6 +35,8 @@ class MicroEventStorage:
             await self.write_queue.put(record_id,row)
 
     async def insert_event(self,symbol,event_ts,event_type,payload):
+        if self.spool.ratio()>=settings.spool_critical_ratio:
+            raise BufferError("Grid micro-event WAL critical threshold reached; load shedding required")
         row={
             "symbol":symbol,
             "event_ts":int(event_ts),
