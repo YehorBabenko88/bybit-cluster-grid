@@ -408,6 +408,10 @@ updated_at timestamptz NOT NULL DEFAULT now())""",
 (44,"research_dataset_artifact",[
 "ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS dataset_artifact_id uuid REFERENCES ml_artifacts(id)",
 "CREATE INDEX IF NOT EXISTS research_runs_dataset_artifact_idx ON research_runs(dataset_artifact_id)"
+]),
+(45,"dataset_snapshot_artifact",[
+"ALTER TABLE dataset_snapshots ADD COLUMN IF NOT EXISTS artifact_id uuid REFERENCES ml_artifacts(id)",
+"CREATE INDEX IF NOT EXISTS dataset_snapshots_artifact_idx ON dataset_snapshots(artifact_id)"
 ])
 ]
 
