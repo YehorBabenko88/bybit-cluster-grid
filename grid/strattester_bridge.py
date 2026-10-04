@@ -254,7 +254,7 @@ async def finalize_research_run(pool,run_id):
     run=await pool.fetchrow("""SELECT * FROM research_runs
       WHERE id=$1 AND status='COMPLETE'""",run_id)
     if not run:return None
-    if run.get("aggregate_fingerprint") and run.get("result_artifact_id"):
+    if run["aggregate_fingerprint"] and run["result_artifact_id"]:
         return {"aggregate_fingerprint":run["aggregate_fingerprint"],
                 "result_artifact_id":str(run["result_artifact_id"])}
     rows=await pool.fetch("""SELECT id,job_type,shard_key,result_manifest,result_hash
