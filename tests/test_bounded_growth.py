@@ -17,6 +17,6 @@ def test_operational_gc_work_per_pass_is_bounded():
         p=BoundedPool()
         for _ in range(25):
             result=await cleanup_operational_state(p,30,100)
-            assert set(result)=={"ml_resource_reservations","archive_compute_jobs","research_runs","ml_jobs"}
-        assert p.calls==25*4
+            assert set(result)=={"ml_resource_reservations","archive_compute_jobs","research_runs","ml_jobs","telegram_updates","agent_commands"}
+        assert p.calls==25*6
     asyncio.run(run())
