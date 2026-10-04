@@ -1,4 +1,4 @@
-import asyncio,time,logging,secrets
+import asyncio,time,logging,secrets,hashlib,os,tempfile,uuid
 from fastapi import FastAPI,Header,HTTPException,Request
 from fastapi.responses import FileResponse
 from .config import settings
@@ -29,11 +29,11 @@ from .strattester_bridge import create_research_run,create_strategy_backtest_res
 from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
 from .ml_retry import fail_or_retry,recover_expired_ml_jobs
-from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compute_job,renew_archive_compute_job,fail_archive_compute_job,accept_archive_compute_result,recover_archive_compute_jobs
+from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compute_job,renew_archive_compute_job,fail_archive_compute_job,accept_archive_compute_result,recover_archive_compute_jobs,archive_compute_lease_valid,attach_archive_compute_artifact
 from .operational_gc import cleanup_operational_state
 from .ml_artifact_gc import delete_unreferenced_content_artifacts
 from .content_cache import ContentAddressedCache
-from .compute_artifacts import compute_artifact_descriptor
+from .compute_artifacts import compute_artifact_descriptor,publish_compute_artifact
 from .strattester_dataset_export import export_market_dataset
 from .node_lifecycle import record_node_seen,reconcile_node_lifecycle,node_may_compute
 
@@ -127,6 +127,46 @@ async def fetch_compute_artifact(sha256:str,x_node_id:str=Header(default=""),
         raise HTTPException(400,"invalid artifact digest")
     return FileResponse(path,media_type="application/octet-stream",
         filename=f"{sha256}.bin",headers={"X-Content-SHA256":sha256.lower()})
+
+@app.put("/compute/archive/{job_id}/artifact/{sha256}")
+async def upload_archive_compute_artifact(job_id:str,sha256:str,request:Request,
+    x_node_id:str=Header(default=""),x_lease_generation:str=Header(default=""),
+    x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(x_node_id or "")
+    if not node_id:raise HTTPException(400,"X-Node-ID required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    if not await node_may_compute(db.pool,node_id):
+        raise HTTPException(409,"node lifecycle blocks compute")
+    try:generation=int(x_lease_generation)
+    except (TypeError,ValueError):raise HTTPException(400,"X-Lease-Generation required")
+    sha=str(sha256).lower()
+    if len(sha)!=64 or any(ch not in "0123456789abcdef" for ch in sha):
+        raise HTTPException(400,"invalid artifact digest")
+    if not await archive_compute_lease_valid(db.pool,job_id,node_id,generation):
+        raise HTTPException(409,"lease lost")
+    max_bytes=int(settings.compute_artifact_upload_max_gb*1024**3)
+    root=settings.content_cache_root
+    os.makedirs(root,exist_ok=True)
+    fd,tmp=tempfile.mkstemp(prefix="grid-archive-upload-",suffix=".part",dir=root);os.close(fd)
+    h=hashlib.sha256();size=0
+    try:
+        with open(tmp,"wb") as out:
+            async for chunk in request.stream():
+                if not chunk:continue
+                size+=len(chunk)
+                if size>max_bytes:raise HTTPException(413,"artifact upload too large")
+                h.update(chunk);out.write(chunk)
+            out.flush();os.fsync(out.fileno())
+        if h.hexdigest()!=sha:raise HTTPException(409,"artifact sha256 mismatch")
+        artifact=await publish_compute_artifact(db.pool,tmp,artifact_type="archive_derived",
+            metadata={"archive_job_id":str(job_id),"node_id":node_id},reusable=False)
+        attached=await attach_archive_compute_artifact(db.pool,job_id,node_id,generation,
+            uuid.UUID(str(artifact["id"])))
+        if not attached:raise HTTPException(409,"lease lost")
+        return {"artifact_id":str(artifact["id"]),"sha256":sha,"bytes":size}
+    finally:
+        try:os.remove(tmp)
+        except FileNotFoundError:pass
 
 @app.post("/compute/archive/claim")
 async def claim_archive_compute(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
