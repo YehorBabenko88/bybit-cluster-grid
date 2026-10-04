@@ -34,6 +34,10 @@ async def _prepare_dataset_input(session,payload,root):
         raise ValueError("strategy_backtest requires dataset_sha256 when local_market_db is absent")
     cache=ContentAddressedCache(settings.content_cache_root)
     if not cache.has(digest):
+        # A corrupt object at the expected digest is service-owned and safe to evict;
+        # the replacement is still accepted only after SHA-256 verification.
+        if cache.path_for(digest).exists():
+            cache.discard(digest)
         uri=str(spec.get("dataset_uri") or (
             settings.coordinator_url.rstrip("/")+"/compute/artifacts/"+digest))
         headers=_headers() if uri.startswith(settings.coordinator_url.rstrip("/")) else {}
