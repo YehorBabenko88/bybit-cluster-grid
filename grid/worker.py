@@ -24,6 +24,7 @@ from .continuity import TradeContinuity
 from .local_control_journal import LocalControlJournal
 from .control_snapshot_ring import ControlSnapshotRing,replica_meta
 from .integrity_guard import verify_manifest
+from .command_receipts import CommandReceiptStore
 
 log=logging.getLogger("worker")
 
@@ -48,6 +49,7 @@ class Worker:
         self.pressure_drained=set()
         self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json'))
         self.control_ring=ControlSnapshotRing(os.getenv('GRID_CONTROL_SNAPSHOTS','control-snapshots'))
+        self.command_receipts=CommandReceiptStore()
 
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
@@ -105,11 +107,21 @@ class Worker:
                                     log.exception("control replica apply failed",extra={"event":"control_replica_failed"})
                             for cmd in reply.get("commands",[]):
                                 ok=True; result=None; error=None
-                                try:
-                                    result=await execute_command(self,cmd)
-                                except Exception as e:
-                                    ok=False; error=str(e)
-                                    log.exception("agent command failed",extra={"event":"agent_command_failed"})
+                                receipt=self.command_receipts.get(cmd.get("id"))
+                                if receipt is not None:
+                                    ok=bool(receipt.get("ok"))
+                                    result=receipt.get("result")
+                                    error=receipt.get("error")
+                                    log.info("replayed durable command receipt",extra={"event":"command_receipt_replay"})
+                                else:
+                                    try:
+                                        result=await execute_command(self,cmd)
+                                    except Exception as e:
+                                        ok=False; error=str(e)
+                                        log.exception("agent command failed",extra={"event":"agent_command_failed"})
+                                    # Persist before ACK. If the process/network dies after this point,
+                                    # redelivery is acknowledged from the receipt without re-execution.
+                                    self.command_receipts.put(cmd.get("id"),ok,result,error)
                                 try:
                                     await s.post(
                                         settings.coordinator_url+f"/commands/{cmd['id']}/result",
