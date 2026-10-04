@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     workspace_ttl_hours: int = 24
     maintenance_interval_minutes: int = 15
     operational_state_retention_days: int = 30
+    node_offline_seconds: int = 90
+    node_quarantine_hours: int = 24
+    node_decommission_days: int = 30
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
     retention_enabled: bool = True
