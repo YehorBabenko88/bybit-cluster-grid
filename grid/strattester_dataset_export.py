@@ -89,9 +89,10 @@ async def export_market_dataset(pool,*,symbols,start_ts,end_ts,owner="control",m
             raise ValueError(f"dataset {symbol} contains a minute gap")
         last[symbol]=ts;counts[symbol]+=1
         o,hv,l,c=(float(r["open"]),float(r["high"]),float(r["low"]),float(r["close"]))
-        buy=float(r["buy_volume"]);sell=float(r["sell_volume"]);volume=float(r["volume"])
+        buy=float(r["buy_volume"]);sell=float(r["sell_volume"])
+        volume=float(r["volume"]) if "volume" in r else buy+sell
         semantic={"source":source,"symbol":symbol,"ts":ts,"open":str(r["open"]),"high":str(r["high"]),
-                  "low":str(r["low"]),"close":str(r["close"]),"volume":str(r["volume"]),
+                  "low":str(r["low"]),"close":str(r["close"]),"volume":str(volume),
                   "buy_volume":str(r["buy_volume"]),"sell_volume":str(r["sell_volume"])}
         h.update(json.dumps(semantic,sort_keys=True,separators=(",",":")).encode("utf-8"));h.update(b"\n")
         sqlite_rows.append((symbol,"1m",ts,o,hv,l,c,volume,None))
