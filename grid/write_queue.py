@@ -22,6 +22,21 @@ class BoundedWriteQueue:
     async def put(self,*args):
         await self.q.put(args)
 
+    async def close(self,drain_timeout=5):
+        # Try to flush in-memory items first. If CONTROL/DB is unavailable,
+        # bounded shutdown cancels retry loops; every accepted item remains in
+        # the durable WAL and is replayed on the next start.
+        if not self.tasks:
+            return
+        try:
+            await asyncio.wait_for(self.q.join(),timeout=max(0.0,float(drain_timeout)))
+        except asyncio.TimeoutError:
+            log.warning("write queue drain timed out; durable WAL will replay pending records",
+                        extra={"event":"write_queue_drain_timeout","queue_depth":self.q.qsize()})
+        tasks=list(self.tasks); self.tasks=[]
+        for task in tasks: task.cancel()
+        await asyncio.gather(*tasks,return_exceptions=True)
+
     def metrics(self):
         elapsed=max(.001,time.monotonic()-self.started)
         return {
