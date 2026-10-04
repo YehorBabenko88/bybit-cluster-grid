@@ -27,13 +27,16 @@ async def reconcile_node_lifecycle(pool,offline_seconds=90,quarantine_hours=24,d
     decommission=await pool.execute("""UPDATE node_lifecycle SET state='DECOMMISSIONED',decommissioned_at=now(),
       last_transition_at=now(),reason='long-term offline; manual re-enrollment required',updated_at=now()
       WHERE state='QUARANTINED' AND last_seen<now()-($1::int*interval '1 day')""",int(decommission_days))
-    # Any active compute lease owned by a quarantined/decommissioned node is made immediately reclaimable.
+    # OFFLINE nodes also lose leases promptly. Their unfinished jobs are recovered by the normal
+    # lease/retry reconciler; a returning node may claim fresh work after a heartbeat.
+    blocked="('OFFLINE','QUARANTINED','DECOMMISSIONED')"
+    # Any active compute lease owned by an unavailable node is made immediately reclaimable.
     await pool.execute("""UPDATE ml_jobs SET lease_until=now()
       WHERE status IN ('assigned','running') AND assigned_node IN
-      (SELECT node_id FROM node_lifecycle WHERE state IN ('QUARANTINED','DECOMMISSIONED'))""")
+      (SELECT node_id FROM node_lifecycle WHERE state IN ('OFFLINE','QUARANTINED','DECOMMISSIONED'))""")
     await pool.execute("""UPDATE archive_compute_jobs SET lease_until=now()
       WHERE status='running' AND lease_owner IN
-      (SELECT node_id FROM node_lifecycle WHERE state IN ('QUARANTINED','DECOMMISSIONED'))""")
+      (SELECT node_id FROM node_lifecycle WHERE state IN ('OFFLINE','QUARANTINED','DECOMMISSIONED'))""")
     return {"offline":offline,"quarantine":quarantine,"decommission":decommission}
 
 
