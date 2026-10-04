@@ -9,6 +9,11 @@ class Trade:
     qty: float
     side: str
     trade_id: str = ""
+    seq: int | None = None
+    block_trade: bool = False
+    rpi: bool = False
+    system_ts_ms: int | None = None
+    receive_ts_ms: int | None = None
 
 @dataclass
 class PriceCluster:
