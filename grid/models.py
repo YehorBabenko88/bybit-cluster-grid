@@ -14,6 +14,7 @@ class Trade:
     rpi: bool = False
     system_ts_ms: int | None = None
     receive_ts_ms: int | None = None
+    continuity_gap: bool = False
 
 @dataclass
 class PriceCluster:
