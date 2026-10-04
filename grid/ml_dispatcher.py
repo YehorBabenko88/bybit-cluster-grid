@@ -7,6 +7,7 @@ WORKLOAD_DEFAULTS={
  "train":{"cpu":4.0,"ram_gb":8,"scratch_gb":10},
  "backtest":{"cpu":3.0,"ram_gb":4,"scratch_gb":5},
  "evaluate":{"cpu":2.0,"ram_gb":3,"scratch_gb":3},
+ "strattester":{"cpu":3.0,"ram_gb":6,"scratch_gb":15},
 }
 
 class MLDispatcher:
