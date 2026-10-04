@@ -391,6 +391,14 @@ UNIQUE(symbol,archive_date))""",
 "CREATE INDEX IF NOT EXISTS ml_jobs_finished_idx ON ml_jobs(status,finished_at)",
 "CREATE INDEX IF NOT EXISTS research_runs_finished_idx ON research_runs(status,finished_at)",
 "CREATE INDEX IF NOT EXISTS archive_compute_jobs_updated_idx ON archive_compute_jobs(status,updated_at)"
+]),
+(42,"node_lifecycle",[
+"""CREATE TABLE IF NOT EXISTS node_lifecycle(
+node_id text PRIMARY KEY,state text NOT NULL DEFAULT 'ONLINE',
+last_seen timestamptz,last_transition_at timestamptz NOT NULL DEFAULT now(),
+quarantined_at timestamptz,decommissioned_at timestamptz,reason text,
+updated_at timestamptz NOT NULL DEFAULT now())""",
+"CREATE INDEX IF NOT EXISTS node_lifecycle_state_idx ON node_lifecycle(state,last_seen)"
 ])
 ]
 
