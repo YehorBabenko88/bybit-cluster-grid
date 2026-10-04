@@ -179,7 +179,8 @@ async def create_distributed_research(payload:dict,x_grid_token:str=Header(defau
         run_id=await create_research_run(
             db.pool,kind=payload["kind"],dataset_id=payload.get("dataset_id"),
             dataset_hash=payload["dataset_hash"],config=payload.get("config") or {},
-            strattester_version=payload["strattester_version"],shards=payload.get("shards") or [])
+            strattester_version=payload["strattester_version"],shards=payload.get("shards") or [],
+            dataset_artifact_id=payload.get("dataset_artifact_id"))
         queued=await enqueue_research_shards(db.pool,run_id)
     except ValueError as exc:
         raise HTTPException(409,str(exc))
