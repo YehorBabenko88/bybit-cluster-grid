@@ -50,3 +50,33 @@ def test_upsert_style_retry_does_not_lose_checkpoint_order(tmp_path):
         assert len(committed)==3
         assert wal.recover()==[]
     asyncio.run(run())
+
+
+def test_corrupt_primary_checkpoint_recovers_from_backup(tmp_path):
+    async def run():
+        wal=SegmentWAL(tmp_path,max_bytes=100000)
+        ids=[await wal.append({"n":n}) for n in range(4)]
+        await wal.ack(ids[0])
+        await wal.ack(ids[1])
+        # Simulate a torn primary checkpoint write after a sudden power loss.
+        wal.checkpoint.write_text("CORRUPT",encoding="ascii")
+        restarted=SegmentWAL(tmp_path,max_bytes=100000)
+        recovered=restarted.recover()
+        assert [row["n"] for _,row in recovered]==[1,2,3]
+        # Replaying one extra idempotent record is safe; replaying from zero is not.
+        assert restarted._checkpoint_id()==ids[0]
+    asyncio.run(run())
+
+
+def test_wal_rejects_write_before_exceeding_capacity(tmp_path):
+    async def run():
+        wal=SegmentWAL(tmp_path,max_bytes=180)
+        await wal.append({"payload":"x"*40})
+        before=wal.bytes_used()
+        try:
+            await wal.append({"payload":"y"*200})
+            assert False,"capacity guard did not fire"
+        except BufferError:
+            pass
+        assert wal.bytes_used()==before
+    asyncio.run(run())
