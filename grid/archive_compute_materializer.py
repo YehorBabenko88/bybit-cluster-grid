@@ -32,6 +32,8 @@ async def materialize_archive_compute_results(pool,cache_root,limit=10):
             sha=uri[len(prefix):]
             if sha!=str(manifest.get("derived_artifact_sha256") or "").lower():
                 raise ValueError("archive materialization artifact hash mismatch")
+            if int(job["artifact_bytes"] or 0)!=int(manifest.get("derived_artifact_bytes",-1)):
+                raise ValueError("archive materialization artifact byte size mismatch")
             if not cache.has(sha):
                 raise FileNotFoundError("archive derived artifact missing from CONTROL cache")
             expected_meta={"symbol":job["symbol"],"archive_date":str(job["archive_date"]),
