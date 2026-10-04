@@ -45,7 +45,13 @@ class MLDispatcher:
                           scratch_gb=float(payload.get("scratch_gb",d["scratch_gb"])),
                           input_gb=float(payload.get("input_gb",0)),
                           gpu=bool(payload.get("gpu",False)),data_locality=payload.get("data_locality"))
-                        pick=choose_node(nodes,w)
+                        candidate_nodes=nodes
+                        if candidate["job_type"]=="strattester":
+                            required=str(payload.get("strattester_version") or "")
+                            candidate_nodes={nid:n for nid,n in nodes.items()
+                              if bool((n.get("compute_capabilities") or {}).get("strattester"))
+                              and (not required or str(n.get("strattester_version") or "")==required)}
+                        pick=choose_node(candidate_nodes,w)
                         if pick:
                             job=candidate;break
                     if not job: break
