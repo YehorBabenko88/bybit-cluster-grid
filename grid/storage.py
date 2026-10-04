@@ -23,6 +23,7 @@ def ingest_headers():
 class Storage:
     def __init__(self):
         self.pool=None
+        self.http=None
         self.feature_builder=UnifiedFeatureBuilder()
         self.derived=None
         root=os.path.join(os.getenv("ProgramData",os.getcwd()),"BybitClusterGrid","spool")
@@ -35,6 +36,8 @@ class Storage:
             self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=5)
             self.derived=DerivedPipeline(self.pool)
             await self.derived.start()
+        if self.remote:
+            self.http=aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20))
         await self.write_queue.start()
         for record_id,row in self.spool.recover():
             await self.write_queue.put(record_id,row)
@@ -44,6 +47,13 @@ class Storage:
         record_id=await self.spool.append(row)
         await self.write_queue.put(record_id,row)
 
+    async def close(self,drain_timeout=5):
+        await self.write_queue.close(drain_timeout)
+        if self.http is not None:
+            await self.http.close(); self.http=None
+        if self.pool is not None:
+            await self.pool.close(); self.pool=None
+
     def metrics(self):
         m=self.write_queue.metrics()
         m['spool_bytes']=self.spool.bytes_used()
@@ -52,11 +62,12 @@ class Storage:
 
     async def _save_spooled(self,record_id,row):
         if self.remote:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(settings.coordinator_url+"/ingest/minute",
-                    json=row,headers=ingest_headers(),timeout=20) as resp:
-                    if resp.status!=200:
-                        raise RuntimeError("CONTROL ingest rejected: "+str(resp.status))
+            if self.http is None:
+                raise RuntimeError("remote ingest session is not started")
+            async with self.http.post(settings.coordinator_url+"/ingest/minute",
+                json=row,headers=ingest_headers()) as resp:
+                if resp.status!=200:
+                    raise RuntimeError("CONTROL ingest rejected: "+str(resp.status))
         else:
             await self._save_direct(row)
         await self.spool.ack(record_id)
