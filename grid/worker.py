@@ -66,7 +66,12 @@ class Worker:
                 except Exception:
                     snap.update({'control_generation':0,'control_checksum':'CORRUPT'})
                 dbm=self.storage.metrics()
-                state=self.pressure.update(snap,max(dbm["queue_ratio"],dbm.get("spool_ratio",0.0)))
+                microm=self.micro_storage.metrics()
+                combined_pressure=max(
+                    dbm["queue_ratio"],dbm.get("spool_ratio",0.0),
+                    microm["queue_ratio"],microm.get("spool_ratio",0.0),
+                )
+                state=self.pressure.update(snap,combined_pressure)
                 snap.update({"db_queue_depth":dbm["queue_depth"],
                              "db_queue_capacity":dbm["queue_capacity"],
                              "db_queue_ratio":round(dbm["queue_ratio"],4),
@@ -74,7 +79,13 @@ class Worker:
                              "db_write_failures":dbm["write_failures"],
                              "db_spool_bytes":dbm.get("spool_bytes",0),
                              "db_spool_ratio":round(dbm.get("spool_ratio",0.0),4),
-                             "db_avg_write_latency_ms":round(dbm["avg_write_latency_ms"],3)})
+                             "db_avg_write_latency_ms":round(dbm["avg_write_latency_ms"],3),
+                             "micro_queue_depth":microm["queue_depth"],
+                             "micro_queue_capacity":microm["queue_capacity"],
+                             "micro_queue_ratio":round(microm["queue_ratio"],4),
+                             "micro_write_failures":microm["write_failures"],
+                             "micro_spool_bytes":microm.get("spool_bytes",0),
+                             "micro_spool_ratio":round(microm.get("spool_ratio",0.0),4)})
                 snap['pressure_state']=state
                 snap['bootstrap_paused']=self.bootstrap_paused
                 snap['operator_stopped']=self.operator_stopped
