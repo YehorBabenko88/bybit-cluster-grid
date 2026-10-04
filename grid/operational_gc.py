@@ -19,6 +19,18 @@ async def cleanup_operational_state(pool,terminal_days=30,batch_size=1000):
         WHERE status IN ('done','failed','cancelled') AND finished_at<now()-($1::int*interval '1 day')
         AND NOT EXISTS(SELECT 1 FROM research_shards s WHERE ('strattester:'||s.id::text)=ml_jobs.dedupe_key)
         ORDER BY finished_at LIMIT $2) DELETE FROM ml_jobs x USING d WHERE x.id=d.id""",
+      "telegram_updates":"""WITH d AS (SELECT update_id FROM telegram_updates
+        WHERE status IN ('DONE','FAILED') AND completed_at<now()-($1::int*interval '1 day')
+        ORDER BY completed_at LIMIT $2) DELETE FROM telegram_updates x USING d
+        WHERE x.update_id=d.update_id""",
+      "agent_commands":"""WITH d AS (SELECT id FROM agent_commands a
+        WHERE status IN ('done','failed') AND completed_at<now()-($1::int*interval '1 day')
+        AND NOT EXISTS(
+          SELECT 1 FROM fleet_operations f
+          WHERE f.id::text=(a.payload->>'operation_id')
+            AND f.status IN ('RUNNING','WAITING','READY_CONTROL_PURGE','CONTROL_PURGE_STARTED'))
+        ORDER BY completed_at LIMIT $2)
+        DELETE FROM agent_commands x USING d WHERE x.id=d.id""",
     }
     for name,sql in statements.items():
         try:
