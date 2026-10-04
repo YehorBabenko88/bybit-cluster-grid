@@ -299,6 +299,7 @@ class Worker:
             self.operator_stopped=True; self.enabled=False
 
         asyncio.create_task(health_monitor())
+        asyncio.create_task(worker_maintenance_loop())
         if settings.strattester_enabled:
             asyncio.create_task(strattester_compute_loop())
         if settings.archive_compute_enabled:
