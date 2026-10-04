@@ -31,6 +31,7 @@ from .ml_orchestrator_service import MLOrchestratorService
 from .ml_retry import fail_or_retry,recover_expired_ml_jobs
 from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compute_job,renew_archive_compute_job,fail_archive_compute_job,accept_archive_compute_result,recover_archive_compute_jobs
 from .operational_gc import cleanup_operational_state
+from .ml_artifact_gc import delete_unreferenced_content_artifacts
 from .content_cache import ContentAddressedCache
 from .compute_artifacts import compute_artifact_descriptor
 from .strattester_dataset_export import export_market_dataset
@@ -511,6 +512,9 @@ async def startup():
         while True:
             try:
                 await cleanup_operational_state(db.pool,settings.operational_state_retention_days)
+                await delete_unreferenced_content_artifacts(
+                    db.pool,ContentAddressedCache(settings.content_cache_root),
+                    settings.content_artifact_retention_days)
             except Exception:
                 log.exception("operational gc loop failed",extra={"event":"operational_gc_loop_failed"})
             await asyncio.sleep(max(3600,int(settings.maintenance_interval_minutes)*60))
