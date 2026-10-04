@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio,os,tempfile
 from pathlib import Path
 import aiohttp
+import psutil
 from .archive_download import download_verified
 from .archive_stream_parser import iter_minute_aggregates
 from .archive_derived_artifact import write_derived_artifact
@@ -56,9 +57,12 @@ async def _execute(job):
 
 def _resource_ok():
     s=snapshot()
+    rss=psutil.Process().memory_info().rss
+    rss_limit=float(settings.worker_process_memory_mb)*1024**2*float(settings.worker_process_memory_backoff_ratio)
     return (float(s.get("cpu_pct",100))<settings.resource_cpu_limit
             and float(s.get("ram_pct",100))<settings.resource_ram_limit
-            and float(s.get("disk_free",0))>=settings.resource_disk_free_gb*1024**3)
+            and float(s.get("disk_free",0))>=settings.resource_disk_free_gb*1024**3
+            and rss<rss_limit)
 
 
 async def archive_compute_loop(stop_event=None,poll_seconds=3):
