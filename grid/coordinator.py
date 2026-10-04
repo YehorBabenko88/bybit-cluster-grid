@@ -28,6 +28,7 @@ from .strattester_bridge import create_research_run,enqueue_research_shards,reco
 from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
 from .ml_retry import fail_or_retry
+from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compute_job,renew_archive_compute_job,fail_archive_compute_job,accept_archive_compute_result,recover_archive_compute_jobs
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -99,6 +100,45 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
             "install_mode":install_mode,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
+
+@app.post("/compute/archive/claim")
+async def claim_archive_compute(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""))
+    if not node_id: raise HTTPException(400,"node_id required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    job=await claim_archive_compute_job(db.pool,node_id,int(payload.get("lease_seconds",300)))
+    if not job:return {"job":None}
+    out=dict(job)
+    for k,v in list(out.items()):
+        if v is not None and k in ("id","archive_date","lease_until","created_at","updated_at"):out[k]=str(v)
+    return {"job":out}
+
+@app.post("/compute/archive/{job_id}/renew")
+async def renew_archive_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""));await node_auth(node_id,x_node_credential,x_grid_token)
+    ok=await renew_archive_compute_job(db.pool,job_id,node_id,int(payload["lease_generation"]),
+                                       int(payload.get("lease_seconds",300)))
+    if not ok:raise HTTPException(409,"lease lost")
+    return {"ok":True}
+
+@app.post("/compute/archive/{job_id}/fail")
+async def fail_archive_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""));await node_auth(node_id,x_node_credential,x_grid_token)
+    ok=await fail_archive_compute_job(db.pool,job_id,node_id,int(payload["lease_generation"]),
+                                      str(payload.get("error","archive compute failed")))
+    if not ok:raise HTTPException(409,"lease lost")
+    return {"ok":True}
+
+@app.post("/compute/archive/{job_id}/result")
+async def complete_archive_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""));await node_auth(node_id,x_node_credential,x_grid_token)
+    try:
+        ok=await accept_archive_compute_result(db.pool,job_id,node_id,int(payload["lease_generation"]),
+                                               dict(payload.get("manifest") or {}))
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
+    if not ok:raise HTTPException(409,"lease lost")
+    return {"ok":True}
 
 @app.post("/research/runs")
 async def create_distributed_research(payload:dict,x_grid_token:str=Header(default="")):
@@ -374,6 +414,15 @@ async def startup():
                 log.exception("research DAG reconcile failed",extra={"event":"research_reconcile_failed"})
             await asyncio.sleep(5)
 
+    async def archive_compute_reconciler_loop():
+        while True:
+            try:
+                await recover_archive_compute_jobs(db.pool)
+                await seed_archive_compute_jobs(db.pool)
+            except Exception:
+                log.exception("archive compute reconcile failed",extra={"event":"archive_compute_reconcile_failed"})
+            await asyncio.sleep(10)
+
     async def compute_nodes():
         cutoff=time.time()-settings.heartbeat_seconds*3
         return {nid:dict(v) for nid,v in nodes.items() if v.get("last_seen",0)>=cutoff}
@@ -400,6 +449,7 @@ async def startup():
         asyncio.create_task(telegram_loop(db,nodes)),
         asyncio.create_task(ml_orchestrator.run()),
         asyncio.create_task(research_reconciler_loop()),
+        asyncio.create_task(archive_compute_reconciler_loop()),
     ]
     if settings.micro_ml_lifecycle_enabled:
         micro_ml_lifecycle=MicrostructureMLLifecycle(
