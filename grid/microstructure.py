@@ -24,7 +24,7 @@ class MicrostructureCollector:
         topics=[]
         for s in symbols:
             topics += [f"orderbook.50.{s}", f"tickers.{s}"]
-        books={}; tickers={}; last_book_write={}; last_ticker_write={}
+        books={}; tickers={}; last_book_write={}; last_ticker_write={}; last_raw_write={}
         quality={}; guards={}; raw_books={}
         velocity=BookVelocity(); wall_tracker=WallTracker()
 
@@ -147,6 +147,10 @@ class MicrostructureCollector:
 
                             state["u"]=data.get("u",state["u"]); state["seq"]=data.get("seq",state["seq"])
 
+                            if self.raw_capture and system_ts-last_raw_write.get(sym,0)>=settings.micro_raw_orderbook_batch_ms:
+                                await flush_raw(sym,system_ts)
+                                last_raw_write[sym]=system_ts
+
                             if system_ts-last_book_write.get(sym,0) >= self.snapshot_ms:
                                 metrics=analyze_book(list(state["b"].items()),list(state["a"].items()))
                                 metrics.update(velocity.update(sym,system_ts,state["b"],state["a"]))
@@ -184,7 +188,6 @@ class MicrostructureCollector:
                                     "_quality":q.snapshot(),
                                 }
                                 await self.db.insert_event(sym,system_ts,"ml_microstructure_snapshot",ml)
-                                await flush_raw(sym,system_ts)
                                 for wall in walls:
                                     if wall["ratio"]>=self.wall_event_ratio:
                                         await self.db.insert_event(sym,system_ts,"liquidity_wall",wall)
