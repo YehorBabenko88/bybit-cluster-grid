@@ -48,6 +48,7 @@ class Worker:
         self.operator_stopped=False
         self.bootstrap_phase=os.getenv('GRID_BOOTSTRAP_PHASE','NORMAL')
         self.runtime_state='INFRA_ONLY'
+        self.last_control_ok=time.monotonic()
         self.pressure=PressureController(settings.resource_cpu_limit,settings.resource_ram_limit,settings.resource_disk_free_gb)
         self.pressure_drained=set()
         self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json'))
@@ -101,6 +102,7 @@ class Worker:
                     ) as r:
                         if r.status==200:
                             mark_coordinator_success()
+                            self.last_control_ok=time.monotonic()
                             reply=await r.json()
                             replica=reply.get("control_replica")
                             if replica:
@@ -159,9 +161,11 @@ class Worker:
                                 self.micro_wanted=new_micro
                                 await self.reconcile()
                         else:
-                            log.warning("coordinator heartbeat rejected",extra={"event":"heartbeat_rejected"})
+                            log.warning("coordinator heartbeat rejected",extra={"event":"heartbeat_rejected","status":r.status})
+                            await self.fail_closed_if_control_stale()
                 except Exception:
                     log.exception("heartbeat failed",extra={"event":"heartbeat_failed"})
+                    await self.fail_closed_if_control_stale()
                     if internet_available():
                         mark_internet_success()
                     elif decommission_due(settings.decommission_days):
@@ -177,6 +181,17 @@ class Worker:
                             await self.set_operator_stop(True)
                             await self.set_bootstrap_pause(True)
                 await asyncio.sleep(settings.heartbeat_seconds)
+
+    async def fail_closed_if_control_stale(self):
+        if time.monotonic()-self.last_control_ok <= max(15,settings.heartbeat_seconds*3):
+            return False
+        if self.wanted or self.micro_wanted:
+            log.error("CONTROL heartbeat lease expired; draining live market work",
+                      extra={"event":"control_heartbeat_lease_expired"})
+            self.runtime_state="CONTROL_UNREACHABLE"
+            self.wanted=set();self.micro_wanted=set()
+            await self.reconcile()
+        return True
 
     async def set_operator_stop(self,stopped):
         flag=os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","operator.stop")
