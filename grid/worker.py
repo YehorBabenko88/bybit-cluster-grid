@@ -36,7 +36,7 @@ class Worker:
         self.micro_wanted=set()
         self.storage=Storage()
         self.micro_storage=MicroEventStorage()
-        self.micro_tape=MicroTapeAggregator(settings.micro_tape_bucket_ms)
+        self.micro_tape=MicroTapeAggregator(settings.micro_tape_bucket_ms,settings.micro_large_trade_mult,settings.micro_large_trade_ema_alpha)
         self.db=None
         self.meta={}
         self.enabled=True
@@ -192,6 +192,7 @@ class Worker:
             collector=MicrostructureCollector(
                 self.micro_storage,
                 snapshot_ms=settings.microstructure_snapshot_ms,
+                trade_tape=self.micro_tape,
             )
             symbols=list(signature)
             for i in range(0,len(symbols),8):
@@ -220,19 +221,24 @@ class Worker:
                     connected_once=True
                     delays=backoff_delays()
                     async for raw in ws:
+                        receive_ts=int(time.time()*1000)
                         msg=json.loads(raw)
                         batch=msg.get("data",[])
+                        system_ts=int(msg.get("ts") or receive_ts)
+                        if symbol in self.micro_wanted and settings.micro_raw_capture_enabled and batch:
+                            await self.micro_storage.insert_event(symbol,system_ts,"public_trade_raw_batch",{
+                                "symbol":symbol,"system_ts":system_ts,"receive_ts":receive_ts,
+                                "event_count":len(batch),"trades":batch,
+                            })
                         self.pressure.observe_symbol(symbol,events=len(batch))
                         for x in batch:
                             trade_ts=int(x["T"])
                             suspect_gap=continuity.observe(trade_ts)
                             trade=Trade(
-                                symbol=symbol,
-                                ts_ms=trade_ts,
-                                price=float(x["p"]),
-                                qty=float(x["v"]),
-                                side=x["S"],
-                                trade_id=x.get("i","")
+                                symbol=symbol,ts_ms=trade_ts,price=float(x["p"]),qty=float(x["v"]),side=x["S"],
+                                trade_id=x.get("i",""),seq=x.get("seq"),block_trade=bool(x.get("BT",False)),
+                                rpi=bool(x.get("RPI",False)),system_ts_ms=system_ts,receive_ts_ms=receive_ts,
+                                continuity_gap=bool(suspect_gap)
                             )
                             fp.add(trade)
                             if symbol in self.micro_wanted:
