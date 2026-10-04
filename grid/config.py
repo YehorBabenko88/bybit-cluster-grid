@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     retention_orderbook_snapshots_days: int = 14
     retention_footprint_days: int = 90
     retention_derivatives_days: int = 365
+    retention_micro_raw_days: int = 30
+    retention_micro_samples_days: int = 365
     strategy_cache_dir: str = "runtime_strategies"
     strategy_job_timeout_seconds: int = 21600
     strategy_cpu_soft_limit: float = 60
