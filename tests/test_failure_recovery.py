@@ -80,3 +80,18 @@ def test_wal_rejects_write_before_exceeding_capacity(tmp_path):
             pass
         assert wal.bytes_used()==before
     asyncio.run(run())
+
+
+def test_checkpoint_staging_paths_are_distinct(tmp_path):
+    async def run():
+        wal=SegmentWAL(tmp_path,max_bytes=100000)
+        first=await wal.append({"n":1})
+        second=await wal.append({"n":2})
+        await wal.ack(first)
+        await wal.ack(second)
+        assert wal._checkpoint_id()==second
+        assert wal.checkpoint.read_text(encoding="ascii").strip()==str(second)
+        assert wal.checkpoint_backup.read_text(encoding="ascii").strip()==str(first)
+        assert not (tmp_path/"checkpoint.next").exists()
+        assert not (tmp_path/"checkpoint.backup.next").exists()
+    asyncio.run(run())
