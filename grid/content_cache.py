@@ -64,3 +64,26 @@ class ContentAddressedCache:
             try:os.remove(tmp)
             except FileNotFoundError:pass
         return str(destination)
+
+
+    def gc(self,max_bytes,ttl_seconds,protected=()):
+        import time
+        protected={str(x).lower() for x in protected}
+        now=time.time();items=[]
+        for prefix in self.objects.iterdir() if self.objects.exists() else []:
+            if not prefix.is_dir():continue
+            for p in prefix.iterdir():
+                if not p.is_file():continue
+                digest=prefix.name+p.name
+                try:st=p.stat()
+                except FileNotFoundError:continue
+                items.append((st.st_mtime,st.st_size,digest,p))
+        total=sum(x[1] for x in items);deleted=bytes_deleted=0
+        for mtime,size,digest,p in sorted(items):
+            expired=(now-mtime)>=float(ttl_seconds)
+            over=total>int(max_bytes)
+            if digest in protected or (not expired and not over):continue
+            try:
+                p.unlink();deleted+=1;bytes_deleted+=size;total-=size
+            except FileNotFoundError:pass
+        return {"deleted":deleted,"bytes_deleted":bytes_deleted,"bytes_remaining":total}
