@@ -71,7 +71,7 @@ async def _run_job(session,job):
             start_new_session=(os.name!="nt"))
         lost=asyncio.Event()
         renew=asyncio.create_task(_renew_loop(session,job_id,generation,lost))
-        output=[]
+        output=[];started=asyncio.get_running_loop().time()
         try:
             while proc.returncode is None:
                 try:
@@ -85,6 +85,9 @@ async def _run_job(session,job):
                     rss=pp.memory_info().rss+sum(x.memory_info().rss for x in pp.children(recursive=True))
                 except psutil.Error:
                     pass
+                if asyncio.get_running_loop().time()-started>int(settings.worker_job_timeout_minutes)*60:
+                    await _terminate_tree(proc)
+                    raise RuntimeError("strattester wall clock limit exceeded")
                 if rss>int(settings.worker_child_memory_mb)*1024**2:
                     await _terminate_tree(proc)
                     raise RuntimeError(f"strattester memory limit exceeded: {rss}")
