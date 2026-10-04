@@ -38,7 +38,8 @@ async def _execute(job):
         derived_path=os.path.join(td,"derived.jsonl.gz")
         metadata={"symbol":job["symbol"],"archive_date":str(job["archive_date"]),
                   "tick_size":float(job["tick_size"]),"source_sha256":dl["sha256"]}
-        derived=write_derived_artifact(
+        derived=await asyncio.to_thread(
+            write_derived_artifact,
             derived_path,
             iter_minute_aggregates(cached["path"],job["symbol"],float(job["tick_size"])),
             metadata)
