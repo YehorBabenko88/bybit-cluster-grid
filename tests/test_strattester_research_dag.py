@@ -1,5 +1,5 @@
 import pytest
-from grid.strattester_bridge import validate_shard_dag,validate_distributed_input
+from grid.strattester_bridge import validate_shard_dag,validate_distributed_input,strategy_backtest_shards
 
 
 def test_research_dag_accepts_valid_dependencies():
@@ -37,3 +37,16 @@ def test_distributed_backtest_requires_content_hash_and_rejects_local_paths():
         validate_distributed_input("strategy_backtest",{"symbol":"BTCUSDT"})
     with pytest.raises(ValueError,match="worker-local"):
         validate_distributed_input("strategy_backtest",{"dataset_sha256":"a"*64,"local_market_db":"C:/x.db"})
+
+
+def test_strategy_backtest_shards_are_deterministic_cartesian_product():
+    shards=strategy_backtest_shards(symbols=["ETHUSDT","BTCUSDT","BTCUSDT"],
+        strategies=["legacy_grid","legacy_grid","poc"],start_ms=0,end_ms=120000)
+    assert [x["shard_key"] for x in shards]==[
+        "strategy:legacy_grid:symbol:BTCUSDT",
+        "strategy:legacy_grid:symbol:ETHUSDT",
+        "strategy:poc:symbol:BTCUSDT",
+        "strategy:poc:symbol:ETHUSDT",
+    ]
+    assert all(x["job_type"]=="strategy_backtest" for x in shards)
+    assert all(x["input_spec"]["start_ms"]==0 and x["input_spec"]["end_ms"]==120000 for x in shards)
