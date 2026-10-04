@@ -27,7 +27,7 @@ from .ml_microstructure_lifecycle import MicrostructureMLLifecycle,parse_horizon
 from .strattester_bridge import create_research_run,enqueue_research_shards,reconcile_research_runs,claim_assigned_strattester_job,renew_strattester_job,complete_strattester_job
 from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
-from .ml_retry import fail_or_retry
+from .ml_retry import fail_or_retry,recover_expired_ml_jobs
 from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compute_job,renew_archive_compute_job,fail_archive_compute_job,accept_archive_compute_result,recover_archive_compute_jobs
 from .operational_gc import cleanup_operational_state
 from .node_lifecycle import record_node_seen,reconcile_node_lifecycle,node_may_compute
@@ -444,6 +444,14 @@ async def startup():
                 log.exception("node lifecycle reconcile failed",extra={"event":"node_lifecycle_failed"})
             await asyncio.sleep(30)
 
+    async def compute_lease_recovery_loop():
+        while True:
+            try:
+                await recover_expired_ml_jobs(db.pool)
+            except Exception:
+                log.exception("compute lease recovery failed",extra={"event":"compute_lease_recovery_failed"})
+            await asyncio.sleep(15)
+
     async def operational_gc_loop():
         while True:
             try:
@@ -481,6 +489,7 @@ async def startup():
         asyncio.create_task(archive_compute_reconciler_loop()),
         asyncio.create_task(operational_gc_loop()),
         asyncio.create_task(node_lifecycle_loop()),
+        asyncio.create_task(compute_lease_recovery_loop()),
     ]
     if settings.micro_ml_lifecycle_enabled:
         micro_ml_lifecycle=MicrostructureMLLifecycle(
