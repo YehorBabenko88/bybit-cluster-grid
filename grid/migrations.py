@@ -418,6 +418,10 @@ updated_at timestamptz NOT NULL DEFAULT now())""",
 "ALTER TABLE archive_compute_jobs ADD COLUMN IF NOT EXISTS materialized_at timestamptz",
 "ALTER TABLE archive_compute_jobs ADD COLUMN IF NOT EXISTS materialize_error text",
 "CREATE INDEX IF NOT EXISTS archive_compute_materialize_idx ON archive_compute_jobs(status,materialized_at,updated_at)"
+]),
+(47,"control_plane_retention_indexes",[
+"CREATE INDEX IF NOT EXISTS telegram_updates_completed_idx ON telegram_updates(status,completed_at)",
+"CREATE INDEX IF NOT EXISTS agent_commands_completed_idx ON agent_commands(status,completed_at)"
 ])
 ]
 
