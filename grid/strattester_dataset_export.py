@@ -61,9 +61,21 @@ async def export_market_dataset(pool,*,symbols,start_ts,end_ts,owner="control",m
     start_aligned=datetime.fromtimestamp(start_ms/1000,tz=timezone.utc)
     end_aligned=datetime.fromtimestamp(end_ms/1000,tz=timezone.utc)
     rows=await pool.fetch("""SELECT symbol,ts,open,high,low,close,
-      COALESCE(buy_volume,0) buy_volume,COALESCE(sell_volume,0) sell_volume
+      COALESCE(buy_volume,0) buy_volume,COALESCE(sell_volume,0) sell_volume,
+      (COALESCE(buy_volume,0)+COALESCE(sell_volume,0)) volume
       FROM candles_1m WHERE symbol=ANY($1::text[]) AND ts>=$2 AND ts<=$3
       ORDER BY symbol,ts""",list(symbols),start_aligned,end_aligned)
+    source="trade_archive"
+    if len(rows)!=expected_total:
+        # Cold start must not wait for the much larger public-trade archive when
+        # complete Bybit REST OHLCV is already available.  Core Strattester
+        # research can use OHLCV; footprint-dependent research still requires
+        # the trade-archive capability separately.
+        rows=await pool.fetch("""SELECT symbol,ts,open,high,low,close,
+          0::numeric buy_volume,0::numeric sell_volume,volume
+          FROM ohlcv_1m WHERE symbol=ANY($1::text[]) AND ts>=$2 AND ts<=$3
+          ORDER BY symbol,ts""",list(symbols),start_aligned,end_aligned)
+        source="bybit_rest_ohlcv"
     if len(rows)!=expected_total:
         raise ValueError(f"dataset history incomplete: expected {expected_total} rows, got {len(rows)}")
     last={};counts={s:0 for s in symbols};sqlite_rows=[];h=hashlib.sha256()
@@ -77,18 +89,18 @@ async def export_market_dataset(pool,*,symbols,start_ts,end_ts,owner="control",m
             raise ValueError(f"dataset {symbol} contains a minute gap")
         last[symbol]=ts;counts[symbol]+=1
         o,hv,l,c=(float(r["open"]),float(r["high"]),float(r["low"]),float(r["close"]))
-        buy=float(r["buy_volume"]);sell=float(r["sell_volume"])
-        semantic={"symbol":symbol,"ts":ts,"open":str(r["open"]),"high":str(r["high"]),
-                  "low":str(r["low"]),"close":str(r["close"]),
+        buy=float(r["buy_volume"]);sell=float(r["sell_volume"]);volume=float(r["volume"])
+        semantic={"source":source,"symbol":symbol,"ts":ts,"open":str(r["open"]),"high":str(r["high"]),
+                  "low":str(r["low"]),"close":str(r["close"]),"volume":str(r["volume"]),
                   "buy_volume":str(r["buy_volume"]),"sell_volume":str(r["sell_volume"])}
         h.update(json.dumps(semantic,sort_keys=True,separators=(",",":")).encode("utf-8"));h.update(b"\n")
-        sqlite_rows.append((symbol,"1m",ts,o,hv,l,c,buy+sell,None))
+        sqlite_rows.append((symbol,"1m",ts,o,hv,l,c,volume,None))
     for symbol in symbols:
         if counts[symbol]!=expected_per or last.get(symbol)!=end_ms:
             raise ValueError(f"dataset {symbol} is incomplete")
     dataset_hash=h.hexdigest();dataset_id=uuid.uuid4()
     criteria={"symbols":list(symbols),"start_ts":start_aligned.isoformat(),
-              "end_ts":end_aligned.isoformat(),"format":FORMAT_VERSION}
+              "end_ts":end_aligned.isoformat(),"format":FORMAT_VERSION,"source":source}
     await pool.execute("""INSERT INTO dataset_snapshots
       (id,purpose,cutoff_ts,created_by,criteria,status,dataset_hash,sample_count,feature_version)
       VALUES($1,'strattester_market_history',$2,$3,$4::jsonb,'BUILDING',$5,$6,$7)""",
