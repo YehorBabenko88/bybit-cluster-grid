@@ -404,6 +404,10 @@ updated_at timestamptz NOT NULL DEFAULT now())""",
 "ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS aggregate_fingerprint text",
 "ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS result_artifact_id uuid REFERENCES ml_artifacts(id)",
 "CREATE INDEX IF NOT EXISTS research_runs_result_artifact_idx ON research_runs(result_artifact_id)"
+]),
+(44,"research_dataset_artifact",[
+"ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS dataset_artifact_id uuid REFERENCES ml_artifacts(id)",
+"CREATE INDEX IF NOT EXISTS research_runs_dataset_artifact_idx ON research_runs(dataset_artifact_id)"
 ])
 ]
 
