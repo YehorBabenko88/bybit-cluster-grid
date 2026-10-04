@@ -184,7 +184,36 @@ async def complete_strattester_job(pool,job_id,node_id,lease_generation,manifest
             return True
 
 
+async def reconcile_research_failures(pool):
+    rows=await pool.fetch("""SELECT DISTINCT ON (s.id)
+      s.id AS shard_id,s.run_id,j.error,j.finished_at
+      FROM research_shards s
+      JOIN ml_jobs j ON j.dedupe_key=('strattester:'||s.id::text)
+      WHERE s.status='queued' AND j.status='failed'
+        AND NOT EXISTS(
+          SELECT 1 FROM ml_jobs active
+          WHERE active.dedupe_key=j.dedupe_key
+            AND active.status IN ('queued','assigned','running'))
+      ORDER BY s.id,j.finished_at DESC NULLS LAST,j.created_at DESC""")
+    touched=set()
+    for row in rows:
+        changed=await pool.execute("""UPDATE research_shards
+          SET status='failed',finished_at=now(),last_error=$2
+          WHERE id=$1 AND status='queued'""",row["shard_id"],str(row["error"] or "compute job failed")[:4000])
+        if changed.endswith(" 1"):touched.add(row["run_id"])
+    for run_id in touched:
+        counts=await pool.fetchrow("""SELECT count(*) FILTER(WHERE status='done') done,
+          count(*) FILTER(WHERE status='failed') failed,
+          count(*) FILTER(WHERE status NOT IN ('done','failed')) pending
+          FROM research_shards WHERE run_id=$1""",run_id)
+        if counts["pending"]==0 and counts["failed"]>0:
+            await pool.execute("""UPDATE research_runs SET status='FAILED',finished_at=now(),
+              last_error=COALESCE(last_error,'one or more research shards failed') WHERE id=$1""",run_id)
+    return len(touched)
+
+
 async def reconcile_research_runs(pool):
+    await reconcile_research_failures(pool)
     rows=await pool.fetch("""SELECT id FROM research_runs
       WHERE status IN ('QUEUED','RUNNING') ORDER BY created_at""")
     created=0
