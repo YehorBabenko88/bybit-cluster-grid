@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json,uuid
+import json,os,tempfile,uuid
 from pathlib import Path
 from .config import settings
 from .content_cache import ContentAddressedCache
@@ -37,3 +37,18 @@ async def compute_artifact_descriptor(pool,artifact_id):
     if len(sha)!=64:raise ValueError("invalid content artifact digest")
     await pool.execute("UPDATE ml_artifacts SET last_used_at=now() WHERE id=$1",artifact_id)
     return {"artifact_id":str(row["id"]),"dataset_sha256":sha,"bytes":int(row["bytes"] or 0)}
+
+
+async def publish_compute_bytes(pool,data,artifact_type="research_result",metadata=None,reusable=True):
+    raw=data if isinstance(data,(bytes,bytearray)) else bytes(data)
+    cache_root=Path(settings.content_cache_root)
+    cache_root.mkdir(parents=True,exist_ok=True)
+    fd,tmp=tempfile.mkstemp(prefix="grid-artifact-",suffix=".tmp",dir=cache_root);os.close(fd)
+    try:
+        with open(tmp,"wb") as out:
+            out.write(raw);out.flush();os.fsync(out.fileno())
+        return await publish_compute_artifact(pool,tmp,artifact_type=artifact_type,
+            metadata=metadata,reusable=reusable)
+    finally:
+        try:os.remove(tmp)
+        except FileNotFoundError:pass
