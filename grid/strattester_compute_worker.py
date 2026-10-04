@@ -89,9 +89,11 @@ async def _renew_loop(session,job_id,generation,lost,period=40):
                 if r.status!=200:
                     lost.set();return
         except Exception:
-            # A transient network failure does not immediately kill the child; the
-            # next renewal decides. CONTROL fencing rejects late completion anyway.
-            log.exception("strattester lease renewal failed",extra={"event":"strattester_renew_failed"})
+            misses=getattr(lost,"_renew_misses",0)+1
+            setattr(lost,"_renew_misses",misses)
+            log.exception("strattester lease renewal failed",extra={"event":"strattester_renew_failed","misses":misses})
+            if misses>=2:
+                lost.set();return
 
 
 async def _terminate_tree(proc):
