@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     microstructure_snapshot_ms: int = 250
     micro_tape_bucket_ms: int = 250
     micro_event_spool_max_gb: float = 4.0
+    micro_raw_capture_enabled: bool = True
+    micro_raw_orderbook_batch_ms: int = 250
+    micro_large_trade_mult: float = 5.0
+    micro_large_trade_ema_alpha: float = 0.05
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
     retention_enabled: bool = True
