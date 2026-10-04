@@ -165,9 +165,16 @@ class MicrostructureCollector:
 
                                 tape=self.trade_tape.latest(sym) if self.trade_tape is not None else None
                                 tape_fresh=bool(tape and system_ts-int(tape.get("start_ms",0)) <= max(1000,self.snapshot_ms*4))
+                                depth_total=metrics.get("bid_depth",0.0)+metrics.get("ask_depth",0.0)
+                                book_imbalance=(
+                                    (metrics.get("bid_depth",0.0)-metrics.get("ask_depth",0.0))/depth_total
+                                    if depth_total else 0.0
+                                )
                                 ml={
                                     "t":system_ts,"known_at":receive_ts,"exchange_ts":system_ts,"cts":cts,
                                     "bid":metrics.get("best_bid") or 0.0,"ask":metrics.get("best_ask") or 0.0,
+                                    "spread":metrics.get("spread"),"bid_depth":metrics.get("bid_depth",0.0),
+                                    "ask_depth":metrics.get("ask_depth",0.0),"imbalance":book_imbalance,
                                     "bid_depth_1":metrics.get("bid_depth_1",0.0),"ask_depth_1":metrics.get("ask_depth_1",0.0),
                                     "bid_depth_5":metrics.get("bid_depth_5",0.0),"ask_depth_5":metrics.get("ask_depth_5",0.0),
                                     "bid_depth_10":metrics.get("bid_depth_10",0.0),"ask_depth_10":metrics.get("ask_depth_10",0.0),
