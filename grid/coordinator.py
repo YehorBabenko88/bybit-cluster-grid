@@ -1,5 +1,6 @@
 import asyncio,time,logging,secrets
 from fastapi import FastAPI,Header,HTTPException,Request
+from fastapi.responses import FileResponse
 from .config import settings
 from .bybit import linear_symbols
 from .resources import capacity_score,snapshot as resource_snapshot
@@ -30,6 +31,7 @@ from .ml_orchestrator_service import MLOrchestratorService
 from .ml_retry import fail_or_retry,recover_expired_ml_jobs
 from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compute_job,renew_archive_compute_job,fail_archive_compute_job,accept_archive_compute_result,recover_archive_compute_jobs
 from .operational_gc import cleanup_operational_state
+from .content_cache import ContentAddressedCache
 from .node_lifecycle import record_node_seen,reconcile_node_lifecycle,node_may_compute
 
 log=logging.getLogger("coordinator")
@@ -105,6 +107,23 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
             "install_mode":install_mode,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
+
+@app.get("/compute/artifacts/{sha256}")
+async def fetch_compute_artifact(sha256:str,x_node_id:str=Header(default=""),
+    x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(x_node_id or "")
+    if not node_id: raise HTTPException(400,"X-Node-ID required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    if not await node_may_compute(db.pool,node_id):
+        raise HTTPException(409,"node lifecycle blocks compute")
+    cache=ContentAddressedCache(settings.content_cache_root)
+    try:
+        if not cache.has(sha256): raise HTTPException(404,"artifact not found")
+        path=cache.path_for(sha256)
+    except ValueError:
+        raise HTTPException(400,"invalid artifact digest")
+    return FileResponse(path,media_type="application/octet-stream",
+        filename=f"{sha256}.bin",headers={"X-Content-SHA256":sha256.lower()})
 
 @app.post("/compute/archive/claim")
 async def claim_archive_compute(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
