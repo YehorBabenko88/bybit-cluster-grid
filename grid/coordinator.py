@@ -24,6 +24,7 @@ from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
 from .ml_microstructure_lifecycle import MicrostructureMLLifecycle,parse_horizons
+from .strattester_bridge import claim_assigned_strattester_job,renew_strattester_job,complete_strattester_job
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -94,6 +95,42 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
             "install_mode":install_mode,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
+
+@app.post("/compute/strattester/claim")
+async def claim_strattester_compute(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""))
+    if not node_id: raise HTTPException(400,"node_id required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    job=await claim_assigned_strattester_job(db.pool,node_id,int(payload.get("lease_seconds",120)))
+    if not job:return {"job":None}
+    out=dict(job)
+    for key in ("id","created_at","started_at","finished_at","lease_until","dataset_cutoff","not_before"):
+        if out.get(key) is not None: out[key]=str(out[key])
+    return {"job":out}
+
+@app.post("/compute/strattester/{job_id}/renew")
+async def renew_strattester_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""))
+    if not node_id: raise HTTPException(400,"node_id required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    ok=await renew_strattester_job(db.pool,job_id,node_id,int(payload["lease_generation"]),
+                                   int(payload.get("lease_seconds",120)))
+    if not ok: raise HTTPException(409,"lease lost")
+    return {"ok":True}
+
+@app.post("/compute/strattester/{job_id}/result")
+async def complete_strattester_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""))
+    if not node_id: raise HTTPException(400,"node_id required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    manifest=payload.get("manifest")
+    if not isinstance(manifest,dict): raise HTTPException(400,"manifest required")
+    try:
+        ok=await complete_strattester_job(db.pool,job_id,node_id,int(payload["lease_generation"]),manifest)
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
+    if not ok: raise HTTPException(409,"lease lost")
+    return {"ok":True}
 
 @app.post("/commands/{command_id}/result")
 async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
