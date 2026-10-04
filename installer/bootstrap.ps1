@@ -23,6 +23,10 @@ New-Item -ItemType Directory -Force -Path $InstallRoot,$DataRoot,$RuntimeRoot,(J
     ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
 Write-Host "Grid install mode: $Mode"
 
+# Everything after the durable install-state marker is transactional. Any failure,
+# including discovery/runtime/dependency/enrollment/provisioning failures, reaches the
+# common rollback block below instead of leaving status=installing forever.
+try {
 $Discovery=& (Join-Path $PSScriptRoot "discover.ps1") | ConvertFrom-Json
 $Discovery | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 (Join-Path $DataRoot "discovery.json")
 
@@ -86,9 +90,9 @@ if(!$NeedDeps){
     if($LASTEXITCODE -ne 0){$NeedDeps=$true}
 }
 if($NeedDeps){
-    & $Python -m pip install --upgrade pip
-    if($LASTEXITCODE -ne 0){throw "Failed to update Grid pip"}
-    & $Python -m pip install --upgrade -r $Requirements
+    & $Python -m pip install --disable-pip-version-check --retries 8 --timeout 30 --upgrade pip
+    if($LASTEXITCODE -ne 0){throw "Failed to update Grid pip after retries"}
+    & $Python -m pip install --disable-pip-version-check --retries 8 --timeout 30 --upgrade -r $Requirements
     if($LASTEXITCODE -ne 0){throw "Failed to install Grid dependencies"}
     Set-Content -Encoding ascii -NoNewline $ReqState $ReqHash
 } else {
@@ -192,7 +196,6 @@ if($AgentMode -ne "CONTROL"){
     Write-Host "CONTROL node uses local coordinator identity; agent enrollment skipped."
 }
 
-try {
     & (Join-Path $PSScriptRoot "preflight.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
     if($LASTEXITCODE -ne 0){throw "Grid preflight failed"}
     & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
