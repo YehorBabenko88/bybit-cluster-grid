@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     strattester_version: str = ""
     strattester_command: str = ""
     content_cache_root: str = "C:/ProgramData/BybitClusterGrid/content-cache"
+    archive_compute_enabled: bool = False
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
     retention_enabled: bool = True
