@@ -1,10 +1,11 @@
 from __future__ import annotations
-import asyncio,json,logging,os,shlex,tempfile
+import asyncio,hashlib,json,logging,os,shlex,tempfile
 from pathlib import Path
 import aiohttp
 import psutil
 from .config import settings
 from .credential_store import node_credential
+from .content_cache import ContentAddressedCache
 from .resources import NODE_ID,snapshot
 
 log=logging.getLogger("strattester_compute")
@@ -12,7 +13,8 @@ log=logging.getLogger("strattester_compute")
 
 def _headers():
     return {"X-Grid-Token":settings.grid_shared_token,
-            "X-Node-Credential":node_credential()}
+            "X-Node-Credential":node_credential(),
+            "X-Node-ID":NODE_ID}
 
 
 def _resource_ok():
@@ -20,6 +22,44 @@ def _resource_ok():
     return (float(s.get("cpu_pct",100)) < settings.resource_cpu_limit
             and float(s.get("ram_pct",100)) < settings.resource_ram_limit
             and float(s.get("disk_free",0)) >= settings.resource_disk_free_gb*1024**3)
+
+
+async def _prepare_dataset_input(session,payload,root):
+    spec=dict(payload.get("input_spec") or {})
+    if str(payload.get("job_type") or "")!="strategy_backtest" or spec.get("local_market_db"):
+        payload["input_spec"]=spec
+        return payload
+    digest=str(spec.get("dataset_sha256") or "").lower()
+    if len(digest)!=64 or any(ch not in "0123456789abcdef" for ch in digest):
+        raise ValueError("strategy_backtest requires dataset_sha256 when local_market_db is absent")
+    cache=ContentAddressedCache(settings.content_cache_root)
+    if not cache.has(digest):
+        uri=str(spec.get("dataset_uri") or (
+            settings.coordinator_url.rstrip("/")+"/compute/artifacts/"+digest))
+        headers=_headers() if uri.startswith(settings.coordinator_url.rstrip("/")) else {}
+        fd,tmp=tempfile.mkstemp(prefix="grid-dataset-",suffix=".part",dir=root);os.close(fd)
+        h=hashlib.sha256()
+        try:
+            async with session.get(uri,headers=headers,timeout=aiohttp.ClientTimeout(total=None,sock_read=60)) as r:
+                if r.status!=200:
+                    raise RuntimeError(f"dataset artifact download failed status={r.status}")
+                with open(tmp,"wb") as out:
+                    async for chunk in r.content.iter_chunked(1024*1024):
+                        if not chunk:continue
+                        h.update(chunk);out.write(chunk)
+                    out.flush();os.fsync(out.fileno())
+            if h.hexdigest()!=digest:
+                raise ValueError("dataset artifact sha256 mismatch")
+            cache.put(tmp,digest)
+        finally:
+            try:os.remove(tmp)
+            except FileNotFoundError:pass
+    market_db=root/"market.db"
+    cache.materialize(digest,market_db)
+    spec["local_market_db"]=str(market_db)
+    spec["local_results_db"]=str(root/"results.db")
+    payload["input_spec"]=spec
+    return payload
 
 
 async def _renew_loop(session,job_id,generation,lost,period=40):
@@ -61,6 +101,7 @@ async def _run_job(session,job):
     payload=dict(job.get("payload") or {})
     with tempfile.TemporaryDirectory(prefix="grid-strattester-") as td:
         root=Path(td); job_path=root/"job.json"; out_path=root/"result.json"
+        payload=await _prepare_dataset_input(session,payload,root)
         job_path.write_text(json.dumps({"payload":payload},sort_keys=True,default=str),encoding="utf-8")
         command=shlex.split(settings.strattester_command,posix=os.name!="nt")
         if not command: raise RuntimeError("empty strattester command")
