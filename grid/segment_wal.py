@@ -6,6 +6,7 @@ class SegmentWAL:
         self.root=pathlib.Path(root); self.root.mkdir(parents=True,exist_ok=True)
         self.max_bytes=int(max_bytes); self.segment_bytes=int(segment_bytes)
         self.checkpoint=self.root/"checkpoint"
+        self.checkpoint_backup=self.root/"checkpoint.bak"
         self._lock=asyncio.Lock()
         self._next_id=self._discover_next_id()
 
@@ -18,9 +19,20 @@ class SegmentWAL:
             high=max(high,rid)
         return high+1
 
+    def _read_checkpoint(self,path):
+        try:
+            value=int(path.read_text(encoding="ascii").strip() or "0")
+            return value if value>=0 else None
+        except (OSError,ValueError):
+            return None
+
     def _checkpoint_id(self):
-        try: return int(self.checkpoint.read_text(encoding="ascii").strip() or "0")
-        except (OSError,ValueError): return 0
+        # Keep a second durable generation. A torn/corrupt primary checkpoint
+        # must not force replay of the entire historical WAL after a power loss.
+        primary=self._read_checkpoint(self.checkpoint)
+        backup=self._read_checkpoint(self.checkpoint_backup)
+        values=[x for x in (primary,backup) if x is not None]
+        return max(values) if values else 0
 
     def bytes_used(self):
         total=0
@@ -81,6 +93,19 @@ class SegmentWAL:
             tmp=self.checkpoint.with_suffix(".tmp")
             with open(tmp,"w",encoding="ascii") as f:
                 f.write(str(record_id)); f.flush(); os.fsync(f.fileno())
+            # Preserve the previous known-good generation before publishing the
+            # new primary. Recovery chooses the highest valid generation.
+            if self.checkpoint.exists():
+                backup_tmp=self.checkpoint_backup.with_suffix(".tmp")
+                try:
+                    data=self.checkpoint.read_text(encoding="ascii")
+                    int(data.strip() or "0")
+                    with open(backup_tmp,"w",encoding="ascii") as f:
+                        f.write(data); f.flush(); os.fsync(f.fileno())
+                    os.replace(backup_tmp,self.checkpoint_backup)
+                except (OSError,ValueError):
+                    try: backup_tmp.unlink()
+                    except OSError: pass
             os.replace(tmp,self.checkpoint)
             self._compact(record_id)
 
