@@ -9,6 +9,8 @@ RETENTION_DEFAULTS={
     "footprint_1m": 90,
     "candles_1m": 3650,
     "derivatives_metrics": 365,
+    "microstructure_raw_events": 30,
+    "microstructure_samples": 365,
 }
 
 async def ensure_retention_schema(pool):
@@ -67,6 +69,8 @@ async def retention_scheduler(pool,settings):
         "orderbook_snapshots":settings.retention_orderbook_snapshots_days,
         "footprint_1m":settings.retention_footprint_days,
         "derivatives_metrics":settings.retention_derivatives_days,
+        "microstructure_raw_events":settings.retention_micro_raw_days,
+        "microstructure_samples":settings.retention_micro_samples_days,
     }
     while True:
         try:

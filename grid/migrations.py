@@ -325,6 +325,103 @@ state text NOT NULL DEFAULT 'DETECTED',invalidated_at timestamptz,
 outcome jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAULT now())""",
 "CREATE INDEX IF NOT EXISTS setup_candidates_lookup_idx ON setup_candidates(setup_type,symbol,detected_at DESC)",
 "CREATE INDEX IF NOT EXISTS setup_candidates_state_idx ON setup_candidates(state,detected_at DESC)"
+]),
+(35,"ml_microstructure_storage",[
+"""CREATE TABLE IF NOT EXISTS microstructure_raw_events(
+id bigserial PRIMARY KEY,symbol text NOT NULL,event_ts timestamptz NOT NULL,
+event_type text NOT NULL,payload jsonb NOT NULL,ingest_ts timestamptz NOT NULL DEFAULT now())""",
+"CREATE INDEX IF NOT EXISTS microstructure_raw_symbol_ts_idx ON microstructure_raw_events(symbol,event_ts DESC)",
+"CREATE INDEX IF NOT EXISTS microstructure_raw_type_ts_idx ON microstructure_raw_events(event_type,event_ts DESC)",
+"CREATE UNIQUE INDEX IF NOT EXISTS microstructure_raw_dedupe_idx ON microstructure_raw_events(symbol,event_ts,event_type,md5(payload::text))",
+"""CREATE TABLE IF NOT EXISTS microstructure_samples(
+symbol text NOT NULL,ts timestamptz NOT NULL,known_at timestamptz NOT NULL,
+payload jsonb NOT NULL,ingest_ts timestamptz NOT NULL DEFAULT now(),
+PRIMARY KEY(symbol,ts))""",
+"CREATE INDEX IF NOT EXISTS microstructure_samples_known_idx ON microstructure_samples(symbol,known_at DESC)"
+]),
+(36,"continuous_microstructure_ml_samples",[
+"""CREATE TABLE IF NOT EXISTS microstructure_ml_samples(
+id bigserial PRIMARY KEY,symbol text NOT NULL,feature_ts timestamptz NOT NULL,
+known_at timestamptz NOT NULL,horizon_seconds integer NOT NULL,
+features jsonb NOT NULL,target jsonb NOT NULL DEFAULT '{}'::jsonb,
+target_ready boolean NOT NULL DEFAULT false,label_end_ts timestamptz,
+quality_status text NOT NULL DEFAULT 'GOOD',created_at timestamptz NOT NULL DEFAULT now(),
+UNIQUE(symbol,feature_ts,horizon_seconds))""",
+"CREATE INDEX IF NOT EXISTS microstructure_ml_ready_idx ON microstructure_ml_samples(target_ready,quality_status,feature_ts)",
+"CREATE INDEX IF NOT EXISTS microstructure_ml_pending_idx ON microstructure_ml_samples(symbol,target_ready,label_end_ts)"
+]),
+(37,"distributed_research_bridge",[
+"""CREATE TABLE IF NOT EXISTS research_runs(
+id uuid PRIMARY KEY,kind text NOT NULL,dataset_id uuid REFERENCES dataset_snapshots(id),
+dataset_hash text NOT NULL,config jsonb NOT NULL DEFAULT '{}'::jsonb,config_hash text NOT NULL,
+strattester_version text NOT NULL,status text NOT NULL DEFAULT 'BUILDING',
+created_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,finished_at timestamptz,
+last_error text)""",
+"""CREATE TABLE IF NOT EXISTS research_shards(
+id uuid PRIMARY KEY,run_id uuid NOT NULL REFERENCES research_runs(id) ON DELETE CASCADE,
+job_type text NOT NULL,shard_key text NOT NULL,input_spec jsonb NOT NULL,
+input_hash text NOT NULL,status text NOT NULL DEFAULT 'queued',result_manifest jsonb,
+result_hash text,created_at timestamptz NOT NULL DEFAULT now(),finished_at timestamptz,
+UNIQUE(run_id,shard_key))""",
+"CREATE INDEX IF NOT EXISTS research_shards_status_idx ON research_shards(run_id,status,job_type,shard_key)"
+]),
+(38,"research_shard_dependencies",[
+"""CREATE TABLE IF NOT EXISTS research_shard_dependencies(
+run_id uuid NOT NULL REFERENCES research_runs(id) ON DELETE CASCADE,
+shard_id uuid NOT NULL REFERENCES research_shards(id) ON DELETE CASCADE,
+depends_on_id uuid NOT NULL REFERENCES research_shards(id) ON DELETE CASCADE,
+PRIMARY KEY(shard_id,depends_on_id),CHECK(shard_id<>depends_on_id))""",
+"CREATE INDEX IF NOT EXISTS research_shard_deps_run_idx ON research_shard_dependencies(run_id,shard_id)"
+]),
+(39,"research_shard_failure_state",[
+"ALTER TABLE research_shards ADD COLUMN IF NOT EXISTS last_error text"
+]),
+(40,"archive_compute_jobs",[
+"""CREATE TABLE IF NOT EXISTS archive_compute_jobs(
+id uuid PRIMARY KEY,symbol text NOT NULL,archive_date date NOT NULL,source_uri text NOT NULL,
+expected_sha256 text,expected_bytes bigint,tick_size double precision NOT NULL,
+status text NOT NULL DEFAULT 'queued',lease_owner text,lease_until timestamptz,
+lease_generation integer NOT NULL DEFAULT 0,attempts integer NOT NULL DEFAULT 0,
+max_attempts integer NOT NULL DEFAULT 5,result_manifest jsonb,result_hash text,last_error text,
+created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),
+UNIQUE(symbol,archive_date))""",
+"CREATE INDEX IF NOT EXISTS archive_compute_jobs_status_idx ON archive_compute_jobs(status,archive_date,symbol)"
+]),
+(41,"bounded_operational_retention",[
+"CREATE INDEX IF NOT EXISTS ml_jobs_finished_idx ON ml_jobs(status,finished_at)",
+"CREATE INDEX IF NOT EXISTS research_runs_finished_idx ON research_runs(status,finished_at)",
+"CREATE INDEX IF NOT EXISTS archive_compute_jobs_updated_idx ON archive_compute_jobs(status,updated_at)"
+]),
+(42,"node_lifecycle",[
+"""CREATE TABLE IF NOT EXISTS node_lifecycle(
+node_id text PRIMARY KEY,state text NOT NULL DEFAULT 'ONLINE',
+last_seen timestamptz,last_transition_at timestamptz NOT NULL DEFAULT now(),
+quarantined_at timestamptz,decommissioned_at timestamptz,reason text,
+updated_at timestamptz NOT NULL DEFAULT now())""",
+"CREATE INDEX IF NOT EXISTS node_lifecycle_state_idx ON node_lifecycle(state,last_seen)"
+]),
+(43,"research_result_artifacts",[
+"ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS aggregate_fingerprint text",
+"ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS result_artifact_id uuid REFERENCES ml_artifacts(id)",
+"CREATE INDEX IF NOT EXISTS research_runs_result_artifact_idx ON research_runs(result_artifact_id)"
+]),
+(44,"research_dataset_artifact",[
+"ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS dataset_artifact_id uuid REFERENCES ml_artifacts(id)",
+"CREATE INDEX IF NOT EXISTS research_runs_dataset_artifact_idx ON research_runs(dataset_artifact_id)"
+]),
+(45,"dataset_snapshot_artifact",[
+"ALTER TABLE dataset_snapshots ADD COLUMN IF NOT EXISTS artifact_id uuid REFERENCES ml_artifacts(id)",
+"CREATE INDEX IF NOT EXISTS dataset_snapshots_artifact_idx ON dataset_snapshots(artifact_id)"
+]),
+(46,"archive_compute_artifact_materialization",[
+"ALTER TABLE archive_compute_jobs ADD COLUMN IF NOT EXISTS derived_artifact_id uuid REFERENCES ml_artifacts(id)",
+"ALTER TABLE archive_compute_jobs ADD COLUMN IF NOT EXISTS materialized_at timestamptz",
+"ALTER TABLE archive_compute_jobs ADD COLUMN IF NOT EXISTS materialize_error text",
+"CREATE INDEX IF NOT EXISTS archive_compute_materialize_idx ON archive_compute_jobs(status,materialized_at,updated_at)"
+]),
+(47,"control_plane_retention_indexes",[
+"CREATE INDEX IF NOT EXISTS telegram_updates_completed_idx ON telegram_updates(status,completed_at)",
+"CREATE INDEX IF NOT EXISTS agent_commands_completed_idx ON agent_commands(status,completed_at)"
 ])
 ]
 

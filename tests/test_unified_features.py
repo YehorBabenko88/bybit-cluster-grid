@@ -5,7 +5,10 @@ from grid.unified_features import UnifiedFeatureBuilder
 class Pool:
     def __init__(self,book=None,deriv=None): self.book=book; self.deriv=deriv
     async def fetchrow(self,sql,*args):
-        return self.book if "orderbook_snapshot" in sql else self.deriv
+        if "microstructure_samples" in sql: return None
+        if "orderbook_snapshot" in sql: return self.book
+        if "derivatives_ticker" in sql: return self.deriv
+        return None
 
 def row(q="GOOD"):
     return {"symbol":"BTC","ts":datetime.now(timezone.utc),"open":100,"high":102,"low":99,"close":101,

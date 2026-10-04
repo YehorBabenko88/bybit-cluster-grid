@@ -26,7 +26,11 @@ def _window(rows,n):
         return {p+"samples":0}
     keys=("delta_ratio","volume_ratio","range_pct","realized_volatility","book_imbalance",
           "spread","bid_depth","ask_depth","book_update_rate","book_add_rate",
-          "book_cancel_rate","depth_change_rate","open_interest","funding_rate")
+          "book_cancel_rate","depth_change_rate","open_interest","funding_rate",
+          "bid_depth_1","ask_depth_1","bid_depth_5","ask_depth_5","bid_depth_10","ask_depth_10",
+          "bid_depth_25","ask_depth_25","bid_depth_50","ask_depth_50","added_bid","removed_bid",
+          "added_ask","removed_ask","micro_buy_volume","micro_sell_volume","micro_trade_count",
+          "large_buy_volume","large_sell_volume")
     out={p+"samples":len(rows)}
     for k in keys:
         vals=[_num(f.get(k)) for _,f in rows]

@@ -115,6 +115,7 @@ if(!(Test-Path $EnvFile)){
       ("ROLE="+$DesiredRole),
       "GRID_DATA_PATH=$DataRoot",
       "STRATEGY_CACHE_DIR=$DataRoot\\runtime_strategies",
+      ("ARCHIVE_COMPUTE_ENABLED="+$(if($AgentMode -eq "NORMAL"){"true"}else{"false"})),
       ("COORDINATOR_URL="+$(if($CoordinatorUrl){$CoordinatorUrl}else{"http://127.0.0.1:8765"}))
     ) | Set-Content -Encoding UTF8 $EnvFile
 }else{
@@ -123,6 +124,9 @@ if(!(Test-Path $EnvFile)){
     $lines=@(Get-Content $EnvFile | Where-Object {$_ -notmatch '^(ROLE|COORDINATOR_URL)='})
     $lines += "ROLE=$DesiredRole"
     $lines += ("COORDINATOR_URL="+$(if($CoordinatorUrl){$CoordinatorUrl}else{"http://127.0.0.1:8765"}))
+    if($AgentMode -eq "NORMAL" -and -not ($lines | Where-Object {$_ -match '^ARCHIVE_COMPUTE_ENABLED='})){
+        $lines += "ARCHIVE_COMPUTE_ENABLED=true"
+    }
     $lines | Set-Content -Encoding UTF8 $EnvFile
 }
 
@@ -197,6 +201,29 @@ try {
     if($LASTEXITCODE -ne 0){throw "Grid preflight failed"}
     & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
     if($LASTEXITCODE -ne 0){throw "Grid service installation failed"}
+
+    # Do not mark first install/repair successful merely because Task Scheduler
+    # accepted the task. Verify that the role actually starts.
+    if($AgentMode -eq "CONTROL"){
+        $healthy=$false
+        for($i=0;$i -lt 30;$i++){
+            try {
+                $h=Invoke-RestMethod -UseBasicParsing -Uri "http://127.0.0.1:8765/healthz" -TimeoutSec 2
+                if($h.ok -eq $true){$healthy=$true;break}
+            } catch {}
+            Start-Sleep -Seconds 2
+        }
+        if(!$healthy){throw "CONTROL did not become healthy within 60 seconds"}
+    } else {
+        Start-Sleep -Seconds 2
+        $task=Get-ScheduledTask -TaskName "BybitClusterGridAgent" -ErrorAction SilentlyContinue
+        if(!$task -or $task.State -ne "Running"){
+            $info=Get-ScheduledTaskInfo -TaskName "BybitClusterGridAgent" -ErrorAction SilentlyContinue
+            $last=if($info){$info.LastTaskResult}else{"unknown"}
+            throw "Grid agent did not remain running after startup (LastTaskResult=$last)"
+        }
+    }
+
     $FirewallScript=Join-Path $PSScriptRoot "configure-control-firewall.ps1"
     if(Test-Path $FirewallScript){
         if($AgentMode -eq "CONTROL"){ & $FirewallScript }
@@ -215,6 +242,13 @@ try {
         if(Test-Path $Release){Remove-Item -Recurse -Force $Release}
         Move-Item $Backup $Release
         Write-Warning "Bootstrap rolled back to previous release."
+    } elseif($Mode -eq "fresh") {
+        # A failed fresh install must not leave Task Scheduler endlessly
+        # restarting a release that never passed its health check.
+        foreach($taskName in @("BybitClusterGridAgent","BybitClusterGridArchivePipeline","BybitClusterGridCoordinator")){
+            Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+            Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        }
     }
     throw
 }

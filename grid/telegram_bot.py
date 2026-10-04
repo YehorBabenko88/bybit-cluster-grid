@@ -19,6 +19,9 @@ from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_dele
 from .start_readiness import start_readiness
 from .enrollment import create_enrollment_token
 from .server_pilot import begin_server_pilot_validation
+from .strattester_bridge import cancel_research_run
+from .distributed_acceptance import distributed_acceptance_status
+from .startup_status import startup_status
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -57,14 +60,20 @@ def _main_keyboard():
     return {"inline_keyboard":[
       [{"text":"▶ НАЧАТЬ","callback_data":"fleet:begin"},{"text":"⏹ СТОП","callback_data":"fleet:stop"}],
       [{"text":"⏯ ПРОДОЛЖИТЬ","callback_data":"fleet:resume"},{"text":"🗑 УДАЛИТЬ","callback_data":"fleet:delete"}],
-      [{"text":"🖥 АГЕНТЫ","callback_data":"fleet:nodes"},{"text":"ℹ СОСТОЯНИЕ","callback_data":"fleet:system"}]
+      [{"text":"🖥 АГЕНТЫ","callback_data":"fleet:nodes"},{"text":"ℹ СОСТОЯНИЕ","callback_data":"fleet:system"}],
+      [{"text":"🧠 RESEARCH","callback_data":"fleet:research"},{"text":"📦 ARCHIVE","callback_data":"fleet:archive"}],
+      [{"text":"🗄 STORAGE","callback_data":"fleet:storage"},{"text":"⚠ ERRORS","callback_data":"fleet:errors"}],
+      [{"text":"🧪 ACCEPTANCE","callback_data":"fleet:acceptance"},{"text":"🚀 STARTUP","callback_data":"fleet:startup"}]
     ]}
 
 async def tg_send(session,chat_id,text,reply_markup=None):
     url=f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
     body={"chat_id":chat_id,"text":text[:4000]}
     if reply_markup: body["reply_markup"]=reply_markup
-    await session.post(url,json=body)
+    async with session.post(url,json=body,timeout=15) as r:
+        payload=await r.json(content_type=None)
+        if r.status!=200 or not bool(payload.get("ok")):
+            raise RuntimeError(f"Telegram send failed status={r.status}: {str(payload)[:500]}")
 
 def _node_line(nid,n,now):
     age=max(0,int(now-float(n.get("last_seen",0))))
@@ -84,6 +93,30 @@ def _healthy_canary(nodes):
         candidates.append((cpu+ram,nid))
     return min(candidates)[1] if candidates else None
 
+async def system_overview(db,nodes):
+    now=time.time()
+    runtime=await runtime_state(db.pool)
+    online=sum(1 for n in nodes.values() if now-float(n.get("last_seen",0))<settings.heartbeat_seconds*3)
+    research=await db.pool.fetchrow("""SELECT
+      count(*) FILTER (WHERE status IN ('BUILDING','QUEUED','RUNNING')) active,
+      count(*) FILTER (WHERE status='FAILED') failed FROM research_runs""")
+    archive=await db.pool.fetchrow("""SELECT
+      count(*) FILTER (WHERE status IN ('queued','running')) active,
+      count(*) FILTER (WHERE status='failed') failed,
+      count(*) FILTER (WHERE status='done' AND materialized_at IS NULL) pending_materialize
+      FROM archive_compute_jobs""")
+    compute=await db.pool.fetchrow("""SELECT
+      count(*) FILTER (WHERE status IN ('queued','assigned','running')) active,
+      count(*) FILTER (WHERE status='failed') failed FROM ml_jobs""")
+    return {
+      "runtime":runtime,"nodes":len(nodes),"online":online,
+      "research_active":int(research["active"] or 0),"research_failed":int(research["failed"] or 0),
+      "archive_active":int(archive["active"] or 0),"archive_failed":int(archive["failed"] or 0),
+      "archive_pending_materialize":int(archive["pending_materialize"] or 0),
+      "compute_active":int(compute["active"] or 0),"compute_failed":int(compute["failed"] or 0),
+    }
+
+
 async def handle_command(db,session,chat_id,text,nodes):
     parts=text.strip().split()
     cmd=parts[0].lower()
@@ -91,9 +124,14 @@ async def handle_command(db,session,chat_id,text,nodes):
     if cmd=="/menu" or (cmd=="/start" and len(parts)==1):
         await tg_send(session,chat_id,"Управление Bybit Cluster Grid",_main_keyboard())
     elif cmd=="/system":
-        s=await runtime_state(db.pool)
-        online=sum(1 for n in nodes.values() if now-float(n.get("last_seen",0))<settings.heartbeat_seconds*3)
-        await tg_send(session,chat_id,f"SYSTEM: {s['state']}\nNodes: {len(nodes)}, online: {online}\nMarket data: {'ENABLED' if s['state']=='ACTIVE' else 'LOCKED'}\nReason: {s.get('reason') or '-'}")
+        o=await system_overview(db,nodes);s=o["runtime"]
+        await tg_send(session,chat_id,
+          f"SYSTEM: {s['state']}\nNodes: {o['nodes']}, online: {o['online']}\n"
+          f"Market data: {'ENABLED' if s['state']=='ACTIVE' else 'LOCKED'}\n"
+          f"Compute: active={o['compute_active']} failed={o['compute_failed']}\n"
+          f"Research: active={o['research_active']} failed={o['research_failed']}\n"
+          f"Archive: active={o['archive_active']} pending-materialize={o['archive_pending_materialize']} failed={o['archive_failed']}\n"
+          f"Reason: {s.get('reason') or '-'}",_main_keyboard())
     elif cmd in ("/joinpilot","/joinagent"):
         mode="PILOT" if cmd=="/joinpilot" else "NORMAL"
         label=parts[1] if len(parts)>1 else f"telegram:{chat_id}"
@@ -193,6 +231,79 @@ async def handle_command(db,session,chat_id,text,nodes):
                f"storage: queue={n.get('db_queue_ratio','?')} spool={n.get('db_spool_ratio','?')}",
                f"integrity={n.get('integrity_ok','?')} assignments={len(assigned) if isinstance(assigned,list) else syms}"]
         await tg_send(session,chat_id,"\n".join(lines))
+    elif cmd=="/startup":
+        s=await startup_status(db.pool)
+        await tg_send(session,chat_id,
+          f"Startup phase: {s['phase']} / SYSTEM={s['runtime_state']}\n"
+          f"Nodes={s['registered_nodes']} OHLCV={s['ohlcv_rows']} trade-candles={s['trade_candles']} features={s['features']}\n"
+          f"Archive discovered={s['archive_discovered']} materialized={s['archive_materialized']} pending={s['archive_pending']}\n"
+          f"REST backfill pending={s['backfill_pending']}\nReason: {s['runtime_reason'] or '-'}")
+    elif cmd=="/acceptance":
+        a=distributed_acceptance_status(nodes,
+          heartbeat_seconds=settings.heartbeat_seconds,
+          cpu_limit=settings.resource_cpu_limit,
+          ram_limit=settings.resource_ram_limit,
+          disk_free_gb=settings.resource_disk_free_gb)
+        state=await runtime_state(db.pool)
+        lines=[f"Distributed acceptance: {'READY' if a['ready'] else 'BLOCKED'}",
+               f"SYSTEM={state['state']} online={len(a['online'])} eligible={len(a['eligible'])}",
+               f"Strattester nodes={len(a['strattester_nodes'])}: {', '.join(a['strattester_nodes']) or '-'}",
+               f"Archive nodes={len(a['archive_nodes'])}: {', '.join(a['archive_nodes']) or '-'}",
+               f"Versions={', '.join(a['strattester_versions']) or '-'}"]
+        if a["reasons"]:lines.append("Blocked by: "+", ".join(a["reasons"]))
+        await tg_send(session,chat_id,"\n".join(lines))
+    elif cmd=="/research":
+        if len(parts)>1:
+            try: run_id=parts[1]
+            except Exception: run_id=parts[1]
+            r=await db.pool.fetchrow("""SELECT id,kind,status,dataset_hash,created_at,finished_at,
+              aggregate_fingerprint,result_artifact_id,last_error FROM research_runs
+              WHERE id::text LIKE $1 ORDER BY created_at DESC LIMIT 1""",str(run_id)+"%")
+            if not r:
+                await tg_send(session,chat_id,"Unknown research run."); return
+            shards=await db.pool.fetch("""SELECT status,count(*) n FROM research_shards
+              WHERE run_id=$1 GROUP BY status ORDER BY status""",r["id"])
+            await tg_send(session,chat_id,
+              f"Research {str(r['id'])}\n{r['kind']}: {r['status']}\n"
+              f"dataset={str(r['dataset_hash'])[:16]} fp={(r['aggregate_fingerprint'] or '-')[:16]}\n"
+              f"artifact={r['result_artifact_id'] or '-'}\n"
+              +"shards: "+", ".join(f"{x['status']}={x['n']}" for x in shards)
+              +(f"\nerror={r['last_error']}" if r['last_error'] else ""))
+            return
+        runs=await db.pool.fetch("""SELECT id,kind,status,created_at,finished_at,aggregate_fingerprint
+          FROM research_runs ORDER BY created_at DESC LIMIT 5""")
+        jobs=await db.pool.fetchrow("""SELECT count(*) FILTER (WHERE status IN ('queued','assigned','running')) active,
+          count(*) FILTER (WHERE status='failed') failed FROM research_shards""")
+        lines=[f"Research: active={int(jobs['active'] or 0)} failed={int(jobs['failed'] or 0)}"]
+        lines += [f"{str(r['id'])[:8]} {r['kind']}: {r['status']} fp={(r['aggregate_fingerprint'] or '-')[:12]}" for r in runs]
+        await tg_send(session,chat_id,"\n".join(lines))
+    elif cmd=="/researchcancel":
+        if len(parts)!=2:
+            await tg_send(session,chat_id,"Usage: /researchcancel RUN_ID_OR_PREFIX"); return
+        code=secrets.token_hex(3).upper()
+        _pending_confirms[(str(chat_id),code)]=("research_cancel",parts[1],time.time()+120)
+        await tg_send(session,chat_id,
+          f"Confirm cancellation of research {parts[1]} within 120s: /confirm {code}")
+    elif cmd=="/archive":
+        s=await db.pool.fetchrow("""SELECT
+          count(*) FILTER (WHERE status='queued') queued,
+          count(*) FILTER (WHERE status='running') running,
+          count(*) FILTER (WHERE status='done' AND materialized_at IS NULL) pending_materialize,
+          count(*) FILTER (WHERE materialized_at IS NOT NULL) materialized,
+          count(*) FILTER (WHERE status='failed') failed FROM archive_compute_jobs""")
+        await tg_send(session,chat_id,
+          f"Archive compute: queued={int(s['queued'] or 0)} running={int(s['running'] or 0)} "
+          f"pending-materialize={int(s['pending_materialize'] or 0)} "
+          f"materialized={int(s['materialized'] or 0)} failed={int(s['failed'] or 0)}")
+    elif cmd=="/compute":
+        rows=await db.pool.fetch("""SELECT job_type,status,count(*) n FROM ml_jobs
+          GROUP BY job_type,status ORDER BY job_type,status""")
+        await tg_send(session,chat_id,"Compute jobs:\n"+("\n".join(
+          f"{r['job_type']} {r['status']}: {r['n']}" for r in rows) if rows else "none"))
+    elif cmd=="/lifecycle":
+        rows=await db.pool.fetch("""SELECT state,count(*) n FROM node_lifecycle GROUP BY state ORDER BY state""")
+        await tg_send(session,chat_id,"Node lifecycle:\n"+("\n".join(
+          f"{r['state']}: {r['n']}" for r in rows) if rows else "none"))
     elif cmd=="/status":
         if len(parts)==1:
             online=sum(1 for n in nodes.values() if now-float(n.get("last_seen",0))<settings.heartbeat_seconds*3)
@@ -210,8 +321,17 @@ async def handle_command(db,session,chat_id,text,nodes):
         if len(parts)!=2:
             await tg_send(session,chat_id,f"Usage: {cmd} NODE")
             return
-        cid=await enqueue_command(db.pool,parts[1],cmd[1:],{})
-        await tg_send(session,chat_id,f"{cmd[1:]} queued for {parts[1]} ({cid})")
+        nid=parts[1]
+        if nid not in nodes:
+            await tg_send(session,chat_id,f"Unknown node: {nid}")
+            return
+        if cmd in ("/stop","/restart","/rollback"):
+            code=secrets.token_hex(3).upper()
+            _pending_confirms[(str(chat_id),code)]=("node_command",{"node_id":nid,"action":cmd[1:]},time.time()+120)
+            await tg_send(session,chat_id,f"Confirm {cmd[1:]} of {nid} within 120s: /confirm {code}")
+            return
+        cid=await enqueue_command(db.pool,nid,cmd[1:],{})
+        await tg_send(session,chat_id,f"{cmd[1:]} queued for {nid} ({cid})")
     elif cmd=="/update":
         if len(parts)!=2:
             await tg_send(session,chat_id,"Usage: /update VERSION")
@@ -299,7 +419,16 @@ async def handle_command(db,session,chat_id,text,nodes):
             await tg_send(session,chat_id,"Confirmation expired or invalid.")
             return
         action,node_id,_=item
-        if action=="uninstall":
+        if action=="node_command":
+            spec=dict(node_id or {})
+            nid=str(spec.get("node_id") or "")
+            cmd_action=str(spec.get("action") or "")
+            if nid not in nodes or cmd_action not in ("stop","restart","rollback"):
+                await tg_send(session,chat_id,"Node command confirmation rejected.")
+                return
+            cid=await enqueue_command(db.pool,nid,cmd_action,{})
+            await tg_send(session,chat_id,f"{cmd_action} queued for {nid} ({cid})")
+        elif action=="uninstall":
             cid=await enqueue_command(db.pool,node_id,"uninstall",{"purge_data":False})
             await tg_send(session,chat_id,f"Uninstall queued for {node_id} ({cid}); data preserved.")
         elif action=="pilot_validate":
@@ -316,6 +445,15 @@ async def handle_command(db,session,chat_id,text,nodes):
                 f"progress={float(state['progress']):.1f}%, paused={state['paused']}. "
                 "Global runtime remains STOPPED; use the separate fleet lifecycle only when ready."
             )
+        elif action=="research_cancel":
+            try:
+                result=await cancel_research_run(db.pool,node_id,f"telegram:{chat_id} cancelled research")
+            except ValueError as e:
+                await tg_send(session,chat_id,f"Research cancellation rejected: {e}")
+                return
+            await tg_send(session,chat_id,
+                f"Research {result['run_id']}: {result['status']} "
+                f"({'changed' if result['changed'] else 'already terminal'}).")
         elif action=="fleet_begin":
             current=await runtime_state(db.pool)
             if current["state"]!="INFRA_ONLY":
@@ -348,7 +486,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db /research [RUN] /researchcancel RUN /archive /compute /lifecycle /acceptance /startup")
 
 async def _maybe_finalize_fleet_delete(db,session):
     op=await latest_operation(db.pool,"DELETE")
@@ -407,7 +545,9 @@ async def telegram_loop(db,nodes):
             try:
                 url=f"https://api.telegram.org/bot{settings.telegram_bot_token}/getUpdates"
                 async with session.get(url,params={"timeout":30,"offset":offset},timeout=40) as r:
-                    data=await r.json()
+                    data=await r.json(content_type=None)
+                    if r.status!=200 or not bool(data.get("ok")):
+                        raise RuntimeError(f"Telegram getUpdates failed status={r.status}: {str(data)[:500]}")
                 op_result=await reconcile_fleet_operation(db.pool)
                 if op_result and op_result.get("status")=="DONE":
                     for notify_chat in [x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()]:
@@ -422,18 +562,22 @@ async def telegram_loop(db,nodes):
                     chat=(msg.get("chat") or {}).get("id")
                     txt=msg.get("text","")
                     if cb:
-                        mapping={"fleet:begin":"/begin","fleet:stop":"/fleetstop","fleet:resume":"/fleetresume","fleet:delete":"/fleetdelete","fleet:nodes":"/nodes","fleet:system":"/system","fleet:menu":"/menu"}
-                        data=cb.get("data") or ""
-                        txt=mapping.get(data,"")
-                        if data.startswith("node:"):
-                            p=data.split(":",2)
+                        mapping={"fleet:begin":"/begin","fleet:stop":"/fleetstop","fleet:resume":"/fleetresume","fleet:delete":"/fleetdelete","fleet:nodes":"/nodes","fleet:system":"/system","fleet:menu":"/menu","fleet:research":"/research","fleet:archive":"/archive","fleet:storage":"/db","fleet:errors":"/errors","fleet:acceptance":"/acceptance","fleet:startup":"/startup"}
+                        callback_data=cb.get("data") or ""
+                        txt=mapping.get(callback_data,"")
+                        if callback_data.startswith("node:"):
+                            p=callback_data.split(":",2)
                             if len(p)==3:
                                 action,nid=p[1],p[2]
                                 cmdmap={"show":"/node","pause":"/pause","resume":"/resume","stop":"/stop","start":"/start","restart":"/restart","logs":"/logs","uninstall":"/uninstall"}
                                 if action in cmdmap: txt=cmdmap[action]+" "+nid
                         try:
-                            await session.post(f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery",json={"callback_query_id":cb.get("id")})
-                        except Exception: pass
+                            async with session.post(
+                                f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery",
+                                json={"callback_query_id":cb.get("id")},timeout=10) as ar:
+                                await ar.read()
+                        except Exception:
+                            pass
                     if not chat or not txt.startswith("/"):
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     if not allowed(chat):

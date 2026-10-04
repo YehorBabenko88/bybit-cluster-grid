@@ -7,7 +7,15 @@ WORKLOAD_DEFAULTS={
  "train":{"cpu":4.0,"ram_gb":8,"scratch_gb":10},
  "backtest":{"cpu":3.0,"ram_gb":4,"scratch_gb":5},
  "evaluate":{"cpu":2.0,"ram_gb":3,"scratch_gb":3},
+ "strattester":{"cpu":3.0,"ram_gb":6,"scratch_gb":15},
 }
+
+def compatible_nodes(nodes,job_type,payload):
+    if job_type!="strattester": return nodes
+    required=str((payload or {}).get("strattester_version") or "")
+    return {nid:n for nid,n in nodes.items()
+      if bool((n.get("compute_capabilities") or {}).get("strattester"))
+      and (not required or str(n.get("strattester_version") or "")==required)}
 
 class MLDispatcher:
     def __init__(self,pool,node_provider):
@@ -44,7 +52,8 @@ class MLDispatcher:
                           scratch_gb=float(payload.get("scratch_gb",d["scratch_gb"])),
                           input_gb=float(payload.get("input_gb",0)),
                           gpu=bool(payload.get("gpu",False)),data_locality=payload.get("data_locality"))
-                        pick=choose_node(nodes,w)
+                        candidate_nodes=compatible_nodes(nodes,candidate["job_type"],payload)
+                        pick=choose_node(candidate_nodes,w)
                         if pick:
                             job=candidate;break
                     if not job: break

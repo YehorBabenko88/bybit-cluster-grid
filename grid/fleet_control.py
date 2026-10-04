@@ -168,6 +168,10 @@ async def reconcile_fleet_operation(pool):
         await set_runtime_state(pool,"STOPPED","system","fleet operation failed")
         return {"action":action,"status":"FAILED","pending":pending,"failed":failed}
     if pending:
+        # STOP must remain fail-closed even when a registered computer is offline.
+        # Its local gate/queued stop command will fence it when it reconnects.
+        if action=="STOP":
+            await set_runtime_state(pool,"STOPPED","system","global STOP gate closed; node acknowledgements pending")
         return {"action":action,"status":"RUNNING","pending":pending,"failed":{}}
     final_state="STOPPED" if action=="STOP" else "ACTIVE"
     await set_runtime_state(pool,final_state,"system",f"global {action} acknowledged")

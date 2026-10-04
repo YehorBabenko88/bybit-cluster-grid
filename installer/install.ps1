@@ -28,13 +28,11 @@ $Principal=New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount
 $Settings=New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
 Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
 
-$ArchiveArg='-NoProfile -ExecutionPolicy Bypass -File "'+$ArchiveLauncher+'" -Python "'+$Python+'" -InstallRoot "'+$InstallRoot+'"'
-$ArchiveAction=New-ScheduledTaskAction -Execute "powershell.exe" -Argument $ArchiveArg -WorkingDirectory $InstallRoot
-if($Mode -eq "NORMAL"){
-  Register-ScheduledTask -TaskName $ArchiveTaskName -Action $ArchiveAction -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
-}else{
-  Unregister-ScheduledTask $ArchiveTaskName -Confirm:$false -ErrorAction SilentlyContinue
-}
+# Historical discovery/backfill is CONTROL-owned. NORMAL/PILOT agents are
+# deliberately DB-less and perform archive transformation only through the
+# authenticated archive_compute_loop inside the main agent.
+# Remove the legacy direct-PostgreSQL archive task on every install/repair.
+Unregister-ScheduledTask $ArchiveTaskName -Confirm:$false -ErrorAction SilentlyContinue
 
 if($Mode -eq "CONTROL"){
   if(!(Test-Path $CoordinatorLauncher)){throw "CONTROL launcher missing"}
@@ -46,6 +44,5 @@ if($Mode -eq "CONTROL"){
 }else{
   Unregister-ScheduledTask $CoordinatorTaskName -Confirm:$false -ErrorAction SilentlyContinue
   Start-ScheduledTask $TaskName
-  if($Mode -eq "NORMAL"){ Start-ScheduledTask $ArchiveTaskName }
 }
 Write-Host "Bybit Cluster Grid installed in $Mode mode."

@@ -61,7 +61,20 @@ class Database:
             );
             """)
     async def insert_event(self,symbol,event_ts,event_type,payload):
+        raw_types={"orderbook_raw_batch","public_trade_raw_batch","orderbook_gap"}
         async with self.pool.acquire() as c:
+            if event_type in raw_types:
+                await c.execute("""INSERT INTO microstructure_raw_events(symbol,event_ts,event_type,payload)
+                VALUES($1,to_timestamp($2/1000.0),$3,$4::jsonb)
+                ON CONFLICT DO NOTHING""",symbol,event_ts,event_type,json.dumps(payload))
+                return
+            if event_type=="ml_microstructure_snapshot":
+                known_at=int(payload.get("known_at",event_ts))
+                await c.execute("""INSERT INTO microstructure_samples(symbol,ts,known_at,payload)
+                VALUES($1,to_timestamp($2/1000.0),to_timestamp($3/1000.0),$4::jsonb)
+                ON CONFLICT(symbol,ts) DO UPDATE SET known_at=EXCLUDED.known_at,payload=EXCLUDED.payload""",
+                symbol,event_ts,known_at,json.dumps(payload))
+                return
             await c.execute("""INSERT INTO market_events(symbol,event_ts,event_type,payload)
             VALUES($1,to_timestamp($2/1000.0),$3,$4::jsonb)
             ON CONFLICT DO NOTHING""",symbol,event_ts,event_type,json.dumps(payload))

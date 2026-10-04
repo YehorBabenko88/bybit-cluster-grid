@@ -77,10 +77,11 @@ async def backfill_symbol(pool,base_url,state,max_pages=50,pause=.08):
       symbol,state.get("timeframe","1"),status,oldest,newest,end_ms)
     return {"symbol":symbol,"oldest":oldest,"newest":newest,"complete":complete,"pages":pages}
 
-async def run_backfill_worker(pool,base_url,stop_event=None,max_pages=50):
+async def run_backfill_worker(pool,base_url,stop_event=None,max_pages=50,max_jobs=None):
     from .data_capabilities import set_capability
     stop_event=stop_event or asyncio.Event();done=chunks=failed=0
     while not stop_event.is_set():
+        if max_jobs is not None and chunks+failed>=int(max_jobs):break
         state=await claim_backfill(pool)
         if not state:break
         try:

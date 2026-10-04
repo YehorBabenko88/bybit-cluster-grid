@@ -1,0 +1,131 @@
+from __future__ import annotations
+import asyncio,os,tempfile
+from pathlib import Path
+import aiohttp
+import psutil
+from .archive_download import download_verified
+from .archive_stream_parser import iter_minute_aggregates
+from .archive_derived_artifact import write_derived_artifact
+from .config import settings
+from .content_cache import ContentAddressedCache
+from .credential_store import node_credential
+from .resources import NODE_ID,snapshot
+from .local_operator_gate import compute_locally_enabled
+
+
+def _headers():
+    return {"X-Grid-Token":settings.grid_shared_token,"X-Node-Credential":node_credential(),"X-Node-ID":NODE_ID}
+
+
+async def _renew_loop(session,job,lost,period=90):
+    while not lost.is_set():
+        await asyncio.sleep(period)
+        try:
+            async with session.post(settings.coordinator_url+f"/compute/archive/{job['id']}/renew",
+                json={"node_id":NODE_ID,"lease_generation":int(job["lease_generation"]),"lease_seconds":300},
+                headers=_headers(),timeout=15) as r:
+                if r.status!=200:
+                    lost.set();return
+        except Exception:
+            # Do not keep expensive work alive indefinitely without CONTROL.  One
+            # missed renewal may be transient; two consecutive misses fence the
+            # local job well before its server-side lease can be reassigned.
+            misses=getattr(lost,"_renew_misses",0)+1
+            setattr(lost,"_renew_misses",misses)
+            if misses>=2:
+                lost.set();return
+
+
+async def _execute(job):
+    cache=ContentAddressedCache(settings.content_cache_root)
+    with tempfile.TemporaryDirectory(prefix="grid-archive-compute-") as td:
+        dl=await download_verified(job["source_uri"],td,job.get("expected_sha256"),job.get("expected_bytes"))
+        cached=cache.put(dl["path"],dl["sha256"])
+        derived_path=os.path.join(td,"derived.jsonl.gz")
+        metadata={"symbol":job["symbol"],"archive_date":str(job["archive_date"]),
+                  "tick_size":float(job["tick_size"]),"source_sha256":dl["sha256"]}
+        derived=await asyncio.to_thread(
+            write_derived_artifact,
+            derived_path,
+            iter_minute_aggregates(cached["path"],job["symbol"],float(job["tick_size"])),
+            metadata)
+        derived_cached=cache.put(derived_path,derived["sha256"])
+        return {"symbol":job["symbol"],"archive_date":str(job["archive_date"]),
+                "source_uri":job["source_uri"],"tick_size":float(job["tick_size"]),
+                "source_sha256":dl["sha256"],"source_bytes":dl["bytes"],
+                "cache_sha256":cached["sha256"],"source_rows":derived["source_rows"],
+                "derived_candles":derived["derived_candles"],
+                "derived_footprint_rows":derived["derived_footprint_rows"],
+                "min_ts":derived["min_ts"],"max_ts":derived["max_ts"],
+                "derived_format":derived["format"],
+                "derived_artifact_sha256":derived_cached["sha256"],
+                "derived_artifact_bytes":derived_cached["bytes"]}
+
+
+def _resource_ok():
+    s=snapshot()
+    rss=psutil.Process().memory_info().rss
+    rss_limit=float(settings.worker_process_memory_mb)*1024**2*float(settings.worker_process_memory_backoff_ratio)
+    return (compute_locally_enabled()
+            and float(s.get("cpu_pct",100))<settings.resource_cpu_limit
+            and float(s.get("ram_pct",100))<settings.resource_ram_limit
+            and float(s.get("disk_free",0))>=settings.resource_disk_free_gb*1024**3
+            and rss<rss_limit)
+
+
+async def archive_compute_loop(stop_event=None,poll_seconds=3):
+    if not settings.archive_compute_enabled:return
+    stop_event=stop_event or asyncio.Event()
+    async with aiohttp.ClientSession() as session:
+        while not stop_event.is_set():
+            job=None
+            try:
+                if not _resource_ok():
+                    await asyncio.sleep(max(5,poll_seconds));continue
+                async with session.post(settings.coordinator_url+"/compute/archive/claim",
+                    json={"node_id":NODE_ID,"lease_seconds":300},headers=_headers(),timeout=15) as r:
+                    if r.status!=200:
+                        await asyncio.sleep(poll_seconds);continue
+                    job=(await r.json()).get("job")
+                if not job:
+                    await asyncio.sleep(poll_seconds);continue
+                lost=asyncio.Event()
+                renew=asyncio.create_task(_renew_loop(session,job,lost))
+                try:
+                    manifest=await _execute(job)
+                    if lost.is_set():raise RuntimeError("archive compute lease lost")
+                    artifact_sha=manifest["derived_artifact_sha256"]
+                    artifact_path=ContentAddressedCache(settings.content_cache_root).path_for(artifact_sha)
+                    upload_headers=_headers()
+                    upload_headers["X-Lease-Generation"]=str(int(job["lease_generation"]))
+                    with open(artifact_path,"rb") as artifact_file:
+                        async with session.put(settings.coordinator_url+
+                            f"/compute/archive/{job['id']}/artifact/{artifact_sha}",
+                            data=artifact_file,headers=upload_headers,
+                            timeout=aiohttp.ClientTimeout(total=None,sock_read=60)) as ur:
+                            upload_body=await ur.text()
+                            if ur.status!=200:
+                                raise RuntimeError(f"archive artifact upload rejected {ur.status}: {upload_body[:1000]}")
+                            uploaded=await ur.json()
+                    manifest["derived_artifact_id"]=uploaded["artifact_id"]
+                    if lost.is_set():raise RuntimeError("archive compute lease lost")
+                    async with session.post(settings.coordinator_url+f"/compute/archive/{job['id']}/result",
+                        json={"node_id":NODE_ID,"lease_generation":int(job["lease_generation"]),"manifest":manifest},
+                        headers=_headers(),timeout=30) as r:
+                        body=await r.text()
+                        if r.status!=200:raise RuntimeError(f"archive result rejected {r.status}: {body[:1000]}")
+                finally:
+                    lost.set();renew.cancel()
+                    await asyncio.gather(renew,return_exceptions=True)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                if job:
+                    try:
+                        async with session.post(settings.coordinator_url+f"/compute/archive/{job['id']}/fail",
+                            json={"node_id":NODE_ID,"lease_generation":int(job["lease_generation"]),"error":str(exc)[:4000]},
+                            headers=_headers(),timeout=15):
+                            pass
+                    except Exception:
+                        pass
+                await asyncio.sleep(max(2,poll_seconds))

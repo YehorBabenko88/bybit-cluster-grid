@@ -4,6 +4,7 @@ from .migrations import apply_migrations
 from .logging_setup import setup_logging
 from .resources import snapshot
 from .config import settings
+from .worker_maintenance import maintenance_once
 
 log=logging.getLogger("service")
 
@@ -28,9 +29,23 @@ async def health_monitor(stop_event=None):
             log.warning("cpu pressure",extra={"event":"resource_pressure"})
         if s["ram_pct"] >= settings.resource_ram_limit:
             log.warning("ram pressure",extra={"event":"resource_pressure"})
+        if s["process_rss"] >= int(settings.worker_process_memory_mb)*1024**2:
+            log.error("worker process memory budget exceeded",
+                      extra={"event":"process_memory_pressure","rss":s["process_rss"]})
         if s["disk_free"] < settings.resource_disk_free_gb*1024**3:
             log.error("low disk space",extra={"event":"disk_pressure"})
         await asyncio.sleep(10)
 
 def bootstrap_logging():
     setup_logging()
+
+
+async def worker_maintenance_loop(stop_event=None):
+    while stop_event is None or not stop_event.is_set():
+        try:
+            result=await asyncio.to_thread(maintenance_once)
+            log.info("worker maintenance complete",extra={"event":"worker_maintenance","result":str(result)})
+        except asyncio.CancelledError:raise
+        except Exception:
+            log.exception("worker maintenance failed",extra={"event":"worker_maintenance_failed"})
+        await asyncio.sleep(max(60,int(settings.maintenance_interval_minutes)*60))

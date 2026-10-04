@@ -1,11 +1,12 @@
 import asyncio, json, time, logging, os
+from collections import deque
 import aiohttp, websockets
 from .config import settings
 from .resources import snapshot
 from .models import Trade
 from .cluster import FootprintBuilder
 from .storage import Storage
-from .bybit import linear_symbols
+from .bybit import linear_symbols,parse_public_trade,BybitProtocolError
 from .service import prepare_database, bootstrap_logging, health_monitor
 from .microstructure import MicrostructureCollector
 from .micro_event_storage import MicroEventStorage
@@ -24,6 +25,9 @@ from .continuity import TradeContinuity
 from .local_control_journal import LocalControlJournal
 from .control_snapshot_ring import ControlSnapshotRing,replica_meta
 from .integrity_guard import verify_manifest
+from .strattester_compute_worker import strattester_compute_loop
+from .archive_compute_worker import archive_compute_loop
+from .command_receipts import get as command_receipt_get,put as command_receipt_put
 
 log=logging.getLogger("worker")
 
@@ -36,7 +40,7 @@ class Worker:
         self.micro_wanted=set()
         self.storage=Storage()
         self.micro_storage=MicroEventStorage()
-        self.micro_tape=MicroTapeAggregator(settings.micro_tape_bucket_ms)
+        self.micro_tape=MicroTapeAggregator(settings.micro_tape_bucket_ms,settings.micro_large_trade_mult,settings.micro_large_trade_ema_alpha)
         self.db=None
         self.meta={}
         self.enabled=True
@@ -44,6 +48,7 @@ class Worker:
         self.operator_stopped=False
         self.bootstrap_phase=os.getenv('GRID_BOOTSTRAP_PHASE','NORMAL')
         self.runtime_state='INFRA_ONLY'
+        self.last_control_ok=time.monotonic()
         self.pressure=PressureController(settings.resource_cpu_limit,settings.resource_ram_limit,settings.resource_disk_free_gb)
         self.pressure_drained=set()
         self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json'))
@@ -74,6 +79,8 @@ class Worker:
                              "db_spool_ratio":round(dbm.get("spool_ratio",0.0),4),
                              "db_avg_write_latency_ms":round(dbm["avg_write_latency_ms"],3)})
                 snap['pressure_state']=state
+                snap['compute_capabilities']={'strattester':bool(settings.strattester_enabled and settings.strattester_version and settings.strattester_command),'archive':bool(settings.archive_compute_enabled)}
+                snap['strattester_version']=settings.strattester_version if snap['compute_capabilities']['strattester'] else ''
                 snap['bootstrap_paused']=self.bootstrap_paused
                 snap['operator_stopped']=self.operator_stopped
                 snap['bootstrap_phase']=self.bootstrap_phase
@@ -95,6 +102,7 @@ class Worker:
                     ) as r:
                         if r.status==200:
                             mark_coordinator_success()
+                            self.last_control_ok=time.monotonic()
                             reply=await r.json()
                             replica=reply.get("control_replica")
                             if replica:
@@ -104,12 +112,24 @@ class Worker:
                                 except Exception:
                                     log.exception("control replica apply failed",extra={"event":"control_replica_failed"})
                             for cmd in reply.get("commands",[]):
-                                ok=True; result=None; error=None
-                                try:
-                                    result=await execute_command(self,cmd)
-                                except Exception as e:
-                                    ok=False; error=str(e)
-                                    log.exception("agent command failed",extra={"event":"agent_command_failed"})
+                                receipt=command_receipt_get(cmd["id"])
+                                if receipt:
+                                    ok=bool(receipt.get("ok"));result=receipt.get("result");error=receipt.get("error")
+                                else:
+                                    ok=True; result=None; error=None
+                                    try:
+                                        result=await execute_command(self,cmd)
+                                    except Exception as e:
+                                        ok=False; error=str(e)
+                                        log.exception("agent command failed",extra={"event":"agent_command_failed"})
+                                    try:
+                                        command_receipt_put(cmd["id"],ok,result,error)
+                                    except Exception:
+                                        # For destructive/restart commands, receipt persistence is a safety boundary:
+                                        # do not ACK a result that could be replayed after CONTROL retry.
+                                        log.exception("command receipt persistence failed",extra={"event":"command_receipt_failed"})
+                                        if cmd.get("action") in ("restart","update","rollback","uninstall","repair"):
+                                            continue
                                 try:
                                     await s.post(
                                         settings.coordinator_url+f"/commands/{cmd['id']}/result",
@@ -141,18 +161,37 @@ class Worker:
                                 self.micro_wanted=new_micro
                                 await self.reconcile()
                         else:
-                            log.warning("coordinator heartbeat rejected",extra={"event":"heartbeat_rejected"})
+                            log.warning("coordinator heartbeat rejected",extra={"event":"heartbeat_rejected","status":r.status})
+                            await self.fail_closed_if_control_stale()
                 except Exception:
                     log.exception("heartbeat failed",extra={"event":"heartbeat_failed"})
+                    await self.fail_closed_if_control_stale()
                     if internet_available():
                         mark_internet_success()
                     elif decommission_due(settings.decommission_days):
-                        log.critical("offline decommission threshold reached",extra={"event":"self_decommission"})
-                        try:
-                            await execute_command(self,{"action":"uninstall","payload":{"purge_data":True}})
-                        finally:
-                            os._exit(0)
+                        # Extended total network isolation must never destroy the installation.
+                        # Quarantine local market work and wait for explicit CONTROL re-enrollment.
+                        if not self.operator_stopped:
+                            log.critical("offline quarantine threshold reached",extra={"event":"offline_quarantine"})
+                            self.enabled=False
+                            self.operator_stopped=True
+                            self.wanted=set()
+                            self.micro_wanted=set()
+                            await self.reconcile()
+                            await self.set_operator_stop(True)
+                            await self.set_bootstrap_pause(True)
                 await asyncio.sleep(settings.heartbeat_seconds)
+
+    async def fail_closed_if_control_stale(self):
+        if time.monotonic()-self.last_control_ok <= max(15,settings.heartbeat_seconds*3):
+            return False
+        if self.wanted or self.micro_wanted:
+            log.error("CONTROL heartbeat lease expired; draining live market work",
+                      extra={"event":"control_heartbeat_lease_expired"})
+            self.runtime_state="CONTROL_UNREACHABLE"
+            self.wanted=set();self.micro_wanted=set()
+            await self.reconcile()
+        return True
 
     async def set_operator_stop(self,stopped):
         flag=os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","operator.stop")
@@ -192,6 +231,7 @@ class Worker:
             collector=MicrostructureCollector(
                 self.micro_storage,
                 snapshot_ms=settings.microstructure_snapshot_ms,
+                trade_tape=self.micro_tape,
             )
             symbols=list(signature)
             for i in range(0,len(symbols),8):
@@ -206,6 +246,11 @@ class Worker:
         delays=backoff_delays()
         continuity=TradeContinuity(gap_ms=max(5000,settings.cluster_interval_seconds*1000//2))
         connected_once=False
+        raw_trade_messages=[]
+        last_raw_trade_flush=0
+        # Bybit trade IDs are the safe dedupe key. seq cannot be used because
+        # one futures trade sequence may legitimately span multiple messages.
+        seen_trade_ids=set();seen_trade_order=deque();dedupe_limit=100000
         while True:
             try:
                 await wait_for_internet()
@@ -220,19 +265,47 @@ class Worker:
                     connected_once=True
                     delays=backoff_delays()
                     async for raw in ws:
+                        receive_ts=int(time.time()*1000)
                         msg=json.loads(raw)
                         batch=msg.get("data",[])
+                        system_ts=int(msg.get("ts") or receive_ts)
+                        if symbol in self.micro_wanted and settings.micro_raw_capture_enabled and batch:
+                            raw_trade_messages.append({
+                                "system_ts":system_ts,"receive_ts":receive_ts,"trades":batch,
+                            })
+                            if receive_ts-last_raw_trade_flush>=settings.micro_raw_orderbook_batch_ms:
+                                messages=list(raw_trade_messages); raw_trade_messages.clear()
+                                await self.micro_storage.insert_event(symbol,system_ts,"public_trade_raw_batch",{
+                                    "symbol":symbol,"messages":messages,
+                                    "message_count":len(messages),
+                                    "event_count":sum(len(x["trades"]) for x in messages),
+                                    "first_receive_ts":messages[0]["receive_ts"],
+                                    "last_receive_ts":messages[-1]["receive_ts"],
+                                })
+                                last_raw_trade_flush=receive_ts
                         self.pressure.observe_symbol(symbol,events=len(batch))
                         for x in batch:
-                            trade_ts=int(x["T"])
+                            try:
+                                parsed=parse_public_trade(x,symbol)
+                            except BybitProtocolError:
+                                log.warning("invalid Bybit public trade ignored",
+                                  extra={"event":"bybit_trade_invalid","symbol":symbol})
+                                fp.mark_open_degraded(symbol,"invalid_trade_payload")
+                                continue
+                            trade_id=parsed["trade_id"]
+                            if trade_id and trade_id in seen_trade_ids:
+                                continue
+                            if trade_id:
+                                seen_trade_ids.add(trade_id);seen_trade_order.append(trade_id)
+                                if len(seen_trade_order)>dedupe_limit:
+                                    seen_trade_ids.discard(seen_trade_order.popleft())
+                            trade_ts=parsed["ts_ms"]
                             suspect_gap=continuity.observe(trade_ts)
                             trade=Trade(
-                                symbol=symbol,
-                                ts_ms=trade_ts,
-                                price=float(x["p"]),
-                                qty=float(x["v"]),
-                                side=x["S"],
-                                trade_id=x.get("i","")
+                                symbol=symbol,ts_ms=trade_ts,price=parsed["price"],qty=parsed["qty"],side=parsed["side"],
+                                trade_id=trade_id,seq=parsed["seq"],block_trade=parsed["block_trade"],
+                                rpi=parsed["rpi"],system_ts_ms=system_ts,receive_ts_ms=receive_ts,
+                                continuity_gap=bool(suspect_gap)
                             )
                             fp.add(trade)
                             if symbol in self.micro_wanted:
@@ -278,6 +351,11 @@ class Worker:
             self.operator_stopped=True; self.enabled=False
 
         asyncio.create_task(health_monitor())
+        asyncio.create_task(worker_maintenance_loop())
+        if settings.strattester_enabled:
+            asyncio.create_task(strattester_compute_loop())
+        if settings.archive_compute_enabled:
+            asyncio.create_task(archive_compute_loop())
         # Retention, strategy orchestration and Telegram are CONTROL-owned.
 
         await self.heartbeat()

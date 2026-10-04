@@ -23,6 +23,7 @@ class MicroEventStorage:
             root,
             max_bytes=int(settings.micro_event_spool_max_gb*1024**3),
         )
+        self.session=None
         self.write_queue=BoundedWriteQueue(
             self._save_spooled,
             maxsize=20000,
@@ -30,6 +31,8 @@ class MicroEventStorage:
         )
 
     async def start(self):
+        if self.session is None or self.session.closed:
+            self.session=aiohttp.ClientSession()
         await self.write_queue.start()
         for record_id,row in self.spool.recover():
             await self.write_queue.put(record_id,row)
@@ -52,8 +55,9 @@ class MicroEventStorage:
             "X-Node-Credential":node_credential(),
             "X-Node-ID":NODE_ID,
         }
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        if self.session is None or self.session.closed:
+            self.session=aiohttp.ClientSession()
+        async with self.session.post(
                 settings.coordinator_url+"/ingest/event",
                 json=row,
                 headers=headers,
@@ -64,6 +68,10 @@ class MicroEventStorage:
                         "CONTROL micro-event ingest rejected: "+str(resp.status)
                     )
         await self.spool.ack(record_id)
+
+    async def close(self):
+        if self.session is not None and not self.session.closed:
+            await self.session.close()
 
     def metrics(self):
         m=self.write_queue.metrics()

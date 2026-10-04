@@ -43,6 +43,7 @@ def decommission_due(days=7,now=None):
     last_coord=float(s.get("last_coordinator_success",now))
     last_net=float(s.get("last_internet_success",now))
     threshold=days*86400
-    # Self-clean only after the machine itself has lacked general Internet for the full period.
-    # Coordinator-only outage must never trigger destruction.
+    # Escalate only after the machine itself has lacked general Internet for the full period.
+    # The caller quarantines local Grid work; it must never destroy the installation automatically.
+    # Coordinator-only outage must never trigger quarantine.
     return now-last_coord>=threshold and now-last_net>=threshold

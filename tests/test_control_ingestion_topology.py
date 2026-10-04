@@ -21,7 +21,7 @@ def test_worker_is_dbless():
 def test_ingestion_is_active_gated_and_authenticated():
     text=Path("grid/coordinator.py").read_text(encoding="utf-8")
     assert '@app.post("/ingest/minute")' in text
-    assert "authenticate_agent(db.pool,x_node_id,x_node_credential)" in text
+    assert "not await authenticate_agent(db.pool,x_node_id,x_node_credential)" in text
     assert 'gate["state"]!="ACTIVE"' in text
 
 def test_coordinator_ingest_storage_has_module_lifecycle():

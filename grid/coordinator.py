@@ -1,13 +1,14 @@
-import asyncio,time,logging,secrets
+import asyncio,time,logging,secrets,hashlib,os,tempfile,uuid
 from fastapi import FastAPI,Header,HTTPException,Request
+from fastapi.responses import FileResponse
 from .config import settings
 from .bybit import linear_symbols
-from .resources import capacity_score
+from .resources import capacity_score,snapshot as resource_snapshot
 from .service import prepare_database,bootstrap_logging
 from .instrument_lifecycle import ensure_instrument_schema,reconcile_instruments,purge_retired
 from .strategy_jobs import ensure_strategy_schema,submit_job
 from .strategy_plugins import ensure_plugin_schema,register_plugin,list_plugins
-from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result
+from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result,command_belongs_to_node
 from .update_protocol import ensure_update_schema,note_heartbeat,register_release,start_canary,promote_stable,expired_canaries
 from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent,registered_install_mode
 from .rollout import begin_stable_rollout,note_rollout_heartbeat,expire_rollout_nodes
@@ -18,11 +19,27 @@ from .integrity_coordinator import handle_integrity_heartbeat
 from .repair_circuit_breaker import RepairCircuitBreaker
 from .repair_health import expired_repairs
 from .archive_discovery_service import seed_discovery
+from .archive_pipeline_service import run_discovery_worker
+from .market_backfill import seed_backfill,run_backfill_worker
+from .background_guard import background_work_allowed
 from .pilot_state import node_accepts_live_assignments,node_live_mode
 from .live_assignment_policy import guarded_live_symbols
 from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
+from .ml_microstructure_lifecycle import MicrostructureMLLifecycle,parse_horizons
+from .strattester_bridge import create_research_run,create_strategy_backtest_research,enqueue_research_shards,reconcile_research_runs,claim_assigned_strattester_job,renew_strattester_job,complete_strattester_job
+from .ml_dispatcher import MLDispatcher
+from .ml_orchestrator_service import MLOrchestratorService
+from .ml_retry import fail_or_retry,recover_expired_ml_jobs
+from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compute_job,renew_archive_compute_job,fail_archive_compute_job,accept_archive_compute_result,recover_archive_compute_jobs,archive_compute_lease_valid,attach_archive_compute_artifact
+from .archive_compute_materializer import materialize_archive_compute_results
+from .operational_gc import cleanup_operational_state
+from .ml_artifact_gc import delete_unreferenced_content_artifacts
+from .content_cache import ContentAddressedCache
+from .compute_artifacts import compute_artifact_descriptor,publish_compute_artifact
+from .strattester_dataset_export import export_market_dataset
+from .node_lifecycle import record_node_seen,reconcile_node_lifecycle,node_may_compute
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -31,6 +48,8 @@ db=None
 ingest_storage=None
 background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
+micro_ml_lifecycle=None
+ml_orchestrator=None
 
 
 def constant_time_equal(left,right):
@@ -41,6 +60,17 @@ def constant_time_equal(left,right):
 def auth(token):
     if not constant_time_equal(token,settings.grid_shared_token):
         raise HTTPException(401,"bad grid token")
+
+@app.get("/healthz")
+async def healthz():
+    if db is None:
+        raise HTTPException(503,"CONTROL database is not ready")
+    try:
+        await db.pool.fetchval("SELECT 1")
+        state=await runtime_state(db.pool)
+    except Exception:
+        raise HTTPException(503,"CONTROL database is unavailable")
+    return {"ok":True,"runtime_state":state["state"]}
 
 @app.post("/enroll")
 async def enroll_node(payload:dict):
@@ -64,6 +94,9 @@ async def node_auth(node_id,credential,fleet_token):
 async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
     nid=payload["node_id"]
     await node_auth(nid,x_node_credential,x_grid_token)
+    lifecycle=await record_node_seen(db.pool,nid)
+    if lifecycle=="DECOMMISSIONED":
+        raise HTTPException(409,"node decommissioned; re-enrollment required")
     payload["last_seen"]=time.time(); nodes[nid]=payload
     version=str(payload.get("agent_version",""))
     if version:
@@ -87,11 +120,249 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     )
     # High-rate microstructure capture remains pilot-only until the volatility
     # selector is implemented; this prevents accidental fleet-wide 250 ms capture.
-    micro_symbols=symbols if install_mode=="PILOT" else []
+    micro_symbols=sorted(symbols)[:max(0,int(settings.micro_max_symbols_per_node))] if install_mode=="PILOT" else []
     return {"symbols":symbols,"micro_symbols":micro_symbols,"commands":commands,"control_replica":replica,
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
             "install_mode":install_mode,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
+
+async def _require_compute_runtime():
+    state=await runtime_state(db.pool)
+    if state["state"]!="ACTIVE":
+        raise HTTPException(423,f"compute locked: SYSTEM state is {state['state']}")
+    return state
+
+def _node_compute_block_reason(node_id):
+    info=nodes.get(str(node_id)) or {}
+    if bool(info.get("operator_stopped")):
+        return "node is operator-stopped"
+    if bool(info.get("bootstrap_paused")):
+        return "node is paused"
+    return None
+
+async def _require_node_compute_enabled(node_id):
+    reason=_node_compute_block_reason(node_id)
+    if reason: raise HTTPException(423,reason)
+    if not await node_may_compute(db.pool,node_id):
+        raise HTTPException(409,"node lifecycle blocks compute")
+
+@app.get("/compute/artifacts/{sha256}")
+async def fetch_compute_artifact(sha256:str,x_node_id:str=Header(default=""),
+    x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(x_node_id or "")
+    if not node_id: raise HTTPException(400,"X-Node-ID required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    if not await node_may_compute(db.pool,node_id):
+        raise HTTPException(409,"node lifecycle blocks compute")
+    cache=ContentAddressedCache(settings.content_cache_root)
+    try:
+        if not cache.has(sha256): raise HTTPException(404,"artifact not found")
+        path=cache.path_for(sha256)
+    except ValueError:
+        raise HTTPException(400,"invalid artifact digest")
+    return FileResponse(path,media_type="application/octet-stream",
+        filename=f"{sha256}.bin",headers={"X-Content-SHA256":sha256.lower()})
+
+@app.put("/compute/archive/{job_id}/artifact/{sha256}")
+async def upload_archive_compute_artifact(job_id:str,sha256:str,request:Request,
+    x_node_id:str=Header(default=""),x_lease_generation:str=Header(default=""),
+    x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(x_node_id or "")
+    if not node_id:raise HTTPException(400,"X-Node-ID required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
+    try:generation=int(x_lease_generation)
+    except (TypeError,ValueError):raise HTTPException(400,"X-Lease-Generation required")
+    sha=str(sha256).lower()
+    if len(sha)!=64 or any(ch not in "0123456789abcdef" for ch in sha):
+        raise HTTPException(400,"invalid artifact digest")
+    if not await archive_compute_lease_valid(db.pool,job_id,node_id,generation):
+        raise HTTPException(409,"lease lost")
+    max_bytes=int(settings.compute_artifact_upload_max_gb*1024**3)
+    root=settings.content_cache_root
+    os.makedirs(root,exist_ok=True)
+    fd,tmp=tempfile.mkstemp(prefix="grid-archive-upload-",suffix=".part",dir=root);os.close(fd)
+    h=hashlib.sha256();size=0
+    try:
+        with open(tmp,"wb") as out:
+            async for chunk in request.stream():
+                if not chunk:continue
+                size+=len(chunk)
+                if size>max_bytes:raise HTTPException(413,"artifact upload too large")
+                h.update(chunk);out.write(chunk)
+            out.flush();os.fsync(out.fileno())
+        if h.hexdigest()!=sha:raise HTTPException(409,"artifact sha256 mismatch")
+        artifact=await publish_compute_artifact(db.pool,tmp,artifact_type="archive_derived",
+            metadata={"archive_job_id":str(job_id),"node_id":node_id},reusable=False)
+        attached=await attach_archive_compute_artifact(db.pool,job_id,node_id,generation,
+            uuid.UUID(str(artifact["id"])))
+        if not attached:raise HTTPException(409,"lease lost")
+        return {"artifact_id":str(artifact["id"]),"sha256":sha,"bytes":size}
+    finally:
+        try:os.remove(tmp)
+        except FileNotFoundError:pass
+
+@app.post("/compute/archive/claim")
+async def claim_archive_compute(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""))
+    if not node_id: raise HTTPException(400,"node_id required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    await _require_compute_runtime()
+    await _require_node_compute_enabled(node_id)
+    info=nodes.get(node_id) or {}
+    if not bool((info.get("compute_capabilities") or {}).get("archive")):
+        raise HTTPException(409,"node does not advertise archive capability")
+    job=await claim_archive_compute_job(db.pool,node_id,int(payload.get("lease_seconds",300)))
+    if not job:return {"job":None}
+    out=dict(job)
+    for k,v in list(out.items()):
+        if v is not None and k in ("id","archive_date","lease_until","created_at","updated_at"):out[k]=str(v)
+    return {"job":out}
+
+@app.post("/compute/archive/{job_id}/renew")
+async def renew_archive_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""));await node_auth(node_id,x_node_credential,x_grid_token)
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
+    ok=await renew_archive_compute_job(db.pool,job_id,node_id,int(payload["lease_generation"]),
+                                       int(payload.get("lease_seconds",300)))
+    if not ok:raise HTTPException(409,"lease lost")
+    return {"ok":True}
+
+@app.post("/compute/archive/{job_id}/fail")
+async def fail_archive_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""));await node_auth(node_id,x_node_credential,x_grid_token)
+    ok=await fail_archive_compute_job(db.pool,job_id,node_id,int(payload["lease_generation"]),
+                                      str(payload.get("error","archive compute failed")))
+    if not ok:raise HTTPException(409,"lease lost")
+    return {"ok":True}
+
+@app.post("/compute/archive/{job_id}/result")
+async def complete_archive_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""));await node_auth(node_id,x_node_credential,x_grid_token)
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
+    try:
+        ok=await accept_archive_compute_result(db.pool,job_id,node_id,int(payload["lease_generation"]),
+                                               dict(payload.get("manifest") or {}))
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
+    if not ok:raise HTTPException(409,"lease lost")
+    return {"ok":True}
+
+@app.post("/research/datasets/export")
+async def export_research_dataset(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    required=("symbols","start_ts","end_ts")
+    missing=[k for k in required if k not in payload]
+    if missing:raise HTTPException(400,"missing: "+",".join(missing))
+    try:
+        return await export_market_dataset(db.pool,symbols=payload["symbols"],
+            start_ts=payload["start_ts"],end_ts=payload["end_ts"],
+            owner=str(payload.get("owner") or "api"),
+            max_rows=payload.get("max_rows"))
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
+
+@app.post("/research/backtests")
+async def create_distributed_backtest(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    required=("dataset_id","strategies","strattester_version")
+    missing=[k for k in required if k not in payload]
+    if missing:raise HTTPException(400,"missing: "+",".join(missing))
+    try:
+        run_id=await create_strategy_backtest_research(db.pool,
+            dataset_id=payload["dataset_id"],strategies=payload["strategies"],
+            strattester_version=payload["strattester_version"],
+            symbols=payload.get("symbols"),config=payload.get("config") or {})
+        queued=await enqueue_research_shards(db.pool,run_id)
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
+    return {"run_id":run_id,"queued_shards":queued}
+
+@app.post("/research/runs")
+async def create_distributed_research(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    required=("kind","dataset_id","dataset_hash","config","strattester_version","shards")
+    missing=[k for k in required if k not in payload]
+    if missing: raise HTTPException(400,"missing: "+",".join(missing))
+    try:
+        run_id=await create_research_run(
+            db.pool,kind=payload["kind"],dataset_id=payload.get("dataset_id"),
+            dataset_hash=payload["dataset_hash"],config=payload.get("config") or {},
+            strattester_version=payload["strattester_version"],shards=payload.get("shards") or [],
+            dataset_artifact_id=payload.get("dataset_artifact_id"))
+        queued=await enqueue_research_shards(db.pool,run_id)
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
+    return {"run_id":run_id,"queued_shards":queued}
+
+@app.get("/research/runs/{run_id}")
+async def get_distributed_research(run_id:str,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    run=await db.pool.fetchrow("SELECT * FROM research_runs WHERE id=$1",run_id)
+    if not run: raise HTTPException(404,"research run not found")
+    shards=await db.pool.fetch("""SELECT id,job_type,shard_key,status,result_hash,created_at,finished_at
+      FROM research_shards WHERE run_id=$1 ORDER BY job_type,shard_key""",run_id)
+    def serial(row):
+        out=dict(row)
+        for k,v in list(out.items()):
+            if v is not None and k in ("id","created_at","finished_at","dataset_id"): out[k]=str(v)
+        return out
+    result={"run":serial(run),"shards":[serial(x) for x in shards]}
+    if run["result_artifact_id"]:
+        result["result_artifact"]=await compute_artifact_descriptor(db.pool,run["result_artifact_id"])
+    return result
+
+@app.post("/compute/strattester/claim")
+async def claim_strattester_compute(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""))
+    if not node_id: raise HTTPException(400,"node_id required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
+    job=await claim_assigned_strattester_job(db.pool,node_id,int(payload.get("lease_seconds",120)))
+    if not job:return {"job":None}
+    out=dict(job)
+    for key in ("id","created_at","started_at","finished_at","lease_until","dataset_cutoff","not_before"):
+        if out.get(key) is not None: out[key]=str(out[key])
+    return {"job":out}
+
+@app.post("/compute/strattester/{job_id}/renew")
+async def renew_strattester_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""))
+    if not node_id: raise HTTPException(400,"node_id required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
+    ok=await renew_strattester_job(db.pool,job_id,node_id,int(payload["lease_generation"]),
+                                   int(payload.get("lease_seconds",120)))
+    if not ok: raise HTTPException(409,"lease lost")
+    return {"ok":True}
+
+@app.post("/compute/strattester/{job_id}/fail")
+async def fail_strattester_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""))
+    if not node_id: raise HTTPException(400,"node_id required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    kind=str(payload.get("kind","retryable"))
+    if kind not in ("retryable","permanent"): raise HTTPException(400,"invalid failure kind")
+    state=await fail_or_retry(db.pool,job_id,node_id,int(payload["lease_generation"]),
+                              str(payload.get("error","remote Strattester failure")),kind)
+    if state=="stale": raise HTTPException(409,"lease lost")
+    await db.pool.execute("DELETE FROM ml_resource_reservations WHERE job_id=$1",job_id)
+    return {"ok":True,"state":state}
+
+@app.post("/compute/strattester/{job_id}/result")
+async def complete_strattester_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""))
+    if not node_id: raise HTTPException(400,"node_id required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
+    manifest=payload.get("manifest")
+    if not isinstance(manifest,dict): raise HTTPException(400,"manifest required")
+    try:
+        ok=await complete_strattester_job(db.pool,job_id,node_id,int(payload["lease_generation"]),manifest)
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
+    if not ok: raise HTTPException(409,"lease lost")
+    return {"ok":True}
 
 @app.post("/commands/{command_id}/result")
 async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
@@ -100,12 +371,15 @@ async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Heade
         await node_auth(node_id,x_node_credential,x_grid_token)
     else:
         auth(x_grid_token)
+    if node_id and not await command_belongs_to_node(db.pool,command_id,node_id):
+        raise HTTPException(409,"command does not belong to authenticated node")
     await command_result(
         db.pool,
         command_id,
         bool(payload.get("ok")),
         payload.get("result"),
         payload.get("error"),
+        node_id=node_id,
     )
     # Fleet STOP/RESUME completion is driven by durable command ACKs.
     # Reconcile immediately after every command result so the global
@@ -152,10 +426,8 @@ async def promote_release(version:str,x_grid_token:str=Header(default="")):
 @app.post("/ingest/minute")
 async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
     global ingest_storage
-    if not constant_time_equal(x_grid_token,settings.grid_shared_token):
-        raise HTTPException(403)
     payload=await request.json()
-    if not x_node_id or not await authenticate_agent(db.pool,x_node_id,x_node_credential):
+    if not x_node_id or not x_node_credential or not await authenticate_agent(db.pool,x_node_id,x_node_credential):
         raise HTTPException(403)
     gate=await runtime_state(db.pool)
     if gate["state"]!="ACTIVE":
@@ -167,10 +439,9 @@ async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_no
 
 @app.post("/ingest/event")
 async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
-    if not constant_time_equal(x_grid_token,settings.grid_shared_token):
+    if not x_node_id:
         raise HTTPException(403)
-    if not x_node_id or not await authenticate_agent(db.pool,x_node_id,x_node_credential):
-        raise HTTPException(403)
+    await node_auth(x_node_id,x_node_credential,x_grid_token)
     gate=await runtime_state(db.pool)
     if gate["state"]!="ACTIVE":
         raise HTTPException(423,"market ingestion locked")
@@ -223,7 +494,7 @@ def rebalance():
 
 @app.on_event("startup")
 async def startup():
-    global db, ingest_storage, background_tasks
+    global db, ingest_storage, background_tasks, micro_ml_lifecycle, ml_orchestrator
     bootstrap_logging()
     log.info(
         "coordinator startup",
@@ -280,15 +551,127 @@ async def startup():
             except Exception:
                 log.exception("coordinator refresh failed",extra={"event":"universe_refresh_failed"})
             await asyncio.sleep(settings.rebalance_seconds)
+    async def research_reconciler_loop():
+        while True:
+            try:
+                await reconcile_research_runs(db.pool)
+            except Exception:
+                log.exception("research DAG reconcile failed",extra={"event":"research_reconcile_failed"})
+            await asyncio.sleep(5)
+
+    async def historical_bootstrap_loop():
+        # CONTROL owns historical discovery/backfill. Agent PCs never receive
+        # PostgreSQL credentials; archive transformation is delegated through
+        # the distributed archive-compute queue after discovery.
+        while True:
+            try:
+                gate=await runtime_state(db.pool)
+                if gate["state"]!="ACTIVE":
+                    await asyncio.sleep(15);continue
+                allowed,reasons=await background_work_allowed(db.pool)
+                if not allowed:
+                    log.info("historical bootstrap paused by resource guard",
+                             extra={"event":"historical_bootstrap_pause","component":",".join(reasons)})
+                    await asyncio.sleep(15);continue
+                xs=await linear_symbols(settings.bybit_rest_url)
+                await seed_discovery(db.pool,xs)
+                await seed_backfill(db.pool,xs)
+                await run_discovery_worker(db.pool,settings.bybit_archive_base_url,
+                                           settings.archive_probe_days)
+                # REST OHLCV is the independent price-history plane used for
+                # cold-start/research readiness; archive trades feed footprint history.
+                await run_backfill_worker(db.pool,settings.bybit_rest_url,max_pages=10,max_jobs=8)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("historical bootstrap cycle failed",
+                              extra={"event":"historical_bootstrap_failed"})
+            await asyncio.sleep(30)
+
+    async def archive_compute_reconciler_loop():
+        while True:
+            try:
+                await recover_archive_compute_jobs(db.pool)
+                await seed_archive_compute_jobs(db.pool)
+                await materialize_archive_compute_results(db.pool,settings.content_cache_root)
+            except Exception:
+                log.exception("archive compute reconcile failed",extra={"event":"archive_compute_reconcile_failed"})
+            await asyncio.sleep(10)
+
+    async def node_lifecycle_loop():
+        while True:
+            try:
+                await reconcile_node_lifecycle(db.pool,settings.node_offline_seconds,
+                    settings.node_quarantine_hours,settings.node_decommission_days)
+            except Exception:
+                log.exception("node lifecycle reconcile failed",extra={"event":"node_lifecycle_failed"})
+            await asyncio.sleep(30)
+
+    async def compute_lease_recovery_loop():
+        while True:
+            try:
+                await recover_expired_ml_jobs(db.pool)
+            except Exception:
+                log.exception("compute lease recovery failed",extra={"event":"compute_lease_recovery_failed"})
+            await asyncio.sleep(15)
+
+    async def operational_gc_loop():
+        while True:
+            try:
+                await cleanup_operational_state(db.pool,settings.operational_state_retention_days)
+                await delete_unreferenced_content_artifacts(
+                    db.pool,ContentAddressedCache(settings.content_cache_root),
+                    settings.content_artifact_retention_days)
+            except Exception:
+                log.exception("operational gc loop failed",extra={"event":"operational_gc_loop_failed"})
+            await asyncio.sleep(max(3600,int(settings.maintenance_interval_minutes)*60))
+
+    async def compute_nodes():
+        cutoff=time.time()-settings.heartbeat_seconds*3
+        return {nid:dict(v) for nid,v in nodes.items() if v.get("last_seen",0)>=cutoff}
+
+    async def ml_health():
+        s=resource_snapshot()
+        started=time.perf_counter()
+        try:
+            await db.pool.fetchval("SELECT 1")
+            latency=(time.perf_counter()-started)*1000
+        except Exception:
+            latency=9999.0
+        live=[v for v in nodes.values() if time.time()-v.get("last_seen",0)<settings.heartbeat_seconds*3]
+        queue_ratio=max([float(v.get("db_queue_ratio",0) or 0) for v in live] or [0.0])
+        return {"cpu_pct":float(s["cpu_pct"]),"ram_pct":float(s["ram_pct"]),
+                "disk_free_gb":float(s["disk_free"])/(1024**3),
+                "db_latency_ms":latency,"db_queue_ratio":queue_ratio}
+
+    dispatcher=MLDispatcher(db.pool,compute_nodes)
+    ml_orchestrator=MLOrchestratorService(db.pool,dispatcher,ml_health,interval=5)
+
     background_tasks = [
         asyncio.create_task(loop()),
         asyncio.create_task(telegram_loop(db,nodes)),
+        asyncio.create_task(ml_orchestrator.run()),
+        asyncio.create_task(research_reconciler_loop()),
+        asyncio.create_task(historical_bootstrap_loop()),
+        asyncio.create_task(archive_compute_reconciler_loop()),
+        asyncio.create_task(operational_gc_loop()),
+        asyncio.create_task(node_lifecycle_loop()),
+        asyncio.create_task(compute_lease_recovery_loop()),
     ]
+    if settings.micro_ml_lifecycle_enabled:
+        micro_ml_lifecycle=MicrostructureMLLifecycle(
+            db.pool,parse_horizons(settings.micro_ml_horizons_seconds),
+            settings.micro_ml_lifecycle_seconds)
+        background_tasks.append(asyncio.create_task(micro_ml_lifecycle.run()))
 
 @app.on_event("shutdown")
 async def shutdown():
-    global ingest_storage, background_tasks
+    global ingest_storage, background_tasks, micro_ml_lifecycle, ml_orchestrator
 
+    if micro_ml_lifecycle is not None:
+        micro_ml_lifecycle.stop()
+    if ml_orchestrator is not None:
+        ml_orchestrator.stop()
     tasks = list(background_tasks)
     background_tasks = []
 
@@ -299,3 +682,5 @@ async def shutdown():
         await asyncio.gather(*tasks, return_exceptions=True)
 
     ingest_storage = None
+    micro_ml_lifecycle = None
+    ml_orchestrator = None
