@@ -1,4 +1,4 @@
-from grid.strattester_bridge_protocol import digest,make_manifest,validate_manifest
+from grid.strattester_bridge_protocol import digest,make_manifest,validate_manifest,aggregate_fingerprint
 
 
 def _shard(part):
@@ -19,8 +19,8 @@ def test_same_shard_is_byte_deterministic_across_workers():
 def test_distributed_aggregate_fingerprint_is_order_independent():
     local=[_shard(i) for i in range(4)]
     distributed=[local[2],local[0],local[3],local[1]]
-    local_fp=digest(sorted((m["job_id"],m["result_hash"]) for m in local))
-    distributed_fp=digest(sorted((m["job_id"],m["result_hash"]) for m in distributed))
+    local_fp=aggregate_fingerprint(local)
+    distributed_fp=aggregate_fingerprint(distributed)
     assert local_fp==distributed_fp
 
 
@@ -32,3 +32,10 @@ def test_one_changed_shard_changes_run_fingerprint():
     manifests[1]=changed
     after=digest(sorted((m["job_id"],m["result_hash"]) for m in manifests))
     assert baseline!=after
+
+
+def test_aggregate_rejects_duplicate_shard_identity():
+    import pytest
+    m=_shard(0)
+    with pytest.raises(ValueError,match="duplicate shard"):
+        aggregate_fingerprint([m,m])
