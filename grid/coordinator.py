@@ -2,7 +2,7 @@ import asyncio,time,logging,secrets
 from fastapi import FastAPI,Header,HTTPException,Request
 from .config import settings
 from .bybit import linear_symbols
-from .resources import capacity_score
+from .resources import capacity_score,snapshot as resource_snapshot
 from .service import prepare_database,bootstrap_logging
 from .instrument_lifecycle import ensure_instrument_schema,reconcile_instruments,purge_retired
 from .strategy_jobs import ensure_strategy_schema,submit_job
@@ -25,6 +25,8 @@ from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
 from .ml_microstructure_lifecycle import MicrostructureMLLifecycle,parse_horizons
 from .strattester_bridge import claim_assigned_strattester_job,renew_strattester_job,complete_strattester_job
+from .ml_dispatcher import MLDispatcher
+from .ml_orchestrator_service import MLOrchestratorService
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -34,6 +36,7 @@ ingest_storage=None
 background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
 micro_ml_lifecycle=None
+ml_orchestrator=None
 
 
 def constant_time_equal(left,right):
@@ -262,7 +265,7 @@ def rebalance():
 
 @app.on_event("startup")
 async def startup():
-    global db, ingest_storage, background_tasks, micro_ml_lifecycle
+    global db, ingest_storage, background_tasks, micro_ml_lifecycle, ml_orchestrator
     bootstrap_logging()
     log.info(
         "coordinator startup",
@@ -319,9 +322,31 @@ async def startup():
             except Exception:
                 log.exception("coordinator refresh failed",extra={"event":"universe_refresh_failed"})
             await asyncio.sleep(settings.rebalance_seconds)
+    async def compute_nodes():
+        cutoff=time.time()-settings.heartbeat_seconds*3
+        return {nid:dict(v) for nid,v in nodes.items() if v.get("last_seen",0)>=cutoff}
+
+    async def ml_health():
+        s=resource_snapshot()
+        started=time.perf_counter()
+        try:
+            await db.pool.fetchval("SELECT 1")
+            latency=(time.perf_counter()-started)*1000
+        except Exception:
+            latency=9999.0
+        live=[v for v in nodes.values() if time.time()-v.get("last_seen",0)<settings.heartbeat_seconds*3]
+        queue_ratio=max([float(v.get("db_queue_ratio",0) or 0) for v in live] or [0.0])
+        return {"cpu_pct":float(s["cpu_pct"]),"ram_pct":float(s["ram_pct"]),
+                "disk_free_gb":float(s["disk_free"])/(1024**3),
+                "db_latency_ms":latency,"db_queue_ratio":queue_ratio}
+
+    dispatcher=MLDispatcher(db.pool,compute_nodes)
+    ml_orchestrator=MLOrchestratorService(db.pool,dispatcher,ml_health,interval=5)
+
     background_tasks = [
         asyncio.create_task(loop()),
         asyncio.create_task(telegram_loop(db,nodes)),
+        asyncio.create_task(ml_orchestrator.run()),
     ]
     if settings.micro_ml_lifecycle_enabled:
         micro_ml_lifecycle=MicrostructureMLLifecycle(
@@ -331,10 +356,12 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
-    global ingest_storage, background_tasks, micro_ml_lifecycle
+    global ingest_storage, background_tasks, micro_ml_lifecycle, ml_orchestrator
 
     if micro_ml_lifecycle is not None:
         micro_ml_lifecycle.stop()
+    if ml_orchestrator is not None:
+        ml_orchestrator.stop()
     tasks = list(background_tasks)
     background_tasks = []
 
@@ -346,3 +373,4 @@ async def shutdown():
 
     ingest_storage = None
     micro_ml_lifecycle = None
+    ml_orchestrator = None
