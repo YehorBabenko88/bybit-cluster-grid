@@ -30,6 +30,7 @@ from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
 from .ml_retry import fail_or_retry,recover_expired_ml_jobs
 from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compute_job,renew_archive_compute_job,fail_archive_compute_job,accept_archive_compute_result,recover_archive_compute_jobs,archive_compute_lease_valid,attach_archive_compute_artifact
+from .archive_compute_materializer import materialize_archive_compute_results
 from .operational_gc import cleanup_operational_state
 from .ml_artifact_gc import delete_unreferenced_content_artifacts
 from .content_cache import ContentAddressedCache
@@ -527,6 +528,7 @@ async def startup():
             try:
                 await recover_archive_compute_jobs(db.pool)
                 await seed_archive_compute_jobs(db.pool)
+                await materialize_archive_compute_results(db.pool,settings.content_cache_root)
             except Exception:
                 log.exception("archive compute reconcile failed",extra={"event":"archive_compute_reconcile_failed"})
             await asyncio.sleep(10)
