@@ -19,7 +19,6 @@ from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_dele
 from .start_readiness import start_readiness
 from .enrollment import create_enrollment_token
 from .server_pilot import begin_server_pilot_validation
-from .node_lifecycle import node_lifecycle_summary
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
