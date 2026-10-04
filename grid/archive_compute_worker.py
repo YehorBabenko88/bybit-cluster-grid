@@ -7,7 +7,7 @@ from .archive_stream_parser import iter_minute_aggregates
 from .config import settings
 from .content_cache import ContentAddressedCache
 from .credential_store import node_credential
-from .resources import NODE_ID
+from .resources import NODE_ID,snapshot
 
 
 def _headers():
@@ -31,6 +31,13 @@ async def _execute(job):
                 "min_ts":str(min_ts) if min_ts else None,"max_ts":str(max_ts) if max_ts else None}
 
 
+def _resource_ok():
+    s=snapshot()
+    return (float(s.get("cpu_pct",100))<settings.resource_cpu_limit
+            and float(s.get("ram_pct",100))<settings.resource_ram_limit
+            and float(s.get("disk_free",0))>=settings.resource_disk_free_gb*1024**3)
+
+
 async def archive_compute_loop(stop_event=None,poll_seconds=3):
     if not settings.archive_compute_enabled:return
     stop_event=stop_event or asyncio.Event()
@@ -38,6 +45,8 @@ async def archive_compute_loop(stop_event=None,poll_seconds=3):
         while not stop_event.is_set():
             job=None
             try:
+                if not _resource_ok():
+                    await asyncio.sleep(max(5,poll_seconds));continue
                 async with session.post(settings.coordinator_url+"/compute/archive/claim",
                     json={"node_id":NODE_ID,"lease_seconds":300},headers=_headers(),timeout=15) as r:
                     if r.status!=200:
