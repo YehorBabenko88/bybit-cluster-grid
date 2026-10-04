@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime,timezone,timedelta
+from datetime import datetime,timezone
 
 
 async def record_node_seen(pool,node_id,seen_at=None):
@@ -29,7 +29,6 @@ async def reconcile_node_lifecycle(pool,offline_seconds=90,quarantine_hours=24,d
       WHERE state='QUARANTINED' AND last_seen<now()-($1::int*interval '1 day')""",int(decommission_days))
     # OFFLINE nodes also lose leases promptly. Their unfinished jobs are recovered by the normal
     # lease/retry reconciler; a returning node may claim fresh work after a heartbeat.
-    blocked="('OFFLINE','QUARANTINED','DECOMMISSIONED')"
     # Any active compute lease owned by an unavailable node is made immediately reclaimable.
     await pool.execute("""UPDATE ml_jobs SET lease_until=now()
       WHERE status IN ('assigned','running') AND assigned_node IN
