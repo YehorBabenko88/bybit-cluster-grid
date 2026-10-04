@@ -61,6 +61,17 @@ def auth(token):
     if not constant_time_equal(token,settings.grid_shared_token):
         raise HTTPException(401,"bad grid token")
 
+@app.get("/healthz")
+async def healthz():
+    if db is None:
+        raise HTTPException(503,"CONTROL database is not ready")
+    try:
+        await db.pool.fetchval("SELECT 1")
+        state=await runtime_state(db.pool)
+    except Exception:
+        raise HTTPException(503,"CONTROL database is unavailable")
+    return {"ok":True,"runtime_state":state["state"]}
+
 @app.post("/enroll")
 async def enroll_node(payload:dict):
     try:
