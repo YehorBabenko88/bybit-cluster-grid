@@ -29,6 +29,7 @@ from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
 from .ml_retry import fail_or_retry
 from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compute_job,renew_archive_compute_job,fail_archive_compute_job,accept_archive_compute_result,recover_archive_compute_jobs
+from .operational_gc import cleanup_operational_state
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -426,6 +427,14 @@ async def startup():
                 log.exception("archive compute reconcile failed",extra={"event":"archive_compute_reconcile_failed"})
             await asyncio.sleep(10)
 
+    async def operational_gc_loop():
+        while True:
+            try:
+                await cleanup_operational_state(db.pool,settings.operational_state_retention_days)
+            except Exception:
+                log.exception("operational gc loop failed",extra={"event":"operational_gc_loop_failed"})
+            await asyncio.sleep(max(3600,int(settings.maintenance_interval_minutes)*60))
+
     async def compute_nodes():
         cutoff=time.time()-settings.heartbeat_seconds*3
         return {nid:dict(v) for nid,v in nodes.items() if v.get("last_seen",0)>=cutoff}
@@ -453,6 +462,7 @@ async def startup():
         asyncio.create_task(ml_orchestrator.run()),
         asyncio.create_task(research_reconciler_loop()),
         asyncio.create_task(archive_compute_reconciler_loop()),
+        asyncio.create_task(operational_gc_loop()),
     ]
     if settings.micro_ml_lifecycle_enabled:
         micro_ml_lifecycle=MicrostructureMLLifecycle(
