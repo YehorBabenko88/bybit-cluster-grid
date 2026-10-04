@@ -156,8 +156,7 @@ async def upload_archive_compute_artifact(job_id:str,sha256:str,request:Request,
     node_id=str(x_node_id or "")
     if not node_id:raise HTTPException(400,"X-Node-ID required")
     await node_auth(node_id,x_node_credential,x_grid_token)
-    if not await node_may_compute(db.pool,node_id):
-        raise HTTPException(409,"node lifecycle blocks compute")
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
     try:generation=int(x_lease_generation)
     except (TypeError,ValueError):raise HTTPException(400,"X-Lease-Generation required")
     sha=str(sha256).lower()
@@ -304,8 +303,7 @@ async def claim_strattester_compute(payload:dict,x_grid_token:str=Header(default
     node_id=str(payload.get("node_id",""))
     if not node_id: raise HTTPException(400,"node_id required")
     await node_auth(node_id,x_node_credential,x_grid_token)
-    if not await node_may_compute(db.pool,node_id):
-        raise HTTPException(409,"node lifecycle blocks compute")
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
     job=await claim_assigned_strattester_job(db.pool,node_id,int(payload.get("lease_seconds",120)))
     if not job:return {"job":None}
     out=dict(job)
