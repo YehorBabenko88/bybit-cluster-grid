@@ -6,14 +6,11 @@ def test_book_sequence_accepts_noncontiguous_cross_seq_when_update_id_is_contigu
     assert g.delta(999,12)
     assert g.valid and g.gaps==0
 
-def test_book_update_id_gap_invalidates_until_snapshot():
+def test_book_update_id_can_jump_forward_without_inventing_a_gap():
     g=SequenceGuard(); g.snapshot(100,10)
-    assert not g.delta(103,12)
-    assert not g.valid and g.gaps==1
-    assert g.last_reason=="update_id_gap"
-    assert not g.delta(104,13)
-    g.snapshot(200,20)
-    assert g.delta(500,21)
+    assert g.delta(103,12)
+    assert g.valid and g.gaps==0
+    assert g.delta(500,25)
 
 def test_stale_update_is_rejected_without_destroying_valid_book():
     g=SequenceGuard(); g.snapshot(100,10)
