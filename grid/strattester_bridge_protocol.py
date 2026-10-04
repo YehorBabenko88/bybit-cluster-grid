@@ -14,7 +14,7 @@ def digest(value):
     raw=value if isinstance(value,(bytes,bytearray)) else canonical_json(value).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
 
-_RUNTIME_INPUT_KEYS={"local_market_db","local_results_db","workspace","cache_path"}
+_RUNTIME_INPUT_KEYS={"local_market_db","local_results_db","workspace","cache_path","dataset_uri"}
 
 def logical_input_spec(value):
     if not isinstance(value,dict):return value
