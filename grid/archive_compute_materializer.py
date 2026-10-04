@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from .archive_compaction import CompactionEvidence,record_compaction
-from .archive_derived_artifact import iter_derived_artifact,FORMAT
+from .archive_derived_artifact import iter_derived_artifact,inspect_derived_artifact,FORMAT
 from .archive_materializer import materialize_archive_stream
 from .content_cache import ContentAddressedCache
 from .data_capabilities import set_capability
@@ -37,13 +37,20 @@ async def materialize_archive_compute_results(pool,cache_root,limit=10):
             expected_meta={"symbol":job["symbol"],"archive_date":str(job["archive_date"]),
                            "tick_size":float(job["tick_size"]),
                            "source_sha256":manifest.get("source_sha256")}
-            derived=await materialize_archive_stream(
-                pool,iter_derived_artifact(cache.path_for(sha),expected_meta),batch_minutes=30)
+            artifact_path=cache.path_for(sha)
+            inspected=inspect_derived_artifact(artifact_path,expected_meta)
             for key in ("source_rows","derived_candles","derived_footprint_rows"):
-                if int(derived[key])!=int(manifest.get(key,-1)):
-                    raise ValueError(f"archive materialization {key} mismatch")
+                if int(inspected[key])!=int(manifest.get(key,-1)):
+                    raise ValueError(f"archive artifact {key} mismatch")
             expected_min=_parse_ts(manifest.get("min_ts"));expected_max=_parse_ts(manifest.get("max_ts"))
-            if derived["min_ts"]!=expected_min or derived["max_ts"]!=expected_max:
+            if inspected["min_ts"]!=expected_min or inspected["max_ts"]!=expected_max:
+                raise ValueError("archive artifact time range mismatch")
+            derived=await materialize_archive_stream(
+                pool,iter_derived_artifact(artifact_path,expected_meta),batch_minutes=30)
+            for key in ("source_rows","derived_candles","derived_footprint_rows"):
+                if int(derived[key])!=int(inspected[key]):
+                    raise ValueError(f"archive materialization {key} mismatch")
+            if derived["min_ts"]!=inspected["min_ts"] or derived["max_ts"]!=inspected["max_ts"]:
                 raise ValueError("archive materialization time range mismatch")
             evidence=CompactionEvidence(
                 derived["source_rows"],derived["derived_candles"],
