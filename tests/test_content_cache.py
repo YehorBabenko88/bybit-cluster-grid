@@ -1,4 +1,5 @@
 from pathlib import Path
+import os,time
 import pytest
 from grid.content_cache import ContentAddressedCache,sha256_file
 
@@ -32,3 +33,12 @@ def test_content_cache_detects_corruption(tmp_path):
     assert cache.has(item["sha256"]) is False
     with pytest.raises(ValueError,match="corruption"):
         cache.put(source)
+
+
+def test_verified_cache_access_refreshes_recency(tmp_path):
+    source=tmp_path/"source.bin";source.write_bytes(b"hot")
+    cache=ContentAddressedCache(tmp_path/"cache")
+    item=cache.put(source)
+    old=time.time()-1000;os.utime(item["path"],(old,old))
+    assert cache.has(item["sha256"])
+    assert Path(item["path"]).stat().st_mtime>old
