@@ -24,7 +24,7 @@ from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
 from .ml_microstructure_lifecycle import MicrostructureMLLifecycle,parse_horizons
-from .strattester_bridge import create_research_run,enqueue_research_shards,claim_assigned_strattester_job,renew_strattester_job,complete_strattester_job
+from .strattester_bridge import create_research_run,enqueue_research_shards,reconcile_research_runs,claim_assigned_strattester_job,renew_strattester_job,complete_strattester_job
 from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
 
@@ -352,6 +352,14 @@ async def startup():
             except Exception:
                 log.exception("coordinator refresh failed",extra={"event":"universe_refresh_failed"})
             await asyncio.sleep(settings.rebalance_seconds)
+    async def research_reconciler_loop():
+        while True:
+            try:
+                await reconcile_research_runs(db.pool)
+            except Exception:
+                log.exception("research DAG reconcile failed",extra={"event":"research_reconcile_failed"})
+            await asyncio.sleep(5)
+
     async def compute_nodes():
         cutoff=time.time()-settings.heartbeat_seconds*3
         return {nid:dict(v) for nid,v in nodes.items() if v.get("last_seen",0)>=cutoff}
@@ -377,6 +385,7 @@ async def startup():
         asyncio.create_task(loop()),
         asyncio.create_task(telegram_loop(db,nodes)),
         asyncio.create_task(ml_orchestrator.run()),
+        asyncio.create_task(research_reconciler_loop()),
     ]
     if settings.micro_ml_lifecycle_enabled:
         micro_ml_lifecycle=MicrostructureMLLifecycle(
