@@ -42,6 +42,21 @@ async def renew_archive_compute_job(pool,job_id,node_id,generation,lease_seconds
     return r.endswith(" 1")
 
 
+async def archive_compute_lease_valid(pool,job_id,node_id,generation):
+    return bool(await pool.fetchval("""SELECT EXISTS(
+      SELECT 1 FROM archive_compute_jobs WHERE id=$1 AND lease_owner=$2
+      AND lease_generation=$3 AND status='running' AND lease_until>=now())""",
+      job_id,node_id,int(generation)))
+
+
+async def attach_archive_compute_artifact(pool,job_id,node_id,generation,artifact_id):
+    r=await pool.execute("""UPDATE archive_compute_jobs SET derived_artifact_id=$4,updated_at=now()
+      WHERE id=$1 AND lease_owner=$2 AND lease_generation=$3
+        AND status='running' AND lease_until>=now()""",
+      job_id,node_id,int(generation),artifact_id)
+    return r.endswith(" 1")
+
+
 async def fail_archive_compute_job(pool,job_id,node_id,generation,error):
     r=await pool.execute("""UPDATE archive_compute_jobs SET
       status=CASE WHEN attempts<max_attempts THEN 'queued' ELSE 'failed' END,
