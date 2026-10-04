@@ -372,6 +372,9 @@ shard_id uuid NOT NULL REFERENCES research_shards(id) ON DELETE CASCADE,
 depends_on_id uuid NOT NULL REFERENCES research_shards(id) ON DELETE CASCADE,
 PRIMARY KEY(shard_id,depends_on_id),CHECK(shard_id<>depends_on_id))""",
 "CREATE INDEX IF NOT EXISTS research_shard_deps_run_idx ON research_shard_dependencies(run_id,shard_id)"
+]),
+(39,"research_shard_failure_state",[
+"ALTER TABLE research_shards ADD COLUMN IF NOT EXISTS last_error text"
 ])
 ]
 
