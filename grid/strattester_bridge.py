@@ -310,6 +310,43 @@ async def reconcile_research_failures(pool):
     return len(touched)
 
 
+async def resolve_research_run_id(pool,reference):
+    ref=str(reference or "").strip().lower()
+    if len(ref)<8:
+        raise ValueError("research run reference must contain at least 8 characters")
+    rows=await pool.fetch("""SELECT id FROM research_runs
+      WHERE lower(id::text) LIKE $1 ORDER BY created_at DESC LIMIT 2""",ref+"%")
+    if not rows:raise ValueError("research run not found")
+    if len(rows)>1:raise ValueError("research run reference is ambiguous")
+    return rows[0]["id"]
+
+
+async def cancel_research_run(pool,reference,reason="operator cancelled"):
+    run_id=await resolve_research_run_id(pool,reference)
+    async with pool.acquire() as c:
+        async with c.transaction():
+            run=await c.fetchrow("SELECT * FROM research_runs WHERE id=$1 FOR UPDATE",run_id)
+            if not run:raise ValueError("research run not found")
+            if str(run["status"]).upper() in ("COMPLETE","FAILED","CANCELLED"):
+                return {"run_id":str(run_id),"status":str(run["status"]),"changed":False}
+            text=str(reason)[:4000]
+            await c.execute("""UPDATE research_runs SET status='CANCELLED',finished_at=now(),last_error=$2
+              WHERE id=$1""",run_id,text)
+            await c.execute("""UPDATE research_shards SET status='failed',finished_at=COALESCE(finished_at,now()),
+              last_error=COALESCE(last_error,$2)
+              WHERE run_id=$1 AND status<>'done'""",run_id,text)
+            await c.execute("""UPDATE ml_jobs SET status='cancelled',finished_at=now(),lease_until=NULL,
+              error=COALESCE(error,$2)
+              WHERE dedupe_key IN (
+                SELECT 'strattester:'||id::text FROM research_shards WHERE run_id=$1)
+              AND status IN ('queued','assigned','running')""",run_id,text)
+            await c.execute("""DELETE FROM ml_resource_reservations WHERE job_id IN (
+              SELECT j.id FROM ml_jobs j JOIN research_shards s
+                ON j.dedupe_key=('strattester:'||s.id::text)
+              WHERE s.run_id=$1)""",run_id)
+            return {"run_id":str(run_id),"status":"CANCELLED","changed":True}
+
+
 async def finalize_research_run(pool,run_id):
     run=await pool.fetchrow("""SELECT * FROM research_runs
       WHERE id=$1 AND status='COMPLETE'""",run_id)
