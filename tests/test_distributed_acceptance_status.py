@@ -25,3 +25,12 @@ def test_acceptance_blocks_version_mismatch_and_pressure():
     assert out["ready"] is False
     assert any("versions differ" in x for x in out["reasons"])
     assert "hot" not in out["eligible"]
+
+
+def test_acceptance_blocks_missing_strattester_version():
+    out=distributed_acceptance_status({
+        "a":node(version="v1"),
+        "b":node(version=""),
+    },heartbeat_seconds=10,cpu_limit=75,ram_limit=78,disk_free_gb=25)
+    assert out["ready"] is False
+    assert out["missing_strattester_versions"]==["b"]
