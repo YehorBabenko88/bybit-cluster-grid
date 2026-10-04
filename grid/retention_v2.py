@@ -2,7 +2,7 @@ import asyncio,logging
 log=logging.getLogger("retention_v2")
 
 TABLE_TS={"market_events":"event_ts","orderbook_snapshots":"ts","footprint_1m":"ts",
-          "candles_1m":"ts","derivatives_metrics":"ts"}
+          "candles_1m":"ts","derivatives_metrics":"ts","microstructure_raw_events":"event_ts","microstructure_samples":"ts"}
 
 async def register_consumer(pool,dataset,consumer,required=True,active=True):
     await pool.execute("""INSERT INTO retention_consumers(dataset,consumer,required,active)
