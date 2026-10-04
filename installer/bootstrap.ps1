@@ -124,6 +124,9 @@ if(!(Test-Path $EnvFile)){
     $lines=@(Get-Content $EnvFile | Where-Object {$_ -notmatch '^(ROLE|COORDINATOR_URL)='})
     $lines += "ROLE=$DesiredRole"
     $lines += ("COORDINATOR_URL="+$(if($CoordinatorUrl){$CoordinatorUrl}else{"http://127.0.0.1:8765"}))
+    if($AgentMode -eq "NORMAL" -and -not ($lines | Where-Object {$_ -match '^ARCHIVE_COMPUTE_ENABLED='})){
+        $lines += "ARCHIVE_COMPUTE_ENABLED=true"
+    }
     $lines | Set-Content -Encoding UTF8 $EnvFile
 }
 
