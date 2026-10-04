@@ -33,6 +33,7 @@ from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compu
 from .operational_gc import cleanup_operational_state
 from .content_cache import ContentAddressedCache
 from .compute_artifacts import compute_artifact_descriptor
+from .strattester_dataset_export import export_market_dataset
 from .node_lifecycle import record_node_seen,reconcile_node_lifecycle,node_may_compute
 
 log=logging.getLogger("coordinator")
@@ -169,6 +170,20 @@ async def complete_archive_compute(job_id:str,payload:dict,x_grid_token:str=Head
         raise HTTPException(409,str(exc))
     if not ok:raise HTTPException(409,"lease lost")
     return {"ok":True}
+
+@app.post("/research/datasets/export")
+async def export_research_dataset(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    required=("symbols","start_ts","end_ts")
+    missing=[k for k in required if k not in payload]
+    if missing:raise HTTPException(400,"missing: "+",".join(missing))
+    try:
+        return await export_market_dataset(db.pool,symbols=payload["symbols"],
+            start_ts=payload["start_ts"],end_ts=payload["end_ts"],
+            owner=str(payload.get("owner") or "api"),
+            max_rows=payload.get("max_rows"))
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
 
 @app.post("/research/runs")
 async def create_distributed_research(payload:dict,x_grid_token:str=Header(default="")):
