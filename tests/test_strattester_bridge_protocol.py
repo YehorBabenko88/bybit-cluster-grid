@@ -29,6 +29,6 @@ def test_protocol_hash_test_vector():
 
 
 def test_logical_input_hash_ignores_worker_local_paths():
-    a={"symbol":"BTCUSDT","dataset_sha256":"abc","local_market_db":"C:/worker-a/market.db","local_results_db":"C:/worker-a/results.db"}
-    b={"symbol":"BTCUSDT","dataset_sha256":"abc","local_market_db":"D:/worker-b/market.db","local_results_db":"D:/worker-b/results.db"}
+    a={"symbol":"BTCUSDT","dataset_sha256":"abc","dataset_artifact_id":"a1","dataset_uri":"http://a/x","local_market_db":"C:/worker-a/market.db","local_results_db":"C:/worker-a/results.db"}
+    b={"symbol":"BTCUSDT","dataset_sha256":"abc","dataset_artifact_id":"b2","dataset_uri":"http://b/y","local_market_db":"D:/worker-b/market.db","local_results_db":"D:/worker-b/results.db"}
     assert input_digest(a)==input_digest(b)
