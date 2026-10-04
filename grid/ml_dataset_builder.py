@@ -48,7 +48,7 @@ class DatasetBuilder:
           VALUES($1,$2,$3,$4,$5::jsonb,'BUILDING',$6)""",
           did,purpose,cutoff_ts,owner,json.dumps(criteria),self.feature_version)
         try:
-            rows=await self.pool.fetch("""SELECT id AS sample_id,symbol,feature_ts AS event_ts,
+            rows=await self.pool.fetch("""SELECT id AS sample_id,symbol,known_at AS event_ts,
               known_at AS feature_ts,features,'{}'::jsonb AS instrument_features,target,
               quality_status,NULL::text AS split_group,label_end_ts
               FROM microstructure_ml_samples
