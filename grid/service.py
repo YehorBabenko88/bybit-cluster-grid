@@ -16,7 +16,23 @@ async def prepare_database():
             await db.ensure_schema()
             await apply_migrations(db.pool)
             return db
+        except asyncio.CancelledError:
+            if db.pool is not None:
+                await db.pool.close()
+                db.pool=None
+            raise
         except Exception:
+            # A failed schema/migration attempt can leave an otherwise live pool
+            # behind. Close it before retrying so repeated startup failures cannot
+            # leak connections or exhaust PostgreSQL.
+            if db.pool is not None:
+                try:
+                    await db.pool.close()
+                except Exception:
+                    log.exception("failed to close database pool after startup error",
+                                  extra={"event":"db_pool_close_failed"})
+                finally:
+                    db.pool=None
             log.exception("database startup failed",extra={"event":"db_start_retry","delay":delay})
             await asyncio.sleep(delay)
             delay=min(30,delay*2)
@@ -30,7 +46,13 @@ async def health_monitor(stop_event=None):
             log.warning("ram pressure",extra={"event":"resource_pressure"})
         if s["disk_free"] < settings.resource_disk_free_gb*1024**3:
             log.error("low disk space",extra={"event":"disk_pressure"})
-        await asyncio.sleep(10)
+        try:
+            if stop_event is None:
+                await asyncio.sleep(10)
+            else:
+                await asyncio.wait_for(stop_event.wait(),timeout=10)
+        except asyncio.TimeoutError:
+            pass
 
 def bootstrap_logging():
     setup_logging()
