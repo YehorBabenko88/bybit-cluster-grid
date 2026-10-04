@@ -31,27 +31,27 @@ async def fail_or_retry(pool,job_id,owner,generation,error,kind="retryable"):
 
 
 async def recover_expired_ml_jobs(pool):
-    # Lock each expired row before deciding its terminal/requeue transition.
-    # This makes CONTROL restart recovery safe when a periodic reconciler or a
-    # second CONTROL instance wakes at the same time.
+    # One atomic SQL statement claims expired rows with SKIP LOCKED and performs
+    # their state transition.  It works both with asyncpg Pool and Connection,
+    # and competing CONTROL instances cannot recover the same lease twice.
+    rows=await pool.fetch("""WITH expired AS (
+        SELECT id,attempts,max_attempts FROM ml_jobs
+        WHERE status IN ('assigned','running') AND lease_until<now()
+        ORDER BY lease_until,id FOR UPDATE SKIP LOCKED
+      ), changed AS (
+        UPDATE ml_jobs j SET
+          status=CASE WHEN e.attempts>=e.max_attempts THEN 'failed' ELSE 'queued' END,
+          finished_at=CASE WHEN e.attempts>=e.max_attempts THEN now() ELSE NULL END,
+          lease_owner=NULL,lease_until=NULL,
+          not_before=CASE WHEN e.attempts>=e.max_attempts THEN j.not_before ELSE now() END,
+          error=COALESCE(j.error,'expired compute lease')
+        FROM expired e WHERE j.id=e.id
+        RETURNING j.id,j.status
+      )
+      SELECT id,status FROM changed""")
     recovered=failed=0
-    async with pool.acquire() as c:
-        async with c.transaction():
-            rows=await c.fetch("""SELECT id,attempts,max_attempts FROM ml_jobs
-              WHERE status IN ('assigned','running') AND lease_until<now()
-              ORDER BY lease_until,id FOR UPDATE SKIP LOCKED""")
-            for row in rows:
-                if int(row["attempts"] or 0)>=int(row["max_attempts"] or 1):
-                    r=await c.execute("""UPDATE ml_jobs SET status='failed',finished_at=now(),
-                      lease_owner=NULL,lease_until=NULL,error=COALESCE(error,'expired compute lease')
-                      WHERE id=$1 AND status IN ('assigned','running') AND lease_until<now()""",row["id"])
-                    if r.endswith(" 1"):failed+=1
-                else:
-                    r=await c.execute("""UPDATE ml_jobs SET status='queued',lease_owner=NULL,lease_until=NULL,
-                      not_before=now(),error=COALESCE(error,'expired compute lease')
-                      WHERE id=$1 AND status IN ('assigned','running') AND lease_until<now()""",row["id"])
-                    if r.endswith(" 1"):recovered+=1
-                # Reservations are advisory capacity accounting, but stale reservations
-                # must not survive CONTROL restart/reassignment and make healthy nodes look full.
-                await c.execute("DELETE FROM ml_resource_reservations WHERE job_id=$1",row["id"])
+    for row in rows:
+        if str(row["status"])=="failed":failed+=1
+        else:recovered+=1
+        await pool.execute("DELETE FROM ml_resource_reservations WHERE job_id=$1",row["id"])
     return {"recovered":recovered,"failed":failed}
