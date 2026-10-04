@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     content_cache_ttl_days: int = 14
     workspace_ttl_hours: int = 24
     maintenance_interval_minutes: int = 15
+    operational_state_retention_days: int = 30
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
     retention_enabled: bool = True
