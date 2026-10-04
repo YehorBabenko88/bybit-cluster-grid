@@ -53,7 +53,7 @@ class DatasetBuilder:
               quality_status,NULL::text AS split_group,label_end_ts
               FROM microstructure_ml_samples
               WHERE target_ready=true AND quality_status='GOOD'
-                AND feature_ts<=$1 AND known_at<=feature_ts
+                AND feature_ts<=$1 AND known_at<=$1
                 AND label_end_ts<=$1 ORDER BY feature_ts,id""",cutoff_ts)
             selected=[r for r in rows if _matches(r,criteria)]
             manifest=[_canonical(r) for r in selected]
