@@ -1,5 +1,5 @@
 from datetime import datetime,timedelta,timezone
-import asyncio,json
+import asyncio,json\nimport pytest
 
 from grid.ml_microstructure_samples import ContinuousMicrostructureSamples,_target
 
@@ -13,9 +13,9 @@ def test_target_uses_only_future_bars_and_full_horizon():
     ]
     x=_target(sample,bars)
     assert x["reference_price"]==100.0
-    assert x["future_return"]==0.02
-    assert x["mfe"]==0.03
-    assert x["mae"]==-0.02
+    assert x["future_return"]==pytest.approx(0.02)
+    assert x["mfe"]==pytest.approx(0.03)
+    assert x["mae"]==pytest.approx(-0.02)
     assert x["up"] is True
     assert _target({"horizon_seconds":180,"features":{"bid":99,"ask":101}},bars) is None
 
@@ -52,5 +52,5 @@ def test_materialize_freezes_known_at_and_labels_only_after_horizon():
         assert row[5]==t+timedelta(minutes=1)
         assert await s.label_ready("BTCUSDT",t+timedelta(minutes=1))==1
         target=json.loads(p.updated[0][1][1])
-        assert target["future_return"]==0.005
+        assert target["future_return"]==pytest.approx(0.005)
     asyncio.run(run())
