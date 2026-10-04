@@ -4,6 +4,7 @@ from .strattester_bridge_protocol import digest,validate_manifest
 
 
 def validate_shard_dag(shards):
+    if not shards: raise ValueError("research run requires at least one shard")
     by_key={}
     for shard in shards:
         key=str(shard["shard_key"])
