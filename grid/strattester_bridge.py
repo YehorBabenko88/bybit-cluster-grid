@@ -201,6 +201,19 @@ async def reconcile_research_failures(pool):
           SET status='failed',finished_at=now(),last_error=$2
           WHERE id=$1 AND status='queued'""",row["shard_id"],str(row["error"] or "compute job failed")[:4000])
         if changed.endswith(" 1"):touched.add(row["run_id"])
+    while True:
+        blocked=await pool.fetch("""SELECT DISTINCT s.id,s.run_id FROM research_shards s
+          JOIN research_shard_dependencies d ON d.shard_id=s.id
+          JOIN research_shards parent ON parent.id=d.depends_on_id
+          WHERE s.status='queued' AND parent.status='failed'""")
+        changed_any=False
+        for row in blocked:
+            changed=await pool.execute("""UPDATE research_shards
+              SET status='failed',finished_at=now(),last_error='dependency failed'
+              WHERE id=$1 AND status='queued'""",row["id"])
+            if changed.endswith(" 1"):
+                touched.add(row["run_id"]);changed_any=True
+        if not changed_any:break
     for run_id in touched:
         counts=await pool.fetchrow("""SELECT count(*) FILTER(WHERE status='done') done,
           count(*) FILTER(WHERE status='failed') failed,
