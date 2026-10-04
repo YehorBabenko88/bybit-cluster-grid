@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     workspace_ttl_hours: int = 24
     maintenance_interval_minutes: int = 15
     operational_state_retention_days: int = 30
+    content_artifact_retention_days: int = 30
     node_offline_seconds: int = 90
     node_quarantine_hours: int = 24
     node_decommission_days: int = 30
