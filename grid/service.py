@@ -4,6 +4,7 @@ from .migrations import apply_migrations
 from .logging_setup import setup_logging
 from .resources import snapshot
 from .config import settings
+from .worker_maintenance import maintenance_once
 
 log=logging.getLogger("service")
 
@@ -34,3 +35,14 @@ async def health_monitor(stop_event=None):
 
 def bootstrap_logging():
     setup_logging()
+
+
+async def worker_maintenance_loop(stop_event=None):
+    while stop_event is None or not stop_event.is_set():
+        try:
+            result=await asyncio.to_thread(maintenance_once)
+            log.info("worker maintenance complete",extra={"event":"worker_maintenance","result":str(result)})
+        except asyncio.CancelledError:raise
+        except Exception:
+            log.exception("worker maintenance failed",extra={"event":"worker_maintenance_failed"})
+        await asyncio.sleep(max(60,int(settings.maintenance_interval_minutes)*60))
