@@ -106,6 +106,9 @@ async def claim_archive_compute(payload:dict,x_grid_token:str=Header(default="")
     node_id=str(payload.get("node_id",""))
     if not node_id: raise HTTPException(400,"node_id required")
     await node_auth(node_id,x_node_credential,x_grid_token)
+    info=nodes.get(node_id) or {}
+    if not bool((info.get("compute_capabilities") or {}).get("archive")):
+        raise HTTPException(409,"node does not advertise archive capability")
     job=await claim_archive_compute_job(db.pool,node_id,int(payload.get("lease_seconds",300)))
     if not job:return {"job":None}
     out=dict(job)
