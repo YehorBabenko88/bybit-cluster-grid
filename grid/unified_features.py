@@ -14,15 +14,21 @@ class UnifiedFeatureBuilder:
     async def build(self,pool,row):
         base=self.engine.on_candle(row)
         ts=row["ts"]; symbol=row["symbol"]
-        book=await pool.fetchrow("""SELECT event_ts,payload FROM market_events
-            WHERE symbol=$1 AND event_type='orderbook_snapshot'
-              AND event_ts<=$2 AND event_ts>=$2-($3 * interval '1 second')
-            ORDER BY event_ts DESC LIMIT 1""",symbol,ts,self.micro_max_age_s)
+        micro=await pool.fetchrow("""SELECT ts,known_at,payload FROM microstructure_samples
+            WHERE symbol=$1 AND known_at<=$2
+              AND known_at>=$2-($3 * interval '1 second')
+            ORDER BY known_at DESC LIMIT 1""",symbol,ts,self.micro_max_age_s)
+        book=None
+        if not micro:
+            book=await pool.fetchrow("""SELECT event_ts,payload FROM market_events
+                WHERE symbol=$1 AND event_type='orderbook_snapshot'
+                  AND event_ts<=$2 AND event_ts>=$2-($3 * interval '1 second')
+                ORDER BY event_ts DESC LIMIT 1""",symbol,ts,self.micro_max_age_s)
         deriv=await pool.fetchrow("""SELECT event_ts,payload FROM market_events
             WHERE symbol=$1 AND event_type='derivatives_ticker'
               AND event_ts<=$2 AND event_ts>=$2-($3 * interval '1 second')
             ORDER BY event_ts DESC LIMIT 1""",symbol,ts,self.micro_max_age_s)
-        bp=_payload_dict(book["payload"]) if book else {}
+        bp=_payload_dict(micro["payload"]) if micro else (_payload_dict(book["payload"]) if book else {})
         dp=_payload_dict(deriv["payload"]) if deriv else {}
         features=dict(base)
         features.update({
@@ -30,13 +36,35 @@ class UnifiedFeatureBuilder:
             "spread":_num(bp.get("spread")),
             "bid_depth":_num(bp.get("bid_depth")),
             "ask_depth":_num(bp.get("ask_depth")),
+            "bid_depth_1":_num(bp.get("bid_depth_1")),
+            "ask_depth_1":_num(bp.get("ask_depth_1")),
+            "bid_depth_5":_num(bp.get("bid_depth_5")),
+            "ask_depth_5":_num(bp.get("ask_depth_5")),
+            "bid_depth_10":_num(bp.get("bid_depth_10")),
+            "ask_depth_10":_num(bp.get("ask_depth_10")),
+            "bid_depth_25":_num(bp.get("bid_depth_25")),
+            "ask_depth_25":_num(bp.get("ask_depth_25")),
+            "bid_depth_50":_num(bp.get("bid_depth_50")),
+            "ask_depth_50":_num(bp.get("ask_depth_50")),
+            "added_bid":_num(bp.get("added_bid")),
+            "removed_bid":_num(bp.get("removed_bid")),
+            "added_ask":_num(bp.get("added_ask")),
+            "removed_ask":_num(bp.get("removed_ask")),
+            "micro_buy_volume":_num(bp.get("buy_volume")),
+            "micro_sell_volume":_num(bp.get("sell_volume")),
+            "micro_trade_count":_num(bp.get("trade_count")),
+            "large_buy_volume":_num(bp.get("large_buy_volume")),
+            "large_sell_volume":_num(bp.get("large_sell_volume")),
+            "micro_trade_available":bool(bp.get("trade_available",False)),
+            "micro_book_gap":bool(bp.get("book_gap",False)),
+            "micro_trade_gap":bool(bp.get("trade_gap",False)),
             "open_interest":_num(dp.get("open_interest")),
             "funding_rate":_num(dp.get("funding_rate")),
             "mark_price":_num(dp.get("mark_price")),
             "index_price":_num(dp.get("index_price")),
             "basis_rate":_num(dp.get("basis_rate")),
         })
-        caps={"candle":True,"footprint":True,"orderbook":bool(book),"derivatives":bool(deriv)}
+        caps={"candle":True,"footprint":True,"orderbook":bool(micro or book),"microstructure":bool(micro),"derivatives":bool(deriv)}
         # Candle/trade quality is a hard gate. Missing optional feeds remain explicit capabilities.
         eligible=bool(base["eligible"])
         regime=self.regime.update(symbol,features,eligible=eligible)
