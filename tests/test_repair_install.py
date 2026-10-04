@@ -33,4 +33,4 @@ def test_bootstrap_verifies_real_first_start_and_enables_archive_compute():
     assert 'http://127.0.0.1:8765/healthz' in text
     assert 'CONTROL did not become healthy within 60 seconds' in text
     assert 'ARCHIVE_COMPUTE_ENABLED=true' in text
-    assert 'Grid agent scheduled task failed to start' in text
+    assert 'Grid agent did not remain running after startup' in text
