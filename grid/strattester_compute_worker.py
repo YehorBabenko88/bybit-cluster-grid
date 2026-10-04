@@ -7,6 +7,7 @@ from .config import settings
 from .credential_store import node_credential
 from .content_cache import ContentAddressedCache
 from .resources import NODE_ID,snapshot
+from .local_operator_gate import compute_locally_enabled
 
 log=logging.getLogger("strattester_compute")
 
@@ -21,7 +22,8 @@ def _resource_ok():
     s=snapshot()
     rss=psutil.Process().memory_info().rss
     rss_limit=float(settings.worker_process_memory_mb)*1024**2*float(settings.worker_process_memory_backoff_ratio)
-    return (float(s.get("cpu_pct",100))<settings.resource_cpu_limit
+    return (compute_locally_enabled()
+            and float(s.get("cpu_pct",100))<settings.resource_cpu_limit
             and float(s.get("ram_pct",100))<settings.resource_ram_limit
             and float(s.get("disk_free",0))>=settings.resource_disk_free_gb*1024**3
             and rss<rss_limit)
