@@ -95,3 +95,16 @@ def test_checkpoint_staging_paths_are_distinct(tmp_path):
         assert not (tmp_path/"checkpoint.next").exists()
         assert not (tmp_path/"checkpoint.backup.next").exists()
     asyncio.run(run())
+
+
+def test_queue_shutdown_is_bounded_when_sink_is_down():
+    async def run():
+        blocker=asyncio.Event()
+        async def writer(*_):
+            await blocker.wait()
+        q=BoundedWriteQueue(writer,maxsize=4,workers=1)
+        await q.start()
+        await q.put(1,{"n":1})
+        await q.close(drain_timeout=.02)
+        assert q.tasks==[]
+    asyncio.run(run())
