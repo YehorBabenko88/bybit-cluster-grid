@@ -30,6 +30,7 @@ from .ml_orchestrator_service import MLOrchestratorService
 from .ml_retry import fail_or_retry
 from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compute_job,renew_archive_compute_job,fail_archive_compute_job,accept_archive_compute_result,recover_archive_compute_jobs
 from .operational_gc import cleanup_operational_state
+from .node_lifecycle import record_node_seen,reconcile_node_lifecycle,node_may_compute
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -73,6 +74,9 @@ async def node_auth(node_id,credential,fleet_token):
 async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
     nid=payload["node_id"]
     await node_auth(nid,x_node_credential,x_grid_token)
+    lifecycle=await record_node_seen(db.pool,nid)
+    if lifecycle=="DECOMMISSIONED":
+        raise HTTPException(409,"node decommissioned; re-enrollment required")
     payload["last_seen"]=time.time(); nodes[nid]=payload
     version=str(payload.get("agent_version",""))
     if version:
@@ -107,6 +111,8 @@ async def claim_archive_compute(payload:dict,x_grid_token:str=Header(default="")
     node_id=str(payload.get("node_id",""))
     if not node_id: raise HTTPException(400,"node_id required")
     await node_auth(node_id,x_node_credential,x_grid_token)
+    if not await node_may_compute(db.pool,node_id):
+        raise HTTPException(409,"node lifecycle blocks compute")
     info=nodes.get(node_id) or {}
     if not bool((info.get("compute_capabilities") or {}).get("archive")):
         raise HTTPException(409,"node does not advertise archive capability")
@@ -427,6 +433,15 @@ async def startup():
                 log.exception("archive compute reconcile failed",extra={"event":"archive_compute_reconcile_failed"})
             await asyncio.sleep(10)
 
+    async def node_lifecycle_loop():
+        while True:
+            try:
+                await reconcile_node_lifecycle(db.pool,settings.node_offline_seconds,
+                    settings.node_quarantine_hours,settings.node_decommission_days)
+            except Exception:
+                log.exception("node lifecycle reconcile failed",extra={"event":"node_lifecycle_failed"})
+            await asyncio.sleep(30)
+
     async def operational_gc_loop():
         while True:
             try:
@@ -463,6 +478,7 @@ async def startup():
         asyncio.create_task(research_reconciler_loop()),
         asyncio.create_task(archive_compute_reconciler_loop()),
         asyncio.create_task(operational_gc_loop()),
+        asyncio.create_task(node_lifecycle_loop()),
     ]
     if settings.micro_ml_lifecycle_enabled:
         micro_ml_lifecycle=MicrostructureMLLifecycle(
