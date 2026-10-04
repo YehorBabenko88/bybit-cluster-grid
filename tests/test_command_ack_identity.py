@@ -1,4 +1,5 @@
 import asyncio
+import pytest
 from grid.control_plane import command_result
 
 
@@ -34,5 +35,6 @@ def test_command_ack_is_bound_to_node_identity():
 def test_wrong_node_ack_is_rejected():
     async def run():
         p=Pool(False)
-        assert await command_result(p,"cmd",True,{},None,node_id="node-b") is False
+        with pytest.raises(ValueError,match="does not belong"):
+            await command_result(p,"cmd",True,{},None,node_id="node-b")
     asyncio.run(run())
