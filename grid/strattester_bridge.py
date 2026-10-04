@@ -99,6 +99,46 @@ async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,stratte
     return str(run_id)
 
 
+def strategy_backtest_shards(*,symbols,strategies,start_ms,end_ms):
+    symbols=tuple(sorted({str(x).strip().upper() for x in symbols if str(x).strip()}))
+    strategies=tuple(sorted({str(x).strip() for x in strategies if str(x).strip()}))
+    if not symbols:raise ValueError("backtest research requires symbols")
+    if not strategies:raise ValueError("backtest research requires strategies")
+    start_ms=int(start_ms);end_ms=int(end_ms)
+    if end_ms<start_ms:raise ValueError("backtest end precedes start")
+    return [{
+        "shard_key":f"strategy:{strategy}:symbol:{symbol}",
+        "job_type":"strategy_backtest",
+        "input_spec":{"symbol":symbol,"strategy":strategy,"start_ms":start_ms,"end_ms":end_ms},
+    } for strategy in strategies for symbol in symbols]
+
+
+async def create_strategy_backtest_research(pool,*,dataset_id,strategies,strattester_version,
+    symbols=None,config=None):
+    ds=await pool.fetchrow("""SELECT id,status,dataset_hash,artifact_id,criteria
+      FROM dataset_snapshots WHERE id=$1""",dataset_id)
+    if not ds or ds["status"]!="READY":raise ValueError("backtest requires READY dataset snapshot")
+    if ds["artifact_id"] is None:raise ValueError("backtest dataset snapshot has no artifact")
+    criteria=dict(ds["criteria"] or {})
+    available=tuple(criteria.get("symbols") or ())
+    selected=tuple(symbols or available)
+    if not selected:raise ValueError("backtest dataset has no symbols")
+    missing=sorted(set(str(x).upper() for x in selected)-set(str(x).upper() for x in available))
+    if missing:raise ValueError("backtest symbols outside dataset: "+",".join(missing))
+    start=str(criteria.get("start_ts") or "");end=str(criteria.get("end_ts") or "")
+    if not start or not end:raise ValueError("backtest dataset is missing frozen time bounds")
+    from datetime import datetime
+    def to_ms(value):
+        dt=datetime.fromisoformat(value.replace("Z","+00:00"))
+        return int(round(dt.timestamp()*1000))
+    shards=strategy_backtest_shards(symbols=selected,strategies=strategies,
+        start_ms=to_ms(start),end_ms=to_ms(end))
+    return await create_research_run(pool,kind="strategy_backtest",dataset_id=ds["id"],
+        dataset_hash=ds["dataset_hash"],config=config or {},
+        strattester_version=strattester_version,shards=shards,
+        dataset_artifact_id=ds["artifact_id"])
+
+
 async def enqueue_research_shards(pool,run_id):
     run=await pool.fetchrow("SELECT * FROM research_runs WHERE id=$1",run_id)
     if not run or run["status"] not in ("QUEUED","RUNNING"): return 0
