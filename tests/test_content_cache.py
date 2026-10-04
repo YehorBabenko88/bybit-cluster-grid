@@ -42,3 +42,15 @@ def test_verified_cache_access_refreshes_recency(tmp_path):
     old=time.time()-1000;os.utime(item["path"],(old,old))
     assert cache.has(item["sha256"])
     assert Path(item["path"]).stat().st_mtime>old
+
+
+def test_corrupt_cache_object_can_be_discarded_and_repaired(tmp_path):
+    source=tmp_path/"source.bin";source.write_bytes(b"payload")
+    cache=ContentAddressedCache(tmp_path/"cache")
+    item=cache.put(source)
+    Path(item["path"]).write_bytes(b"bad")
+    assert cache.has(item["sha256"]) is False
+    assert cache.discard(item["sha256"]) is True
+    repaired=cache.put(source,item["sha256"])
+    assert repaired["sha256"]==item["sha256"]
+    assert cache.has(item["sha256"])
