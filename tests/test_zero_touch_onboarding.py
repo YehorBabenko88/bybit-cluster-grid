@@ -57,3 +57,17 @@ def test_auto_onboarding_can_retry_after_partial_failure_with_fresh_token():
     s=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
     assert "existing credential requires repair/upgrade workflow" not in s
     assert "fresh one-time EnrollmentToken" in s
+
+
+def test_bootstrap_failure_boundary_covers_dependency_and_enrollment_steps():
+    s=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    marker=s.index('Write-Host "Grid install mode: $Mode"')
+    outer_try=s.index("try {",marker)
+    discovery=s.index("$Discovery=",marker)
+    pip_install=s.index("-m pip install",marker)
+    enrollment=s.index('if($AgentMode -eq "AUTO")',marker)
+    common_catch=s.rindex("} catch {")
+    assert marker < outer_try < discovery < pip_install < enrollment < common_catch
+    assert "--retries 8" in s
+    assert 'status="failed"' in s
+    assert "Bootstrap rolled back to previous release." in s
