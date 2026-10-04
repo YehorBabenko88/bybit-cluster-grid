@@ -217,8 +217,10 @@ try {
     } else {
         Start-Sleep -Seconds 2
         $task=Get-ScheduledTask -TaskName "BybitClusterGridAgent" -ErrorAction SilentlyContinue
-        if(!$task -or $task.State -notin @("Running","Ready")){
-            throw "Grid agent scheduled task failed to start"
+        if(!$task -or $task.State -ne "Running"){
+            $info=Get-ScheduledTaskInfo -TaskName "BybitClusterGridAgent" -ErrorAction SilentlyContinue
+            $last=if($info){$info.LastTaskResult}else{"unknown"}
+            throw "Grid agent did not remain running after startup (LastTaskResult=$last)"
         }
     }
 
