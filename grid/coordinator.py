@@ -185,6 +185,8 @@ async def claim_strattester_compute(payload:dict,x_grid_token:str=Header(default
     node_id=str(payload.get("node_id",""))
     if not node_id: raise HTTPException(400,"node_id required")
     await node_auth(node_id,x_node_credential,x_grid_token)
+    if not await node_may_compute(db.pool,node_id):
+        raise HTTPException(409,"node lifecycle blocks compute")
     job=await claim_assigned_strattester_job(db.pool,node_id,int(payload.get("lease_seconds",120)))
     if not job:return {"job":None}
     out=dict(job)
