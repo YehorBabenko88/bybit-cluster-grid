@@ -338,6 +338,17 @@ symbol text NOT NULL,ts timestamptz NOT NULL,known_at timestamptz NOT NULL,
 payload jsonb NOT NULL,ingest_ts timestamptz NOT NULL DEFAULT now(),
 PRIMARY KEY(symbol,ts))""",
 "CREATE INDEX IF NOT EXISTS microstructure_samples_known_idx ON microstructure_samples(symbol,known_at DESC)"
+]),
+(36,"continuous_microstructure_ml_samples",[
+"""CREATE TABLE IF NOT EXISTS microstructure_ml_samples(
+id bigserial PRIMARY KEY,symbol text NOT NULL,feature_ts timestamptz NOT NULL,
+known_at timestamptz NOT NULL,horizon_seconds integer NOT NULL,
+features jsonb NOT NULL,target jsonb NOT NULL DEFAULT '{}'::jsonb,
+target_ready boolean NOT NULL DEFAULT false,label_end_ts timestamptz,
+quality_status text NOT NULL DEFAULT 'GOOD',created_at timestamptz NOT NULL DEFAULT now(),
+UNIQUE(symbol,feature_ts,horizon_seconds))""",
+"CREATE INDEX IF NOT EXISTS microstructure_ml_ready_idx ON microstructure_ml_samples(target_ready,quality_status,feature_ts)",
+"CREATE INDEX IF NOT EXISTS microstructure_ml_pending_idx ON microstructure_ml_samples(symbol,target_ready,label_end_ts)"
 ])
 ]
 
