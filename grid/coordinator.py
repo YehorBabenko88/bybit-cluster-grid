@@ -27,6 +27,7 @@ from .ml_microstructure_lifecycle import MicrostructureMLLifecycle,parse_horizon
 from .strattester_bridge import create_research_run,enqueue_research_shards,reconcile_research_runs,claim_assigned_strattester_job,renew_strattester_job,complete_strattester_job
 from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
+from .ml_retry import fail_or_retry
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -150,6 +151,19 @@ async def renew_strattester_compute(job_id:str,payload:dict,x_grid_token:str=Hea
                                    int(payload.get("lease_seconds",120)))
     if not ok: raise HTTPException(409,"lease lost")
     return {"ok":True}
+
+@app.post("/compute/strattester/{job_id}/fail")
+async def fail_strattester_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""))
+    if not node_id: raise HTTPException(400,"node_id required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    kind=str(payload.get("kind","retryable"))
+    if kind not in ("retryable","permanent"): raise HTTPException(400,"invalid failure kind")
+    state=await fail_or_retry(db.pool,job_id,node_id,int(payload["lease_generation"]),
+                              str(payload.get("error","remote Strattester failure")),kind)
+    if state=="stale": raise HTTPException(409,"lease lost")
+    await db.pool.execute("DELETE FROM ml_resource_reservations WHERE job_id=$1",job_id)
+    return {"ok":True,"state":state}
 
 @app.post("/compute/strattester/{job_id}/result")
 async def complete_strattester_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
