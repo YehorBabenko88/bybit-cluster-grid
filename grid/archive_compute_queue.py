@@ -84,9 +84,18 @@ async def accept_archive_compute_result(pool,job_id,node_id,generation,manifest)
     async with pool.acquire() as c:
         async with c.transaction():
             job=await c.fetchrow("""SELECT * FROM archive_compute_jobs WHERE id=$1
-              AND lease_owner=$2 AND lease_generation=$3 AND status='running'
-              AND lease_until>=now() FOR UPDATE""",job_id,node_id,int(generation))
+              AND lease_owner=$2 AND lease_generation=$3 FOR UPDATE""",
+              job_id,node_id,int(generation))
             if not job:return False
+            incoming_hash=digest(manifest)
+            if job["status"]=="done":
+                if job["result_hash"]!=incoming_hash:
+                    raise ValueError("completed archive result hash conflict")
+                return True
+            if job["status"]!="running" or job["lease_until"] is None:
+                return False
+            valid=await c.fetchval("SELECT $1::timestamptz>=now()",job["lease_until"])
+            if not valid:return False
             expected={"symbol":job["symbol"],"archive_date":str(job["archive_date"]),
                       "source_uri":job["source_uri"],"tick_size":float(job["tick_size"])}
             for key,value in expected.items():
@@ -111,7 +120,7 @@ async def accept_archive_compute_result(pool,job_id,node_id,generation,manifest)
                 raise ValueError("archive derived artifact sha256 mismatch")
             if int(manifest.get("derived_artifact_bytes",-1))!=int(artifact["bytes"] or 0):
                 raise ValueError("archive derived artifact byte size mismatch")
-            result_hash=digest(manifest)
+            result_hash=incoming_hash
             await c.execute("""UPDATE archive_compute_jobs SET status='done',lease_until=NULL,
               result_manifest=$4::jsonb,result_hash=$5,last_error=NULL,updated_at=now()
               WHERE id=$1 AND lease_owner=$2 AND lease_generation=$3""",
