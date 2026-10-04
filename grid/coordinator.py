@@ -426,11 +426,10 @@ async def promote_release(version:str,x_grid_token:str=Header(default="")):
 @app.post("/ingest/minute")
 async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
     global ingest_storage
-    if not constant_time_equal(x_grid_token,settings.grid_shared_token):
-        raise HTTPException(403)
     payload=await request.json()
-    if not x_node_id or not await authenticate_agent(db.pool,x_node_id,x_node_credential):
+    if not x_node_id:
         raise HTTPException(403)
+    await node_auth(x_node_id,x_node_credential,x_grid_token)
     gate=await runtime_state(db.pool)
     if gate["state"]!="ACTIVE":
         raise HTTPException(423,"market ingestion locked")
@@ -441,10 +440,9 @@ async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_no
 
 @app.post("/ingest/event")
 async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
-    if not constant_time_equal(x_grid_token,settings.grid_shared_token):
+    if not x_node_id:
         raise HTTPException(403)
-    if not x_node_id or not await authenticate_agent(db.pool,x_node_id,x_node_credential):
-        raise HTTPException(403)
+    await node_auth(x_node_id,x_node_credential,x_grid_token)
     gate=await runtime_state(db.pool)
     if gate["state"]!="ACTIVE":
         raise HTTPException(423,"market ingestion locked")
