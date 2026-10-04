@@ -45,3 +45,16 @@ separate Grid lifecycle gate.
 8. Future-data mutation cannot change earlier ML features.
 9. Corrupt artifact/hash is rejected.
 10. Only after all above pass may an artifact enter shadow/simulated trading.
+
+
+## Canonical history ownership
+
+Historical acquisition is Grid-owned. Existing archive/backfill workers parallelize Bybit
+downloads and materialize verified canonical data before a research run is created.
+A research run therefore references an already frozen dataset hash. Strattester may use
+a local immutable cache of that dataset, but must not mutate the canonical dataset while
+the run is active. Its `history_sync` executor is a standalone/local-cache fallback,
+not the authoritative clustered history pipeline.
+
+This split avoids a circular dependency where a research run changes the same dataset
+whose hash is used to fence its results.
