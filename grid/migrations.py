@@ -325,6 +325,18 @@ state text NOT NULL DEFAULT 'DETECTED',invalidated_at timestamptz,
 outcome jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAULT now())""",
 "CREATE INDEX IF NOT EXISTS setup_candidates_lookup_idx ON setup_candidates(setup_type,symbol,detected_at DESC)",
 "CREATE INDEX IF NOT EXISTS setup_candidates_state_idx ON setup_candidates(state,detected_at DESC)"
+]),
+(35,"ml_microstructure_storage",[
+"""CREATE TABLE IF NOT EXISTS microstructure_raw_events(
+id bigserial PRIMARY KEY,symbol text NOT NULL,event_ts timestamptz NOT NULL,
+event_type text NOT NULL,payload jsonb NOT NULL,ingest_ts timestamptz NOT NULL DEFAULT now())""",
+"CREATE INDEX IF NOT EXISTS microstructure_raw_symbol_ts_idx ON microstructure_raw_events(symbol,event_ts DESC)",
+"CREATE INDEX IF NOT EXISTS microstructure_raw_type_ts_idx ON microstructure_raw_events(event_type,event_ts DESC)",
+"""CREATE TABLE IF NOT EXISTS microstructure_samples(
+symbol text NOT NULL,ts timestamptz NOT NULL,known_at timestamptz NOT NULL,
+payload jsonb NOT NULL,ingest_ts timestamptz NOT NULL DEFAULT now(),
+PRIMARY KEY(symbol,ts))""",
+"CREATE INDEX IF NOT EXISTS microstructure_samples_known_idx ON microstructure_samples(symbol,known_at DESC)"
 ])
 ]
 
