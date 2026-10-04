@@ -1,6 +1,6 @@
 from __future__ import annotations
 import json,uuid
-from .strattester_bridge_protocol import digest,validate_manifest
+from .strattester_bridge_protocol import digest,input_digest,validate_manifest
 
 
 def validate_shard_dag(shards):
@@ -46,7 +46,7 @@ async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,stratte
                 await c.execute("""INSERT INTO research_shards
                   (id,run_id,job_type,shard_key,input_spec,input_hash)
                   VALUES($1,$2,$3,$4,$5::jsonb,$6)""",
-                  shard_ids[key],run_id,shard["job_type"],key,json.dumps(spec),digest(spec))
+                  shard_ids[key],run_id,shard["job_type"],key,json.dumps(spec),input_digest(spec))
             for key,shard in by_key.items():
                 for dep in shard.get("depends_on") or []:
                     await c.execute("""INSERT INTO research_shard_dependencies
