@@ -28,7 +28,10 @@ class ContentAddressedCache:
 
     def has(self,digest):
         p=self.path_for(digest)
-        return p.is_file() and sha256_file(p)==str(digest).lower()
+        if not p.is_file() or sha256_file(p)!=str(digest).lower():return False
+        try:os.utime(p,None)
+        except OSError:pass
+        return True
 
     def put(self,source,expected_sha256=None):
         source=Path(source)
@@ -39,6 +42,8 @@ class ContentAddressedCache:
         if dest.exists():
             if sha256_file(dest)!=digest:
                 raise ValueError("content-addressed cache corruption")
+            try:os.utime(dest,None)
+            except OSError:pass
             return {"path":str(dest),"sha256":digest,"bytes":dest.stat().st_size,"created":False}
         fd,tmp=tempfile.mkstemp(prefix=".publish-",dir=dest.parent);os.close(fd)
         try:
@@ -60,6 +65,8 @@ class ContentAddressedCache:
             shutil.copyfile(source,tmp)
             if sha256_file(tmp)!=str(digest).lower():raise ValueError("materialized cache hash mismatch")
             os.replace(tmp,destination)
+            try:os.utime(source,None)
+            except OSError:pass
         finally:
             try:os.remove(tmp)
             except FileNotFoundError:pass
