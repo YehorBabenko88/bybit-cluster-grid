@@ -45,5 +45,7 @@ async def recover_expired_ml_jobs(pool):
               not_before=now(),error=COALESCE(error,'expired compute lease')
               WHERE id=$1 AND status IN ('assigned','running') AND lease_until<now()""",row["id"])
             if r.endswith(" 1"):recovered+=1
+        # Reservations are advisory capacity accounting, but stale reservations
+        # must not survive CONTROL restart/reassignment and make healthy nodes look full.
         await pool.execute("DELETE FROM ml_resource_reservations WHERE job_id=$1",row["id"])
     return {"recovered":recovered,"failed":failed}
