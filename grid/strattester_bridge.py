@@ -3,6 +3,28 @@ import json,uuid
 from .strattester_bridge_protocol import digest,validate_manifest
 
 
+def validate_shard_dag(shards):
+    by_key={}
+    for shard in shards:
+        key=str(shard["shard_key"])
+        if key in by_key: raise ValueError("duplicate research shard key")
+        by_key[key]=shard
+    for key,shard in by_key.items():
+        for dep in shard.get("depends_on") or []:
+            dep=str(dep)
+            if dep not in by_key: raise ValueError(f"unknown dependency {dep} for {key}")
+            if dep==key: raise ValueError("research shard cannot depend on itself")
+    visiting=set();done=set()
+    def visit(key):
+        if key in done:return
+        if key in visiting:raise ValueError("research shard dependency cycle")
+        visiting.add(key)
+        for dep in by_key[key].get("depends_on") or []:visit(str(dep))
+        visiting.remove(key);done.add(key)
+    for key in by_key:visit(key)
+    return by_key
+
+
 async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,strattester_version,shards):
     run_id=uuid.uuid4(); config_hash=digest(config or {})
     async with pool.acquire() as c:
@@ -15,15 +37,19 @@ async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,stratte
               (id,kind,dataset_id,dataset_hash,config,config_hash,strattester_version,status)
               VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,'BUILDING')""",
               run_id,kind,dataset_id,dataset_hash,json.dumps(config or {}),config_hash,strattester_version)
-            seen=set()
-            for shard in shards:
-                key=str(shard["shard_key"])
-                if key in seen: raise ValueError("duplicate research shard key")
-                seen.add(key); sid=uuid.uuid4(); spec=dict(shard.get("input_spec") or {})
+            by_key=validate_shard_dag(shards)
+            shard_ids={key:uuid.uuid4() for key in by_key}
+            for key,shard in by_key.items():
+                spec=dict(shard.get("input_spec") or {})
                 await c.execute("""INSERT INTO research_shards
                   (id,run_id,job_type,shard_key,input_spec,input_hash)
                   VALUES($1,$2,$3,$4,$5::jsonb,$6)""",
-                  sid,run_id,shard["job_type"],key,json.dumps(spec),digest(spec))
+                  shard_ids[key],run_id,shard["job_type"],key,json.dumps(spec),digest(spec))
+            for key,shard in by_key.items():
+                for dep in shard.get("depends_on") or []:
+                    await c.execute("""INSERT INTO research_shard_dependencies
+                      (run_id,shard_id,depends_on_id) VALUES($1,$2,$3)""",
+                      run_id,shard_ids[key],shard_ids[str(dep)])
             await c.execute("UPDATE research_runs SET status='QUEUED' WHERE id=$1",run_id)
     return str(run_id)
 
@@ -31,8 +57,13 @@ async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,stratte
 async def enqueue_research_shards(pool,run_id):
     run=await pool.fetchrow("SELECT * FROM research_runs WHERE id=$1",run_id)
     if not run or run["status"] not in ("QUEUED","RUNNING"): return 0
-    rows=await pool.fetch("""SELECT * FROM research_shards
-      WHERE run_id=$1 AND status='queued' ORDER BY job_type,shard_key""",run_id)
+    rows=await pool.fetch("""SELECT s.* FROM research_shards s
+      WHERE s.run_id=$1 AND s.status='queued'
+        AND NOT EXISTS(
+          SELECT 1 FROM research_shard_dependencies d
+          JOIN research_shards parent ON parent.id=d.depends_on_id
+          WHERE d.shard_id=s.id AND parent.status<>'done')
+      ORDER BY s.job_type,s.shard_key""",run_id)
     created=0
     for row in rows:
         payload={"research_run_id":str(run_id),"research_shard_id":str(row["id"]),
@@ -151,3 +182,12 @@ async def complete_strattester_job(pool,job_id,node_id,lease_generation,manifest
                 await conn.execute("""UPDATE research_runs SET status=$2,finished_at=now()
                   WHERE id=$1""",shard["run_id"],state)
             return True
+
+
+async def reconcile_research_runs(pool):
+    rows=await pool.fetch("""SELECT id FROM research_runs
+      WHERE status IN ('QUEUED','RUNNING') ORDER BY created_at""")
+    created=0
+    for row in rows:
+        created+=await enqueue_research_shards(pool,row["id"])
+    return created
