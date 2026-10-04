@@ -399,6 +399,11 @@ last_seen timestamptz,last_transition_at timestamptz NOT NULL DEFAULT now(),
 quarantined_at timestamptz,decommissioned_at timestamptz,reason text,
 updated_at timestamptz NOT NULL DEFAULT now())""",
 "CREATE INDEX IF NOT EXISTS node_lifecycle_state_idx ON node_lifecycle(state,last_seen)"
+]),
+(43,"research_result_artifacts",[
+"ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS aggregate_fingerprint text",
+"ALTER TABLE research_runs ADD COLUMN IF NOT EXISTS result_artifact_id uuid REFERENCES ml_artifacts(id)",
+"CREATE INDEX IF NOT EXISTS research_runs_result_artifact_idx ON research_runs(result_artifact_id)"
 ])
 ]
 
