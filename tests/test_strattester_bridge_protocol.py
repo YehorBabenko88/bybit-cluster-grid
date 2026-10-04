@@ -1,5 +1,5 @@
 import pytest
-from grid.strattester_bridge_protocol import digest,make_manifest,validate_manifest
+from grid.strattester_bridge_protocol import digest,input_digest,make_manifest,validate_manifest
 
 
 def test_handoff_is_deterministic_and_tamper_evident():
@@ -26,3 +26,9 @@ def test_handoff_rejects_wrong_dataset_or_version():
 
 def test_protocol_hash_test_vector():
     assert digest({"a":1,"b":[2,"x"],"nested":{"z":True}})=="74c101bd59c7cf137e69768c60e479eda10d578af171fa8f5192ba68858a8d96"
+
+
+def test_logical_input_hash_ignores_worker_local_paths():
+    a={"symbol":"BTCUSDT","dataset_sha256":"abc","local_market_db":"C:/worker-a/market.db","local_results_db":"C:/worker-a/results.db"}
+    b={"symbol":"BTCUSDT","dataset_sha256":"abc","local_market_db":"D:/worker-b/market.db","local_results_db":"D:/worker-b/results.db"}
+    assert input_digest(a)==input_digest(b)
