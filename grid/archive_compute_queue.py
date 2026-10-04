@@ -80,17 +80,3 @@ async def recover_archive_compute_jobs(pool):
       lease_owner=NULL,lease_until=NULL,last_error=COALESCE(last_error,'expired compute lease'),
       updated_at=now() WHERE status='running' AND lease_until<now()""")
 
-
-async def cleanup_stale_archive_partials(root,ttl_seconds):
-    import time
-    from pathlib import Path
-    root=Path(root)
-    if not root.exists():return 0
-    cutoff=time.time()-float(ttl_seconds);deleted=0
-    for p in root.rglob("*.part"):
-        try:
-            if p.stat().st_mtime<cutoff:
-                p.unlink();deleted+=1
-        except FileNotFoundError:
-            pass
-    return deleted
