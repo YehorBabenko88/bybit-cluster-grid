@@ -412,6 +412,12 @@ updated_at timestamptz NOT NULL DEFAULT now())""",
 (45,"dataset_snapshot_artifact",[
 "ALTER TABLE dataset_snapshots ADD COLUMN IF NOT EXISTS artifact_id uuid REFERENCES ml_artifacts(id)",
 "CREATE INDEX IF NOT EXISTS dataset_snapshots_artifact_idx ON dataset_snapshots(artifact_id)"
+]),
+(46,"archive_compute_artifact_materialization",[
+"ALTER TABLE archive_compute_jobs ADD COLUMN IF NOT EXISTS derived_artifact_id uuid REFERENCES ml_artifacts(id)",
+"ALTER TABLE archive_compute_jobs ADD COLUMN IF NOT EXISTS materialized_at timestamptz",
+"ALTER TABLE archive_compute_jobs ADD COLUMN IF NOT EXISTS materialize_error text",
+"CREATE INDEX IF NOT EXISTS archive_compute_materialize_idx ON archive_compute_jobs(status,materialized_at,updated_at)"
 ])
 ]
 
