@@ -79,8 +79,24 @@ async def accept_archive_compute_result(pool,job_id,node_id,generation,manifest)
                 if manifest.get(key)!=value:raise ValueError(f"archive manifest {key} mismatch")
             if job["expected_sha256"] and manifest.get("source_sha256")!=job["expected_sha256"]:
                 raise ValueError("archive source sha256 mismatch")
+            if job["expected_bytes"] is not None and int(manifest.get("source_bytes",-1))!=int(job["expected_bytes"]):
+                raise ValueError("archive source byte size mismatch")
             if int(manifest.get("source_rows",0))<0 or int(manifest.get("derived_candles",0))<0:
                 raise ValueError("invalid archive result counts")
+            artifact_id=manifest.get("derived_artifact_id")
+            artifact_sha=str(manifest.get("derived_artifact_sha256") or "").lower()
+            if not artifact_id or len(artifact_sha)!=64:
+                raise ValueError("archive derived artifact is required")
+            if not job["derived_artifact_id"] or str(job["derived_artifact_id"])!=str(artifact_id):
+                raise ValueError("archive derived artifact id mismatch")
+            artifact=await c.fetchrow("""SELECT storage_uri,status,bytes FROM ml_artifacts WHERE id=$1""",
+                uuid.UUID(str(artifact_id)))
+            if not artifact or artifact["status"]!="ACTIVE":
+                raise ValueError("archive derived artifact is not active")
+            if str(artifact["storage_uri"])!="content://sha256/"+artifact_sha:
+                raise ValueError("archive derived artifact sha256 mismatch")
+            if int(manifest.get("derived_artifact_bytes",-1))!=int(artifact["bytes"] or 0):
+                raise ValueError("archive derived artifact byte size mismatch")
             result_hash=digest(manifest)
             await c.execute("""UPDATE archive_compute_jobs SET status='done',lease_until=NULL,
               result_manifest=$4::jsonb,result_hash=$5,last_error=NULL,updated_at=now()
