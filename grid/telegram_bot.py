@@ -66,7 +66,10 @@ async def tg_send(session,chat_id,text,reply_markup=None):
     url=f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
     body={"chat_id":chat_id,"text":text[:4000]}
     if reply_markup: body["reply_markup"]=reply_markup
-    await session.post(url,json=body)
+    async with session.post(url,json=body,timeout=15) as r:
+        payload=await r.json(content_type=None)
+        if r.status!=200 or not bool(payload.get("ok")):
+            raise RuntimeError(f"Telegram send failed status={r.status}: {str(payload)[:500]}")
 
 def _node_line(nid,n,now):
     age=max(0,int(now-float(n.get("last_seen",0))))
@@ -483,7 +486,9 @@ async def telegram_loop(db,nodes):
             try:
                 url=f"https://api.telegram.org/bot{settings.telegram_bot_token}/getUpdates"
                 async with session.get(url,params={"timeout":30,"offset":offset},timeout=40) as r:
-                    data=await r.json()
+                    data=await r.json(content_type=None)
+                    if r.status!=200 or not bool(data.get("ok")):
+                        raise RuntimeError(f"Telegram getUpdates failed status={r.status}: {str(data)[:500]}")
                 op_result=await reconcile_fleet_operation(db.pool)
                 if op_result and op_result.get("status")=="DONE":
                     for notify_chat in [x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()]:
@@ -499,17 +504,21 @@ async def telegram_loop(db,nodes):
                     txt=msg.get("text","")
                     if cb:
                         mapping={"fleet:begin":"/begin","fleet:stop":"/fleetstop","fleet:resume":"/fleetresume","fleet:delete":"/fleetdelete","fleet:nodes":"/nodes","fleet:system":"/system","fleet:menu":"/menu","fleet:research":"/research","fleet:archive":"/archive","fleet:storage":"/db","fleet:errors":"/errors"}
-                        data=cb.get("data") or ""
-                        txt=mapping.get(data,"")
-                        if data.startswith("node:"):
-                            p=data.split(":",2)
+                        callback_data=cb.get("data") or ""
+                        txt=mapping.get(callback_data,"")
+                        if callback_data.startswith("node:"):
+                            p=callback_data.split(":",2)
                             if len(p)==3:
                                 action,nid=p[1],p[2]
                                 cmdmap={"show":"/node","pause":"/pause","resume":"/resume","stop":"/stop","start":"/start","restart":"/restart","logs":"/logs","uninstall":"/uninstall"}
                                 if action in cmdmap: txt=cmdmap[action]+" "+nid
                         try:
-                            await session.post(f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery",json={"callback_query_id":cb.get("id")})
-                        except Exception: pass
+                            async with session.post(
+                                f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery",
+                                json={"callback_query_id":cb.get("id")},timeout=10) as ar:
+                                await ar.read()
+                        except Exception:
+                            pass
                     if not chat or not txt.startswith("/"):
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     if not allowed(chat):
