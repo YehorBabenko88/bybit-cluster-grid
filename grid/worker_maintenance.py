@@ -21,11 +21,12 @@ def cleanup_stale_workspaces(root,ttl_seconds):
     return {"deleted":deleted}
 
 
-def maintenance_once():
+def maintenance_once(protected_cache_digests=()):
     cache=ContentAddressedCache(settings.content_cache_root)
     cache_result=cache.gc(
         int(settings.content_cache_max_gb*1024**3),
-        int(settings.content_cache_ttl_days*86400))
+        int(settings.content_cache_ttl_days*86400),
+        protected=protected_cache_digests)
     workspace_root=Path(os.getenv("TEMP") or os.getenv("TMP") or ".")
     workspace_result=cleanup_stale_workspaces(workspace_root,int(settings.workspace_ttl_hours*3600))
     # Partial files can survive abrupt process/OS termination outside TemporaryDirectory cleanup.
