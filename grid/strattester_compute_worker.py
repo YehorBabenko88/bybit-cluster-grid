@@ -33,6 +33,7 @@ async def _prepare_dataset_input(session,payload,root):
     if len(digest)!=64 or any(ch not in "0123456789abcdef" for ch in digest):
         raise ValueError("strategy_backtest requires dataset_sha256 when local_market_db is absent")
     cache=ContentAddressedCache(settings.content_cache_root)
+    max_bytes=int(settings.compute_artifact_upload_max_gb*1024**3)
     if not cache.has(digest):
         # A corrupt object at the expected digest is service-owned and safe to evict;
         # the replacement is still accepted only after SHA-256 verification.
@@ -47,9 +48,16 @@ async def _prepare_dataset_input(session,payload,root):
             async with session.get(uri,headers=headers,timeout=aiohttp.ClientTimeout(total=None,sock_read=60)) as r:
                 if r.status!=200:
                     raise RuntimeError(f"dataset artifact download failed status={r.status}")
+                declared=r.headers.get("Content-Length")
+                if declared and int(declared)>max_bytes:
+                    raise RuntimeError("dataset artifact exceeds worker download limit")
+                size=0
                 with open(tmp,"wb") as out:
                     async for chunk in r.content.iter_chunked(1024*1024):
                         if not chunk:continue
+                        size+=len(chunk)
+                        if size>max_bytes:
+                            raise RuntimeError("dataset artifact exceeds worker download limit")
                         h.update(chunk);out.write(chunk)
                     out.flush();os.fsync(out.fileno())
             if h.hexdigest()!=digest:
