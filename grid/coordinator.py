@@ -118,6 +118,20 @@ async def _require_compute_runtime():
         raise HTTPException(423,f"compute locked: SYSTEM state is {state['state']}")
     return state
 
+def _node_compute_block_reason(node_id):
+    info=nodes.get(str(node_id)) or {}
+    if bool(info.get("operator_stopped")):
+        return "node is operator-stopped"
+    if bool(info.get("bootstrap_paused")):
+        return "node is paused"
+    return None
+
+async def _require_node_compute_enabled(node_id):
+    reason=_node_compute_block_reason(node_id)
+    if reason: raise HTTPException(423,reason)
+    if not await node_may_compute(db.pool,node_id):
+        raise HTTPException(409,"node lifecycle blocks compute")
+
 @app.get("/compute/artifacts/{sha256}")
 async def fetch_compute_artifact(sha256:str,x_node_id:str=Header(default=""),
     x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
@@ -177,12 +191,11 @@ async def upload_archive_compute_artifact(job_id:str,sha256:str,request:Request,
 
 @app.post("/compute/archive/claim")
 async def claim_archive_compute(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
-    await _require_compute_runtime()
     node_id=str(payload.get("node_id",""))
     if not node_id: raise HTTPException(400,"node_id required")
     await node_auth(node_id,x_node_credential,x_grid_token)
-    if not await node_may_compute(db.pool,node_id):
-        raise HTTPException(409,"node lifecycle blocks compute")
+    await _require_compute_runtime()
+    await _require_node_compute_enabled(node_id)
     info=nodes.get(node_id) or {}
     if not bool((info.get("compute_capabilities") or {}).get("archive")):
         raise HTTPException(409,"node does not advertise archive capability")
@@ -195,8 +208,8 @@ async def claim_archive_compute(payload:dict,x_grid_token:str=Header(default="")
 
 @app.post("/compute/archive/{job_id}/renew")
 async def renew_archive_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
-    await _require_compute_runtime()
     node_id=str(payload.get("node_id",""));await node_auth(node_id,x_node_credential,x_grid_token)
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
     ok=await renew_archive_compute_job(db.pool,job_id,node_id,int(payload["lease_generation"]),
                                        int(payload.get("lease_seconds",300)))
     if not ok:raise HTTPException(409,"lease lost")
@@ -212,8 +225,8 @@ async def fail_archive_compute(job_id:str,payload:dict,x_grid_token:str=Header(d
 
 @app.post("/compute/archive/{job_id}/result")
 async def complete_archive_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
-    await _require_compute_runtime()
     node_id=str(payload.get("node_id",""));await node_auth(node_id,x_node_credential,x_grid_token)
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
     try:
         ok=await accept_archive_compute_result(db.pool,job_id,node_id,int(payload["lease_generation"]),
                                                dict(payload.get("manifest") or {}))
@@ -288,7 +301,6 @@ async def get_distributed_research(run_id:str,x_grid_token:str=Header(default=""
 
 @app.post("/compute/strattester/claim")
 async def claim_strattester_compute(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
-    await _require_compute_runtime()
     node_id=str(payload.get("node_id",""))
     if not node_id: raise HTTPException(400,"node_id required")
     await node_auth(node_id,x_node_credential,x_grid_token)
@@ -303,10 +315,10 @@ async def claim_strattester_compute(payload:dict,x_grid_token:str=Header(default
 
 @app.post("/compute/strattester/{job_id}/renew")
 async def renew_strattester_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
-    await _require_compute_runtime()
     node_id=str(payload.get("node_id",""))
     if not node_id: raise HTTPException(400,"node_id required")
     await node_auth(node_id,x_node_credential,x_grid_token)
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
     ok=await renew_strattester_job(db.pool,job_id,node_id,int(payload["lease_generation"]),
                                    int(payload.get("lease_seconds",120)))
     if not ok: raise HTTPException(409,"lease lost")
@@ -327,10 +339,10 @@ async def fail_strattester_compute(job_id:str,payload:dict,x_grid_token:str=Head
 
 @app.post("/compute/strattester/{job_id}/result")
 async def complete_strattester_compute(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
-    await _require_compute_runtime()
     node_id=str(payload.get("node_id",""))
     if not node_id: raise HTTPException(400,"node_id required")
     await node_auth(node_id,x_node_credential,x_grid_token)
+    await _require_compute_runtime();await _require_node_compute_enabled(node_id)
     manifest=payload.get("manifest")
     if not isinstance(manifest,dict): raise HTTPException(400,"manifest required")
     try:
