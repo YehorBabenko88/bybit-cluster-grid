@@ -66,7 +66,9 @@ async def _run_job(session,job):
         if not command: raise RuntimeError("empty strattester command")
         proc=await asyncio.create_subprocess_exec(
             *command,"--job",str(job_path),"--output",str(out_path),
-            stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.STDOUT)
+            stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.STDOUT,
+            creationflags=(0x00000200 if os.name=="nt" else 0),
+            start_new_session=(os.name!="nt"))
         lost=asyncio.Event()
         renew=asyncio.create_task(_renew_loop(session,job_id,generation,lost))
         output=[]
