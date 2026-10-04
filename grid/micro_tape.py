@@ -19,7 +19,7 @@ class MicroTapeAggregator:
             "buy_count":0,"sell_count":0,"trade_count":0,
             "first_trade_ts":None,"last_trade_ts":None,
             "first_seq":None,"last_seq":None,
-            "block_trade_volume":0.0,"rpi_volume":0.0,
+            "block_trade_volume":0.0,"rpi_volume":0.0,"trade_gap":False,
         }
 
     def add(self,trade):
@@ -49,6 +49,7 @@ class MicroTapeAggregator:
         else:
             cur["sell_volume"]+=qty; cur["sell_count"]+=1
             if is_large: cur["large_sell_volume"]+=qty
+        if getattr(trade,"continuity_gap",False): cur["trade_gap"]=True
         if getattr(trade,"block_trade",False): cur["block_trade_volume"]+=qty
         if getattr(trade,"rpi",False): cur["rpi_volume"]+=qty
 
