@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     micro_max_symbols_per_node: int = 8
     micro_large_trade_mult: float = 5.0
     micro_large_trade_ema_alpha: float = 0.05
+    micro_ml_lifecycle_enabled: bool = True
+    micro_ml_lifecycle_seconds: int = 60
+    micro_ml_horizons_seconds: str = "60,300,900"
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
     retention_enabled: bool = True
