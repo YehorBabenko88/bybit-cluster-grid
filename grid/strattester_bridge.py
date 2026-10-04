@@ -3,6 +3,17 @@ import json,uuid
 from .strattester_bridge_protocol import digest,input_digest,validate_manifest
 
 
+def validate_distributed_input(job_type,spec):
+    spec=dict(spec or {})
+    if str(job_type)=="strategy_backtest":
+        if spec.get("local_market_db") or spec.get("local_results_db"):
+            raise ValueError("distributed strategy_backtest cannot contain worker-local database paths")
+        sha=str(spec.get("dataset_sha256") or "").lower()
+        if len(sha)!=64 or any(ch not in "0123456789abcdef" for ch in sha):
+            raise ValueError("distributed strategy_backtest requires dataset_sha256")
+    return spec
+
+
 def validate_shard_dag(shards):
     if not shards: raise ValueError("research run requires at least one shard")
     by_key={}
@@ -42,7 +53,7 @@ async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,stratte
             by_key=validate_shard_dag(shards)
             shard_ids={key:uuid.uuid4() for key in by_key}
             for key,shard in by_key.items():
-                spec=dict(shard.get("input_spec") or {})
+                spec=validate_distributed_input(shard["job_type"],shard.get("input_spec") or {})
                 await c.execute("""INSERT INTO research_shards
                   (id,run_id,job_type,shard_key,input_spec,input_hash)
                   VALUES($1,$2,$3,$4,$5::jsonb,$6)""",
