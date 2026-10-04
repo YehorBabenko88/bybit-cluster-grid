@@ -207,6 +207,8 @@ class Worker:
         delays=backoff_delays()
         continuity=TradeContinuity(gap_ms=max(5000,settings.cluster_interval_seconds*1000//2))
         connected_once=False
+        raw_trade_messages=[]
+        last_raw_trade_flush=0
         while True:
             try:
                 await wait_for_internet()
@@ -226,10 +228,19 @@ class Worker:
                         batch=msg.get("data",[])
                         system_ts=int(msg.get("ts") or receive_ts)
                         if symbol in self.micro_wanted and settings.micro_raw_capture_enabled and batch:
-                            await self.micro_storage.insert_event(symbol,system_ts,"public_trade_raw_batch",{
-                                "symbol":symbol,"system_ts":system_ts,"receive_ts":receive_ts,
-                                "event_count":len(batch),"trades":batch,
+                            raw_trade_messages.append({
+                                "system_ts":system_ts,"receive_ts":receive_ts,"trades":batch,
                             })
+                            if receive_ts-last_raw_trade_flush>=settings.micro_raw_orderbook_batch_ms:
+                                messages=list(raw_trade_messages); raw_trade_messages.clear()
+                                await self.micro_storage.insert_event(symbol,system_ts,"public_trade_raw_batch",{
+                                    "symbol":symbol,"messages":messages,
+                                    "message_count":len(messages),
+                                    "event_count":sum(len(x["trades"]) for x in messages),
+                                    "first_receive_ts":messages[0]["receive_ts"],
+                                    "last_receive_ts":messages[-1]["receive_ts"],
+                                })
+                                last_raw_trade_flush=receive_ts
                         self.pressure.observe_symbol(symbol,events=len(batch))
                         for x in batch:
                             trade_ts=int(x["T"])
