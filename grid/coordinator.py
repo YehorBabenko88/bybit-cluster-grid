@@ -103,7 +103,7 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
 @app.post("/research/runs")
 async def create_distributed_research(payload:dict,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
-    required=("kind","dataset_hash","config","strattester_version","shards")
+    required=("kind","dataset_id","dataset_hash","config","strattester_version","shards")
     missing=[k for k in required if k not in payload]
     if missing: raise HTTPException(400,"missing: "+",".join(missing))
     try:
