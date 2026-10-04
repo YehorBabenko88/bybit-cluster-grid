@@ -38,7 +38,7 @@ def validate_shard_dag(shards):
     return by_key
 
 
-async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,strattester_version,shards):
+async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,strattester_version,shards,dataset_artifact_id=None):
     run_id=uuid.uuid4(); config_hash=digest(config or {})
     async with pool.acquire() as c:
         async with c.transaction():
@@ -47,15 +47,33 @@ async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,stratte
             ds=await c.fetchrow("SELECT status,dataset_hash FROM dataset_snapshots WHERE id=$1",dataset_id)
             if not ds or ds["status"]!="READY": raise ValueError("research requires READY dataset")
             if str(ds["dataset_hash"])!=str(dataset_hash): raise ValueError("research dataset hash mismatch")
+            dataset_artifact_sha=None
+            dataset_artifact_uuid=None
+            if dataset_artifact_id is not None:
+                dataset_artifact_uuid=uuid.UUID(str(dataset_artifact_id))
+                art=await c.fetchrow("""SELECT storage_uri,status FROM ml_artifacts WHERE id=$1""",
+                    dataset_artifact_uuid)
+                if not art or art["status"]!="ACTIVE":
+                    raise ValueError("distributed dataset artifact is not active")
+                uri=str(art["storage_uri"] or "")
+                prefix="content://sha256/"
+                if not uri.startswith(prefix):
+                    raise ValueError("distributed dataset artifact is not content-addressed")
+                dataset_artifact_sha=uri[len(prefix):]
             await c.execute("""INSERT INTO research_runs
-              (id,kind,dataset_id,dataset_hash,config,config_hash,strattester_version,status)
-              VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,'BUILDING')""",
-              run_id,kind,dataset_id,dataset_hash,json.dumps(config or {}),config_hash,strattester_version)
+              (id,kind,dataset_id,dataset_hash,config,config_hash,strattester_version,status,dataset_artifact_id)
+              VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,'BUILDING',$8)""",
+              run_id,kind,dataset_id,dataset_hash,json.dumps(config or {}),config_hash,strattester_version,dataset_artifact_uuid)
             by_key=validate_shard_dag(shards)
             shard_ids={key:uuid.uuid4() for key in by_key}
             for key,shard in by_key.items():
                 spec=dict(shard.get("input_spec") or {})
-                if str(shard["job_type"])=="strategy_backtest" and spec.get("dataset_artifact_id") and not spec.get("dataset_sha256"):
+                if str(shard["job_type"])=="strategy_backtest" and dataset_artifact_sha:
+                    if spec.get("dataset_sha256") and str(spec["dataset_sha256"]).lower()!=dataset_artifact_sha.lower():
+                        raise ValueError("shard dataset_sha256 conflicts with research dataset artifact")
+                    spec["dataset_artifact_id"]=str(dataset_artifact_uuid)
+                    spec["dataset_sha256"]=dataset_artifact_sha
+                elif str(shard["job_type"])=="strategy_backtest" and spec.get("dataset_artifact_id") and not spec.get("dataset_sha256"):
                     art=await c.fetchrow("""SELECT storage_uri,status FROM ml_artifacts WHERE id=$1""",
                         uuid.UUID(str(spec["dataset_artifact_id"])))
                     if not art or art["status"]!="ACTIVE":
