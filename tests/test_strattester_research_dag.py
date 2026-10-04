@@ -23,3 +23,8 @@ def test_research_dag_rejects_cycle():
     ]
     with pytest.raises(ValueError,match="cycle"):
         validate_shard_dag(shards)
+
+
+def test_research_dag_rejects_empty_run():
+    with pytest.raises(ValueError,match="at least one shard"):
+        validate_shard_dag([])
