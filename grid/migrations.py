@@ -349,6 +349,21 @@ quality_status text NOT NULL DEFAULT 'GOOD',created_at timestamptz NOT NULL DEFA
 UNIQUE(symbol,feature_ts,horizon_seconds))""",
 "CREATE INDEX IF NOT EXISTS microstructure_ml_ready_idx ON microstructure_ml_samples(target_ready,quality_status,feature_ts)",
 "CREATE INDEX IF NOT EXISTS microstructure_ml_pending_idx ON microstructure_ml_samples(symbol,target_ready,label_end_ts)"
+]),
+(37,"distributed_research_bridge",[
+"""CREATE TABLE IF NOT EXISTS research_runs(
+id uuid PRIMARY KEY,kind text NOT NULL,dataset_id uuid REFERENCES dataset_snapshots(id),
+dataset_hash text NOT NULL,config jsonb NOT NULL DEFAULT '{}'::jsonb,config_hash text NOT NULL,
+strattester_version text NOT NULL,status text NOT NULL DEFAULT 'BUILDING',
+created_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,finished_at timestamptz,
+last_error text)""",
+"""CREATE TABLE IF NOT EXISTS research_shards(
+id uuid PRIMARY KEY,run_id uuid NOT NULL REFERENCES research_runs(id) ON DELETE CASCADE,
+job_type text NOT NULL,shard_key text NOT NULL,input_spec jsonb NOT NULL,
+input_hash text NOT NULL,status text NOT NULL DEFAULT 'queued',result_manifest jsonb,
+result_hash text,created_at timestamptz NOT NULL DEFAULT now(),finished_at timestamptz,
+UNIQUE(run_id,shard_key))""",
+"CREATE INDEX IF NOT EXISTS research_shards_status_idx ON research_shards(run_id,status,job_type,shard_key)"
 ])
 ]
 
