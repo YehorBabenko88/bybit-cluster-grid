@@ -55,6 +55,19 @@ class ContentAddressedCache:
             except FileNotFoundError:pass
         return {"path":str(dest),"sha256":digest,"bytes":dest.stat().st_size,"created":True}
 
+    def discard(self,digest):
+        """Remove one service-owned cache object so a verified source can repair it."""
+        p=self.path_for(digest)
+        try:
+            p.unlink()
+        except FileNotFoundError:
+            return False
+        try:
+            if not any(p.parent.iterdir()):p.parent.rmdir()
+        except (FileNotFoundError,OSError):
+            pass
+        return True
+
     def materialize(self,digest,destination):
         source=self.path_for(digest)
         if not source.is_file() or sha256_file(source)!=str(digest).lower():
