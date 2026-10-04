@@ -1,5 +1,6 @@
 import asyncio,logging,socket,uuid
 from .ml_concurrency import acquire_service_lease
+from .ml_retry import recover_expired_ml_jobs
 from .ml_adaptive_load import AdaptiveConcurrency
 log=logging.getLogger("ml_orchestrator")
 
@@ -16,13 +17,9 @@ class MLOrchestratorService:
 
     async def recover(self):
         self.state=RECOVERING
-        # Expired jobs become claimable by workers; live leases are never stolen.
-        await self.pool.execute("""UPDATE ml_jobs SET status='queued',lease_owner=NULL,lease_until=NULL,
-          error=COALESCE(error,'recovered after expired lease')
-          WHERE status IN ('running','assigned') AND lease_until<now() AND attempts<max_attempts""")
-        await self.pool.execute("""UPDATE ml_jobs SET status='failed',finished_at=now(),
-          error=COALESCE(error,'max attempts exhausted after expired lease')
-          WHERE status IN ('running','assigned') AND lease_until<now() AND attempts>=max_attempts""")
+        # Use the same fenced recovery path as periodic reconciliation so
+        # restart recovery cannot diverge from normal lease expiry semantics.
+        await recover_expired_ml_jobs(self.pool)
         await self.pool.execute("DELETE FROM ml_resource_reservations WHERE expires_at<now()")
         self.state=OBSERVING
 
