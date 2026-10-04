@@ -11,7 +11,10 @@ class Conn:
     @asynccontextmanager
     async def transaction(self):yield self
     async def fetchrow(self,sql,*args):
-        if "FROM archive_compute_jobs" in sql:return self.job
+        if "FROM archive_compute_jobs" in sql:
+            if len(args)>=3 and (str(args[1])!=str(self.job["lease_owner"]) or int(args[2])!=int(self.job["lease_generation"])):
+                return None
+            return self.job
         if "FROM ml_artifacts" in sql:return self.artifact
         return None
     async def fetchval(self,sql,*args):return True
