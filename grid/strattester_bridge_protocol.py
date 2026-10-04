@@ -15,7 +15,7 @@ def digest(value):
     return hashlib.sha256(raw).hexdigest()
 
 
-def make_manifest(*,run_id,job_id,job_type,dataset_hash,code_version,config,input_spec,result,status="COMPLETE",metrics=None,artifacts=None,result=None):
+def make_manifest(*,run_id,job_id,job_type,dataset_hash,code_version,config,input_spec,result=None,status="COMPLETE",metrics=None,artifacts=None):
     result_payload={"result":result or {},"metrics":metrics or {},"artifacts":artifacts or []}
     return {
         "protocol_version":PROTOCOL_VERSION,
