@@ -25,6 +25,7 @@ from .local_control_journal import LocalControlJournal
 from .control_snapshot_ring import ControlSnapshotRing,replica_meta
 from .integrity_guard import verify_manifest
 from .strattester_compute_worker import strattester_compute_loop
+from .archive_compute_worker import archive_compute_loop
 
 log=logging.getLogger("worker")
 
@@ -300,6 +301,8 @@ class Worker:
         asyncio.create_task(health_monitor())
         if settings.strattester_enabled:
             asyncio.create_task(strattester_compute_loop())
+        if settings.archive_compute_enabled:
+            asyncio.create_task(archive_compute_loop())
         # Retention, strategy orchestration and Telegram are CONTROL-owned.
 
         await self.heartbeat()
