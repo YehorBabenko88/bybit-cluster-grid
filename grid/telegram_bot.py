@@ -19,6 +19,7 @@ from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_dele
 from .start_readiness import start_readiness
 from .enrollment import create_enrollment_token
 from .server_pilot import begin_server_pilot_validation
+from .strattester_bridge import cancel_research_run
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -252,6 +253,13 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines=[f"Research: active={int(jobs['active'] or 0)} failed={int(jobs['failed'] or 0)}"]
         lines += [f"{str(r['id'])[:8]} {r['kind']}: {r['status']} fp={(r['aggregate_fingerprint'] or '-')[:12]}" for r in runs]
         await tg_send(session,chat_id,"\n".join(lines))
+    elif cmd=="/researchcancel":
+        if len(parts)!=2:
+            await tg_send(session,chat_id,"Usage: /researchcancel RUN_ID_OR_PREFIX"); return
+        code=secrets.token_hex(3).upper()
+        _pending_confirms[(str(chat_id),code)]=("research_cancel",parts[1],time.time()+120)
+        await tg_send(session,chat_id,
+          f"Confirm cancellation of research {parts[1]} within 120s: /confirm {code}")
     elif cmd=="/archive":
         s=await db.pool.fetchrow("""SELECT
           count(*) FILTER (WHERE status='queued') queued,
@@ -395,6 +403,15 @@ async def handle_command(db,session,chat_id,text,nodes):
                 f"progress={float(state['progress']):.1f}%, paused={state['paused']}. "
                 "Global runtime remains STOPPED; use the separate fleet lifecycle only when ready."
             )
+        elif action=="research_cancel":
+            try:
+                result=await cancel_research_run(db.pool,node_id,f"telegram:{chat_id} cancelled research")
+            except ValueError as e:
+                await tg_send(session,chat_id,f"Research cancellation rejected: {e}")
+                return
+            await tg_send(session,chat_id,
+                f"Research {result['run_id']}: {result['status']} "
+                f"({'changed' if result['changed'] else 'already terminal'}).")
         elif action=="fleet_begin":
             current=await runtime_state(db.pool)
             if current["state"]!="INFRA_ONLY":
@@ -427,7 +444,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db /research [RUN] /archive /compute /lifecycle")
+        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db /research [RUN] /researchcancel RUN /archive /compute /lifecycle")
 
 async def _maybe_finalize_fleet_delete(db,session):
     op=await latest_operation(db.pool,"DELETE")
