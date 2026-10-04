@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json,uuid
-from .strattester_bridge_protocol import digest,input_digest,validate_manifest
+from .strattester_bridge_protocol import canonical_json,digest,input_digest,validate_manifest,aggregate_fingerprint
+from .compute_artifacts import publish_compute_bytes
 
 
 def validate_distributed_input(job_type,spec):
@@ -249,8 +250,57 @@ async def reconcile_research_failures(pool):
     return len(touched)
 
 
+async def finalize_research_run(pool,run_id):
+    run=await pool.fetchrow("""SELECT * FROM research_runs
+      WHERE id=$1 AND status='COMPLETE'""",run_id)
+    if not run:return None
+    if run.get("aggregate_fingerprint") and run.get("result_artifact_id"):
+        return {"aggregate_fingerprint":run["aggregate_fingerprint"],
+                "result_artifact_id":str(run["result_artifact_id"])}
+    rows=await pool.fetch("""SELECT id,job_type,shard_key,result_manifest,result_hash
+      FROM research_shards WHERE run_id=$1 ORDER BY shard_key,id""",run_id)
+    if not rows or any(not r["result_manifest"] or not r["result_hash"] for r in rows):
+        return None
+    manifests=[dict(r["result_manifest"]) for r in rows]
+    aggregate=aggregate_fingerprint(manifests)
+    summary={
+        "protocol_version":1,
+        "run_id":str(run["id"]),
+        "kind":str(run["kind"]),
+        "dataset_id":str(run["dataset_id"]),
+        "dataset_hash":str(run["dataset_hash"]),
+        "config_hash":str(run["config_hash"]),
+        "strattester_version":str(run["strattester_version"]),
+        "aggregate_fingerprint":aggregate,
+        "shards":[{
+            "id":str(r["id"]),"shard_key":str(r["shard_key"]),
+            "job_type":str(r["job_type"]),"result_hash":str(r["result_hash"])
+        } for r in rows],
+    }
+    artifact=await publish_compute_bytes(pool,canonical_json(summary).encode("utf-8"),
+        artifact_type="research_result",
+        metadata={"run_id":str(run["id"]),"aggregate_fingerprint":aggregate},
+        reusable=True)
+    await pool.execute("""UPDATE research_runs SET aggregate_fingerprint=$2,result_artifact_id=$3
+      WHERE id=$1 AND status='COMPLETE' AND result_artifact_id IS NULL""",
+      run["id"],aggregate,uuid.UUID(str(artifact["id"])))
+    return {"aggregate_fingerprint":aggregate,"result_artifact_id":str(artifact["id"]),
+            "artifact_sha256":artifact["sha256"]}
+
+
+async def finalize_completed_research_runs(pool,limit=50):
+    rows=await pool.fetch("""SELECT id FROM research_runs
+      WHERE status='COMPLETE' AND result_artifact_id IS NULL
+      ORDER BY finished_at NULLS LAST,created_at LIMIT $1""",int(limit))
+    finalized=0
+    for row in rows:
+        if await finalize_research_run(pool,row["id"]):finalized+=1
+    return finalized
+
+
 async def reconcile_research_runs(pool):
     await reconcile_research_failures(pool)
+    await finalize_completed_research_runs(pool)
     rows=await pool.fetch("""SELECT id FROM research_runs
       WHERE status IN ('QUEUED','RUNNING') ORDER BY created_at""")
     created=0
