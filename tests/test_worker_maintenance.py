@@ -33,3 +33,17 @@ def test_cache_gc_does_not_delete_protected_digest(tmp_path):
     result=cache.gc(0,1,protected=[item["sha256"]])
     assert Path(item["path"]).exists()
     assert result["deleted"]==0
+
+
+def test_repeated_cache_cycles_remain_bounded(tmp_path):
+    cache=ContentAddressedCache(tmp_path/"cache")
+    for cycle in range(20):
+        source=tmp_path/f"cycle-{cycle}.bin"
+        source.write_bytes(bytes([cycle])*128)
+        item=cache.put(source)
+        old=time.time()-1000;os.utime(item["path"],(old,old))
+        result=cache.gc(512,10)
+        assert result["bytes_remaining"]<=512
+    objects=[p for p in (tmp_path/"cache"/"objects").rglob("*") if p.is_file()]
+    assert sum(p.stat().st_size for p in objects)<=512
+    assert len(objects)<=4
