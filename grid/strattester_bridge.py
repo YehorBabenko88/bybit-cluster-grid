@@ -53,7 +53,18 @@ async def create_research_run(pool,*,kind,dataset_id,dataset_hash,config,stratte
             by_key=validate_shard_dag(shards)
             shard_ids={key:uuid.uuid4() for key in by_key}
             for key,shard in by_key.items():
-                spec=validate_distributed_input(shard["job_type"],shard.get("input_spec") or {})
+                spec=dict(shard.get("input_spec") or {})
+                if str(shard["job_type"])=="strategy_backtest" and spec.get("dataset_artifact_id") and not spec.get("dataset_sha256"):
+                    art=await c.fetchrow("""SELECT storage_uri,status FROM ml_artifacts WHERE id=$1""",
+                        uuid.UUID(str(spec["dataset_artifact_id"])))
+                    if not art or art["status"]!="ACTIVE":
+                        raise ValueError("distributed dataset artifact is not active")
+                    uri=str(art["storage_uri"] or "")
+                    prefix="content://sha256/"
+                    if not uri.startswith(prefix):
+                        raise ValueError("distributed dataset artifact is not content-addressed")
+                    spec["dataset_sha256"]=uri[len(prefix):]
+                spec=validate_distributed_input(shard["job_type"],spec)
                 await c.execute("""INSERT INTO research_shards
                   (id,run_id,job_type,shard_key,input_spec,input_hash)
                   VALUES($1,$2,$3,$4,$5::jsonb,$6)""",
