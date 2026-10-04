@@ -115,6 +115,7 @@ if(!(Test-Path $EnvFile)){
       ("ROLE="+$DesiredRole),
       "GRID_DATA_PATH=$DataRoot",
       "STRATEGY_CACHE_DIR=$DataRoot\\runtime_strategies",
+      ("ARCHIVE_COMPUTE_ENABLED="+$(if($AgentMode -eq "NORMAL"){"true"}else{"false"})),
       ("COORDINATOR_URL="+$(if($CoordinatorUrl){$CoordinatorUrl}else{"http://127.0.0.1:8765"}))
     ) | Set-Content -Encoding UTF8 $EnvFile
 }else{
@@ -197,6 +198,27 @@ try {
     if($LASTEXITCODE -ne 0){throw "Grid preflight failed"}
     & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
     if($LASTEXITCODE -ne 0){throw "Grid service installation failed"}
+
+    # Do not mark first install/repair successful merely because Task Scheduler
+    # accepted the task. Verify that the role actually starts.
+    if($AgentMode -eq "CONTROL"){
+        $healthy=$false
+        for($i=0;$i -lt 30;$i++){
+            try {
+                $h=Invoke-RestMethod -UseBasicParsing -Uri "http://127.0.0.1:8765/healthz" -TimeoutSec 2
+                if($h.ok -eq $true){$healthy=$true;break}
+            } catch {}
+            Start-Sleep -Seconds 2
+        }
+        if(!$healthy){throw "CONTROL did not become healthy within 60 seconds"}
+    } else {
+        Start-Sleep -Seconds 2
+        $task=Get-ScheduledTask -TaskName "BybitClusterGridAgent" -ErrorAction SilentlyContinue
+        if(!$task -or $task.State -notin @("Running","Ready")){
+            throw "Grid agent scheduled task failed to start"
+        }
+    }
+
     $FirewallScript=Join-Path $PSScriptRoot "configure-control-firewall.ps1"
     if(Test-Path $FirewallScript){
         if($AgentMode -eq "CONTROL"){ & $FirewallScript }
