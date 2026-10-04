@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     worker_job_timeout_minutes: int = 180
     research_dataset_export_max_rows: int = 500000
     compute_artifact_upload_max_gb: float = 2.0
+    worker_process_memory_backoff_ratio: float = 0.9
     content_cache_max_gb: float = 20.0
     content_cache_ttl_days: int = 14
     workspace_ttl_hours: int = 24
