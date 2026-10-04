@@ -1,5 +1,5 @@
 from datetime import datetime,timezone
-from grid.archive_derived_artifact import write_derived_artifact,iter_derived_artifact
+from grid.archive_derived_artifact import write_derived_artifact,iter_derived_artifact,inspect_derived_artifact
 
 
 def _rows():
@@ -31,3 +31,12 @@ def test_derived_archive_artifact_is_deterministic_and_roundtrips(tmp_path):
     assert len(rows)==2
     assert rows[0]["ts"]==datetime(2026,1,1,tzinfo=timezone.utc)
     assert rows[0]["levels"][100.0]["buy"]==2.0
+
+
+def test_inspection_matches_written_summary(tmp_path):
+    path=tmp_path/"derived.gz";meta={"symbol":"BTCUSDT","archive_date":"2026-01-01","tick_size":0.5}
+    written=write_derived_artifact(path,_rows(),meta)
+    inspected=inspect_derived_artifact(path,meta)
+    assert inspected["source_rows"]==written["source_rows"]
+    assert inspected["derived_candles"]==written["derived_candles"]
+    assert inspected["derived_footprint_rows"]==written["derived_footprint_rows"]
