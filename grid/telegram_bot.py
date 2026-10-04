@@ -225,6 +225,23 @@ async def handle_command(db,session,chat_id,text,nodes):
                f"integrity={n.get('integrity_ok','?')} assignments={len(assigned) if isinstance(assigned,list) else syms}"]
         await tg_send(session,chat_id,"\n".join(lines))
     elif cmd=="/research":
+        if len(parts)>1:
+            try: run_id=parts[1]
+            except Exception: run_id=parts[1]
+            r=await db.pool.fetchrow("""SELECT id,kind,status,dataset_hash,created_at,finished_at,
+              aggregate_fingerprint,result_artifact_id,last_error FROM research_runs
+              WHERE id::text LIKE $1 ORDER BY created_at DESC LIMIT 1""",str(run_id)+"%")
+            if not r:
+                await tg_send(session,chat_id,"Unknown research run."); return
+            shards=await db.pool.fetch("""SELECT status,count(*) n FROM research_shards
+              WHERE run_id=$1 GROUP BY status ORDER BY status""",r["id"])
+            await tg_send(session,chat_id,
+              f"Research {str(r['id'])}\n{r['kind']}: {r['status']}\n"
+              f"dataset={str(r['dataset_hash'])[:16]} fp={(r['aggregate_fingerprint'] or '-')[:16]}\n"
+              f"artifact={r['result_artifact_id'] or '-'}\n"
+              +"shards: "+", ".join(f"{x['status']}={x['n']}" for x in shards)
+              +(f"\nerror={r['last_error']}" if r['last_error'] else ""))
+            return
         runs=await db.pool.fetch("""SELECT id,kind,status,created_at,finished_at,aggregate_fingerprint
           FROM research_runs ORDER BY created_at DESC LIMIT 5""")
         jobs=await db.pool.fetchrow("""SELECT count(*) FILTER (WHERE status IN ('queued','assigned','running')) active,
@@ -407,7 +424,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db /research /archive /compute /lifecycle")
+        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db /research [RUN] /archive /compute /lifecycle")
 
 async def _maybe_finalize_fleet_delete(db,session):
     op=await latest_operation(db.pool,"DELETE")
