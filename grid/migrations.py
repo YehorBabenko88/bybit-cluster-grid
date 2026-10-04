@@ -364,6 +364,14 @@ input_hash text NOT NULL,status text NOT NULL DEFAULT 'queued',result_manifest j
 result_hash text,created_at timestamptz NOT NULL DEFAULT now(),finished_at timestamptz,
 UNIQUE(run_id,shard_key))""",
 "CREATE INDEX IF NOT EXISTS research_shards_status_idx ON research_shards(run_id,status,job_type,shard_key)"
+]),
+(38,"research_shard_dependencies",[
+"""CREATE TABLE IF NOT EXISTS research_shard_dependencies(
+run_id uuid NOT NULL REFERENCES research_runs(id) ON DELETE CASCADE,
+shard_id uuid NOT NULL REFERENCES research_shards(id) ON DELETE CASCADE,
+depends_on_id uuid NOT NULL REFERENCES research_shards(id) ON DELETE CASCADE,
+PRIMARY KEY(shard_id,depends_on_id),CHECK(shard_id<>depends_on_id))""",
+"CREATE INDEX IF NOT EXISTS research_shard_deps_run_idx ON research_shard_dependencies(run_id,shard_id)"
 ])
 ]
 
