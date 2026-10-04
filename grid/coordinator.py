@@ -427,9 +427,8 @@ async def promote_release(version:str,x_grid_token:str=Header(default="")):
 async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
     global ingest_storage
     payload=await request.json()
-    if not x_node_id:
+    if not x_node_id or not x_node_credential or not await authenticate_agent(db.pool,x_node_id,x_node_credential):
         raise HTTPException(403)
-    await node_auth(x_node_id,x_node_credential,x_grid_token)
     gate=await runtime_state(db.pool)
     if gate["state"]!="ACTIVE":
         raise HTTPException(423,"market ingestion locked")
