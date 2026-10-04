@@ -37,7 +37,7 @@ async def enqueue_research_shards(pool,run_id):
     for row in rows:
         payload={"research_run_id":str(run_id),"research_shard_id":str(row["id"]),
                  "job_type":row["job_type"],"shard_key":row["shard_key"],
-                 "dataset_hash":run["dataset_hash"],"config_hash":run["config_hash"],
+                 "dataset_hash":run["dataset_hash"],"config":dict(run["config"] or {}),"config_hash":run["config_hash"],
                  "input_hash":row["input_hash"],"input_spec":dict(row["input_spec"] or {}),
                  "strattester_version":run["strattester_version"]}
         result=await pool.execute("""INSERT INTO ml_jobs(id,job_type,payload,status,dedupe_key)
