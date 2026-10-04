@@ -300,10 +300,20 @@ class Worker:
         if os.path.exists(stop_flag):
             self.operator_stopped=True; self.enabled=False
 
-        asyncio.create_task(health_monitor())
+        health_task=asyncio.create_task(health_monitor())
         # Retention, strategy orchestration and Telegram are CONTROL-owned.
-
-        await self.heartbeat()
+        try:
+            await self.heartbeat()
+        finally:
+            # Stop producers first, then give durable sinks a bounded chance to
+            # flush. Anything left stays in WAL and is replayed after restart.
+            for task in list(self.trade_tasks.values())+list(self.micro_tasks):
+                task.cancel()
+            await asyncio.gather(*list(self.trade_tasks.values()),*self.micro_tasks,return_exceptions=True)
+            health_task.cancel()
+            await asyncio.gather(health_task,return_exceptions=True)
+            await self.micro_storage.close()
+            await self.storage.close()
 
 async def main():
     await Worker().run()
