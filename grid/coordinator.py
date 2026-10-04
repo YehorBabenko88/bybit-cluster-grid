@@ -87,7 +87,7 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     )
     # High-rate microstructure capture remains pilot-only until the volatility
     # selector is implemented; this prevents accidental fleet-wide 250 ms capture.
-    micro_symbols=symbols if install_mode=="PILOT" else []
+    micro_symbols=sorted(symbols)[:max(0,int(settings.micro_max_symbols_per_node))] if install_mode=="PILOT" else []
     return {"symbols":symbols,"micro_symbols":micro_symbols,"commands":commands,"control_replica":replica,
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
             "install_mode":install_mode,
