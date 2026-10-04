@@ -26,11 +26,11 @@ def test_distributed_aggregate_fingerprint_is_order_independent():
 
 def test_one_changed_shard_changes_run_fingerprint():
     manifests=[_shard(i) for i in range(3)]
-    baseline=digest(sorted((m["job_id"],m["result_hash"]) for m in manifests))
+    baseline=aggregate_fingerprint(manifests)
     changed=dict(manifests[1]);changed["result"]=dict(changed["result"]);changed["result"]["bars"]=99
     changed["result_hash"]=digest({"result":changed["result"],"metrics":changed["metrics"],"artifacts":[]})
     manifests[1]=changed
-    after=digest(sorted((m["job_id"],m["result_hash"]) for m in manifests))
+    after=aggregate_fingerprint(manifests)
     assert baseline!=after
 
 
