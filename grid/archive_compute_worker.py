@@ -1,9 +1,10 @@
 from __future__ import annotations
-import asyncio,hashlib,json,os,tempfile
+import asyncio,os,tempfile
 from pathlib import Path
 import aiohttp
-from .archive_download import download_verified,safe_delete_owned
+from .archive_download import download_verified
 from .archive_stream_parser import iter_minute_aggregates
+from .archive_derived_artifact import write_derived_artifact
 from .config import settings
 from .content_cache import ContentAddressedCache
 from .credential_store import node_credential
@@ -11,7 +12,7 @@ from .resources import NODE_ID,snapshot
 
 
 def _headers():
-    return {"X-Grid-Token":settings.grid_shared_token,"X-Node-Credential":node_credential()}
+    return {"X-Grid-Token":settings.grid_shared_token,"X-Node-Credential":node_credential(),"X-Node-ID":NODE_ID}
 
 
 async def _renew_loop(session,job,lost,period=90):
@@ -33,16 +34,24 @@ async def _execute(job):
     with tempfile.TemporaryDirectory(prefix="grid-archive-compute-") as td:
         dl=await download_verified(job["source_uri"],td,job.get("expected_sha256"),job.get("expected_bytes"))
         cached=cache.put(dl["path"],dl["sha256"])
-        source_rows=candles=levels=0;min_ts=max_ts=None
-        for row in iter_minute_aggregates(cached["path"],job["symbol"],float(job["tick_size"])):
-            candles+=1;levels+=len(row["levels"]);source_rows+=int(row["trade_count"])
-            ts=row["ts"];min_ts=ts if min_ts is None else min(min_ts,ts);max_ts=ts if max_ts is None else max(max_ts,ts)
+        derived_path=os.path.join(td,"derived.jsonl.gz")
+        metadata={"symbol":job["symbol"],"archive_date":str(job["archive_date"]),
+                  "tick_size":float(job["tick_size"]),"source_sha256":dl["sha256"]}
+        derived=write_derived_artifact(
+            derived_path,
+            iter_minute_aggregates(cached["path"],job["symbol"],float(job["tick_size"])),
+            metadata)
+        derived_cached=cache.put(derived_path,derived["sha256"])
         return {"symbol":job["symbol"],"archive_date":str(job["archive_date"]),
                 "source_uri":job["source_uri"],"tick_size":float(job["tick_size"]),
                 "source_sha256":dl["sha256"],"source_bytes":dl["bytes"],
-                "cache_sha256":cached["sha256"],"source_rows":source_rows,
-                "derived_candles":candles,"derived_footprint_rows":levels,
-                "min_ts":str(min_ts) if min_ts else None,"max_ts":str(max_ts) if max_ts else None}
+                "cache_sha256":cached["sha256"],"source_rows":derived["source_rows"],
+                "derived_candles":derived["derived_candles"],
+                "derived_footprint_rows":derived["derived_footprint_rows"],
+                "min_ts":derived["min_ts"],"max_ts":derived["max_ts"],
+                "derived_format":derived["format"],
+                "derived_artifact_sha256":derived_cached["sha256"],
+                "derived_artifact_bytes":derived_cached["bytes"]}
 
 
 def _resource_ok():
@@ -72,6 +81,21 @@ async def archive_compute_loop(stop_event=None,poll_seconds=3):
                 renew=asyncio.create_task(_renew_loop(session,job,lost))
                 try:
                     manifest=await _execute(job)
+                    if lost.is_set():raise RuntimeError("archive compute lease lost")
+                    artifact_sha=manifest["derived_artifact_sha256"]
+                    artifact_path=ContentAddressedCache(settings.content_cache_root).path_for(artifact_sha)
+                    upload_headers=_headers()
+                    upload_headers["X-Lease-Generation"]=str(int(job["lease_generation"]))
+                    with open(artifact_path,"rb") as artifact_file:
+                        async with session.put(settings.coordinator_url+
+                            f"/compute/archive/{job['id']}/artifact/{artifact_sha}",
+                            data=artifact_file,headers=upload_headers,
+                            timeout=aiohttp.ClientTimeout(total=None,sock_read=60)) as ur:
+                            upload_body=await ur.text()
+                            if ur.status!=200:
+                                raise RuntimeError(f"archive artifact upload rejected {ur.status}: {upload_body[:1000]}")
+                            uploaded=await ur.json()
+                    manifest["derived_artifact_id"]=uploaded["artifact_id"]
                     if lost.is_set():raise RuntimeError("archive compute lease lost")
                     async with session.post(settings.coordinator_url+f"/compute/archive/{job['id']}/result",
                         json={"node_id":NODE_ID,"lease_generation":int(job["lease_generation"]),"manifest":manifest},
