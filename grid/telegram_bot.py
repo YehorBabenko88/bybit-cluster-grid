@@ -20,6 +20,7 @@ from .start_readiness import start_readiness
 from .enrollment import create_enrollment_token
 from .server_pilot import begin_server_pilot_validation
 from .strattester_bridge import cancel_research_run
+from .distributed_acceptance import distributed_acceptance_status
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -60,7 +61,8 @@ def _main_keyboard():
       [{"text":"⏯ ПРОДОЛЖИТЬ","callback_data":"fleet:resume"},{"text":"🗑 УДАЛИТЬ","callback_data":"fleet:delete"}],
       [{"text":"🖥 АГЕНТЫ","callback_data":"fleet:nodes"},{"text":"ℹ СОСТОЯНИЕ","callback_data":"fleet:system"}],
       [{"text":"🧠 RESEARCH","callback_data":"fleet:research"},{"text":"📦 ARCHIVE","callback_data":"fleet:archive"}],
-      [{"text":"🗄 STORAGE","callback_data":"fleet:storage"},{"text":"⚠ ERRORS","callback_data":"fleet:errors"}]
+      [{"text":"🗄 STORAGE","callback_data":"fleet:storage"},{"text":"⚠ ERRORS","callback_data":"fleet:errors"}],
+      [{"text":"🧪 ACCEPTANCE","callback_data":"fleet:acceptance"}]
     ]}
 
 async def tg_send(session,chat_id,text,reply_markup=None):
@@ -227,6 +229,20 @@ async def handle_command(db,session,chat_id,text,nodes):
                f"resources: cpu={n.get('cpu_pct','?')}% ram={n.get('ram_pct','?')}% pressure={n.get('pressure_state','?')}",
                f"storage: queue={n.get('db_queue_ratio','?')} spool={n.get('db_spool_ratio','?')}",
                f"integrity={n.get('integrity_ok','?')} assignments={len(assigned) if isinstance(assigned,list) else syms}"]
+        await tg_send(session,chat_id,"\n".join(lines))
+    elif cmd=="/acceptance":
+        a=distributed_acceptance_status(nodes,
+          heartbeat_seconds=settings.heartbeat_seconds,
+          cpu_limit=settings.resource_cpu_limit,
+          ram_limit=settings.resource_ram_limit,
+          disk_free_gb=settings.resource_disk_free_gb)
+        state=await runtime_state(db.pool)
+        lines=[f"Distributed acceptance: {'READY' if a['ready'] else 'BLOCKED'}",
+               f"SYSTEM={state['state']} online={len(a['online'])} eligible={len(a['eligible'])}",
+               f"Strattester nodes={len(a['strattester_nodes'])}: {', '.join(a['strattester_nodes']) or '-'}",
+               f"Archive nodes={len(a['archive_nodes'])}: {', '.join(a['archive_nodes']) or '-'}",
+               f"Versions={', '.join(a['strattester_versions']) or '-'}"]
+        if a["reasons"]:lines.append("Blocked by: "+", ".join(a["reasons"]))
         await tg_send(session,chat_id,"\n".join(lines))
     elif cmd=="/research":
         if len(parts)>1:
@@ -444,7 +460,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db /research [RUN] /researchcancel RUN /archive /compute /lifecycle")
+        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db /research [RUN] /researchcancel RUN /archive /compute /lifecycle /acceptance")
 
 async def _maybe_finalize_fleet_delete(db,session):
     op=await latest_operation(db.pool,"DELETE")
@@ -520,7 +536,7 @@ async def telegram_loop(db,nodes):
                     chat=(msg.get("chat") or {}).get("id")
                     txt=msg.get("text","")
                     if cb:
-                        mapping={"fleet:begin":"/begin","fleet:stop":"/fleetstop","fleet:resume":"/fleetresume","fleet:delete":"/fleetdelete","fleet:nodes":"/nodes","fleet:system":"/system","fleet:menu":"/menu","fleet:research":"/research","fleet:archive":"/archive","fleet:storage":"/db","fleet:errors":"/errors"}
+                        mapping={"fleet:begin":"/begin","fleet:stop":"/fleetstop","fleet:resume":"/fleetresume","fleet:delete":"/fleetdelete","fleet:nodes":"/nodes","fleet:system":"/system","fleet:menu":"/menu","fleet:research":"/research","fleet:archive":"/archive","fleet:storage":"/db","fleet:errors":"/errors","fleet:acceptance":"/acceptance"}
                         callback_data=cb.get("data") or ""
                         txt=mapping.get(callback_data,"")
                         if callback_data.startswith("node:"):
