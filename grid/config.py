@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     strattester_command: str = ""
     content_cache_root: str = "C:/ProgramData/BybitClusterGrid/content-cache"
     archive_compute_enabled: bool = False
+    worker_process_memory_mb: int = 2048
+    worker_child_memory_mb: int = 4096
+    content_cache_max_gb: float = 20.0
+    content_cache_ttl_days: int = 14
+    workspace_ttl_hours: int = 24
+    maintenance_interval_minutes: int = 15
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
     retention_enabled: bool = True
