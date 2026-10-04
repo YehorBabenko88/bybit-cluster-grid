@@ -34,8 +34,6 @@ async def _renew_loop(session,job,lost,period=90):
             setattr(lost,"_renew_misses",misses)
             if misses>=2:
                 lost.set();return
-        else:
-            setattr(lost,"_renew_misses",0)
 
 
 async def _execute(job):
