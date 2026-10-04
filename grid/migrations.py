@@ -375,6 +375,17 @@ PRIMARY KEY(shard_id,depends_on_id),CHECK(shard_id<>depends_on_id))""",
 ]),
 (39,"research_shard_failure_state",[
 "ALTER TABLE research_shards ADD COLUMN IF NOT EXISTS last_error text"
+]),
+(40,"archive_compute_jobs",[
+"""CREATE TABLE IF NOT EXISTS archive_compute_jobs(
+id uuid PRIMARY KEY,symbol text NOT NULL,archive_date date NOT NULL,source_uri text NOT NULL,
+expected_sha256 text,expected_bytes bigint,tick_size double precision NOT NULL,
+status text NOT NULL DEFAULT 'queued',lease_owner text,lease_until timestamptz,
+lease_generation integer NOT NULL DEFAULT 0,attempts integer NOT NULL DEFAULT 0,
+max_attempts integer NOT NULL DEFAULT 5,result_manifest jsonb,result_hash text,last_error text,
+created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),
+UNIQUE(symbol,archive_date))""",
+"CREATE INDEX IF NOT EXISTS archive_compute_jobs_status_idx ON archive_compute_jobs(status,archive_date,symbol)"
 ])
 ]
 
