@@ -4,18 +4,24 @@ from .strattester_bridge_protocol import digest
 
 
 async def seed_archive_compute_jobs(pool,limit=500):
-    rows=await pool.fetch("""SELECT b.symbol,b.archive_date,b.source_uri,b.sha256,b.bytes,i.tick_size
-      FROM trade_archive_backfill b JOIN instruments i ON i.symbol=b.symbol
-      WHERE b.status IN ('queued','retry') AND b.source_uri IS NOT NULL
-      ORDER BY b.archive_date,b.symbol LIMIT $1""",int(limit))
     created=0
-    for row in rows:
-        result=await pool.execute("""INSERT INTO archive_compute_jobs
-          (id,symbol,archive_date,source_uri,expected_sha256,expected_bytes,tick_size)
-          VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(symbol,archive_date) DO NOTHING""",
-          uuid.uuid4(),row["symbol"],row["archive_date"],row["source_uri"],
-          row["sha256"],row["bytes"],float(row["tick_size"]))
-        if result.endswith(" 1"):created+=1
+    async with pool.acquire() as c:
+        async with c.transaction():
+            rows=await c.fetch("""SELECT b.symbol,b.archive_date,b.source_uri,b.sha256,b.bytes,i.tick_size
+              FROM trade_archive_backfill b JOIN instruments i ON i.symbol=b.symbol
+              WHERE b.status IN ('queued','retry') AND b.source_uri IS NOT NULL
+              ORDER BY b.archive_date,b.symbol FOR UPDATE OF b SKIP LOCKED LIMIT $1""",int(limit))
+            for row in rows:
+                result=await c.execute("""INSERT INTO archive_compute_jobs
+                  (id,symbol,archive_date,source_uri,expected_sha256,expected_bytes,tick_size)
+                  VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(symbol,archive_date) DO NOTHING""",
+                  uuid.uuid4(),row["symbol"],row["archive_date"],row["source_uri"],
+                  row["sha256"],row["bytes"],float(row["tick_size"]))
+                if result.endswith(" 1"):
+                    await c.execute("""UPDATE trade_archive_backfill SET status='distributed',
+                      updated_at=now(),last_error=NULL WHERE symbol=$1 AND archive_date=$2
+                      AND status IN ('queued','retry')""",row["symbol"],row["archive_date"])
+                    created+=1
     return created
 
 
@@ -58,12 +64,20 @@ async def attach_archive_compute_artifact(pool,job_id,node_id,generation,artifac
 
 
 async def fail_archive_compute_job(pool,job_id,node_id,generation,error):
-    r=await pool.execute("""UPDATE archive_compute_jobs SET
-      status=CASE WHEN attempts<max_attempts THEN 'queued' ELSE 'failed' END,
-      lease_owner=NULL,lease_until=NULL,last_error=$4,updated_at=now()
-      WHERE id=$1 AND lease_owner=$2 AND lease_generation=$3 AND status='running'""",
-      job_id,node_id,int(generation),str(error)[:4000])
-    return r.endswith(" 1")
+    async with pool.acquire() as c:
+        async with c.transaction():
+            row=await c.fetchrow("""UPDATE archive_compute_jobs SET
+              status=CASE WHEN attempts<max_attempts THEN 'queued' ELSE 'failed' END,
+              lease_owner=NULL,lease_until=NULL,last_error=$4,updated_at=now()
+              WHERE id=$1 AND lease_owner=$2 AND lease_generation=$3 AND status='running'
+              RETURNING symbol,archive_date,status""",
+              job_id,node_id,int(generation),str(error)[:4000])
+            if not row:return False
+            if row["status"]=="failed":
+                await c.execute("""UPDATE trade_archive_backfill SET status='failed',
+                  last_error=$3,updated_at=now() WHERE symbol=$1 AND archive_date=$2""",
+                  row["symbol"],row["archive_date"],str(error)[:4000])
+            return True
 
 
 async def accept_archive_compute_result(pool,job_id,node_id,generation,manifest):
@@ -106,8 +120,17 @@ async def accept_archive_compute_result(pool,job_id,node_id,generation,manifest)
 
 
 async def recover_archive_compute_jobs(pool):
-    return await pool.execute("""UPDATE archive_compute_jobs SET
-      status=CASE WHEN attempts<max_attempts THEN 'queued' ELSE 'failed' END,
-      lease_owner=NULL,lease_until=NULL,last_error=COALESCE(last_error,'expired compute lease'),
-      updated_at=now() WHERE status='running' AND lease_until<now()""")
+    async with pool.acquire() as c:
+        async with c.transaction():
+            rows=await c.fetch("""UPDATE archive_compute_jobs SET
+              status=CASE WHEN attempts<max_attempts THEN 'queued' ELSE 'failed' END,
+              lease_owner=NULL,lease_until=NULL,last_error=COALESCE(last_error,'expired compute lease'),
+              updated_at=now() WHERE status='running' AND lease_until<now()
+              RETURNING symbol,archive_date,status,last_error""")
+            for row in rows:
+                if row["status"]=="failed":
+                    await c.execute("""UPDATE trade_archive_backfill SET status='failed',
+                      last_error=$3,updated_at=now() WHERE symbol=$1 AND archive_date=$2""",
+                      row["symbol"],row["archive_date"],row["last_error"])
+            return len(rows)
 
