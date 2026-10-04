@@ -8,7 +8,7 @@ from .service import prepare_database,bootstrap_logging
 from .instrument_lifecycle import ensure_instrument_schema,reconcile_instruments,purge_retired
 from .strategy_jobs import ensure_strategy_schema,submit_job
 from .strategy_plugins import ensure_plugin_schema,register_plugin,list_plugins
-from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result
+from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result,command_belongs_to_node
 from .update_protocol import ensure_update_schema,note_heartbeat,register_release,start_canary,promote_stable,expired_canaries
 from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent,registered_install_mode
 from .rollout import begin_stable_rollout,note_rollout_heartbeat,expire_rollout_nodes
@@ -357,17 +357,16 @@ async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Heade
         await node_auth(node_id,x_node_credential,x_grid_token)
     else:
         auth(x_grid_token)
-    try:
-        await command_result(
-            db.pool,
-            command_id,
-            bool(payload.get("ok")),
-            payload.get("result"),
-            payload.get("error"),
-            node_id=node_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(409,str(exc))
+    if node_id and not await command_belongs_to_node(db.pool,command_id,node_id):
+        raise HTTPException(409,"command does not belong to authenticated node")
+    await command_result(
+        db.pool,
+        command_id,
+        bool(payload.get("ok")),
+        payload.get("result"),
+        payload.get("error"),
+        node_id=node_id,
+    )
     # Fleet STOP/RESUME completion is driven by durable command ACKs.
     # Reconcile immediately after every command result so the global
     # runtime gate cannot remain indefinitely in STOPPING/RESUMING.
