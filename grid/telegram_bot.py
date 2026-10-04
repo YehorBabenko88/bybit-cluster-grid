@@ -86,6 +86,30 @@ def _healthy_canary(nodes):
         candidates.append((cpu+ram,nid))
     return min(candidates)[1] if candidates else None
 
+async def system_overview(db,nodes):
+    now=time.time()
+    runtime=await runtime_state(db.pool)
+    online=sum(1 for n in nodes.values() if now-float(n.get("last_seen",0))<settings.heartbeat_seconds*3)
+    research=await db.pool.fetchrow("""SELECT
+      count(*) FILTER (WHERE status IN ('BUILDING','QUEUED','RUNNING')) active,
+      count(*) FILTER (WHERE status='FAILED') failed FROM research_runs""")
+    archive=await db.pool.fetchrow("""SELECT
+      count(*) FILTER (WHERE status IN ('queued','running')) active,
+      count(*) FILTER (WHERE status='failed') failed,
+      count(*) FILTER (WHERE status='done' AND materialized_at IS NULL) pending_materialize
+      FROM archive_compute_jobs""")
+    compute=await db.pool.fetchrow("""SELECT
+      count(*) FILTER (WHERE status IN ('queued','assigned','running')) active,
+      count(*) FILTER (WHERE status='failed') failed FROM ml_jobs""")
+    return {
+      "runtime":runtime,"nodes":len(nodes),"online":online,
+      "research_active":int(research["active"] or 0),"research_failed":int(research["failed"] or 0),
+      "archive_active":int(archive["active"] or 0),"archive_failed":int(archive["failed"] or 0),
+      "archive_pending_materialize":int(archive["pending_materialize"] or 0),
+      "compute_active":int(compute["active"] or 0),"compute_failed":int(compute["failed"] or 0),
+    }
+
+
 async def handle_command(db,session,chat_id,text,nodes):
     parts=text.strip().split()
     cmd=parts[0].lower()
@@ -93,9 +117,14 @@ async def handle_command(db,session,chat_id,text,nodes):
     if cmd=="/menu" or (cmd=="/start" and len(parts)==1):
         await tg_send(session,chat_id,"Управление Bybit Cluster Grid",_main_keyboard())
     elif cmd=="/system":
-        s=await runtime_state(db.pool)
-        online=sum(1 for n in nodes.values() if now-float(n.get("last_seen",0))<settings.heartbeat_seconds*3)
-        await tg_send(session,chat_id,f"SYSTEM: {s['state']}\nNodes: {len(nodes)}, online: {online}\nMarket data: {'ENABLED' if s['state']=='ACTIVE' else 'LOCKED'}\nReason: {s.get('reason') or '-'}")
+        o=await system_overview(db,nodes);s=o["runtime"]
+        await tg_send(session,chat_id,
+          f"SYSTEM: {s['state']}\nNodes: {o['nodes']}, online: {o['online']}\n"
+          f"Market data: {'ENABLED' if s['state']=='ACTIVE' else 'LOCKED'}\n"
+          f"Compute: active={o['compute_active']} failed={o['compute_failed']}\n"
+          f"Research: active={o['research_active']} failed={o['research_failed']}\n"
+          f"Archive: active={o['archive_active']} pending-materialize={o['archive_pending_materialize']} failed={o['archive_failed']}\n"
+          f"Reason: {s.get('reason') or '-'}",_main_keyboard())
     elif cmd in ("/joinpilot","/joinagent"):
         mode="PILOT" if cmd=="/joinpilot" else "NORMAL"
         label=parts[1] if len(parts)>1 else f"telegram:{chat_id}"
