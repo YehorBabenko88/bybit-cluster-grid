@@ -32,6 +32,7 @@ from .ml_retry import fail_or_retry,recover_expired_ml_jobs
 from .archive_compute_queue import seed_archive_compute_jobs,claim_archive_compute_job,renew_archive_compute_job,fail_archive_compute_job,accept_archive_compute_result,recover_archive_compute_jobs
 from .operational_gc import cleanup_operational_state
 from .content_cache import ContentAddressedCache
+from .compute_artifacts import compute_artifact_descriptor
 from .node_lifecycle import record_node_seen,reconcile_node_lifecycle,node_may_compute
 
 log=logging.getLogger("coordinator")
@@ -198,7 +199,10 @@ async def get_distributed_research(run_id:str,x_grid_token:str=Header(default=""
         for k,v in list(out.items()):
             if v is not None and k in ("id","created_at","finished_at","dataset_id"): out[k]=str(v)
         return out
-    return {"run":serial(run),"shards":[serial(x) for x in shards]}
+    result={"run":serial(run),"shards":[serial(x) for x in shards]}
+    if run["result_artifact_id"]:
+        result["result_artifact"]=await compute_artifact_descriptor(db.pool,run["result_artifact_id"])
+    return result
 
 @app.post("/compute/strattester/claim")
 async def claim_strattester_compute(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
