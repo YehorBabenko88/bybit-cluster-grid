@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio,json,logging,os,shlex,tempfile
 from pathlib import Path
 import aiohttp
+import psutil
 from .config import settings
 from .credential_store import node_credential
 from .resources import NODE_ID,snapshot
@@ -36,6 +37,25 @@ async def _renew_loop(session,job_id,generation,lost,period=40):
             log.exception("strattester lease renewal failed",extra={"event":"strattester_renew_failed"})
 
 
+async def _terminate_tree(proc):
+    try:
+        parent=psutil.Process(proc.pid)
+        children=parent.children(recursive=True)
+        for p in children:
+            try:p.terminate()
+            except psutil.Error:pass
+        try:parent.terminate()
+        except psutil.Error:pass
+        _,alive=psutil.wait_procs(children+[parent],timeout=5)
+        for p in alive:
+            try:p.kill()
+            except psutil.Error:pass
+    except psutil.Error:
+        pass
+    try:await asyncio.wait_for(proc.wait(),timeout=5)
+    except (asyncio.TimeoutError,ProcessLookupError):pass
+
+
 async def _run_job(session,job):
     job_id=str(job["id"]); generation=int(job["lease_generation"])
     payload=dict(job.get("payload") or {})
@@ -57,9 +77,17 @@ async def _run_job(session,job):
                     if line: output.append(line.decode("utf-8","replace"))
                 except asyncio.TimeoutError:
                     pass
+                rss=0
+                try:
+                    pp=psutil.Process(proc.pid)
+                    rss=pp.memory_info().rss+sum(x.memory_info().rss for x in pp.children(recursive=True))
+                except psutil.Error:
+                    pass
+                if rss>int(settings.worker_child_memory_mb)*1024**2:
+                    await _terminate_tree(proc)
+                    raise RuntimeError(f"strattester memory limit exceeded: {rss}")
                 if lost.is_set():
-                    proc.terminate()
-                    await proc.wait()
+                    await _terminate_tree(proc)
                     raise RuntimeError("strattester lease lost")
                 if proc.returncode is None:
                     try: await asyncio.wait_for(proc.wait(),timeout=0.01)
@@ -76,6 +104,8 @@ async def _run_job(session,job):
         finally:
             lost.set();renew.cancel()
             await asyncio.gather(renew,return_exceptions=True)
+            if proc.returncode is None:
+                await _terminate_tree(proc)
 
 
 async def strattester_compute_loop(stop_event=None,poll_seconds=3):
