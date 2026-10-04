@@ -313,8 +313,17 @@ async def handle_command(db,session,chat_id,text,nodes):
         if len(parts)!=2:
             await tg_send(session,chat_id,f"Usage: {cmd} NODE")
             return
-        cid=await enqueue_command(db.pool,parts[1],cmd[1:],{})
-        await tg_send(session,chat_id,f"{cmd[1:]} queued for {parts[1]} ({cid})")
+        nid=parts[1]
+        if nid not in nodes:
+            await tg_send(session,chat_id,f"Unknown node: {nid}")
+            return
+        if cmd in ("/stop","/restart","/rollback"):
+            code=secrets.token_hex(3).upper()
+            _pending_confirms[(str(chat_id),code)]=("node_command",{"node_id":nid,"action":cmd[1:]},time.time()+120)
+            await tg_send(session,chat_id,f"Confirm {cmd[1:]} of {nid} within 120s: /confirm {code}")
+            return
+        cid=await enqueue_command(db.pool,nid,cmd[1:],{})
+        await tg_send(session,chat_id,f"{cmd[1:]} queued for {nid} ({cid})")
     elif cmd=="/update":
         if len(parts)!=2:
             await tg_send(session,chat_id,"Usage: /update VERSION")
@@ -402,7 +411,16 @@ async def handle_command(db,session,chat_id,text,nodes):
             await tg_send(session,chat_id,"Confirmation expired or invalid.")
             return
         action,node_id,_=item
-        if action=="uninstall":
+        if action=="node_command":
+            spec=dict(node_id or {})
+            nid=str(spec.get("node_id") or "")
+            cmd_action=str(spec.get("action") or "")
+            if nid not in nodes or cmd_action not in ("stop","restart","rollback"):
+                await tg_send(session,chat_id,"Node command confirmation rejected.")
+                return
+            cid=await enqueue_command(db.pool,nid,cmd_action,{})
+            await tg_send(session,chat_id,f"{cmd_action} queued for {nid} ({cid})")
+        elif action=="uninstall":
             cid=await enqueue_command(db.pool,node_id,"uninstall",{"purge_data":False})
             await tg_send(session,chat_id,f"Uninstall queued for {node_id} ({cid}); data preserved.")
         elif action=="pilot_validate":
