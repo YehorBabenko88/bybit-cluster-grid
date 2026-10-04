@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     micro_ml_lifecycle_enabled: bool = True
     micro_ml_lifecycle_seconds: int = 60
     micro_ml_horizons_seconds: str = "60,300,900"
+    strattester_enabled: bool = False
+    strattester_version: str = ""
+    strattester_command: str = ""
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
     retention_enabled: bool = True
