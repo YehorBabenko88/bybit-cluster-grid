@@ -3,7 +3,6 @@ import os,shutil,time
 from pathlib import Path
 from .content_cache import ContentAddressedCache
 from .config import settings
-from .archive_compute_queue import cleanup_stale_archive_partials
 
 
 def cleanup_stale_workspaces(root,ttl_seconds):
