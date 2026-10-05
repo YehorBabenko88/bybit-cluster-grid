@@ -23,8 +23,8 @@ class SegmentWAL:
         try:
             with open(p,"rb+") as f:
                 data=f.read()
-                if not data or data.endswith(b"\\n"):return
-                cut=data.rfind(b"\\n")
+                if not data or data.endswith(b"\n"):return
+                cut=data.rfind(b"\n")
                 tail=data[cut+1:]
                 # A complete final JSON record is valid even without a newline
                 # (tests/import tools may create one). Only truncate a tail that
