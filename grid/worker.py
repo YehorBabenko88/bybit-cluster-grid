@@ -237,13 +237,25 @@ class Worker:
                     ping_interval=20,ping_timeout=20,max_queue=50000,close_timeout=5
                 ) as ws:
                     await ws.send(json.dumps({"op":"subscribe","args":[f"publicTrade.{symbol}"]}))
+                    # A TCP/WebSocket connection is not enough: fail closed unless
+                    # Bybit explicitly accepted the market subscription.
+                    while True:
+                        raw=await asyncio.wait_for(ws.recv(),timeout=15)
+                        ack=json.loads(raw)
+                        if ack.get("op")=="subscribe":
+                            if ack.get("success") is not True:
+                                raise RuntimeError("Bybit trade subscription rejected: "+str(ack.get("ret_msg") or ack))
+                            break
                     if connected_once:
                         continuity.reconnect()
                         fp.mark_open_degraded(symbol,"ws_reconnect")
                     connected_once=True
                     delays=backoff_delays()
-                    async for raw in ws:
+                    while True:
+                        raw=await asyncio.wait_for(ws.recv(),timeout=45)
                         msg=json.loads(raw)
+                        if not msg.get("topic","").startswith("publicTrade."):
+                            continue
                         batch=msg.get("data",[])
                         self.pressure.observe_symbol(symbol,events=len(batch))
                         for x in batch:
