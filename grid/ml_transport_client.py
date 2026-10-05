@@ -30,9 +30,24 @@ class MLTransportClient:
         return await self._request("POST",f"/ml/jobs/{job['id']}/renew",
           json={"node_id":self.node_id,"lease_generation":job["lease_generation"]})
 
-    async def dataset(self,job):
-        params={"node_id":self.node_id,"lease_generation":job["lease_generation"]}
+    async def dataset_page(self,job,offset=0,limit=500):
+        params={"node_id":self.node_id,"lease_generation":job["lease_generation"],
+                "offset":int(offset),"limit":int(limit)}
         return await self._request("GET",f"/ml/jobs/{job['id']}/dataset",params=params)
+
+    async def dataset(self,job):
+        first=await self.dataset_page(job,0,500)
+        if first is None:return None
+        samples=[];offset=0
+        while offset<int(first.get("sample_count",0)):
+            page=first if offset==0 else await self.dataset_page(job,offset,500)
+            if page is None:return None
+            chunk=[x["payload"] for x in page.get("samples",[])]
+            if not chunk:break
+            samples.extend(chunk);offset+=len(chunk)
+        return {"dataset_id":first["dataset_id"],"dataset_hash":first["dataset_hash"],
+                "feature_version":first.get("feature_version"),
+                "sample_count":int(first.get("sample_count",0)),"samples":samples}
 
     async def artifact(self,job,data,sha256):
         params={"node_id":self.node_id,"lease_generation":job["lease_generation"],"sha256":sha256}
