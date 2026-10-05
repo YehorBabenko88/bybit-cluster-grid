@@ -18,6 +18,7 @@ class MLOrchestratorService:
         self.state=RECOVERING
         # Expired jobs become claimable by workers; live leases are never stolen.
         await self.pool.execute("""UPDATE ml_jobs SET status='queued',lease_owner=NULL,lease_until=NULL,
+          not_before=now()+interval '5 seconds',
           error=COALESCE(error,'recovered after expired lease')
           WHERE status IN ('running','assigned') AND lease_until<now() AND attempts<max_attempts""")
         await self.pool.execute("""UPDATE ml_jobs SET status='failed',finished_at=now(),
