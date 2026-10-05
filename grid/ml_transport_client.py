@@ -1,4 +1,5 @@
 import aiohttp
+import os
 from .config import settings
 from .credential_store import node_credential
 
@@ -52,6 +53,17 @@ class MLTransportClient:
     async def artifact(self,job,data,sha256):
         params={"node_id":self.node_id,"lease_generation":job["lease_generation"],"sha256":sha256}
         return await self._request("POST",f"/ml/jobs/{job['id']}/artifact",params=params,data=data)
+
+    async def artifact_file(self,job,path,sha256):
+        params={"node_id":self.node_id,"lease_generation":job["lease_generation"],"sha256":sha256}
+        async with aiohttp.ClientSession() as session:
+            with open(path,"rb") as f:
+                async with session.post(settings.coordinator_url+f"/ml/jobs/{job['id']}/artifact",
+                  params=params,data=f,headers=self.headers(),
+                  timeout=aiohttp.ClientTimeout(total=300)) as r:
+                    if r.status==409:return None
+                    r.raise_for_status()
+                    return await r.json()
 
     async def finalize(self,job,artifact_id,metrics):
         return await self._request("POST",f"/ml/jobs/{job['id']}/finalize",
