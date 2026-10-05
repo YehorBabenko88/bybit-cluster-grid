@@ -27,6 +27,9 @@ from .retention import retention_scheduler
 from .maintenance import maintenance_scheduler
 from .ml_artifact_store import LocalArtifactStore
 from .ml_transport import claim as ml_claim,renew as ml_renew,dataset_bundle as ml_dataset_bundle,publish_artifact as ml_publish_artifact,finalize_model as ml_finalize_model
+from .ml_dispatcher import MLDispatcher
+from .ml_orchestrator_service import MLOrchestratorService
+from .resources import snapshot as resource_snapshot
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -35,6 +38,7 @@ db=None
 ingest_storage=None
 background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
+ml_orchestrator=None
 
 
 def constant_time_equal(left,right):
@@ -272,7 +276,7 @@ def rebalance():
 
 @app.on_event("startup")
 async def startup():
-    global db, ingest_storage, background_tasks
+    global db, ingest_storage, background_tasks, ml_orchestrator
     bootstrap_logging()
     log.info(
         "coordinator startup",
@@ -290,6 +294,21 @@ async def startup():
     ingest_storage.pool=db.pool
     ingest_storage.derived=__import__('grid.derived_pipeline',fromlist=['DerivedPipeline']).DerivedPipeline(db.pool)
     await ingest_storage.derived.start()
+    async def ml_nodes():
+        cutoff=time.time()-settings.heartbeat_seconds*3
+        return {nid:dict(v) for nid,v in nodes.items() if float(v.get("last_seen",0))>=cutoff}
+    async def ml_health():
+        snap=resource_snapshot()
+        try:
+            active=await db.pool.fetchval("""SELECT count(*) FROM pg_stat_activity
+              WHERE datname=current_database() AND state='active'""")
+        except Exception:
+            active=settings.strategy_db_active_limit
+        return {"cpu_pct":snap["cpu_pct"],"ram_pct":snap["ram_pct"],
+                "disk_free_gb":snap["disk_free"]/(1024**3),
+                "db_latency_ms":0 if int(active or 0)<settings.strategy_db_active_limit else 9999,
+                "db_queue_ratio":min(1.0,int(active or 0)/max(1,settings.strategy_db_active_limit))}
+    ml_orchestrator=MLOrchestratorService(db.pool,MLDispatcher(db.pool,ml_nodes),ml_health)
     async def loop():
         global instruments,assignments
         while True:
@@ -334,12 +353,15 @@ async def startup():
         asyncio.create_task(telegram_loop(db,nodes)),
         asyncio.create_task(retention_scheduler(db.pool,settings)),
         asyncio.create_task(maintenance_scheduler(db.pool,settings)),
+        asyncio.create_task(ml_orchestrator.run()),
     ]
 
 @app.on_event("shutdown")
 async def shutdown():
-    global ingest_storage, background_tasks
+    global ingest_storage, background_tasks, ml_orchestrator
 
+    if ml_orchestrator is not None:
+        ml_orchestrator.stop()
     tasks = list(background_tasks)
     background_tasks = []
 
