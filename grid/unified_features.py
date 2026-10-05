@@ -3,6 +3,8 @@ from datetime import timedelta
 from .features import FeatureEngine
 from .volatility_regime import VolatilityRegimeDetector
 from .setup_flags import setup_flags
+from .retention_v2 import register_consumer
+from .control_state import set_consumer_watermark
 
 class UnifiedFeatureBuilder:
     """Builds one reproducible 1m feature row from candle + nearest prior microstructure."""
@@ -10,8 +12,16 @@ class UnifiedFeatureBuilder:
         self.engine=FeatureEngine(lookback)
         self.regime=VolatilityRegimeDetector(lookback=max(lookback,120))
         self.micro_max_age_s=int(micro_max_age_s)
+        self.started=False
+
+    async def start(self,pool):
+        if self.started:return
+        await register_consumer(pool,"market_events","unified_features",required=True,active=True)
+        self.started=True
 
     async def build(self,pool,row):
+        if not self.started:
+            await self.start(pool)
         base=self.engine.on_candle(row)
         ts=row["ts"]; symbol=row["symbol"]
         book=await pool.fetchrow("""SELECT event_ts,payload FROM market_events
@@ -55,6 +65,12 @@ class UnifiedFeatureBuilder:
           capabilities=EXCLUDED.capabilities,built_at=now()""",
           built["symbol"],built["ts"],built["eligible"],built["quality_status"],
           built["regime"],built["regime_score"],json.dumps(built["features"]),json.dumps(built["capabilities"]))
+        # The raw microstructure window used for this minute is now durably
+        # represented by market_features_1m. A crash before this monotonic
+        # watermark only delays retention; it can never cause premature deletion.
+        await set_consumer_watermark(
+            pool,"market_events","unified_features",built["symbol"],built["ts"],required=True
+        )
 
 def _num(v):
     try: return float(v) if v is not None else None
