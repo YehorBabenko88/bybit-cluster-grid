@@ -39,12 +39,19 @@ class MLDispatcher:
                     for candidate in jobs:
                         payload=dict(candidate["payload"] or {})
                         d=WORKLOAD_DEFAULTS.get(candidate["job_type"],WORKLOAD_DEFAULTS["evaluate"])
+                        candidate_nodes=nodes
+                        if candidate["job_type"] in ("train","evaluate"):
+                            # Never lease model work to a collector that has not
+                            # completed and advertised the managed ML bootstrap.
+                            candidate_nodes={k:v for k,v in nodes.items() if v.get("ml_runtime_ready") is True}
+                            if not candidate_nodes:
+                                continue
                         w=Workload(candidate["job_type"],cpu=float(payload.get("cpu",d["cpu"])),
                           ram_gb=float(payload.get("ram_gb",d["ram_gb"])),
                           scratch_gb=float(payload.get("scratch_gb",d["scratch_gb"])),
                           input_gb=float(payload.get("input_gb",0)),
                           gpu=bool(payload.get("gpu",False)),data_locality=payload.get("data_locality"))
-                        pick=choose_node(nodes,w)
+                        pick=choose_node(candidate_nodes,w)
                         if pick:
                             job=candidate;break
                     if not job: break
