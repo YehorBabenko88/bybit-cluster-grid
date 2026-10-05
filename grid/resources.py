@@ -4,6 +4,13 @@ import psutil
 NODE_ID = os.getenv("NODE_ID") or f"{socket.gethostname()}-{uuid.getnode():x}"
 STARTED_AT=time.time()
 
+def ml_runtime_ready():
+    try:
+        import xgboost, lightgbm, sklearn  # noqa: F401
+        return True
+    except (ImportError,OSError):
+        return False
+
 def agent_version():
     root=os.getenv("ProgramFiles")
     if not root: return os.getenv("GRID_VERSION","bootstrap")
@@ -33,6 +40,7 @@ def snapshot():
         "process_cpu_pct":proc.cpu_percent(interval=None),
         "uptime_s":int(time.time()-STARTED_AT),
         "agent_version":agent_version(),
+        "ml_runtime_ready":ml_runtime_ready(),
     }
 
 def capacity_score(s,cpu_limit=75,ram_limit=78,min_disk_gb=25,reserve_cores=2):
