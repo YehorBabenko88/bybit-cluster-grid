@@ -23,6 +23,8 @@ from .live_assignment_policy import guarded_live_symbols
 from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
+from .retention import retention_scheduler
+from .maintenance import maintenance_scheduler
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -283,6 +285,8 @@ async def startup():
     background_tasks = [
         asyncio.create_task(loop()),
         asyncio.create_task(telegram_loop(db,nodes)),
+        asyncio.create_task(retention_scheduler(db.pool,settings)),
+        asyncio.create_task(maintenance_scheduler(db.pool,settings)),
     ]
 
 @app.on_event("shutdown")
