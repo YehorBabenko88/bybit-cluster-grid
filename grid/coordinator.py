@@ -1,4 +1,4 @@
-import asyncio,time,logging,secrets
+import asyncio,time,logging,secrets,hashlib,tempfile,os
 from fastapi import FastAPI,Header,HTTPException,Request
 from .config import settings
 from .bybit import linear_symbols
@@ -26,7 +26,7 @@ from .storage import Storage
 from .retention import retention_scheduler
 from .maintenance import maintenance_scheduler
 from .ml_artifact_store import LocalArtifactStore
-from .ml_transport import claim as ml_claim,renew as ml_renew,dataset_bundle as ml_dataset_bundle,publish_artifact as ml_publish_artifact,finalize_model as ml_finalize_model
+from .ml_transport import claim as ml_claim,renew as ml_renew,dataset_bundle as ml_dataset_bundle,publish_artifact as ml_publish_artifact,register_saved_artifact as ml_register_saved_artifact,finalize_model as ml_finalize_model
 from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
 from .resources import snapshot as resource_snapshot
@@ -218,16 +218,32 @@ async def upload_ml_artifact(job_id:str,request:Request,node_id:str,lease_genera
                              x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
     await node_auth(node_id,x_node_credential,x_grid_token)
     max_bytes=256*1024*1024
-    if int(request.headers.get("content-length","0") or 0)>max_bytes:raise HTTPException(413,"artifact too large")
-    data=await request.body()
-    if len(data)>max_bytes:raise HTTPException(413,"artifact too large")
+    declared=int(request.headers.get("content-length","0") or 0)
+    if declared>max_bytes:raise HTTPException(413,"artifact too large")
+    store=LocalArtifactStore(settings.ml_artifact_root)
+    fd,tmp=tempfile.mkstemp(prefix="upload-",suffix=".tmp",dir=str(store.root))
+    size=0;digest=hashlib.sha256()
     try:
-        result=await ml_publish_artifact(db.pool,LocalArtifactStore(settings.ml_artifact_root),
-          job_id,node_id,lease_generation,data,sha256)
-    except ValueError as e:
-        raise HTTPException(400,str(e))
-    if result is None:raise HTTPException(409,"stale ML lease")
-    return result
+        with os.fdopen(fd,"wb") as f:
+            async for chunk in request.stream():
+                if not chunk:continue
+                size+=len(chunk)
+                if size>max_bytes:raise HTTPException(413,"artifact too large")
+                digest.update(chunk);f.write(chunk)
+            f.flush();os.fsync(f.fileno())
+        actual=digest.hexdigest()
+        if actual!=sha256:raise HTTPException(400,"artifact sha256 mismatch")
+        saved=store.adopt_temp(tmp,size,actual)
+        tmp=None
+        result=await ml_register_saved_artifact(db.pool,job_id,node_id,lease_generation,saved)
+        if result is None:
+            store.delete_uri(saved["storage_uri"])
+            raise HTTPException(409,"stale ML lease")
+        return result
+    finally:
+        if tmp:
+            try:os.unlink(tmp)
+            except OSError:pass
 
 @app.post("/ml/jobs/{job_id}/finalize")
 async def finalize_ml_job(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
