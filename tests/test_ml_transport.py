@@ -15,7 +15,7 @@ def test_artifact_upload_is_control_owned_and_bounded():
     assert "256*1024*1024" in c
     assert "LocalArtifactStore(settings.ml_artifact_root)" in c
     assert 'request.body()' in c
-    assert "storage_uri" not in c[c.index('upload_ml_artifact'):c.index('@app.post("/ml/jobs/{job_id}/finalize")]
+    assert "storage_uri" not in c[c.index('upload_ml_artifact'):c.index('@app.post("/ml/jobs/{job_id}/finalize")')]
 
 
 def test_transport_fences_every_mutation_by_generation():
