@@ -58,14 +58,18 @@ async def cleanup_control_metadata(pool):
     # Reservations are advisory capacity locks and are invalid after expiry.
     reservations=await purge_expired(pool)
     # Keep recent operational history, but do not grow terminal jobs forever.
-    jobs=await pool.execute("""DELETE FROM ml_jobs
-      WHERE status IN ('done','failed','cancelled') AND finished_at<now()-interval '30 days'""")
+    jobs=await pool.execute("""DELETE FROM ml_jobs j
+      WHERE j.status IN ('done','failed','cancelled') AND j.finished_at<now()-interval '30 days'
+      AND NOT EXISTS(SELECT 1 FROM ml_artifacts a WHERE a.owner_job=j.id AND a.status<>'DELETED')""")
     # Failed/incomplete snapshots are not immutable training inputs. READY snapshots
     # are deliberately retained because models/audits may reference them.
     datasets=await pool.execute("""DELETE FROM dataset_snapshots d
       WHERE d.status IN ('FAILED','BUILDING') AND d.created_at<now()-interval '7 days'
       AND NOT EXISTS(SELECT 1 FROM model_registry m WHERE m.dataset_id=d.id)""")
-    return {"reservations":reservations,"jobs":jobs,"datasets":datasets}
+    artifacts=await pool.execute("""UPDATE ml_artifacts a SET status='DELETING'
+      WHERE a.status='ACTIVE' AND a.reusable=false AND a.expires_at IS NOT NULL AND a.expires_at<now()
+      AND NOT EXISTS(SELECT 1 FROM model_registry m WHERE m.artifact_id=a.id)""")
+    return {"reservations":reservations,"jobs":jobs,"datasets":datasets,"artifacts_marked":artifacts}
 
 
 async def maintenance_scheduler(pool,settings):
