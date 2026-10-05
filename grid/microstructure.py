@@ -41,7 +41,7 @@ class MicrostructureCollector:
                 async with websockets.connect(
                     settings.bybit_ws_url,
                     ping_interval=20, ping_timeout=20,
-                    max_queue=50000, close_timeout=5
+                    max_queue=2000, close_timeout=5
                 ) as ws:
                     # Small subscription batches reduce rejection risk and make reconnect gentler.
                     # Every request must be acknowledged; otherwise a transport can stay
