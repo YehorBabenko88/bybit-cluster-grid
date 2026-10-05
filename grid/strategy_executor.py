@@ -1,6 +1,7 @@
-import asyncio, hashlib, logging, os, pathlib, sys
+import hashlib, logging, os, pathlib, sys
 from .config import settings
 from .strategy_plugins import get_plugin
+from .ml_process_supervisor import run_supervised_process
 
 log=logging.getLogger("strategy_executor")
 
@@ -32,22 +33,13 @@ async def execute_job_subprocess(db,job):
     env["GRID_STRATEGY_PLUGIN"]=str(plugin_path.resolve())
     env["GRID_STRATEGY_JOB_ID"]=str(job["id"])
     env["POSTGRES_DSN"]=settings.postgres_dsn
-
-    proc=await asyncio.create_subprocess_exec(
-        sys.executable,"-m","grid.strategy_runtime",
+    ram_limit_mb=max(256,int(float(getattr(settings,"strategy_ram_limit_mb",4096))))
+    stdout=await run_supervised_process(
+        [sys.executable,"-m","grid.strategy_runtime"],
+        timeout_seconds=getattr(settings,"strategy_job_timeout_seconds",21600),
+        ram_limit_mb=ram_limit_mb,
+        poll_seconds=.5,
+        grace_seconds=5,
         env=env,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
     )
-    try:
-        stdout,stderr=await asyncio.wait_for(
-            proc.communicate(),
-            timeout=getattr(settings,"strategy_job_timeout_seconds",21600)
-        )
-    except asyncio.TimeoutError:
-        proc.kill(); await proc.wait()
-        raise RuntimeError("strategy job timeout")
-    if proc.returncode!=0:
-        msg=(stderr or stdout or b"strategy subprocess failed").decode("utf-8","replace")[-6000:]
-        raise RuntimeError(msg)
     return (stdout or b"").decode("utf-8","replace")
