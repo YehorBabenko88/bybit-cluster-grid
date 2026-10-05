@@ -43,6 +43,14 @@ def decommission_due(days=7,now=None):
     last_coord=float(s.get("last_coordinator_success",now))
     last_net=float(s.get("last_internet_success",now))
     threshold=days*86400
+    # Destructive self-clean must fail closed on wall-clock discontinuities.
+    # A Windows clock jump must never turn minutes of outage into seven days.
+    if now < last_coord or now < last_net:
+        return False
+    coord_age=now-last_coord; net_age=now-last_net
+    max_reasonable_age=max(threshold*4,31*86400)
+    if coord_age>max_reasonable_age or net_age>max_reasonable_age:
+        return False
     # Self-clean only after the machine itself has lacked general Internet for the full period.
     # Coordinator-only outage must never trigger destruction.
-    return now-last_coord>=threshold and now-last_net>=threshold
+    return coord_age>=threshold and net_age>=threshold
