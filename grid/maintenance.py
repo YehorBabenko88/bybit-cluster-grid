@@ -112,6 +112,7 @@ async def maintenance_scheduler(pool,settings):
             archive=cleanup_orphan_archive_files(pathlib.Path(settings.archive_root),
                                                  3600 if aggressive else 86400)
             install_root=pathlib.Path(os.environ.get("ProgramFiles",r"C:\\Program Files"))/"BybitClusterGrid"
+            # Keep current + rollback target protected; bound reproducible release/update debris.
             releases=cleanup_release_storage(install_root,root,keep_recent=2,
                                              older_than_seconds=3600 if aggressive else 86400)
             pgstats=await maintain_postgres_statistics(pool)
