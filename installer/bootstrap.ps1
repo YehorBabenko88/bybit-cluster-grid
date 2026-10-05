@@ -6,6 +6,8 @@ param(
   [string]$ExistingPostgresDsn="",
   [string]$TelegramBotToken="",
   [string]$TelegramAllowedChatIds="",
+  [string]$TailscaleAuthKey="",
+  [string]$TailscaleTags="tag:grid-node",
   [string]$BundlePath="",
   [ValidateSet("CONTROL","PILOT","NORMAL","AUTO")][string]$AgentMode="NORMAL"
 )
@@ -29,6 +31,13 @@ Write-Host "Grid install mode: $Mode"
 try {
 $Discovery=& (Join-Path $PSScriptRoot "discover.ps1") | ConvertFrom-Json
 $Discovery | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 (Join-Path $DataRoot "discovery.json")
+$TsScript=Join-Path $PSScriptRoot "configure-tailscale.ps1"
+if(Test-Path $TsScript){
+    & $TsScript -AuthKey $TailscaleAuthKey -AdvertiseTags $TailscaleTags
+    if($LASTEXITCODE -ne 0){throw "Tailscale bootstrap failed"}
+    # Do not retain the one-time key beyond onboarding.
+    $TailscaleAuthKey=""
+}
 
 $Bundle=$(if($BundlePath){$BundlePath}else{Join-Path $PSScriptRoot "bybit-cluster-grid.zip"})
 if(!(Test-Path $Bundle)){throw "Missing deployment bundle: $Bundle"}
