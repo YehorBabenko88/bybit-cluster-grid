@@ -1,7 +1,7 @@
 import asyncio, json, time, logging, os
 import aiohttp, websockets
 from .config import settings
-from .resources import snapshot
+from .resources import snapshot,NODE_ID,ml_runtime_ready
 from .models import Trade
 from .cluster import FootprintBuilder
 from .storage import Storage
@@ -25,6 +25,8 @@ from .local_control_journal import LocalControlJournal
 from .control_snapshot_ring import ControlSnapshotRing,replica_meta
 from .integrity_guard import verify_manifest
 from .command_receipts import CommandReceiptStore
+from .ml_transport_client import MLTransportClient
+from .ml_agent_worker import ml_agent_loop
 
 log=logging.getLogger("worker")
 
@@ -50,6 +52,8 @@ class Worker:
         self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json'))
         self.control_ring=ControlSnapshotRing(os.getenv('GRID_CONTROL_SNAPSHOTS','control-snapshots'))
         self.command_receipts=CommandReceiptStore()
+        self.ml_task=None
+        self.ml_stop=asyncio.Event()
 
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
@@ -325,6 +329,18 @@ class Worker:
             self.operator_stopped=True; self.enabled=False
 
         health_task=asyncio.create_task(health_monitor())
+        if ml_runtime_ready():
+            client=MLTransportClient(NODE_ID)
+            def ml_can_claim():
+                try:
+                    snap=snapshot()
+                    return (self.enabled and not self.operator_stopped and not self.bootstrap_paused
+                            and self.runtime_state=="ACTIVE"
+                            and snap.get("disk_pressure_state")=="NORMAL")
+                except Exception:
+                    return False
+            self.ml_task=asyncio.create_task(
+                ml_agent_loop(client,self.ml_stop,poll_seconds=5,can_claim=ml_can_claim))
         # Retention, strategy orchestration and Telegram are CONTROL-owned.
         try:
             await self.heartbeat()
@@ -336,6 +352,10 @@ class Worker:
             await asyncio.gather(*list(self.trade_tasks.values()),*self.micro_tasks,return_exceptions=True)
             health_task.cancel()
             await asyncio.gather(health_task,return_exceptions=True)
+            self.ml_stop.set()
+            if self.ml_task is not None:
+                self.ml_task.cancel()
+                await asyncio.gather(self.ml_task,return_exceptions=True)
             await self.micro_storage.close()
             await self.storage.close()
 
