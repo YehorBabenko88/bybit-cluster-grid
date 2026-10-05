@@ -103,6 +103,7 @@ async def maintenance_scheduler(pool,settings):
             disk=disk_state(root,policy)
             aggressive=disk["state"]!="NORMAL"
             meta=await cleanup_control_metadata(pool)
+            artifact_gc=await delete_owned_artifacts(pool,LocalArtifactStore(settings.ml_artifact_root))
             temps=cleanup_owned_temp_files(root,3600 if aggressive else 86400)
             strategy=cleanup_strategy_cache(pathlib.Path(settings.strategy_cache_dir),
                                             86400 if aggressive else 7*86400)
