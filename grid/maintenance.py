@@ -94,10 +94,18 @@ async def maintenance_scheduler(pool,settings):
     root=pathlib.Path(os.environ.get("ProgramData",r"C:\ProgramData"))/"BybitClusterGrid"
     while True:
         try:
+            policy=DiskWatermarks(
+                soft_free_gb=float(settings.disk_soft_free_gb),
+                hard_free_gb=float(settings.disk_hard_free_gb),
+                emergency_free_gb=float(settings.disk_emergency_free_gb))
+            disk=disk_state(root,policy)
+            aggressive=disk["state"]!="NORMAL"
             meta=await cleanup_control_metadata(pool)
-            temps=cleanup_owned_temp_files(root)
-            strategy=cleanup_strategy_cache(pathlib.Path(settings.strategy_cache_dir))
-            archive=cleanup_orphan_archive_files(pathlib.Path(settings.archive_root))
+            temps=cleanup_owned_temp_files(root,3600 if aggressive else 86400)
+            strategy=cleanup_strategy_cache(pathlib.Path(settings.strategy_cache_dir),
+                                            86400 if aggressive else 7*86400)
+            archive=cleanup_orphan_archive_files(pathlib.Path(settings.archive_root),
+                                                 3600 if aggressive else 86400)
             pgstats=await maintain_postgres_statistics(pool)
             log.info("maintenance completed",extra={
                 "event":"maintenance_complete",
