@@ -1,0 +1,39 @@
+from pathlib import Path
+import os,time
+from grid.ml_agent_worker import cleanup_stale_workspaces
+
+
+def test_worker_starts_db_less_ml_agent_loop():
+    s=Path("grid/worker.py").read_text(encoding="utf-8")
+    assert "MLTransportClient(NODE_ID)" in s
+    assert "ml_agent_loop" in s
+    assert 'self.runtime_state=="ACTIVE"' in s
+    assert 'disk_pressure_state")=="NORMAL"' in s
+
+
+def test_control_starts_ml_orchestrator():
+    s=Path("grid/coordinator.py").read_text(encoding="utf-8")
+    assert "MLOrchestratorService" in s
+    assert "MLDispatcher" in s
+    assert "asyncio.create_task(ml_orchestrator.run())" in s
+    assert "ml_orchestrator.stop()" in s
+
+
+def test_bundle_mode_never_needs_postgres_on_agent():
+    s=Path("grid/ml_compute_entry.py").read_text(encoding="utf-8")
+    block=s.split("async def train_bundle",1)[1].split("async def main_async",1)[0]
+    assert "Database" not in block
+    assert "TrainingWorker" not in block
+    assert "TabularBoostBackend" in block
+
+
+def test_stale_workspace_cleanup(tmp_path,monkeypatch):
+    monkeypatch.setenv("ProgramData",str(tmp_path))
+    root=tmp_path/"BybitClusterGrid"/"ml-work"
+    old=root/"job-old";old.mkdir(parents=True)
+    fresh=root/"job-fresh";fresh.mkdir()
+    past=time.time()-90000
+    os.utime(old,(past,past))
+    removed=cleanup_stale_workspaces(86400)
+    assert removed==1
+    assert not old.exists() and fresh.exists()
