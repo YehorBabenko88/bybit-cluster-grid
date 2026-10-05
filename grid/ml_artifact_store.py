@@ -32,6 +32,15 @@ class LocalArtifactStore:
         return {"id":aid,"storage_uri":self.scheme+str(aid),
                 "bytes":len(data),"sha256":hashlib.sha256(data).hexdigest()}
 
+    def adopt_temp(self,temp_path,size,sha256):
+        temp=pathlib.Path(temp_path).resolve()
+        if os.path.commonpath([str(temp),str(self.root)])!=str(self.root):
+            raise ValueError("temp artifact escaped owned root")
+        aid=uuid.uuid4();target=self._path(aid)
+        os.replace(temp,target)
+        return {"id":aid,"storage_uri":self.scheme+str(aid),
+                "bytes":int(size),"sha256":str(sha256)}
+
     def delete_uri(self,uri):
         if not str(uri).startswith(self.scheme):
             raise ValueError("refusing to delete non-local artifact URI")
