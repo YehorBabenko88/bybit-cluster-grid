@@ -454,7 +454,7 @@ async def telegram_loop(db,nodes):
                 raise
             except (asyncio.TimeoutError,aiohttp.ClientError) as e:
                 # Telegram getUpdates is a long-poll request. Network/idle timeouts are
-                # expected transient transport events; keep the cursor and retry without
+                # expected transient transport events; preserve the cursor and retry without
                 # turning routine connectivity jitter into an application ERROR.
                 log.warning("telegram transport retry",extra={
                     "event":"telegram_transport_retry",
