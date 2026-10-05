@@ -6,6 +6,8 @@ import time
 
 from .ml_reservations import purge_expired
 from .disk_guard import DiskWatermarks,disk_state
+from .ml_artifact_store import LocalArtifactStore
+from .ml_artifact_gc import delete_owned_artifacts
 
 log=logging.getLogger("maintenance")
 
