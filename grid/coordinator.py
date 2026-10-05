@@ -298,4 +298,17 @@ async def shutdown():
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    ingest_storage = None
+    if ingest_storage is not None:
+        # CONTROL borrows the Database pool for direct ingest. Stop the derived
+        # pipeline before closing the shared pool so no background writer can race
+        # shutdown/reboot.
+        derived=getattr(ingest_storage,"derived",None)
+        if derived is not None:
+            close=getattr(derived,"close",None)
+            if close is not None:
+                await close()
+        ingest_storage = None
+
+    if db is not None and db.pool is not None:
+        await db.pool.close()
+        db.pool=None
