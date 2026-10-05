@@ -51,6 +51,20 @@ async def dataset_bundle(pool,job_id,node_id,generation):
             "feature_version":ds["feature_version"],"sample_count":len(samples),"samples":samples}
 
 
+async def register_saved_artifact(pool,job_id,node_id,generation,saved,metadata=None):
+    row=await pool.fetchrow("""SELECT payload FROM ml_jobs WHERE id=$1 AND lease_owner=$2
+      AND lease_generation=$3 AND status='running' AND lease_until>=now() FOR UPDATE""",
+      job_id,node_id,int(generation))
+    if not row:return None
+    artifact_id=saved["id"]
+    await pool.execute("""INSERT INTO ml_artifacts
+      (id,artifact_type,owner_job,storage_uri,bytes,status,reusable,expires_at,metadata)
+      VALUES($1,'MODEL',$2,$3,$4,'ACTIVE',false,now()+interval '1 hour',$5::jsonb)""",
+      artifact_id,job_id,saved["storage_uri"],saved["bytes"],
+      json.dumps(dict(metadata or {},sha256=saved["sha256"])))
+    return {"artifact_id":str(artifact_id),"sha256":saved["sha256"]}
+
+
 async def publish_artifact(pool,store,job_id,node_id,generation,data,sha256,metadata=None):
     row=await pool.fetchrow("""SELECT payload FROM ml_jobs WHERE id=$1 AND lease_owner=$2
       AND lease_generation=$3 AND status='running' AND lease_until>=now() FOR UPDATE""",
@@ -59,13 +73,7 @@ async def publish_artifact(pool,store,job_id,node_id,generation,data,sha256,meta
     actual=hashlib.sha256(data).hexdigest()
     if actual!=str(sha256):raise ValueError("artifact sha256 mismatch")
     saved=store.put_bytes(data)
-    artifact_id=saved["id"]
-    await pool.execute("""INSERT INTO ml_artifacts
-      (id,artifact_type,owner_job,storage_uri,bytes,status,reusable,expires_at,metadata)
-      VALUES($1,'MODEL',$2,$3,$4,'ACTIVE',false,now()+interval '1 hour',$5::jsonb)""",
-      artifact_id,job_id,saved["storage_uri"],saved["bytes"],
-      json.dumps(dict(metadata or {},sha256=actual)))
-    return {"artifact_id":str(artifact_id),"sha256":actual}
+    return await register_saved_artifact(pool,job_id,node_id,generation,saved,metadata)
 
 
 async def finalize_model(pool,job_id,node_id,generation,artifact_id,metrics=None):
