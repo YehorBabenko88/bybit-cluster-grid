@@ -4,6 +4,7 @@ from .db import Database
 from .ml_artifact_store import LocalArtifactStore
 from .ml_boost_backend import TabularBoostBackend
 from .ml_training_worker import TrainingWorker
+from pathlib import Path
 
 
 async def train_job(job):
@@ -31,6 +32,26 @@ async def train_job(job):
         await db.close()
 
 
+async def train_bundle(bundle_path,artifact_path,result_path):
+    bundle=json.loads(Path(bundle_path).read_text(encoding="utf-8"))
+    job=bundle["job"];dataset=bundle["dataset"]
+    if job.get("job_type")!="train":raise ValueError("unsupported compute job type")
+    payload=dict(job.get("payload") or {})
+    backend_name=str(payload.get("backend","xgboost")).lower()
+    if backend_name not in ("xgboost","lightgbm"):raise ValueError("unsupported ML backend")
+    hp=dict(payload.get("hyperparameters") or {})
+    rows=list(dataset.get("samples") or [])
+    if not rows:raise ValueError("dataset has no samples")
+    threads=max(1,min(int(payload.get("threads",1)),int(os.cpu_count() or 1)))
+    backend=TabularBoostBackend(backend_name,threads=threads,seed=int(payload.get("seed",1729)))
+    model=backend.fit(rows,hp)
+    pred=backend.predict(model,rows)
+    metrics=backend.evaluate(rows,pred,target_key=hp.get("target_key"))
+    artifact=await backend.serialize(model)
+    Path(artifact_path).write_bytes(artifact)
+    Path(result_path).write_text(json.dumps({"metrics":metrics},separators=(",",":")),encoding="utf-8")
+    return {"metrics":metrics}
+
 async def main_async(job_json):
     job=json.loads(job_json)
     if job.get("job_type")!="train":raise ValueError("unsupported compute job type")
@@ -40,9 +61,16 @@ async def main_async(job_json):
 
 def main():
     p=argparse.ArgumentParser()
-    p.add_argument("--job-json",required=True)
+    p.add_argument("--job-json")
+    p.add_argument("--bundle");p.add_argument("--artifact");p.add_argument("--result")
     a=p.parse_args()
-    asyncio.run(main_async(a.job_json))
+    if a.bundle or a.artifact or a.result:
+        if not (a.bundle and a.artifact and a.result):raise SystemExit("bundle mode requires --bundle --artifact --result")
+        asyncio.run(train_bundle(a.bundle,a.artifact,a.result))
+    elif a.job_json:
+        asyncio.run(main_async(a.job_json))
+    else:
+        raise SystemExit("job mode requires --job-json")
 
 
 if __name__=="__main__":
