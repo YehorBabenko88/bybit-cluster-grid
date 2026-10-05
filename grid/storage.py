@@ -1,3 +1,4 @@
+import asyncio
 import asyncpg
 from datetime import datetime,timezone
 import json
@@ -24,6 +25,8 @@ class Storage:
     def __init__(self):
         self.pool=None
         self.http=None
+        self.replay_task=None
+        self.replay_done=asyncio.Event(); self.replay_done.set()
         self.feature_builder=UnifiedFeatureBuilder()
         self.derived=None
         root=os.path.join(os.getenv("ProgramData",os.getcwd()),"BybitClusterGrid","spool")
@@ -39,15 +42,29 @@ class Storage:
         if self.remote:
             self.http=aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20))
         await self.write_queue.start()
-        for record_id,row in self.spool.recover():
-            await self.write_queue.put(record_id,row)
+        pending=self.spool.recover()
+        if pending:
+            self.replay_done.clear()
+            self.replay_task=asyncio.create_task(self._replay(pending))
+    async def _replay(self,pending):
+        try:
+            for record_id,row in pending:
+                await self.write_queue.put(record_id,row)
+        finally:
+            self.replay_done.set()
+
     async def save(self,row):
+        await self.replay_done.wait()
         if self.spool.ratio()>=settings.spool_critical_ratio:
             raise BufferError("Grid WAL critical threshold reached; load shedding required")
         record_id=await self.spool.append(row)
         await self.write_queue.put(record_id,row)
 
     async def close(self,drain_timeout=5):
+        if self.replay_task is not None and not self.replay_task.done():
+            self.replay_task.cancel()
+            await asyncio.gather(self.replay_task,return_exceptions=True)
+        self.replay_task=None
         await self.write_queue.close(drain_timeout)
         if self.http is not None:
             await self.http.close(); self.http=None
