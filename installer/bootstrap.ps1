@@ -99,6 +99,11 @@ if($NeedDeps){
     Write-Host "Grid dependencies already match requirements fingerprint."
 }
 
+# Heavy ML dependencies are role-aware and independently fingerprinted. This
+# makes interrupted downloads/repairs resumable without bloating NORMAL collectors.
+& (Join-Path $Release "installer\\bootstrap-ml.ps1") -Python $Python -ReleaseDir $Release -RuntimeRoot $RuntimeRoot -Mode $(if($AgentMode -eq "AUTO"){"NORMAL"}else{$AgentMode})
+if($LASTEXITCODE -ne 0){throw "Grid ML runtime bootstrap failed"}
+
 $CredentialFile=Join-Path $DataRoot "secrets\\node.credential"
 if($AgentMode -eq "AUTO"){
     if(!$CoordinatorUrl -or !$EnrollmentToken){ throw "AUTO onboarding requires CoordinatorUrl and a fresh one-time EnrollmentToken." }
@@ -110,6 +115,10 @@ if($AgentMode -eq "AUTO"){
         if($Enrollment.install_mode -notin @("PILOT","NORMAL")){ throw "Invalid server-authorized install mode" }
         $AgentMode=[string]$Enrollment.install_mode
         Write-Host "CONTROL authorized node mode: $AgentMode"
+        if($AgentMode -eq "PILOT"){
+            & (Join-Path $Release "installer\\bootstrap-ml.ps1") -Python $Python -ReleaseDir $Release -RuntimeRoot $RuntimeRoot -Mode $AgentMode
+            if($LASTEXITCODE -ne 0){throw "Grid ML runtime bootstrap failed after PILOT authorization"}
+        }
     } finally { Pop-Location }
 }
 $EnvFile=Join-Path $DataRoot ".env"
