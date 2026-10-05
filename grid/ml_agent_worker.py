@@ -1,4 +1,4 @@
-import asyncio,hashlib,json,os,pathlib,shutil,sys,tempfile
+import asyncio,hashlib,json,os,pathlib,shutil,sys,tempfile,time
 from .config import settings
 from .ml_process_supervisor import run_supervised_process
 from .ml_remote_lease import run_remote_lease
@@ -22,6 +22,15 @@ def _workspace_root():
     base=pathlib.Path(os.environ.get("ProgramData",r"C:\ProgramData"))/"BybitClusterGrid"/"ml-work"
     base.mkdir(parents=True,exist_ok=True)
     return base
+
+def cleanup_stale_workspaces(older_than_seconds=86400):
+    root=_workspace_root();cutoff=time.time()-max(3600,int(older_than_seconds));removed=0
+    for p in root.glob("job-*"):
+        try:
+            if p.is_dir() and p.stat().st_mtime<cutoff:
+                shutil.rmtree(p,ignore_errors=True);removed+=1
+        except OSError:pass
+    return removed
 
 
 async def execute_remote_job(client,job):
@@ -58,6 +67,7 @@ async def execute_remote_job(client,job):
 
 async def ml_agent_loop(client,stop_event=None,poll_seconds=5,can_claim=None):
     stop_event=stop_event or asyncio.Event()
+    cleanup_stale_workspaces()
     while not stop_event.is_set():
         if can_claim is not None and not can_claim():
             try:await asyncio.wait_for(stop_event.wait(),timeout=float(poll_seconds))
