@@ -1,5 +1,6 @@
 import asyncio
 from grid.ml_concurrency import claim_ml_job,renew_ml_job,finish_ml_job
+from grid.ml_worker_protocol import run_with_lease
 
 class Conn:
     def __init__(self): self.claimed=False
@@ -29,4 +30,31 @@ def test_claim_uses_transactional_single_owner_path():
         assert a["lease_owner"]=="worker-a" and b is None
         assert await renew_ml_job(p,"j1","worker-a",a["lease_generation"])
         assert await finish_ml_job(p,"j1","worker-a",a["lease_generation"])
+    asyncio.run(run())
+
+
+def test_lease_loss_cancels_running_workload():
+    async def run():
+        class LeasePool:
+            def __init__(self): self.calls=0
+            async def execute(self,sql,*args):
+                if "UPDATE ml_jobs SET lease_until" in sql:
+                    self.calls+=1
+                    return "UPDATE 0"
+                return "UPDATE 1"
+        cancelled=asyncio.Event()
+        async def work():
+            try:
+                await asyncio.sleep(60)
+            finally:
+                cancelled.set()
+        p=LeasePool()
+        job={"id":"j1","lease_generation":7}
+        try:
+            await run_with_lease(p,job,"worker-a",work,lease_seconds=1,renew_every=.01)
+            assert False,"lease loss should abort stale work"
+        except RuntimeError as exc:
+            assert "lease lost" in str(exc)
+        assert cancelled.is_set()
+        assert p.calls==1
     asyncio.run(run())
