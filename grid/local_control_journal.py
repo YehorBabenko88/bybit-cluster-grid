@@ -5,6 +5,16 @@ class LocalControlJournal:
     """Small crash-safe replica of critical control state, never bulk market data."""
     def __init__(self,path):
         self.path=Path(path); self.path.parent.mkdir(parents=True,exist_ok=True)
+        self._cleanup_stale_temps()
+
+    def _cleanup_stale_temps(self):
+        # mkstemp files are normally removed in finally, but a hard power loss
+        # can interrupt the process before cleanup. They are never authoritative.
+        for p in self.path.parent.glob(self.path.name+".*"):
+            try:
+                if p.is_file():p.unlink()
+            except OSError:
+                pass
 
     def load(self):
         if not self.path.exists():return {"version":0,"state":{}}
