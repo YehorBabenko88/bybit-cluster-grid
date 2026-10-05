@@ -30,6 +30,7 @@ from .ml_transport import claim as ml_claim,renew as ml_renew,dataset_bundle as 
 from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
 from .resources import snapshot as resource_snapshot
+from .asyncio_guard import install_asyncio_exception_filter
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -295,6 +296,7 @@ def rebalance():
 async def startup():
     global db, ingest_storage, background_tasks, ml_orchestrator
     bootstrap_logging()
+    install_asyncio_exception_filter(asyncio.get_running_loop())
     log.info(
         "coordinator startup",
         extra={"event": "coordinator_startup", "component": "coordinator"},
