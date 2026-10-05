@@ -25,6 +25,8 @@ from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
 from .retention import retention_scheduler
 from .maintenance import maintenance_scheduler
+from .ml_artifact_store import LocalArtifactStore
+from .ml_transport import claim as ml_claim,renew as ml_renew,dataset_bundle as ml_dataset_bundle,publish_artifact as ml_publish_artifact,finalize_model as ml_finalize_model
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -185,6 +187,51 @@ async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_c
     await db.insert_event(symbol,int(event_ts),event_type,event_payload)
     return {"ok":True}
 
+
+@app.post("/ml/claim")
+async def claim_ml_job(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""))
+    if not node_id:raise HTTPException(400,"node_id required")
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    return {"job":await ml_claim(db.pool,node_id)}
+
+@app.post("/ml/jobs/{job_id}/renew")
+async def renew_ml_job(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""));generation=int(payload.get("lease_generation",-1))
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    if not await ml_renew(db.pool,job_id,node_id,generation):raise HTTPException(409,"stale ML lease")
+    return {"ok":True}
+
+@app.get("/ml/jobs/{job_id}/dataset")
+async def get_ml_dataset(job_id:str,node_id:str,lease_generation:int,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    bundle=await ml_dataset_bundle(db.pool,job_id,node_id,lease_generation)
+    if bundle is None:raise HTTPException(409,"stale ML lease")
+    return bundle
+
+@app.post("/ml/jobs/{job_id}/artifact")
+async def upload_ml_artifact(job_id:str,request:Request,node_id:str,lease_generation:int,sha256:str,
+                             x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    max_bytes=256*1024*1024
+    if int(request.headers.get("content-length","0") or 0)>max_bytes:raise HTTPException(413,"artifact too large")
+    data=await request.body()
+    if len(data)>max_bytes:raise HTTPException(413,"artifact too large")
+    try:
+        result=await ml_publish_artifact(db.pool,LocalArtifactStore(settings.ml_artifact_root),
+          job_id,node_id,lease_generation,data,sha256)
+    except ValueError as e:
+        raise HTTPException(400,str(e))
+    if result is None:raise HTTPException(409,"stale ML lease")
+    return result
+
+@app.post("/ml/jobs/{job_id}/finalize")
+async def finalize_ml_job(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    node_id=str(payload.get("node_id",""));generation=int(payload.get("lease_generation",-1))
+    await node_auth(node_id,x_node_credential,x_grid_token)
+    result=await ml_finalize_model(db.pool,job_id,node_id,generation,payload.get("artifact_id"),payload.get("metrics"))
+    if not result:raise HTTPException(409,"stale ML lease or artifact")
+    return result
 
 @app.get("/status")
 async def status(x_grid_token:str=Header(default="")):
