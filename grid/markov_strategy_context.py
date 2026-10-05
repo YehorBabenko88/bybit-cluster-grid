@@ -4,7 +4,7 @@ def markov_context(model,row):
     return {"state_from":state,"markov_scope":list(meta["scope"]),
             "markov_transitions":meta["transitions"],"markov_next":p,
             "markov_p_stay":p.get(state,0.0),
-            "markov_p_high_vol":sum(v for k,v in p.items() if k in ("HIGH_VOL","IMPULSE"))}
+            "markov_p_high_vol":sum(v for k,v in p.items() if k in ("EXPANDING","VOLATILE"))}
 
 def enrich_simulated_trade(model,signal,trade):
     out=dict(trade);out.update(markov_context(model,signal))
