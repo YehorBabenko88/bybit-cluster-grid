@@ -6,6 +6,15 @@ async def set_consumer_watermark(pool,dataset,consumer,symbol,through,required=T
       consumed_through=GREATEST(consumer_watermarks.consumed_through,EXCLUDED.consumed_through),
       required=EXCLUDED.required,updated_at=now()""",dataset,consumer,symbol,through,bool(required))
 
+async def set_consumer_watermarks(pool,items):
+    """Batch monotonic watermark updates into one round trip."""
+    rows=[(d,c,s,t,bool(req)) for d,c,s,t,req in items]
+    if not rows:return
+    await pool.executemany("""INSERT INTO consumer_watermarks(dataset,consumer,symbol,consumed_through,required)
+      VALUES($1,$2,$3,$4,$5) ON CONFLICT(dataset,consumer,symbol) DO UPDATE SET
+      consumed_through=GREATEST(consumer_watermarks.consumed_through,EXCLUDED.consumed_through),
+      required=EXCLUDED.required,updated_at=now()""",rows)
+
 async def safe_cutoff(pool,dataset,symbol,age_cutoff):
     """Never pass the slowest required consumer and never cross an active retention hold."""
     wm=await pool.fetchval("""SELECT min(consumed_through) FROM consumer_watermarks
