@@ -87,6 +87,18 @@ class Worker:
                              "micro_spool_bytes":microm.get("spool_bytes",0),
                              "micro_spool_ratio":round(microm.get("spool_ratio",0.0),4)})
                 snap['pressure_state']=state
+                # Pressure control must remain autonomous when CONTROL is unreachable.
+                # Otherwise a long outage can fill the durable WAL while all market
+                # producers keep running. Drain expensive live streams locally; a
+                # later healthy CONTROL heartbeat will restore assignments once
+                # pressure has recovered.
+                if state not in (NORMAL,SOFT_PRESSURE) and self.wanted:
+                    victims=set(self.pressure.symbols_to_drain(self.wanted-self.pressure_drained))
+                    if victims:
+                        self.pressure_drained.update(victims)
+                        self.wanted.difference_update(victims)
+                        self.micro_wanted.intersection_update(self.wanted)
+                        await self.reconcile()
                 snap['bootstrap_paused']=self.bootstrap_paused
                 snap['operator_stopped']=self.operator_stopped
                 snap['bootstrap_phase']=self.bootstrap_phase
