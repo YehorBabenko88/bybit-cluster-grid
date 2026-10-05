@@ -8,10 +8,27 @@ class SegmentWAL:
         self.checkpoint=self.root/"checkpoint"
         self.checkpoint_backup=self.root/"checkpoint.bak"
         self._lock=asyncio.Lock()
+        self._repair_trailing_partial()
         self._next_id=self._discover_next_id()
 
     def _segments(self):
         return sorted(self.root.glob("wal-*.seg"))
+
+    def _repair_trailing_partial(self):
+        # A power loss can leave the active segment without its final newline.
+        # Appending to those torn bytes would corrupt the next valid record too.
+        segs=self._segments()
+        if not segs:return
+        p=segs[-1]
+        try:
+            with open(p,"rb+") as f:
+                data=f.read()
+                if not data or data.endswith(b"\\n"):return
+                cut=data.rfind(b"\\n")
+                f.truncate(0 if cut<0 else cut+1)
+                f.flush();os.fsync(f.fileno())
+        except OSError:
+            pass
 
     def _discover_next_id(self):
         high=self._checkpoint_id()
