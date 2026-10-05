@@ -15,6 +15,9 @@ def rank_nodes(nodes,workload:Workload):
     ranked=[]
     for node_id,n in nodes.items():
         if (n.get("pressure_state") or "NORMAL") in ("REDUCE_LOAD","CRITICAL"): continue
+        # New heavy ML work is admitted only on a disk-normal node. Existing
+        # leased work is handled by lease/cancellation semantics, not stolen here.
+        if (n.get("disk_pressure_state") or "NORMAL")!="NORMAL": continue
         cpu_free=max(0.0,100-float(n.get("cpu_pct",100)))
         ram_free=float(n.get("ram_available",0))/1024**3
         disk_free=float(n.get("disk_free",0))/1024**3
