@@ -66,3 +66,19 @@ def test_lease_loss_propagates_cancel_into_subprocess_supervisor():
                 work,lease_seconds=1,renew_every=.05,
             )
     asyncio.run(run())
+
+
+def test_verbose_subprocess_does_not_deadlock_pipe():
+    async def run():
+        code="import sys; sys.stdout.write('x'*2000000); sys.stderr.write('y'*2000000)"
+        out=await run_supervised_process([sys.executable,"-c",code],timeout_seconds=10,poll_seconds=.02)
+        assert len(out)<=8192
+        assert out.endswith(b"x"*100)
+    asyncio.run(run())
+
+
+def test_supervisor_rejects_nonpositive_timeout():
+    async def run():
+        with pytest.raises(ValueError):
+            await run_supervised_process([sys.executable,"-c","pass"],timeout_seconds=0)
+    asyncio.run(run())
