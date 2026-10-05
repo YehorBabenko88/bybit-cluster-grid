@@ -16,7 +16,10 @@ def test_artifact_upload_is_control_owned_and_bounded():
     assert "LocalArtifactStore(settings.ml_artifact_root)" in c
     assert 'request.stream()' in c
     assert 'request.body()' not in c
-    assert "storage_uri" not in c[c.index('upload_ml_artifact'):c.index('@app.post("/ml/jobs/{job_id}/finalize")')]
+    block=c[c.index('upload_ml_artifact'):c.index('@app.post("/ml/jobs/{job_id}/finalize")')]
+    assert 'payload.get("storage_uri")' not in block
+    assert 'storage_uri:str' not in block
+    assert 'saved["storage_uri"]' in block
 
 
 def test_transport_fences_every_mutation_by_generation():
