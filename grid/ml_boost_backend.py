@@ -67,21 +67,11 @@ class TabularBoostBackend:
             return model.predict_proba(X)[:,1].tolist()
         return model.predict(X).tolist()
 
-    def evaluate(self,rows,pred):
-        _,y,_=self._xy(rows,{"target_key":self._last_target_key(rows)})
+    def evaluate(self,rows,pred,target_key=None):
+        if not target_key:raise ValueError("target_key is required for evaluation")
+        _,y,_=self._xy(rows,{"target_key":target_key})
         mse=sum((a-b)**2 for a,b in zip(y,pred))/max(1,len(y))
         return {"mse":mse,"rmse":mse**.5,"samples":len(y)}
-
-    def _last_target_key(self,rows):
-        # evaluate() is called immediately after fit/predict; require one explicit
-        # target key to be present in every target rather than guessing semantics.
-        keys=None
-        for r in rows:
-            ks=set((r.get("target") or {}).keys())
-            keys=ks if keys is None else keys & ks
-        if not keys or len(keys)!=1:
-            raise ValueError("evaluation requires an unambiguous single target")
-        return next(iter(keys))
 
     async def serialize(self,bundle):
         return pickle.dumps(bundle,protocol=pickle.HIGHEST_PROTOCOL)
