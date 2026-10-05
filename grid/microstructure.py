@@ -44,13 +44,26 @@ class MicrostructureCollector:
                     max_queue=50000, close_timeout=5
                 ) as ws:
                     # Small subscription batches reduce rejection risk and make reconnect gentler.
+                    # Every request must be acknowledged; otherwise a transport can stay
+                    # healthy while the market subscription itself was rejected.
                     for i in range(0,len(topics),20):
-                        await ws.send(json.dumps({"op":"subscribe","args":topics[i:i+20]}))
+                        batch_topics=topics[i:i+20]
+                        await ws.send(json.dumps({"op":"subscribe","args":batch_topics}))
+                        while True:
+                            raw=await asyncio.wait_for(ws.recv(),timeout=15)
+                            ack=json.loads(raw)
+                            if ack.get("op")=="subscribe":
+                                if ack.get("success") is not True:
+                                    raise RuntimeError("Bybit subscription rejected: "+str(ack.get("ret_msg") or ack))
+                                break
+                            # Ignore connection-level control frames before ACK. Market
+                            # data is not expected before subscription acknowledgement.
                         await asyncio.sleep(0.05)
                     delays=backoff_delays()
                     log.info("microstructure connected",extra={"event":"ws_connected","component":"microstructure"})
 
-                    async for raw in ws:
+                    while True:
+                        raw=await asyncio.wait_for(ws.recv(),timeout=45)
                         msg=json.loads(raw)
                         topic=msg.get("topic","")
                         data=msg.get("data") or {}
