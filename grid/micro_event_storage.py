@@ -1,3 +1,4 @@
+import asyncio
 import aiohttp
 import os
 
@@ -24,6 +25,8 @@ class MicroEventStorage:
             max_bytes=int(settings.micro_event_spool_max_gb*1024**3),
         )
         self.http=None
+        self.replay_task=None
+        self.replay_done=asyncio.Event(); self.replay_done.set()
         self.write_queue=BoundedWriteQueue(
             self._save_spooled,
             maxsize=20000,
@@ -33,10 +36,20 @@ class MicroEventStorage:
     async def start(self):
         self.http=aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20))
         await self.write_queue.start()
-        for record_id,row in self.spool.recover():
-            await self.write_queue.put(record_id,row)
+        pending=self.spool.recover()
+        if pending:
+            self.replay_done.clear()
+            self.replay_task=asyncio.create_task(self._replay(pending))
+
+    async def _replay(self,pending):
+        try:
+            for record_id,row in pending:
+                await self.write_queue.put(record_id,row)
+        finally:
+            self.replay_done.set()
 
     async def insert_event(self,symbol,event_ts,event_type,payload):
+        await self.replay_done.wait()
         if self.spool.ratio()>=settings.spool_critical_ratio:
             raise BufferError("Grid micro-event WAL critical threshold reached; load shedding required")
         row={
@@ -49,6 +62,10 @@ class MicroEventStorage:
         await self.write_queue.put(record_id,row)
 
     async def close(self,drain_timeout=5):
+        if self.replay_task is not None and not self.replay_task.done():
+            self.replay_task.cancel()
+            await asyncio.gather(self.replay_task,return_exceptions=True)
+        self.replay_task=None
         await self.write_queue.close(drain_timeout)
         if self.http is not None:
             await self.http.close(); self.http=None
