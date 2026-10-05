@@ -28,5 +28,8 @@ async def process_archive(pool,job,archive_root,tick_size):
         await set_capability(pool,job["symbol"],"footprint_history","PARTIAL")
         return {"symbol":job["symbol"],"date":str(job["archive_date"]),**derived,"source_rows":source_rows}
     except BaseException:
-        # Keep a successfully downloaded raw file after processing failure for diagnosis/retry.
+        # Retries always download a fresh verified copy; retaining a random-named
+        # raw archive only leaks disk because it cannot be addressed by the job.
+        try:safe_delete_owned(path,archive_root)
+        except OSError:pass
         raise
