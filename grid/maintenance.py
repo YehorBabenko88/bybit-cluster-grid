@@ -72,6 +72,23 @@ async def cleanup_control_metadata(pool):
     return {"reservations":reservations,"jobs":jobs,"datasets":datasets,"artifacts_marked":artifacts}
 
 
+async def maintain_postgres_statistics(pool):
+    # ANALYZE is online and helps the planner after large retention batches.
+    # VACUUM FULL is intentionally forbidden here because it takes exclusive locks.
+    tables=("market_events","orderbook_snapshots","footprint_1m","candles_1m",
+            "derivatives_metrics","ml_jobs","dataset_snapshots")
+    async with pool.acquire() as c:
+        for table in tables:
+            try:await c.execute(f"ANALYZE {table}")
+            except Exception:
+                log.debug("analyze skipped",extra={"event":"analyze_skipped","component":table},exc_info=True)
+        rows=await c.fetch("""SELECT relname,n_live_tup,n_dead_tup,
+          last_autovacuum,last_autoanalyze
+          FROM pg_stat_user_tables
+          WHERE relname=ANY($1::text[])""",list(tables))
+    return [dict(x) for x in rows]
+
+
 async def maintenance_scheduler(pool,settings):
     root=pathlib.Path(os.environ.get("ProgramData",r"C:\ProgramData"))/"BybitClusterGrid"
     while True:
@@ -80,9 +97,10 @@ async def maintenance_scheduler(pool,settings):
             temps=cleanup_owned_temp_files(root)
             strategy=cleanup_strategy_cache(pathlib.Path(settings.strategy_cache_dir))
             archive=cleanup_orphan_archive_files(pathlib.Path(settings.archive_root))
+            pgstats=await maintain_postgres_statistics(pool)
             log.info("maintenance completed",extra={
                 "event":"maintenance_complete",
-                "component":str({"metadata":meta,"temp_files":temps,"strategy_cache":strategy,"archive_orphans":archive}),
+                "component":str({"metadata":meta,"temp_files":temps,"strategy_cache":strategy,"archive_orphans":archive,"pg_tables":len(pgstats)}),
             })
         except asyncio.CancelledError:
             raise
