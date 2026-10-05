@@ -56,9 +56,13 @@ async def execute_remote_job(client,job):
         shutil.rmtree(workdir,ignore_errors=True)
 
 
-async def ml_agent_loop(client,stop_event=None,poll_seconds=5):
+async def ml_agent_loop(client,stop_event=None,poll_seconds=5,can_claim=None):
     stop_event=stop_event or asyncio.Event()
     while not stop_event.is_set():
+        if can_claim is not None and not can_claim():
+            try:await asyncio.wait_for(stop_event.wait(),timeout=float(poll_seconds))
+            except asyncio.TimeoutError:pass
+            continue
         job=await client.claim()
         if not job:
             try:await asyncio.wait_for(stop_event.wait(),timeout=float(poll_seconds))
