@@ -15,6 +15,8 @@ if(Test-Path $EnvFile){
 $VersionFile=Join-Path $InstallRoot "current.version"
 $Release=if(Test-Path $VersionFile){Join-Path (Join-Path $InstallRoot "releases") ((Get-Content $VersionFile -Raw).Trim())}else{Join-Path $InstallRoot "bootstrap"}
 if(!(Test-Path $Release)){throw "Grid CONTROL release not found: $Release"}
+$WaitDb=Join-Path $Release "installer\\wait-grid-postgres.ps1"
+if(Test-Path $WaitDb){ & $WaitDb -DataRoot $DataRoot -TimeoutSeconds 120 }
 Set-Location $Release
 & $Python -m uvicorn grid.coordinator:app --host 0.0.0.0 --port 8765
 exit $LASTEXITCODE
