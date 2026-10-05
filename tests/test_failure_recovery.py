@@ -137,3 +137,13 @@ def test_power_loss_partial_wal_tail_is_truncated_before_next_append(tmp_path):
         assert [rid for rid,_ in recovered]==[first,second]
         assert [payload["n"] for _,payload in recovered]==[1,2]
     asyncio.run(run())
+
+
+def test_wal_startup_removes_crash_staging_files(tmp_path):
+    from grid.segment_wal import SegmentWAL
+    root=tmp_path/"wal";root.mkdir()
+    (root/"checkpoint.next").write_text("12",encoding="ascii")
+    (root/"checkpoint.backup.next").write_text("11",encoding="ascii")
+    SegmentWAL(root)
+    assert not (root/"checkpoint.next").exists()
+    assert not (root/"checkpoint.backup.next").exists()
