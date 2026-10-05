@@ -7,21 +7,31 @@ import time
 from pathlib import Path
 
 
+MAX_LOG_MESSAGE=16000
+MAX_LOG_EXCEPTION=32000
+_EXTRA_FIELDS=("node_id","symbol","event","attempt","delay","component","queue_depth",
+               "queue_ratio","spool_ratio","disk_pressure_state","process_rss",
+               "process_cpu_pct","lease_generation","job_id","version")
+
+def _bounded(value,limit):
+    text=str(value)
+    return text if len(text)<=limit else text[:limit]+"...[truncated]"
+
 class JsonFormatter(logging.Formatter):
     def format(self, record):
         payload = {
             "ts": time.time(),
             "level": record.levelname,
             "logger": record.name,
-            "msg": record.getMessage(),
+            "msg": _bounded(record.getMessage(),MAX_LOG_MESSAGE),
         }
 
-        for k in ("node_id", "symbol", "event", "attempt", "delay", "component"):
+        for k in _EXTRA_FIELDS:
             if hasattr(record, k):
                 payload[k] = getattr(record, k)
 
         if record.exc_info:
-            payload["exc"] = self.formatException(record.exc_info)
+            payload["exc"] = _bounded(self.formatException(record.exc_info),MAX_LOG_EXCEPTION)
 
         return json.dumps(payload, ensure_ascii=False)
 
