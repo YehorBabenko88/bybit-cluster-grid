@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     strategy_job_timeout_seconds: int = 21600
     strategy_cpu_soft_limit: float = 60
     strategy_ram_soft_limit: float = 72
+    strategy_ram_limit_mb: int = 4096
     strategy_disk_free_gb: float = 30
     strategy_db_active_limit: int = 20
     strategy_poll_seconds: int = 3
