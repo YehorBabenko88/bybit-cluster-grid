@@ -23,7 +23,7 @@ async def renew(pool,job_id,node_id,generation):
     return await renew_running_job(pool,job_id,node_id,int(generation))
 
 
-async def dataset_bundle(pool,job_id,node_id,generation):
+async def dataset_page(pool,job_id,node_id,generation,offset=0,limit=500):
     job=await pool.fetchrow("""SELECT payload FROM ml_jobs WHERE id=$1 AND lease_owner=$2
       AND lease_generation=$3 AND status='running' AND lease_until>=now()""",
       job_id,node_id,int(generation))
@@ -34,21 +34,34 @@ async def dataset_bundle(pool,job_id,node_id,generation):
     ds=await pool.fetchrow("""SELECT id,dataset_hash,feature_version,sample_count FROM dataset_snapshots
       WHERE id=$1 AND status='READY'""",did)
     if not ds:raise ValueError("dataset is not READY")
+    offset=max(0,int(offset));limit=max(1,min(1000,int(limit)))
     rows=await pool.fetch("""SELECT ordinal,payload,payload_hash FROM dataset_sample_payloads
-      WHERE dataset_id=$1 ORDER BY ordinal""",did)
+      WHERE dataset_id=$1 ORDER BY ordinal OFFSET $2 LIMIT $3""",did,offset,limit)
     samples=[]
-    hashes=[]
     for r in rows:
-        raw=r["payload"]
-        obj=json.loads(raw) if isinstance(raw,str) else dict(raw)
+        raw=r["payload"];obj=json.loads(raw) if isinstance(raw,str) else dict(raw)
         canonical=json.dumps(obj,sort_keys=True,default=str,separators=(",",":"))
         digest=hashlib.sha256(canonical.encode()).hexdigest()
         if digest!=r["payload_hash"]:raise RuntimeError("dataset payload hash mismatch")
-        samples.append(obj);hashes.append(digest)
+        samples.append({"ordinal":int(r["ordinal"]),"payload":obj,"payload_hash":digest})
+    return {"dataset_id":str(ds["id"]),"dataset_hash":ds["dataset_hash"],
+            "feature_version":ds["feature_version"],"sample_count":int(ds["sample_count"]),
+            "offset":offset,"limit":limit,"samples":samples}
+
+async def dataset_bundle(pool,job_id,node_id,generation):
+    first=await dataset_page(pool,job_id,node_id,generation,0,1000)
+    if first is None:return None
+    samples=[];hashes=[];offset=0
+    while offset<first["sample_count"]:
+        page=first if offset==0 else await dataset_page(pool,job_id,node_id,generation,offset,1000)
+        for item in page["samples"]:
+            samples.append(item["payload"]);hashes.append(item["payload_hash"])
+        offset+=len(page["samples"])
+        if not page["samples"]:break
     digest=hashlib.sha256("\n".join(hashes).encode()).hexdigest()
-    if digest!=ds["dataset_hash"]:raise RuntimeError("dataset manifest hash mismatch")
-    return {"dataset_id":str(ds["id"]),"dataset_hash":digest,
-            "feature_version":ds["feature_version"],"sample_count":len(samples),"samples":samples}
+    if digest!=first["dataset_hash"]:raise RuntimeError("dataset manifest hash mismatch")
+    return {"dataset_id":first["dataset_id"],"dataset_hash":digest,
+            "feature_version":first["feature_version"],"sample_count":len(samples),"samples":samples}
 
 
 async def register_saved_artifact(pool,job_id,node_id,generation,saved,metadata=None):
