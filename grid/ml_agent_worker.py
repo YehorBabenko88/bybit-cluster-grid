@@ -33,11 +33,59 @@ def cleanup_stale_workspaces(older_than_seconds=86400):
     return removed
 
 
+async def _write_paged_bundle(client,job,bundle_path,page_size=500):
+    first=await client.dataset_page(job,0,page_size)
+    if first is None:raise RuntimeError("remote ML lease lost before dataset fetch")
+    total=int(first.get("sample_count",0))
+    expected=first.get("dataset_hash")
+    count=0;offset=0;agg=hashlib.sha256();first_hash=True;first_sample=True
+    with open(bundle_path,"w",encoding="utf-8") as f:
+        f.write('{"job":')
+        f.write(json.dumps(job,separators=(",",":"),default=str))
+        f.write(',"dataset":{"dataset_id":')
+        f.write(json.dumps(first["dataset_id"]))
+        f.write(',"dataset_hash":')
+        f.write(json.dumps(expected))
+        f.write(',"feature_version":')
+        f.write(json.dumps(first.get("feature_version")))
+        f.write(',"sample_count":')
+        f.write(str(total))
+        f.write(',"samples":[')
+        while offset<total:
+            page=first if offset==0 else await client.dataset_page(job,offset,page_size)
+            if page is None:raise RuntimeError("remote ML lease lost during dataset fetch")
+            items=list(page.get("samples") or [])
+            if not items:break
+            for item in items:
+                payload=item["payload"]
+                canonical=json.dumps(payload,sort_keys=True,default=str,separators=(",",":"))
+                digest=hashlib.sha256(canonical.encode()).hexdigest()
+                if digest!=item.get("payload_hash"):raise ValueError("dataset payload hash mismatch")
+                if not first_hash:agg.update(b"\n")
+                agg.update(digest.encode());first_hash=False
+                if not first_sample:f.write(",")
+                f.write(json.dumps(payload,separators=(",",":"),default=str))
+                first_sample=False;count+=1
+            offset+=len(items)
+            if await client.renew(job) is None:
+                raise RuntimeError("remote ML lease lost during dataset transfer")
+        f.write("]}}")
+        f.flush();os.fsync(f.fileno())
+    if count!=total:raise ValueError("dataset sample count mismatch")
+    if agg.hexdigest()!=expected:raise ValueError("dataset hash mismatch")
+    return {"sample_count":count,"dataset_hash":expected}
+
+def _file_sha256(path):
+    h=hashlib.sha256()
+    with open(path,"rb") as f:
+        while True:
+            chunk=f.read(1024*1024)
+            if not chunk:break
+            h.update(chunk)
+    return h.hexdigest()
+
 async def execute_remote_job(client,job):
     if job.get("job_type")!="train":raise ValueError("unsupported remote ML job type")
-    dataset=await client.dataset(job)
-    if dataset is None:raise RuntimeError("remote ML lease lost before dataset fetch")
-    verify_dataset_bundle(dataset)
     payload=dict(job.get("payload") or {})
     timeout=max(60,min(int(payload.get("timeout_seconds",settings.ml_job_timeout_seconds)),
                        int(settings.ml_job_timeout_seconds)))
@@ -46,16 +94,15 @@ async def execute_remote_job(client,job):
     workdir=pathlib.Path(tempfile.mkdtemp(prefix="job-",dir=str(_workspace_root())))
     bundle=workdir/"bundle.json";artifact=workdir/"artifact.bin";result=workdir/"result.json"
     try:
-        bundle.write_text(json.dumps({"job":job,"dataset":dataset},separators=(",",":"),default=str),encoding="utf-8")
+        await _write_paged_bundle(client,job,bundle)
         argv=[sys.executable,"-m","grid.ml_compute_entry","--bundle",str(bundle),
               "--artifact",str(artifact),"--result",str(result)]
         async def work():
             return await run_supervised_process(argv,timeout_seconds=timeout,ram_limit_mb=ram,
                                                 poll_seconds=.5,grace_seconds=5,env=os.environ.copy())
         await run_remote_lease(client,job,work,renew_every=30)
-        data=artifact.read_bytes()
-        sha=hashlib.sha256(data).hexdigest()
-        uploaded=await client.artifact(job,data,sha)
+        sha=_file_sha256(artifact)
+        uploaded=await client.artifact_file(job,artifact,sha)
         if uploaded is None:raise RuntimeError("remote ML lease lost before artifact upload")
         metrics=json.loads(result.read_text(encoding="utf-8")).get("metrics") or {}
         final=await client.finalize(job,uploaded["artifact_id"],metrics)
