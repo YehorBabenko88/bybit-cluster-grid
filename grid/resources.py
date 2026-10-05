@@ -1,5 +1,7 @@
 import os, platform, socket, uuid, time
 import psutil
+from .config import settings
+from .disk_guard import DiskWatermarks,disk_state
 
 NODE_ID = os.getenv("NODE_ID") or f"{socket.gethostname()}-{uuid.getnode():x}"
 STARTED_AT=time.time()
@@ -24,6 +26,10 @@ def snapshot():
     vm=psutil.virtual_memory()
     disk=psutil.disk_usage(os.getenv("GRID_DATA_PATH","."))
     proc=psutil.Process()
+    disk_pressure=disk_state(os.getenv("GRID_DATA_PATH","."),DiskWatermarks(
+        soft_free_gb=settings.disk_soft_free_gb,
+        hard_free_gb=settings.disk_hard_free_gb,
+        emergency_free_gb=settings.disk_emergency_free_gb))["state"]
     return {
         "node_id":NODE_ID,
         "hostname":socket.gethostname(),
@@ -36,6 +42,7 @@ def snapshot():
         "ram_pct":vm.percent,
         "disk_total":disk.total,
         "disk_free":disk.free,
+        "disk_pressure_state":disk_pressure,
         "process_rss":proc.memory_info().rss,
         "process_cpu_pct":proc.cpu_percent(interval=None),
         "uptime_s":int(time.time()-STARTED_AT),
