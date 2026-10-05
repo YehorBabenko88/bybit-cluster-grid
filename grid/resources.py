@@ -2,9 +2,11 @@ import os, platform, socket, uuid, time
 import psutil
 from .config import settings
 from .disk_guard import DiskWatermarks,disk_state
+from .resource_trend import ResourceTrend
 
 NODE_ID = os.getenv("NODE_ID") or f"{socket.gethostname()}-{uuid.getnode():x}"
 STARTED_AT=time.time()
+_RESOURCE_TREND=ResourceTrend()
 
 def ml_runtime_ready():
     try:
@@ -30,6 +32,7 @@ def snapshot():
         soft_free_gb=settings.disk_soft_free_gb,
         hard_free_gb=settings.disk_hard_free_gb,
         emergency_free_gb=settings.disk_emergency_free_gb))["state"]
+    trend=_RESOURCE_TREND.add(proc.memory_info().rss)
     return {
         "node_id":NODE_ID,
         "hostname":socket.gethostname(),
@@ -44,6 +47,9 @@ def snapshot():
         "disk_free":disk.free,
         "disk_pressure_state":disk_pressure,
         "process_rss":proc.memory_info().rss,
+        "process_rss_peak":trend["rss_peak"],
+        "process_rss_growth":trend["rss_growth_bytes"],
+        "process_rss_sustained_growth":trend["sustained_growth"],
         "process_cpu_pct":proc.cpu_percent(interval=None),
         "uptime_s":int(time.time()-STARTED_AT),
         "agent_version":agent_version(),
