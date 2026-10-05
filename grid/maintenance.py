@@ -109,7 +109,9 @@ async def maintenance_scheduler(pool,settings):
             pgstats=await maintain_postgres_statistics(pool)
             log.info("maintenance completed",extra={
                 "event":"maintenance_complete",
-                "component":str({"metadata":meta,"temp_files":temps,"strategy_cache":strategy,"archive_orphans":archive,"pg_tables":len(pgstats)}),
+                "component":str({"metadata":meta,"temp_files":temps,"strategy_cache":strategy,
+                                 "archive_orphans":archive,"pg_tables":len(pgstats),
+                                 "disk":disk["state"],"disk_free_gb":round(disk["free_gb"],2)}),
             })
         except asyncio.CancelledError:
             raise
