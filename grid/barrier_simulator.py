@@ -9,7 +9,7 @@ def _cost(notional_bps,price):
     return abs(float(price))*float(notional_bps)/10000.0
 
 def simulate_barrier(signal,candles,tp_bps=40,sl_bps=25,horizon_bars=60,
-                     fee_bps=5.5,slippage_bps=1.5):
+                     fee_bps=5.5,slippage_bps=1.5,notional=100.0):
     if not candles:return None
     rows=list(candles)[:int(horizon_bars)]
     first=rows[0]
@@ -33,16 +33,20 @@ def simulate_barrier(signal,candles,tp_bps=40,sl_bps=25,horizon_bars=60,
             exit_price=sl;exit_ts=c["ts"];reason="SL";break
         if hit_tp:
             exit_price=tp;exit_ts=c["ts"];reason="TP";break
-    gross=(exit_price-entry)*side
-    fees=_cost(fee_bps,entry)+_cost(fee_bps,exit_price)
-    slippage=_cost(slippage_bps,entry)+_cost(slippage_bps,exit_price)
+    notional=float(notional)
+    if notional<=0:raise ValueError("notional must be positive")
+    qty=notional/entry
+    gross=(exit_price-entry)*side*qty
+    fees=notional*float(fee_bps)/10000.0 + abs(exit_price*qty)*float(fee_bps)/10000.0
+    slippage=notional*float(slippage_bps)/10000.0 + abs(exit_price*qty)*float(slippage_bps)/10000.0
     return {
       "signal_id":signal.get("signal_id"),"symbol":signal.get("symbol"),
       "setup_type":signal.get("setup_type"),"regime":signal.get("regime"),
       "event_ts":signal.get("event_ts"),"entry":entry,"exit":exit_price,
+      "notional":notional,"quantity":qty,"initial_tp":tp,"initial_sl":sl,
       "exit_ts":exit_ts,"side":"LONG" if side>0 else "SHORT","exit_reason":reason,
       "pnl":gross,"fees":fees,"slippage":slippage,
-      "mfe":max_fav,"mae":-max_adv,"bars":len(rows)
+      "mfe":max_fav*qty,"mae":-max_adv*qty,"bars":len(rows)
     }
 
 async def load_forward_candles(pool,symbol,event_ts,horizon_bars):
