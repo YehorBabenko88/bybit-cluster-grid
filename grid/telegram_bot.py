@@ -452,6 +452,15 @@ async def telegram_loop(db,nodes):
                     offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
             except asyncio.CancelledError:
                 raise
+            except (asyncio.TimeoutError,aiohttp.ClientError) as e:
+                # Telegram getUpdates is a long-poll request. Network/idle timeouts are
+                # expected transient transport events; keep the cursor and retry without
+                # turning routine connectivity jitter into an application ERROR.
+                log.warning("telegram transport retry",extra={
+                    "event":"telegram_transport_retry",
+                    "component":type(e).__name__,
+                })
+                await asyncio.sleep(2)
             except Exception:
                 log.exception("telegram loop failed",extra={"event":"telegram_error"})
                 await asyncio.sleep(5)
