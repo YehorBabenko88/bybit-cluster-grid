@@ -25,9 +25,12 @@ class PressureController:
         cpu=float(snap.get("cpu_pct",0))
         ram=float(snap.get("ram_pct",0))
         disk=float(snap.get("disk_free",0))/(1024**3)
+        disk_state=str(snap.get("disk_pressure_state","NORMAL"))
         severe=(cpu>=min(95,self.cpu_limit+15) or ram>=min(95,self.ram_limit+12)
+                or disk_state in ("HARD","EMERGENCY")
                 or disk<max(2,self.min_disk_gb*.4) or queue_ratio>=.95)
         pressured=(cpu>=self.cpu_limit or ram>=self.ram_limit
+                   or disk_state!="NORMAL"
                    or disk<self.min_disk_gb or queue_ratio>=.75)
         if severe:
             self.bad_ticks+=2; self.good_ticks=0
