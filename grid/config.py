@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     retention_derivatives_days: int = 365
     strategy_cache_dir: str = "runtime_strategies"
     ml_artifact_root: str = "C:/ProgramData/BybitClusterGrid/ml-artifacts"
+    ml_job_timeout_seconds: int = 21600
+    ml_job_ram_limit_mb: int = 8192
     strategy_job_timeout_seconds: int = 21600
     strategy_cpu_soft_limit: float = 60
     strategy_ram_soft_limit: float = 72
