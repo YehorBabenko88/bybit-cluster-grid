@@ -311,6 +311,7 @@ async def startup():
     await ensure_runtime_gate(db.pool)
     ingest_storage=Storage()
     ingest_storage.pool=db.pool
+    await ingest_storage.feature_builder.start(db.pool)
     ingest_storage.derived=__import__('grid.derived_pipeline',fromlist=['DerivedPipeline']).DerivedPipeline(db.pool)
     await ingest_storage.derived.start()
     async def ml_nodes():
