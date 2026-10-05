@@ -36,10 +36,9 @@ class MicroEventStorage:
     async def start(self):
         self.http=aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20))
         await self.write_queue.start()
-        pending=self.spool.recover()
-        if pending:
-            self.replay_done.clear()
-            self.replay_task=asyncio.create_task(self._replay(pending))
+        pending=self.spool.iter_recover()
+        self.replay_done.clear()
+        self.replay_task=asyncio.create_task(self._replay(pending))
 
     async def _replay(self,pending):
         try:
