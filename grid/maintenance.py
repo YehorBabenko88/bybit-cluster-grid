@@ -5,6 +5,7 @@ import pathlib
 import time
 
 from .ml_reservations import purge_expired
+from .disk_guard import DiskWatermarks,disk_state
 
 log=logging.getLogger("maintenance")
 
