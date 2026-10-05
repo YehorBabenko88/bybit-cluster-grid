@@ -25,3 +25,11 @@ def test_main_bootstrap_invokes_ml_bootstrap_and_auto_pilot_rechecks():
     assert s.count("bootstrap-ml.ps1")>=2
     assert 'if($AgentMode -eq "PILOT")' in s
     assert "Grid ML runtime bootstrap failed" in s
+
+
+def test_nodes_advertise_ml_runtime_and_dispatcher_requires_it():
+    resources=Path("grid/resources.py").read_text(encoding="utf-8")
+    dispatcher=Path("grid/ml_dispatcher.py").read_text(encoding="utf-8")
+    assert '"ml_runtime_ready":ml_runtime_ready()' in resources
+    assert 'if candidate["job_type"] in ("train","evaluate")' in dispatcher
+    assert 'v.get("ml_runtime_ready") is True' in dispatcher
