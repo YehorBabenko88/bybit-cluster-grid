@@ -60,7 +60,11 @@ class TrainingWorker:
         for train,valid in folds:
             model=self.backend.fit(train,hyperparameters or {})
             pred=self.backend.predict(model,valid)
-            fold_metrics.append(self.backend.evaluate(valid,pred))
+            try:
+                metric=self.backend.evaluate(valid,pred,target_key=(hyperparameters or {}).get("target_key"))
+            except TypeError:
+                metric=self.backend.evaluate(valid,pred)
+            fold_metrics.append(metric)
         final=self.backend.fit(rows,hyperparameters or {})
         artifact=await self.backend.serialize(final)
         mid=uuid.uuid4()
