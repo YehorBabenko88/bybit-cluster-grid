@@ -26,6 +26,9 @@ $Action=New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arg -Workin
 $Trigger=New-ScheduledTaskTrigger -AtStartup
 $Principal=New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 $Settings=New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
+# Never overlap service instances during slow shutdown, restart retries, or cold boot.
+# A second coordinator/worker/archive process would duplicate sockets, leases and work.
+$Settings.MultipleInstances="IgnoreNew"
 Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
 
 $ArchiveArg='-NoProfile -ExecutionPolicy Bypass -File "'+$ArchiveLauncher+'" -Python "'+$Python+'" -InstallRoot "'+$InstallRoot+'"'
