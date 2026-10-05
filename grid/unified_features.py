@@ -20,8 +20,6 @@ class UnifiedFeatureBuilder:
         self.started=True
 
     async def build(self,pool,row):
-        if not self.started:
-            await self.start(pool)
         base=self.engine.on_candle(row)
         ts=row["ts"]; symbol=row["symbol"]
         book=await pool.fetchrow("""SELECT event_ts,payload FROM market_events
