@@ -18,7 +18,8 @@ async def _simulate(pool,signals,fold,sim_cfg):
         tr=simulate_barrier(x,bars,
           tp_bps=sim_cfg.get("tp_bps",40),sl_bps=sim_cfg.get("sl_bps",25),
           horizon_bars=sim_cfg.get("horizon_bars",60),fee_bps=sim_cfg.get("fee_bps",5.5),
-          slippage_bps=sim_cfg.get("slippage_bps",1.5))
+          slippage_bps=sim_cfg.get("slippage_bps",1.5),
+          notional=sim_cfg.get("notional",100.0))
         if tr:
             tr["fold"]=fold
             tr["state_from"]=x.get("state_from") or x.get("market_state")
