@@ -64,7 +64,8 @@ class UnifiedFeatureBuilder:
           built["symbol"],built["ts"],built["eligible"],built["quality_status"],
           built["regime"],built["regime_score"],json.dumps(built["features"]),json.dumps(built["capabilities"]))
         # The raw microstructure window used for this minute is now durably
-        # represented by market_features_1m. A crash before this monotonic
+        # represented by market_features_1m; retention follows this consumer.
+        # A crash before this monotonic
         # watermark only delays retention; it can never cause premature deletion.
         await set_consumer_watermark(
             pool,"market_events","unified_features",built["symbol"],built["ts"],required=True
