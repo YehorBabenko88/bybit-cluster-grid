@@ -14,3 +14,12 @@ def test_adaptive_concurrency_sheds_load_fast_and_adds_slowly():
     for _ in range(5): c.update(20,30,20,.1,100)
     assert c.current==2
     assert c.update(20,30,20,.1,100)==3
+
+
+def test_disk_pressure_nodes_are_not_ranked():
+    nodes={"ok":{"pressure_state":"NORMAL","disk_pressure_state":"NORMAL","cpu_pct":10,
+                 "ram_available":16*1024**3,"disk_free":100*1024**3,"cpu_count":8},
+           "soft":{"pressure_state":"NORMAL","disk_pressure_state":"SOFT","cpu_pct":1,
+                   "ram_available":64*1024**3,"disk_free":100*1024**3,"cpu_count":32}}
+    ranked=rank_nodes(nodes,Workload("train",cpu=4,ram_gb=8,scratch_gb=10))
+    assert [x[1] for x in ranked]==["ok"]
