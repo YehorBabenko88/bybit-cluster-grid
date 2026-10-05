@@ -26,7 +26,7 @@ from .storage import Storage
 from .retention import retention_scheduler
 from .maintenance import maintenance_scheduler
 from .ml_artifact_store import LocalArtifactStore
-from .ml_transport import claim as ml_claim,renew as ml_renew,dataset_bundle as ml_dataset_bundle,publish_artifact as ml_publish_artifact,register_saved_artifact as ml_register_saved_artifact,finalize_model as ml_finalize_model
+from .ml_transport import claim as ml_claim,renew as ml_renew,dataset_bundle as ml_dataset_bundle,dataset_page as ml_dataset_page,publish_artifact as ml_publish_artifact,register_saved_artifact as ml_register_saved_artifact,finalize_model as ml_finalize_model
 from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
 from .resources import snapshot as resource_snapshot
@@ -207,11 +207,12 @@ async def renew_ml_job(job_id:str,payload:dict,x_grid_token:str=Header(default="
     return {"ok":True}
 
 @app.get("/ml/jobs/{job_id}/dataset")
-async def get_ml_dataset(job_id:str,node_id:str,lease_generation:int,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+async def get_ml_dataset(job_id:str,node_id:str,lease_generation:int,offset:int=0,limit:int=500,
+                         x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
     await node_auth(node_id,x_node_credential,x_grid_token)
-    bundle=await ml_dataset_bundle(db.pool,job_id,node_id,lease_generation)
-    if bundle is None:raise HTTPException(409,"stale ML lease")
-    return bundle
+    page=await ml_dataset_page(db.pool,job_id,node_id,lease_generation,offset,limit)
+    if page is None:raise HTTPException(409,"stale ML lease")
+    return page
 
 @app.post("/ml/jobs/{job_id}/artifact")
 async def upload_ml_artifact(job_id:str,request:Request,node_id:str,lease_generation:int,sha256:str,
