@@ -119,3 +119,21 @@ def test_websocket_collectors_require_subscription_ack_and_stall_timeout():
     assert 'ack.get("success") is not True' in micro
     assert 'asyncio.wait_for(ws.recv(),timeout=15)' in micro
     assert 'asyncio.wait_for(ws.recv(),timeout=45)' in micro
+
+
+def test_power_loss_partial_wal_tail_is_truncated_before_next_append(tmp_path):
+    async def run():
+        from grid.segment_wal import SegmentWAL
+        root=tmp_path/"wal"
+        w=SegmentWAL(root,max_bytes=1024*1024,segment_bytes=1024*1024)
+        first=await w.append({"n":1})
+        seg=w._segments()[-1]
+        with open(seg,"ab") as f:
+            f.write(b'{"id":999,"crc32":12,"payload":')
+            f.flush()
+        restarted=SegmentWAL(root,max_bytes=1024*1024,segment_bytes=1024*1024)
+        second=await restarted.append({"n":2})
+        recovered=restarted.recover()
+        assert [rid for rid,_ in recovered]==[first,second]
+        assert [payload["n"] for _,payload in recovered]==[1,2]
+    asyncio.run(run())
