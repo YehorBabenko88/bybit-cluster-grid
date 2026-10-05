@@ -9,6 +9,7 @@ class SegmentWAL:
         self.checkpoint_backup=self.root/"checkpoint.bak"
         self._lock=asyncio.Lock()
         self._repair_trailing_partial()
+        self._cleanup_staging_files()
         self._next_id=self._discover_next_id()
 
     def _segments(self):
@@ -40,6 +41,12 @@ class SegmentWAL:
                 f.flush();os.fsync(f.fileno())
         except OSError:
             pass
+
+    def _cleanup_staging_files(self):
+        for name in ("checkpoint.next","checkpoint.backup.next"):
+            try:(self.root/name).unlink()
+            except FileNotFoundError:pass
+            except OSError:pass
 
     def _discover_next_id(self):
         high=self._checkpoint_id()
@@ -139,10 +146,12 @@ class SegmentWAL:
 
     def _compact(self,checkpoint):
         segs=self._segments()
+        if len(segs)<=1:return
+        maxima={}
+        for rp,rid,_ in self._iter_records():
+            maxima[rp]=max(maxima.get(rp,0),rid)
         for p in segs[:-1]:
-            max_id=0
-            for rp,rid,_ in self._iter_records():
-                if rp==p: max_id=max(max_id,rid)
+            max_id=maxima.get(p,0)
             if max_id and max_id<=checkpoint:
-                try: p.unlink()
-                except OSError: pass
+                try:p.unlink()
+                except OSError:pass
