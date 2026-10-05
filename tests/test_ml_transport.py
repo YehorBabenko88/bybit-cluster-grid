@@ -14,7 +14,8 @@ def test_artifact_upload_is_control_owned_and_bounded():
     c=Path("grid/coordinator.py").read_text(encoding="utf-8")
     assert "256*1024*1024" in c
     assert "LocalArtifactStore(settings.ml_artifact_root)" in c
-    assert 'request.body()' in c
+    assert 'request.stream()' in c
+    assert 'request.body()' not in c
     assert "storage_uri" not in c[c.index('upload_ml_artifact'):c.index('@app.post("/ml/jobs/{job_id}/finalize")')]
 
 
