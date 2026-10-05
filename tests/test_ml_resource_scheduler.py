@@ -1,4 +1,4 @@
-from grid.ml_resource_scheduler import Workload,choose_node
+from grid.ml_resource_scheduler import Workload,choose_node,rank_nodes
 from grid.ml_adaptive_load import AdaptiveConcurrency
 
 def node(cpu,ram_gb,disk_gb,cores=8,loc=None,lan=1000):
