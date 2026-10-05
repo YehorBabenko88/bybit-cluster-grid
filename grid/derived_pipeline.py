@@ -3,7 +3,7 @@ import json
 from .level_pipeline import LevelPipeline
 from .level_generator import _period
 from .poc_lifecycle import PocLifecycleTracker,PocLevel
-from .control_state import set_consumer_watermark
+from .control_state import set_consumer_watermarks
 from .retention_v2 import register_consumer
 
 class DerivedPipeline:
@@ -92,9 +92,10 @@ class DerivedPipeline:
               symbol,ts,row["poc_price"],row["close"],built.get("regime"),
               json.dumps(features,default=str))
 
-        for ds,consumer in (
-            ("candles_1m","unified_features"),("candles_1m","level_pipeline"),
-            ("candles_1m","poc_lifecycle"),("footprint_1m","unified_features"),
-            ("footprint_1m","poc_lifecycle")):
-            await set_consumer_watermark(self.pool,ds,consumer,symbol,ts,required=True)
+        await set_consumer_watermarks(self.pool,[
+            (ds,consumer,symbol,ts,True) for ds,consumer in (
+                ("candles_1m","unified_features"),("candles_1m","level_pipeline"),
+                ("candles_1m","poc_lifecycle"),("footprint_1m","unified_features"),
+                ("footprint_1m","poc_lifecycle"))
+        ])
         return {"level_events":len(level_events),"poc_changes":len(changed),"poc_registered":new is not None}
