@@ -3,6 +3,7 @@ param(
  [Parameter(Mandatory=$true)][string]$InstallRoot
 )
 $ErrorActionPreference="Stop"
+$DataRoot="$env:ProgramData\\BybitClusterGrid"
 $EnvFile=Join-Path $env:ProgramData "BybitClusterGrid\.env"
 if(Test-Path $EnvFile){
     foreach($line in Get-Content $EnvFile){
@@ -25,6 +26,8 @@ if(!$release -or !(Test-Path (Join-Path $release "grid\archive_service.py"))){
     $release=Join-Path $InstallRoot "bootstrap"
 }
 if(!(Test-Path (Join-Path $release "grid\archive_service.py"))){throw "No ArchivePipeline module found"}
+$WaitDb=Join-Path $release "installer\\wait-grid-postgres.ps1"
+if(Test-Path $WaitDb){ & $WaitDb -DataRoot $DataRoot -TimeoutSeconds 120 }
 Set-Location $release
 & $Python -m grid.archive_service
 exit $LASTEXITCODE
