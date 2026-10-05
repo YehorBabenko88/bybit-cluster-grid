@@ -17,7 +17,8 @@ async def execute_assigned_job(pool,job,node_id):
     payload=dict(job["payload"] or {})
     if job["job_type"]!="train":
         raise ValueError("unsupported ML compute job type")
-    timeout=max(60,int(payload.get("timeout_seconds",settings.ml_job_timeout_seconds)))
+    timeout=max(60,min(int(payload.get("timeout_seconds",settings.ml_job_timeout_seconds)),
+                       int(settings.ml_job_timeout_seconds)))
     ram=max(256,min(int(payload.get("ram_limit_mb",settings.ml_job_ram_limit_mb)),
                         int(settings.ml_job_ram_limit_mb)))
     argv=[sys.executable,"-m","grid.ml_compute_entry","--job-json",_job_json(job)]
