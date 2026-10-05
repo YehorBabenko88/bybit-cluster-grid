@@ -25,6 +25,17 @@ class SegmentWAL:
                 data=f.read()
                 if not data or data.endswith(b"\\n"):return
                 cut=data.rfind(b"\\n")
+                tail=data[cut+1:]
+                # A complete final JSON record is valid even without a newline
+                # (tests/import tools may create one). Only truncate a tail that
+                # cannot be parsed and CRC-validated as a full WAL record.
+                try:
+                    obj=json.loads(tail)
+                    body=json.dumps(obj["payload"],separators=(",",":"),ensure_ascii=False).encode("utf-8")
+                    valid=(zlib.crc32(body)&0xffffffff)==int(obj["crc32"]) and int(obj["id"])>=0
+                except (ValueError,KeyError,TypeError,json.JSONDecodeError):
+                    valid=False
+                if valid:return
                 f.truncate(0 if cut<0 else cut+1)
                 f.flush();os.fsync(f.fileno())
         except OSError:
