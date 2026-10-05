@@ -37,6 +37,7 @@ class Storage:
         self.remote=(settings.role!="coordinator")
         if not self.remote:
             self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=5)
+            await self.feature_builder.start(self.pool)
             self.derived=DerivedPipeline(self.pool)
             await self.derived.start()
         if self.remote:
