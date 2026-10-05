@@ -19,7 +19,7 @@ def test_large_replay_does_not_block_service_start():
         task=asyncio.create_task(replay())
         await asyncio.sleep(.02)
         assert not replay_done.is_set()
-        assert q.qsize() <= 2
+        assert q.q.qsize() <= 2
         task.cancel()
         await asyncio.gather(task,return_exceptions=True)
         await q.close(drain_timeout=.01)
