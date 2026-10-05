@@ -58,3 +58,13 @@ def test_lease_loss_cancels_running_workload():
         assert cancelled.is_set()
         assert p.calls==1
     asyncio.run(run())
+
+
+def test_expired_ml_recovery_uses_cooldown_before_reassignment():
+    from pathlib import Path
+    source=Path("grid/ml_orchestrator_service.py").read_text(encoding="utf-8")
+    recover=source.split("async def recover(self):",1)[1].split("async def tick(self):",1)[0]
+    assert "lease_until<now()" in recover
+    assert "not_before=now()+interval '5 seconds'" in recover
+    assert "attempts<max_attempts" in recover
+    assert "attempts>=max_attempts" in recover
