@@ -88,11 +88,14 @@ async def finalize_model(pool,job_id,node_id,generation,artifact_id,metrics=None
               AND status='ACTIVE' FOR UPDATE""",artifact_id,job_id)
             if not art:return False
             await c.execute("""INSERT INTO model_registry
-              (id,model_family,dataset_id,artifact_id,feature_version,code_version,hyperparameters,metrics,status)
-              VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,'CANDIDATE')""",
+              (id,model_family,dataset_id,artifact_id,feature_version,code_version,hyperparameters,status)
+              VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,'CANDIDATE')""",
               model_id,str(p.get("model_family","global")),did,artifact_id,ds["feature_version"],
-              str(p.get("code_version","grid")),json.dumps(p.get("hyperparameters") or {}),
-              json.dumps(metrics or {}))
+              str(p.get("code_version","grid")),json.dumps(p.get("hyperparameters") or {}))
+            await c.execute("""INSERT INTO model_evaluations
+              (id,model_id,stage,dataset_id,metrics,passed,evaluator_version)
+              VALUES($1,$2,'TRAIN',$3,$4::jsonb,true,$5)""",
+              uuid.uuid4(),model_id,did,json.dumps(metrics or {}),"agent-train-v1")
             await c.execute("""UPDATE ml_artifacts SET reusable=true,expires_at=NULL,last_used_at=now()
               WHERE id=$1""",artifact_id)
             ok=await c.execute("""UPDATE ml_jobs SET status='done',finished_at=now(),lease_until=NULL
