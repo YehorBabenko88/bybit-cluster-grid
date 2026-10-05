@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     resource_cpu_limit: float = 75
     resource_ram_limit: float = 78
     resource_disk_free_gb: float = 25
+    disk_soft_free_gb: float = 35
+    disk_hard_free_gb: float = 20
+    disk_emergency_free_gb: float = 8
     resource_reserve_cores: int = 2
     heartbeat_seconds: int = 10
     rebalance_seconds: int = 30
@@ -35,6 +38,7 @@ class Settings(BaseSettings):
     retention_footprint_days: int = 90
     retention_derivatives_days: int = 365
     strategy_cache_dir: str = "runtime_strategies"
+    ml_artifact_root: str = "C:/ProgramData/BybitClusterGrid/ml-artifacts"
     strategy_job_timeout_seconds: int = 21600
     strategy_cpu_soft_limit: float = 60
     strategy_ram_soft_limit: float = 72
