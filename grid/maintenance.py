@@ -8,6 +8,7 @@ from .ml_reservations import purge_expired
 from .disk_guard import DiskWatermarks,disk_state
 from .ml_artifact_store import LocalArtifactStore
 from .ml_artifact_gc import delete_owned_artifacts
+from .schema_audit import schema_type_audit
 
 log=logging.getLogger("maintenance")
 
@@ -110,11 +111,16 @@ async def maintenance_scheduler(pool,settings):
             archive=cleanup_orphan_archive_files(pathlib.Path(settings.archive_root),
                                                  3600 if aggressive else 86400)
             pgstats=await maintain_postgres_statistics(pool)
+            schema=await schema_type_audit(pool)
+            if not schema["ok"]:
+                log.error("database schema type drift detected",extra={
+                    "event":"schema_type_drift","component":str(schema)})
             log.info("maintenance completed",extra={
                 "event":"maintenance_complete",
                 "component":str({"metadata":meta,"temp_files":temps,"strategy_cache":strategy,
                                  "archive_orphans":archive,"pg_tables":len(pgstats),
-                                 "disk":disk["state"],"disk_free_gb":round(disk["free_gb"],2)}),
+                                 "disk":disk["state"],"disk_free_gb":round(disk["free_gb"],2),
+                                 "schema_ok":schema["ok"]}),
             })
         except asyncio.CancelledError:
             raise
