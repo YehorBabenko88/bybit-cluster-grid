@@ -31,8 +31,8 @@ async def load_volatility_signals(pool,symbol,start_ts=None,end_ts=None):
       AND ($3::timestamptz IS NULL OR ts<$3))
       SELECT symbol,ts AS event_ts,'VOLATILITY_CAPTURE'::text setup_type,
       NULL::double precision entry_ref,regime,regime AS market_state,prev_regime
-      FROM x WHERE regime IN ('HIGH_VOL','IMPULSE')
-      AND COALESCE(prev_regime,'') NOT IN ('HIGH_VOL','IMPULSE') ORDER BY ts""",
+      FROM x WHERE regime IN ('EXPANDING','VOLATILE')
+      AND COALESCE(prev_regime,'') NOT IN ('EXPANDING','VOLATILE') ORDER BY ts""",
       symbol,start_ts,end_ts)
 
 async def load_signals(pool,symbol,setup_type,start_ts=None,end_ts=None):
