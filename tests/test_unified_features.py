@@ -64,3 +64,47 @@ def test_payload_dict_rejects_malformed_json():
 
 def test_payload_dict_rejects_non_object_json():
     assert _payload_dict('["not","an","object"]') == {}
+
+
+class RetentionPool:
+    def __init__(self):
+        self.calls=[]
+    async def execute(self,sql,*args):
+        self.calls.append((sql,args))
+        return "INSERT 0 1"
+
+def test_unified_feature_consumer_registers_market_events():
+    async def run():
+        p=RetentionPool()
+        b=UnifiedFeatureBuilder()
+        await b.start(p)
+        assert b.started is True
+        assert any(
+            "INSERT INTO retention_consumers" in sql
+            and args[:2]==("market_events","unified_features")
+            and args[2:]==(True,True)
+            for sql,args in p.calls
+        )
+        before=len(p.calls)
+        await b.start(p)
+        assert len(p.calls)==before
+    asyncio.run(run())
+
+def test_persist_advances_market_event_watermark_only_after_feature_write():
+    async def run():
+        p=RetentionPool()
+        b=UnifiedFeatureBuilder()
+        ts=datetime.now(timezone.utc)
+        built={
+            "symbol":"BTC","ts":ts,"eligible":True,"quality_status":"GOOD",
+            "regime":"QUIET","regime_score":1.0,
+            "features":{"book_imbalance":0.1},
+            "capabilities":{"candle":True,"footprint":True,"orderbook":True,"derivatives":True},
+        }
+        await b.persist(p,built)
+        assert len(p.calls)==2
+        assert "INSERT INTO market_features_1m" in p.calls[0][0]
+        assert "INSERT INTO consumer_watermarks" in p.calls[1][0]
+        assert p.calls[1][1][:4]==("market_events","unified_features","BTC",ts)
+        assert p.calls[1][1][4] is True
+    asyncio.run(run())
