@@ -35,9 +35,15 @@ async def _update(payload):
     target=install_release(final,version,install_root)
     python=data_root/"runtime"/"venv"/"Scripts"/"python.exe"
     preflight=data_root/"installer"/"preflight.ps1"
+    role="NORMAL"
+    env_file=data_root/".env"
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8-sig").splitlines():
+            if line.startswith("ROLE=") and line.split("=",1)[1].strip().lower()=="coordinator":
+                role="CONTROL";break
     p=subprocess.run([
         "powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(preflight),
-        "-ReleaseDir",str(target),"-Python",str(python)
+        "-ReleaseDir",str(target),"-Python",str(python),"-Mode",role
     ],capture_output=True,text=True,timeout=300)
     if p.returncode:
         raise RuntimeError("release preflight failed: "+(p.stderr or p.stdout)[-2000:])
