@@ -117,9 +117,16 @@ class SegmentWAL:
             except OSError:
                 continue
 
-    def recover(self):
+    def iter_recover(self):
+        """Stream pending records so a large outage backlog is never materialized in RAM."""
         checkpoint=self._checkpoint_id()
-        return [(rid,payload) for _,rid,payload in self._iter_records() if rid>checkpoint]
+        for _,rid,payload in self._iter_records():
+            if rid>checkpoint:
+                yield rid,payload
+
+    def recover(self):
+        # Compatibility helper for small callers/tests. Runtime replay must use iter_recover().
+        return list(self.iter_recover())
 
     async def ack(self,record_id):
         async with self._lock:
