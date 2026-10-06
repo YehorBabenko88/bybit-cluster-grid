@@ -47,6 +47,7 @@ if(Test-Path $Manifest){
     if($dsn){
     $svc=Get-Service -Name $m.service_name -ErrorAction SilentlyContinue
     if($svc -and $svc.Status -ne "Running"){Start-Service -Name $m.service_name}
+    & (Join-Path $PSScriptRoot "configure-postgres.ps1") -DataRoot $DataRoot
     Remove-Item $Installing -Force -ErrorAction SilentlyContinue
     Write-Host "Reusing Grid-owned PostgreSQL instance."
     exit 0
@@ -134,4 +135,5 @@ if($LASTEXITCODE -ne 0){throw "Failed creating Grid PostgreSQL role"}
 if($LASTEXITCODE -ne 0){throw "Failed creating Grid PostgreSQL database"}
 Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
 Add-EnvOnce "POSTGRES_DSN" "postgresql://cluster_grid:$DbPass@127.0.0.1:55432/bybit_cluster_grid"
+& (Join-Path $PSScriptRoot "configure-postgres.ps1") -DataRoot $DataRoot
 Remove-Item $Installing -Force -ErrorAction SilentlyContinue
