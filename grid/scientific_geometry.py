@@ -78,15 +78,16 @@ def geometric_invariants(points):
 
 class ScientificGeometryEngine:
     def __init__(self,feature_names,projection_lr=.01):
-        self.names=tuple(feature_names);self.scaler=OnlineStandardizer()
-        self.projection=StreamingProjection3D(len(self.names),projection_lr)
-        self.history={}
+        self.names=tuple(feature_names);self.projection_lr=float(projection_lr)
+        self.scalers={};self.projections={};self.history={}
     def ingest(self,symbol,event_ts_ms,features,source="unified",quality="GOOD"):
         if quality!="GOOD":return None
         try:x=[float(features[n]) for n in self.names]
         except (KeyError,TypeError,ValueError):return None
-        z=self.scaler.transform_then_update(x)
-        xyz=self.projection.project_then_update(z)
+        scaler=self.scalers.setdefault(str(symbol),OnlineStandardizer())
+        projection=self.projections.setdefault(str(symbol),StreamingProjection3D(len(self.names),self.projection_lr))
+        z=scaler.transform_then_update(x)
+        xyz=projection.project_then_update(z)
         point=ScientificPoint(str(symbol),int(event_ts_ms),tuple(z),self.names,xyz,str(source),str(quality))
         h=self.history.setdefault(str(symbol),[]);h.append(point)
         if len(h)>4096:del h[:-4096]
