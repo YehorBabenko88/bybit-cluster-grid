@@ -14,13 +14,13 @@ from .scientific_outcomes import schedule_outcomes,observe_price
 
 class ScientificResearchOrchestrator:
     def __init__(self,feature_version="scientific-v1",horizons_s=(1,2,5,10,30,60),
-                 min_agents=2,cost_bps=1.0):
+                 min_agents=2,cost_bps=1.0,max_context_age_ms=120000):
         self.feature_version=str(feature_version)
         self.horizons_s=tuple(sorted({int(x) for x in horizons_s if int(x)>0}))
         self.consensus=MicrostructureConsensus(min_agents=min_agents)
         self.discovery=ScientificDiscoveryEngine()
         self.latest_context={}
-        self.cost_bps=float(cost_bps)
+        self.cost_bps=float(cost_bps);self.max_context_age_ms=max(0,int(max_context_age_ms))
 
     def ingest_feature_row(self,symbol,ts_ms,features,quality="GOOD",source="unified"):
         out=self.discovery.ingest_feature_row(symbol,ts_ms,features,quality,source)
@@ -37,8 +37,9 @@ class ScientificResearchOrchestrator:
         if not c.get("candidate") or not c.get("direction"):
             return {"candidate":False,"consensus":c,"scheduled":0}
         symbol=str(signal.symbol);ctx=self.latest_context.get(symbol,{})
-        regime=str(ctx.get("regime","UNKNOWN"))
-        geometry_bucket=str(ctx.get("geometry_bucket","UNKNOWN"))
+        fresh=bool(ctx) and int(signal.ts_ms)-int(ctx.get("ts_ms",0))<=self.max_context_age_ms
+        regime=str(ctx.get("regime","UNKNOWN")) if fresh else "STALE_CONTEXT"
+        geometry_bucket=str(ctx.get("geometry_bucket","UNKNOWN")) if fresh else "STALE_CONTEXT"
         agents=tuple(sorted(c.get("active_agents") or ()))
         pattern="+".join(agents)
         event_id=f"{symbol}:{int(signal.ts_ms)}:{pattern}:{int(c['direction'])}"
