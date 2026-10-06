@@ -63,4 +63,5 @@ $manifest=[ordered]@{
   created_at=(Get-Date).ToUniversalTime().ToString("o")
 }
 $manifest | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $DataRoot "postgres-owned.json")
-Remove-Item $Installing -Force -ErrorAction SilentlyContinue
+# Keep postgres-installing.json until role/database credentials and POSTGRES_DSN
+# are committed by provision_postgres.ps1.
