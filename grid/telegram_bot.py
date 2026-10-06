@@ -591,7 +591,16 @@ async def telegram_loop(db,nodes):
                     chat=(msg.get("chat") or {}).get("id")
                     txt=msg.get("text","")
                     if cb:
-                        mapping={"fleet:begin":"/begin","fleet:stop":"/fleetstop","fleet:resume":"/fleetresume","fleet:delete":"/fleetdelete","fleet:nodes":"/nodes","fleet:system":"/system","fleet:menu":"/menu"}
+                        mapping={
+                          "fleet:begin":"/begin","fleet:stop":"/fleetstop","fleet:resume":"/fleetresume",
+                          "fleet:delete":"/fleetdelete","fleet:nodes":"/nodes","fleet:system":"/system",
+                          "fleet:menu":"/menu","menu:ops":"/ops","menu:sim":"/sim","menu:science":"/science",
+                          "menu:health":"/health","sim:status":"/simstatus","sim:runs":"/simruns",
+                          "sim:passed":"/simpassed","sim:waiting":"/simwaiting",
+                          "science:status":"/sciencestatus","science:discoveries":"/discoveries",
+                          "science:mining":"/sciencemining","science:history":"/sciencehistory",
+                          "science:rejected":"/sciencerejected","science:phase":"/phase"
+                        }
                         data=cb.get("data") or ""
                         txt=mapping.get(data,"")
                         if data.startswith("node:"):
