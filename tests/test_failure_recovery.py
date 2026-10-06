@@ -528,3 +528,39 @@ def test_control_firewall_is_tailnet_only():
     assert "100.64.0.0/10" in text
     assert "fd7a:115c:a1e0::/48" in text
     assert "LocalSubnet" not in text
+
+
+def test_release_update_verifies_internal_manifest_before_switch():
+    from pathlib import Path
+    text=Path("grid/agent_commands.py").read_text(encoding="utf-8")
+    update=text[text.index("async def _update"):text.index("def _grid_log_tail")]
+    assert 'manifest=target/"release-manifest.json"' in update
+    assert 'report=verify_manifest(target,manifest)' in update
+    assert 'report.get("version")' in update
+    assert update.index("verify_manifest(target,manifest)") < update.index("switch_current(install_root,version)")
+
+
+def test_postgres_ownership_is_committed_after_dsn():
+    from pathlib import Path
+    install=Path("installer/install-postgres.ps1").read_text(encoding="utf-8")
+    provision=Path("installer/provision_postgres.ps1").read_text(encoding="utf-8")
+    assert "postgres-owned.json" not in install
+    dsn=provision.index('Add-EnvOnce "POSTGRES_DSN"')
+    manifest=provision.index("$finalManifest=[ordered]@{",dsn)
+    journal=provision.index("Remove-Item $Installing",manifest)
+    assert dsn < manifest < journal
+
+
+def test_windows_secret_acls_do_not_depend_on_localized_group_names():
+    from pathlib import Path
+    for name in ("installer/enroll.ps1","installer/new-bootstrap-envelope.ps1"):
+        text=Path(name).read_text(encoding="utf-8")
+        assert "*S-1-5-32-544" in text
+        assert "Administrators:" not in text
+
+
+def test_strategy_retry_clears_partial_prior_attempt_results():
+    from pathlib import Path
+    text=Path("grid/strategy_jobs.py").read_text(encoding="utf-8")
+    claim=text[text.index("async def claim_job"):text.index("async def requeue_job")]
+    assert 'DELETE FROM strategy_results WHERE job_id=$1' in claim
