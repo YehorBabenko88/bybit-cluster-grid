@@ -19,7 +19,7 @@ from .repair_circuit_breaker import RepairCircuitBreaker
 from .repair_health import expired_repairs
 from .archive_discovery_service import seed_discovery
 from .pilot_state import node_accepts_live_assignments,node_live_mode
-from .live_assignment_policy import guarded_live_symbols
+from .live_assignment_policy import guarded_live_symbols,pilot_universe
 from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
@@ -303,7 +303,13 @@ async def create_strategy_job(payload:dict,x_grid_token:str=Header(default="")):
                          payload.get("end_ts"),payload.get("priority",100))
     return {"job_id":jid,"status":"queued"}
 
-def rebalance():
+async def rebalance():
+    """Assign each live symbol to one eligible healthy collector.
+
+    NORMAL nodes share the full universe. During pilot validation, PILOT nodes
+    share only the bounded pilot universe. A symbol has one owner; no implicit
+    replication to every worker is allowed.
+    """
     global assignments
     alive={k:v for k,v in nodes.items() if time.time()-v["last_seen"] < settings.heartbeat_seconds*3}
     scores={k:capacity_score(v,settings.resource_cpu_limit,settings.resource_ram_limit,
@@ -312,7 +318,32 @@ def rebalance():
     if not scores:
         assignments={}
         return
-    proposed=weighted_assign(instruments.keys(),scores,alive)
+
+    eligible={}
+    pilot_nodes={}
+    normal_nodes={}
+    for nid,score in scores.items():
+        install_mode=await registered_install_mode(db.pool,nid)
+        live_mode=await node_live_mode(db.pool,nid)
+        if install_mode=="NORMAL" and live_mode=="NORMAL":
+            normal_nodes[nid]=score
+        elif install_mode=="PILOT" and live_mode=="PILOT_VALIDATING":
+            pilot_nodes[nid]=score
+
+    # Prefer production-normal collectors for the full universe. Before fleet
+    # expansion, pilot collectors divide the canary universe between themselves.
+    if normal_nodes:
+        eligible=normal_nodes
+        universe=list(instruments.keys())
+    elif pilot_nodes:
+        eligible=pilot_nodes
+        universe=pilot_universe(instruments)
+    else:
+        assignments={}
+        return
+
+    eligible_heartbeats={nid:alive[nid] for nid in eligible}
+    proposed=weighted_assign(universe,eligible,eligible_heartbeats)
     assignments=stabilize_assignments(proposed,assignments,alive,
                                       getattr(settings,"assignment_max_churn_fraction",.10))
 
@@ -370,7 +401,7 @@ async def startup():
                 xs=await linear_symbols(settings.bybit_rest_url)
                 added,retired=await reconcile_instruments(db.pool,xs)
                 await seed_discovery(db.pool,xs)
-                instruments={x["symbol"]:x for x in xs}; rebalance()
+                instruments={x["symbol"]:x for x in xs}; await rebalance()
                 if added or retired:
                     log.info("instrument universe changed",extra={"event":"instrument_reconcile",
                              "component":f"added={added} retired={retired}"})
