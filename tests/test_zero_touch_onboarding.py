@@ -14,7 +14,9 @@ def test_join_agent_never_accepts_windows_admin_credentials():
 
 def test_control_firewall_is_not_public_internet_wide():
     s=Path("installer/configure-control-firewall.ps1").read_text(encoding="utf-8")
-    assert "LocalSubnet,100.64.0.0/10" in s
+    assert "100.64.0.0/10" in s
+    assert "fd7a:115c:a1e0::/48" in s
+    assert "LocalSubnet" not in s
     assert "-LocalPort 8765" in s
 
 def test_bootstrap_supports_external_verified_bundle_path():
