@@ -37,3 +37,11 @@ def test_research_schema_contains_hypothesis_memory_and_durable_outcomes():
     assert '"durable_scientific_outcomes"' in m
     assert "UNIQUE(hypothesis_id,experiment_key)" in m
     assert "UNIQUE(event_id,hypothesis_fingerprint,horizon_ms)" in m
+
+
+def test_pattern_mining_schema_tracks_multiple_testing():
+    from pathlib import Path
+    m=Path("grid/migrations.py").read_text(encoding="utf-8")
+    assert '"scientific_pattern_mining"' in m
+    assert "scientific_mining_families" in m
+    assert "corrected_p_value" in m
