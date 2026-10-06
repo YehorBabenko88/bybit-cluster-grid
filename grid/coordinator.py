@@ -210,6 +210,23 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
             "recovery_profile":replay,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
 
+@app.get("/nodes/{node_id}/acceptance")
+async def node_acceptance(node_id:str,x_node_credential:str=Header(default="")):
+    """Credential-bound cold-install acceptance probe for one worker."""
+    if not x_node_credential or not await authenticate_agent(db.pool,node_id,x_node_credential):
+        raise HTTPException(403)
+    snap=nodes.get(node_id)
+    if not snap:
+        return {"accepted":False,"reason":"heartbeat_not_seen"}
+    age=max(0.0,time.time()-float(snap.get("last_seen",0)))
+    return {
+        "accepted": age <= settings.heartbeat_seconds*2,
+        "last_seen_age_seconds": round(age,2),
+        "runtime_state": str(snap.get("runtime_state","UNKNOWN")),
+        "pressure_state": str(snap.get("pressure_state","UNKNOWN")),
+    }
+
+
 @app.post("/commands/{command_id}/result")
 async def post_command_result(command_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
     node_id=payload.get("node_id")
