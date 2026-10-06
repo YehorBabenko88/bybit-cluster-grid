@@ -418,6 +418,7 @@ created_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,completed_a
 UNIQUE(hypothesis_id,simulation_version,dataset_cutoff))""",
 "CREATE INDEX IF NOT EXISTS scientific_simulation_status_idx ON scientific_simulation_runs(status,created_at)",
 "ALTER TABLE scientific_simulation_runs ADD COLUMN IF NOT EXISTS oos_start timestamptz",
+"ALTER TABLE scientific_simulation_trades ADD COLUMN IF NOT EXISTS spread_bps double precision NOT NULL DEFAULT 0",
 """CREATE TABLE IF NOT EXISTS scientific_simulation_trades(
 run_id uuid NOT NULL REFERENCES scientific_simulation_runs(id) ON DELETE CASCADE,
 ordinal bigint NOT NULL,symbol text NOT NULL,event_ts_ms bigint NOT NULL,split_key text NOT NULL,
