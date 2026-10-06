@@ -136,4 +136,15 @@ if($LASTEXITCODE -ne 0){throw "Failed creating Grid PostgreSQL database"}
 Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
 Add-EnvOnce "POSTGRES_DSN" "postgresql://cluster_grid:$DbPass@127.0.0.1:55432/bybit_cluster_grid"
 & (Join-Path $PSScriptRoot "configure-postgres.ps1") -DataRoot $DataRoot
+$FinalRoot=Join-Path $DataRoot "postgres"
+$FinalData=Join-Path $FinalRoot "data"
+$finalManifest=[ordered]@{
+  schema=1; owned_by_grid=$true; instance_id=[guid]::NewGuid().ToString()
+  service_name="BybitClusterGridPostgres"; port=55432
+  root=$FinalRoot; data=$FinalData
+  created_at=(Get-Date).ToUniversalTime().ToString("o")
+}
+$tmpManifest=$Manifest+".tmp"
+$finalManifest | ConvertTo-Json | Set-Content -Encoding UTF8 $tmpManifest
+Move-Item -Force $tmpManifest $Manifest
 Remove-Item $Installing -Force -ErrorAction SilentlyContinue
