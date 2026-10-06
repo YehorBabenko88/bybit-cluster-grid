@@ -48,7 +48,12 @@ def constant_time_equal(left,right):
 
 
 def auth(token):
-    if not constant_time_equal(token,settings.grid_shared_token):
+    configured=str(settings.grid_shared_token or "").strip()
+    # Administrative shared-token endpoints must never become public merely
+    # because GRID_SHARED_TOKEN was omitted from CONTROL configuration.
+    if not configured:
+        raise HTTPException(503,"CONTROL administrative authentication is not configured")
+    if not constant_time_equal(token,configured):
         raise HTTPException(401,"bad grid token")
 
 
