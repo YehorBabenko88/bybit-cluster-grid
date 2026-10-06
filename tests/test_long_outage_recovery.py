@@ -57,7 +57,9 @@ def test_replay_is_paced_and_staggered_across_nodes():
         s=Path(name).read_text(encoding="utf-8")
         assert "hashlib.sha256(NODE_ID.encode" in s
         assert rate in s
-        assert "await asyncio.sleep(interval)" in s
+        assert "record_id in self.replay_ids" in s
+        assert "wait=interval-(asyncio.get_running_loop().time()-self._last_replay_send)" in s
+        assert "self.replay_ids.discard(record_id)" in s
         assert "replay_backlog_bytes" in s
 
 
