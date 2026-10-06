@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import sqrt
 from statistics import mean
+from .scientific_surfaces import PolynomialSurfaceTracker
 
 @dataclass(frozen=True)
 class ScientificPoint:
@@ -88,6 +89,7 @@ class ScientificGeometryEngine:
     def __init__(self,feature_names,projection_lr=.01,warmup=256):
         self.names=tuple(feature_names);self.projection_lr=float(projection_lr);self.warmup=max(2,int(warmup))
         self.scalers={};self.projections={};self.history={}
+        self.surface2={};self.surface3={};self.surface_state={}
     def ingest(self,symbol,event_ts_ms,features,source="unified",quality="GOOD"):
         if quality!="GOOD":return None
         try:x=[float(features[n]) for n in self.names]
