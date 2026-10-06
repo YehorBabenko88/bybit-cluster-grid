@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     replay_minute_per_second: float = 25.0
     replay_micro_per_second: float = 100.0
     replay_start_jitter_seconds: float = 5.0
+    replay_minute_fast_per_second: float = 60.0
+    replay_micro_fast_per_second: float = 250.0
+    replay_minute_slow_per_second: float = 8.0
+    replay_micro_slow_per_second: float = 30.0
+    replay_db_latency_slow_ms: float = 75.0
+    replay_db_latency_pause_ms: float = 250.0
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
     retention_enabled: bool = True
