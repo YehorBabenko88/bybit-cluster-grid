@@ -92,7 +92,14 @@ class ScientificPatternMiner:
             if len(vals)<self.min_samples:continue
             st=directional_stats(vals,direction,self.cost_bps)
             candidates.append((pat,direction,symbol,regime,st))
+        prior_tests=int(await pool.fetchval(
+            "SELECT hypotheses_tested FROM scientific_mining_families WHERE family_key=$1",family) or 0)
         adjusted=holm_adjust([x[4]["p_value"] for x in candidates])
+        # Continuous research does not get a fresh alpha budget every week.
+        # Inflate current Holm-adjusted p-values by the accumulated family search count.
+        if prior_tests:
+            factor=1.0+prior_tests/max(1,len(candidates))
+            adjusted=[min(1.0,p*factor) for p in adjusted]
         accepted=0
         for item,p_adj in zip(candidates,adjusted):
             pat,direction,symbol,regime,st=item
@@ -107,7 +114,7 @@ class ScientificPatternMiner:
                 int(st["n"]),float(raw_mean),float(st["hit_rate"]),
                 self.cost_bps,str(dataset_cutoff),
                 {"p_value":st["p_value"],"corrected_p_value":p_adj,"effect_z":st["z"],
-                 "family_key":family,"mining_run_id":str(run_id)})
+                 "family_key":family,"prior_family_tests":prior_tests,"mining_run_id":str(run_id)})
             await record_evidence(pool,reg["id"],spec,evidence)
             await pool.execute("""UPDATE scientific_hypothesis_evidence SET
               p_value=$3,corrected_p_value=$4,effect_z=$5
