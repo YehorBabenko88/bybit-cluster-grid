@@ -70,3 +70,28 @@ def test_worker_sheds_fresh_micro_capture_during_wal_recovery():
     assert '"micro_replay_active"' in s
     assert "recovering=bool(dbm.get" in s
     assert "new_micro=(requested_micro & new) if not recovering else set()" in s
+
+
+def test_control_publishes_adaptive_recovery_feedback():
+    from pathlib import Path
+    c=Path("grid/coordinator.py").read_text(encoding="utf-8")
+    assert "async def recovery_profile()" in c
+    for profile in ('"profile":"FAST"','"profile":"SLOW"','"profile":"PAUSE"'):
+        assert profile in c
+    assert "replay_db_latency_slow_ms" in c
+    assert "replay_db_latency_pause_ms" in c
+    assert '"recovery_profile":replay' in c
+
+
+def test_worker_applies_dynamic_replay_rate_and_pause_is_quiet():
+    from pathlib import Path
+    w=Path("grid/worker.py").read_text(encoding="utf-8")
+    assert 'reply.get("recovery_profile")' in w
+    assert "self.db.set_replay_rate" in w
+    assert "self.micro_storage.set_replay_rate" in w
+    for name in ("grid/storage.py","grid/micro_event_storage.py"):
+        s=Path(name).read_text(encoding="utf-8")
+        assert "def set_replay_rate" in s
+        assert "while rate<=0:" in s
+        assert "await asyncio.sleep(1.0)" in s
+        assert "CONTROL paused WAL recovery" not in s
