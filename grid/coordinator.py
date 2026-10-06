@@ -33,6 +33,7 @@ from .resources import snapshot as resource_snapshot
 from .asyncio_guard import install_asyncio_exception_filter
 from .disk_guard import DiskWatermarks,disk_state,live_collection_allowed
 from .tailscale_provisioning import create_one_time_auth_key,TailscaleProvisioningError
+from .scientific_service import ScientificResearchService
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -42,6 +43,7 @@ ingest_storage=None
 background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
 ml_orchestrator=None
+scientific_service=None
 
 
 
@@ -446,6 +448,18 @@ async def status(x_grid_token:str=Header(default="")):
     auth(x_grid_token)
     return {"nodes":nodes,"assignments":assignments,"instrument_count":len(instruments)}
 
+@app.get("/scientific/status")
+async def scientific_status(x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    if scientific_service is None:
+        raise HTTPException(503,"scientific research service unavailable")
+    pending=await db.pool.fetchval("SELECT count(*) FROM scientific_outcome_requests WHERE status='PENDING'")
+    counts=await db.pool.fetch("""SELECT status,count(*) n FROM scientific_hypotheses GROUP BY status""")
+    out=scientific_service.status()
+    out["pending_outcomes"]=int(pending or 0)
+    out["hypotheses"]={str(r["status"]):int(r["n"]) for r in counts}
+    return out
+
 @app.post("/strategy/plugins")
 async def upload_strategy_plugin(payload:dict,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
@@ -511,7 +525,7 @@ async def rebalance():
 
 @app.on_event("startup")
 async def startup():
-    global db, ingest_storage, background_tasks, ml_orchestrator
+    global db, ingest_storage, background_tasks, ml_orchestrator, scientific_service
     bootstrap_logging()
     install_asyncio_exception_filter(asyncio.get_running_loop())
     log.info(
@@ -529,6 +543,9 @@ async def startup():
     ingest_storage=Storage()
     ingest_storage.pool=db.pool
     await ingest_storage.feature_builder.start(db.pool)
+    scientific_service=ScientificResearchService(db.pool)
+    await scientific_service.start()
+    ingest_storage.scientific=scientific_service
     ingest_storage.derived=__import__('grid.derived_pipeline',fromlist=['DerivedPipeline']).DerivedPipeline(db.pool)
     await ingest_storage.derived.start()
     async def ml_nodes():
@@ -591,14 +608,17 @@ async def startup():
         asyncio.create_task(retention_scheduler(db.pool,settings)),
         asyncio.create_task(maintenance_scheduler(db.pool,settings)),
         asyncio.create_task(ml_orchestrator.run()),
+        asyncio.create_task(scientific_service.run()),
     ]
 
 @app.on_event("shutdown")
 async def shutdown():
-    global ingest_storage, background_tasks, ml_orchestrator
+    global ingest_storage, background_tasks, ml_orchestrator, scientific_service
 
     if ml_orchestrator is not None:
         ml_orchestrator.stop()
+    if scientific_service is not None:
+        scientific_service.stop()
     tasks = list(background_tasks)
     background_tasks = []
 
