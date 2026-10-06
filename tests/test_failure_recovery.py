@@ -183,3 +183,31 @@ def test_release_markers_are_fsynced_before_atomic_replace():
     block=s.split("def _write_marker",1)[1].split("def current_version",1)[0]
     assert "f.flush(); os.fsync(f.fileno())" in block
     assert "os.replace(tmp,marker)" in block
+
+
+def test_update_marks_release_pending_for_boot_health():
+    from pathlib import Path
+    u=Path("grid/update_manager.py").read_text(encoding="utf-8")
+    a=Path("grid/agent_commands.py").read_text(encoding="utf-8")
+    assert 'def mark_pending(' in u
+    assert '"pending.version"' in u
+    assert "mark_pending(install_root,version)" in a
+
+
+def test_pending_release_watchdog_rolls_back_only_fast_crash_loop():
+    from pathlib import Path
+    h=Path("installer/release-health.ps1").read_text(encoding="utf-8")
+    assert "$RuntimeSeconds -ge 60" in h
+    assert "$count -lt 3" in h
+    assert '"previous.version"' in h
+    assert '"current.version"' in h
+    assert "exit 75" in h
+    install=Path("installer/install.ps1").read_text(encoding="utf-8")
+    assert 'release-health.ps1' in install
+    for name in ("installer/launcher.ps1","installer/archive-launcher.ps1",
+                 "installer/coordinator-launcher.ps1"):
+        s=Path(name).read_text(encoding="utf-8")
+        assert "release-health.ps1" in s
+        assert "-Phase AfterExit" in s
+        assert "$runtime=" in s
+        assert "if($LASTEXITCODE -eq 75){exit 75}" in s
