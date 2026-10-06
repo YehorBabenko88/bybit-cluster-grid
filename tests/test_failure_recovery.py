@@ -268,3 +268,34 @@ def test_tailscale_zero_touch_bootstrap_uses_silent_msi():
     assert "TS_ONBOARDING_FLOW=hide" in t
     assert "set --unattended=true" in t
     assert "TailscaleMsiPath" in b
+
+
+def test_tailscale_provisioning_is_control_side_one_time_tagged():
+    from pathlib import Path
+    p=Path("grid/tailscale_provisioning.py").read_text(encoding="utf-8")
+    assert "/api/v2/oauth/token" in p
+    assert "/api/v2/tailnet/-/keys" in p
+    assert '"reusable":False' in p
+    assert '"ephemeral":False' in p
+    assert '"preauthorized":True' in p
+    assert '"tags":tag_list' in p
+
+
+def test_bootstrap_envelope_is_admin_only_and_does_not_return_oauth_secret():
+    from pathlib import Path
+    c=Path("grid/coordinator.py").read_text(encoding="utf-8")
+    block=c.split('@app.post("/bootstrap/envelope")',1)[1].split('@app.post("/enroll")',1)[0]
+    assert "auth(x_grid_token)" in block
+    assert "create_one_time_auth_key" in block
+    assert '"tailscale_auth_key":tailscale_key' in block
+    assert "tailscale_oauth_client_secret" in block
+    assert '"tailscale_oauth_client_secret"' not in block
+
+
+def test_bootstrap_envelope_is_destroyed_after_use():
+    from pathlib import Path
+    s=Path("installer/bootstrap-from-envelope.ps1").read_text(encoding="utf-8")
+    assert "Bootstrap envelope expired" in s
+    assert "-AgentMode AUTO" in s
+    assert "finally" in s
+    assert "Remove-Item $full" in s
