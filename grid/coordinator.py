@@ -1,4 +1,4 @@
-import asyncio,time,logging,secrets,hashlib,tempfile,os
+import asyncio,time,logging,secrets,hashlib,tempfile,os,pathlib,subprocess,json
 from fastapi import FastAPI,Header,HTTPException,Request
 from .config import settings
 from .bybit import linear_symbols
@@ -255,6 +255,51 @@ async def create_node_command(node_id:str,payload:dict,x_grid_token:str=Header(d
     if action not in allowed: raise HTTPException(400,"unsupported command")
     cid=await enqueue_command(db.pool,node_id,action,payload.get("payload"))
     return {"command_id":cid,"status":"queued"}
+
+@app.post("/control/update")
+async def control_update(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    version=str(payload.get("version") or "").strip()
+    url=str(payload.get("package_url") or "").strip()
+    sha=str(payload.get("sha256") or "").strip().lower()
+    if not version or not url or len(sha)!=64 or any(c not in "0123456789abcdef" for c in sha):
+        raise HTTPException(400,"valid version, package_url and sha256 are required")
+    if not url.lower().startswith("https://"):
+        raise HTTPException(400,"release URL must use HTTPS")
+    data_root=pathlib.Path(os.environ.get("ProgramData",r"C:\\ProgramData"))/"BybitClusterGrid"
+    if (data_root/"control-update.lock").exists():
+        raise HTTPException(409,"CONTROL update already running")
+    python=data_root/"runtime"/"venv"/"Scripts"/"python.exe"
+    log_path=data_root/"logs"/"control-self-update.log"
+    log_path.parent.mkdir(parents=True,exist_ok=True)
+    out=open(log_path,"ab",buffering=0)
+    try:
+        subprocess.Popen([str(python),"-m","grid.control_self_update",
+                          "--version",version,"--url",url,"--sha256",sha],
+                         cwd=str(pathlib.Path(__file__).resolve().parents[1]),
+                         stdout=out,stderr=subprocess.STDOUT,
+                         creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0),
+                         close_fds=True)
+    finally:
+        out.close()
+    return {"accepted":True,"version":version,"state":"control_update_started"}
+
+@app.get("/control/update/status")
+async def control_update_status(x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    data_root=pathlib.Path(os.environ.get("ProgramData",r"C:\\ProgramData"))/"BybitClusterGrid"
+    install_root=pathlib.Path(os.environ.get("ProgramFiles",r"C:\\Program Files"))/"BybitClusterGrid"
+    status={}
+    try: status=json.loads((data_root/"control-update-status.json").read_text(encoding="utf-8"))
+    except (OSError,ValueError): pass
+    def marker(name):
+        try:return (install_root/name).read_text(encoding="utf-8-sig").strip()
+        except OSError:return ""
+    status.update({"current":marker("current.version"),"previous":marker("previous.version"),
+                   "pending":marker("pending.version"),
+                   "running":(data_root/"control-update.lock").exists()})
+    return status
+
 
 @app.post("/updates/releases")
 async def create_release(payload:dict,x_grid_token:str=Header(default="")):
