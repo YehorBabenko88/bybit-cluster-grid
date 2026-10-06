@@ -115,7 +115,7 @@ async def finalize_model(pool,job_id,node_id,generation,artifact_id,metrics=None
               str(p.get("code_version","grid")),json.dumps(p.get("hyperparameters") or {}))
             await c.execute("""INSERT INTO model_evaluations
               (id,model_id,stage,dataset_id,metrics,passed,evaluator_version)
-              VALUES($1,$2,'TRAIN',$3,$4::jsonb,true,$5)""",
+              VALUES($1,$2,'TRAIN',$3,$4::jsonb,false,$5)""",
               uuid.uuid4(),model_id,did,json.dumps(metrics or {}),"agent-train-v1")
             await c.execute("""UPDATE ml_artifacts SET reusable=true,expires_at=NULL,last_used_at=now()
               WHERE id=$1""",artifact_id)
