@@ -103,6 +103,13 @@ if(!$psql){
         if($p.bin -and (Test-Path (Join-Path $p.bin "psql.exe"))){$psql=Join-Path $p.bin "psql.exe";break}
     }
 }
+if($psql){
+    $fullPsql=[IO.Path]::GetFullPath($psql)
+    $ownedPrefix=[IO.Path]::GetFullPath((Join-Path $DataRoot "postgres")).TrimEnd('\')+'\'
+    if($fullPsql.StartsWith($ownedPrefix,[StringComparison]::OrdinalIgnoreCase) -and !(Test-Path $fullPsql)){
+        $psql=$null # stale discovery entry from the interrupted Grid instance just removed
+    }
+}
 if($psql){throw "Unrelated PostgreSQL exists but no Grid DSN is provisioned. Refusing to modify it automatically."}
 
 $Installer=Join-Path $PSScriptRoot "postgres-installer.exe"
