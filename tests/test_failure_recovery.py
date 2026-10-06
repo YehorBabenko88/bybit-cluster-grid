@@ -173,6 +173,7 @@ def test_launchers_fallback_current_previous_bootstrap():
         s=Path(name).read_text(encoding="utf-8")
         assert '@("current.version","previous.version")' in s
         assert entry in s
+        assert '($cv+".replaced")' in s
         assert 'Join-Path $InstallRoot "bootstrap"' in s
 
 
