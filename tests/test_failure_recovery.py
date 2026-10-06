@@ -240,3 +240,20 @@ def test_postgres_partial_repair_requires_transaction_marker():
     assert 'sc.exe delete "BybitClusterGridPostgres"' in p
     assert "without committed credentials or transaction marker" in p
     assert "Unrelated PostgreSQL exists" in p
+
+
+def test_windows_ci_parses_every_installer_script():
+    from pathlib import Path
+    w=Path(".github/workflows/windows-bundle.yml").read_text(encoding="utf-8")
+    assert "Parse all PowerShell installer scripts" in w
+    assert "Language.Parser]::ParseFile" in w
+    assert "PowerShell parse failed" in w
+
+
+def test_install_does_not_register_agent_before_role_decision():
+    from pathlib import Path
+    s=Path("installer/install.ps1").read_text(encoding="utf-8")
+    reg='Register-ScheduledTask -TaskName $TaskName'
+    assert s.count(reg)==1
+    normal=s.split('}else{',1)[-1]
+    assert reg in normal
