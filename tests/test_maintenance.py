@@ -146,3 +146,13 @@ def test_retention_backlog_uses_planner_estimate_not_full_count():
     assert "SELECT count(*)" not in block
     scheduler=Path("grid/retention.py").read_text(encoding="utf-8")
     assert '"event":"retention_backlog"' in scheduler
+
+
+def test_control_ingest_endpoints_enforce_disk_gate():
+    s=Path("grid/coordinator.py").read_text(encoding="utf-8")
+    minute=s.split("async def ingest_minute",1)[1].split('@app.post("/ingest/event")',1)[0]
+    event=s.split("async def ingest_event",1)[1].split('@app.post("/ml/claim")',1)[0]
+    assert 'live_collection_allowed(control_disk_state()["state"])' in minute
+    assert 'HTTPException(507,"CONTROL disk pressure")' in minute
+    assert 'control_disk_state()["state"]!="NORMAL"' in event
+    assert 'HTTPException(507,"CONTROL disk pressure")' in event
