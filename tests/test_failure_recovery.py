@@ -307,3 +307,55 @@ def test_bootstrap_envelope_requires_non_loopback_control_address():
     block=c.split('@app.post("/bootstrap/envelope")',1)[1].split('@app.post("/enroll")',1)[0]
     assert "reachable non-loopback coordinator_url is required" in block
     assert '"coordinator_url":coordinator_url' in block
+
+
+def test_migrations_are_serialized_between_control_services():
+    from pathlib import Path
+    m=Path("grid/migrations.py").read_text(encoding="utf-8")
+    assert "pg_advisory_lock" in m
+    assert "pg_advisory_unlock" in m
+    assert "finally:" in m
+
+
+def test_postgres_transaction_closes_only_after_dsn_commit():
+    from pathlib import Path
+    i=Path("installer/install-postgres.ps1").read_text(encoding="utf-8")
+    p=Path("installer/provision_postgres.ps1").read_text(encoding="utf-8")
+    assert "Keep postgres-installing.json until role/database credentials" in i
+    assert p.index('Add-EnvOnce "POSTGRES_DSN"') < p.rindex("Remove-Item $Installing")
+    assert "configure-postgres.ps1" in p
+
+
+def test_owned_postgres_config_is_idempotently_managed():
+    from pathlib import Path
+    p=Path("installer/configure-postgres.ps1").read_text(encoding="utf-8")
+    assert "# BEGIN BybitClusterGrid managed" in p
+    assert "max_wal_size = '2GB'" in p
+    assert "log_truncate_on_rotation = off" in p
+    assert "postgresql-%Y-%m-%d_%H%M.log" in p
+    assert "invalid ownership manifest" in p
+
+
+def test_control_env_acl_protects_database_and_telegram_secrets():
+    from pathlib import Path
+    b=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    assert 'icacls $EnvFile /inheritance:r /grant:r "SYSTEM:F" "Administrators:F"' in b
+
+
+def test_telegram_validates_api_and_credentials_before_polling():
+    from pathlib import Path
+    t=Path("grid/telegram_bot.py").read_text(encoding="utf-8")
+    assert 'await _tg_api(session,"getMe",retries=1)' in t
+    assert "telegram_auth_failed" in t
+    assert "r.status==429" in t
+    assert 'data.get("ok") is not True' in t
+
+
+def test_one_click_worker_package_contains_full_installer_and_no_github_login():
+    from pathlib import Path
+    p=Path("installer/new-worker-package.ps1").read_text(encoding="utf-8")
+    assert 'Copy-Item (Join-Path $PSScriptRoot "*") $installerOut -Recurse -Force' in p
+    assert "Install-Grid.cmd" in p
+    assert "tailscale.msi" in p
+    assert "bootstrap-envelope.json" in p
+    assert "gh auth" not in p.lower()
