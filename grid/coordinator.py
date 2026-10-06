@@ -161,11 +161,11 @@ async def promote_release(version:str,x_grid_token:str=Header(default="")):
 @app.post("/ingest/minute")
 async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
     global ingest_storage
-    if not constant_time_equal(x_grid_token,settings.grid_shared_token):
-        raise HTTPException(403)
-    payload=await request.json()
+    # DB-less agents authenticate with their per-node credential.  Do not
+    # require the fleet-wide shared CONTROL token on worker machines.
     if not x_node_id or not await authenticate_agent(db.pool,x_node_id,x_node_credential):
         raise HTTPException(403)
+    payload=await request.json()
     gate=await runtime_state(db.pool)
     if gate["state"]!="ACTIVE":
         raise HTTPException(423,"market ingestion locked")
@@ -176,8 +176,9 @@ async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_no
 
 @app.post("/ingest/event")
 async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
-    if not constant_time_equal(x_grid_token,settings.grid_shared_token):
-        raise HTTPException(403)
+    # High-rate ingestion uses the same per-node identity as heartbeat.
+    # Keeping GRID_SHARED_TOKEN CONTROL-only limits the blast radius of a
+    # compromised collector.
     if not x_node_id or not await authenticate_agent(db.pool,x_node_id,x_node_credential):
         raise HTTPException(403)
     gate=await runtime_state(db.pool)
