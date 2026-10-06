@@ -57,7 +57,8 @@ def _read_marker(root,name):
 
 def _write_marker(root,name,value):
     root=pathlib.Path(root); marker=root/name; tmp=root/(name+".tmp")
-    tmp.write_text(str(value),encoding="utf-8")
+    with open(tmp,"w",encoding="utf-8") as f:
+        f.write(str(value)); f.flush(); os.fsync(f.fileno())
     os.replace(tmp,marker)
 
 def current_version(install_root):
