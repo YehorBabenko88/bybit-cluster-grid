@@ -83,7 +83,7 @@ def test_owned_postgres_log_cleanup_is_manifest_fenced(tmp_path):
 
 
 def test_grid_owned_postgres_has_wal_and_log_bounds():
-    s=Path("installer/install-postgres.ps1").read_text(encoding="utf-8")
+    s=Path("installer/configure-postgres.ps1").read_text(encoding="utf-8")
     assert "max_wal_size = '2GB'" in s
     assert "min_wal_size = '256MB'" in s
     assert "log_rotation_age = 1d" in s
