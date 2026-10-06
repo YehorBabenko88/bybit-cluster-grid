@@ -257,3 +257,14 @@ def test_install_does_not_register_agent_before_role_decision():
     assert s.count(reg)==1
     normal=s.split('}else{',1)[-1]
     assert reg in normal
+
+
+def test_tailscale_zero_touch_bootstrap_uses_silent_msi():
+    from pathlib import Path
+    t=Path("installer/configure-tailscale.ps1").read_text(encoding="utf-8")
+    b=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    assert "TS_NOLAUNCH=1" in t
+    assert "TS_UNATTENDEDMODE=always" in t
+    assert "TS_ONBOARDING_FLOW=hide" in t
+    assert "set --unattended=true" in t
+    assert "TailscaleMsiPath" in b
