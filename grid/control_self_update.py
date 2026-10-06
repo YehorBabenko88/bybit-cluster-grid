@@ -1,7 +1,7 @@
 """Detached, verified self-update helper for the CONTROL node."""
 import argparse, asyncio, json, os, pathlib, subprocess, sys, time
 from .agent_commands import _download
-from .update_manager import verify_package,install_release,switch_current,current_version,mark_pending
+from .update_manager import verify_package,install_release,switch_current,current_version,mark_pending,clear_pending
 
 def _roots():
     pf=pathlib.Path(os.environ.get("ProgramFiles",r"C:\Program Files"))
@@ -76,8 +76,12 @@ async def apply(version,url,sha256):
     _status(data_root,state="preflight",version=version)
     _role_preflight(target,data_root)
     previous=current_version(install_root)
-    switch_current(install_root,version)
     mark_pending(install_root,version)
+    try:
+        switch_current(install_root,version)
+    except Exception:
+        clear_pending(install_root)
+        raise
     _status(data_root,state="staged",version=version,previous=previous)
     # Let the invoking HTTP/Telegram handler commit its response/cursor before
     # the coordinator task is terminated.
