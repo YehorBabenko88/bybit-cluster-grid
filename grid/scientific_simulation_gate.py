@@ -64,7 +64,8 @@ class ScientificSimulationGate:
         base=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.0)
         stress=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.75)
         mc=deterministic_bootstrap_drawdowns(
-            [x["net_return_bps"] for x in base["trades"]],self.config.monte_carlo_paths,str(run_id))
+            [x["net_return_bps"] for x in base["trades"]],self.config.monte_carlo_paths,str(run_id),
+            float(self.config.position_risk_fraction)/.005)
         passed,checks,p95=promotion_decision(base["metrics"],stress["metrics"],mc,self.config)
         for t in base["trades"]:
             await self.pool.execute("""INSERT INTO scientific_simulation_trades(
