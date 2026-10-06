@@ -1,22 +1,29 @@
 async def store_derived_minute(conn,row):
-    await conn.execute("""INSERT INTO candles_1m
+    accepted=await conn.fetchval("""INSERT INTO candles_1m
       (symbol,ts,open,high,low,close,buy_volume,sell_volume,delta,trade_count,poc_price,quality_status,quality_reasons)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'ARCHIVE', '[]'::jsonb)
       ON CONFLICT(symbol,ts) DO UPDATE SET open=EXCLUDED.open,high=EXCLUDED.high,low=EXCLUDED.low,
       close=EXCLUDED.close,buy_volume=EXCLUDED.buy_volume,sell_volume=EXCLUDED.sell_volume,
       delta=EXCLUDED.delta,trade_count=EXCLUDED.trade_count,poc_price=EXCLUDED.poc_price,
-      quality_status='ARCHIVE'""",
+      quality_status='ARCHIVE',quality_reasons='[]'::jsonb
+      WHERE EXCLUDED.trade_count >= candles_1m.trade_count
+      RETURNING TRUE""",
       row["symbol"],row["ts"],row["open"],row["high"],row["low"],row["close"],
       row["buy_volume"],row["sell_volume"],row["delta"],row["trade_count"],row["poc_price"])
+    if not accepted:
+        return False
+    # Footprint is one versioned object with its candle. Replace the complete
+    # minute so levels from an older/live aggregation cannot survive as ghosts.
+    await conn.execute("DELETE FROM footprint_1m WHERE symbol=$1 AND ts=$2",row["symbol"],row["ts"])
+    values=[]
     for price,x in row["levels"].items():
         buy=x["buy"];sell=x["sell"]
-        await conn.execute("""INSERT INTO footprint_1m
+        values.append((row["symbol"],row["ts"],price,buy,sell,buy-sell,buy+sell,x["buy_count"],x["sell_count"]))
+    if values:
+        await conn.executemany("""INSERT INTO footprint_1m
           (symbol,ts,price,buy_volume,sell_volume,delta,volume,buy_count,sell_count)
-          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
-          ON CONFLICT(symbol,ts,price) DO UPDATE SET buy_volume=EXCLUDED.buy_volume,
-          sell_volume=EXCLUDED.sell_volume,delta=EXCLUDED.delta,volume=EXCLUDED.volume,
-          buy_count=EXCLUDED.buy_count,sell_count=EXCLUDED.sell_count""",
-          row["symbol"],row["ts"],price,buy,sell,buy-sell,buy+sell,x["buy_count"],x["sell_count"])
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)""",values)
+    return True
 
 async def materialize_archive(pool,aggregates):
     candles=levels=0;min_ts=max_ts=None
