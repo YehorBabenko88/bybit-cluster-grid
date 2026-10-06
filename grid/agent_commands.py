@@ -110,13 +110,13 @@ async def execute_command(worker,cmd):
         result=await _update(payload)
         result["state"]="repair_staged"
         result["repair_files"]=list(payload["repair_files"])
-        asyncio.get_running_loop().call_later(2.0,lambda:os._exit(75))
+        worker.restart_requested=True
         return result
     if action=="rollback":
         install_root,_=_roots()
         version=rollback(install_root)
         if not version: raise RuntimeError("no previous release")
-        asyncio.get_running_loop().call_later(1.0,lambda:os._exit(75))
+        worker.restart_requested=True
         return {"state":"rollback","version":version}
     if action=="uninstall":
         _,data_root=_roots()
