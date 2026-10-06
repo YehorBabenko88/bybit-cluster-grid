@@ -65,7 +65,16 @@ class Storage:
             for record_id,row in pending:
                 self.replay_ids.add(record_id)
                 await self.write_queue.put(record_id,row)
-        finally:
+            # Recovery is complete only after every recovered WAL record has
+            # reached the durable sink and _save_spooled() has ACKed its WAL id.
+            await self.write_queue.q.join()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # Fail closed: live producers must not overtake an incomplete replay.
+            self.replay_done.clear()
+            raise
+        else:
             self.replay_done.set()
 
     async def save(self,row):
