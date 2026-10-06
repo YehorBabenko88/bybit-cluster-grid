@@ -37,6 +37,73 @@ if(Test-Path $Manifest){
     exit 0
 }
 
+# Recover a power loss after the Grid PostgreSQL installer created its
+# dedicated service/data tree but before postgres-owned.json was published.
+# Adoption is intentionally strict so unrelated PostgreSQL is never claimed.
+$PartialRoot=Join-Path $DataRoot "postgres"
+$PartialData=Join-Path $PartialRoot "data"
+$PartialPsql=Join-Path $PartialRoot "bin\psql.exe"
+$PartialConf=Join-Path $PartialData "postgresql.conf"
+$PartialSvc=Get-Service -Name "BybitClusterGridPostgres" -ErrorAction SilentlyContinue
+if(!(Test-Path $Manifest) -and $PartialSvc -and (Test-Path $PartialPsql) -and (Test-Path $PartialConf)){
+    $confText=Get-Content $PartialConf -Raw
+    if($confText -match '(?m)^\s*port\s*=\s*55432\s*(?:#.*)?
+if($existing){
+    Add-EnvOnce "POSTGRES_DSN" $existing
+    Write-Host "Using pre-provisioned GRID_POSTGRES_DSN."
+    exit 0
+}
+
+$psql=(Get-Command psql.exe -ErrorAction SilentlyContinue).Source
+if(!$psql){
+    foreach($p in $d.postgres){
+        if($p.bin -and (Test-Path (Join-Path $p.bin "psql.exe"))){$psql=Join-Path $p.bin "psql.exe";break}
+    }
+}
+if($psql){
+    throw "Unrelated PostgreSQL exists but no Grid DSN is provisioned. Refusing to modify it automatically."
+}
+
+$Installer=Join-Path $PSScriptRoot "postgres-installer.exe"
+if(!(Test-Path $Installer)){
+    throw "PostgreSQL is absent and approved postgres-installer.exe is not included in the deployment bundle."
+}
+
+$bytes=New-Object byte[] 32
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$Super=[Convert]::ToBase64String($bytes).Replace("/","_").Replace("+","-").TrimEnd("=")
+& (Join-Path $PSScriptRoot "install-postgres.ps1") -Installer $Installer -DataRoot $DataRoot -SuperPassword $Super
+
+$PsqlLocal=Join-Path $DataRoot "postgres\bin\psql.exe"
+if(!(Test-Path $PsqlLocal)){throw "Grid PostgreSQL installed but psql.exe not found"}
+$env:PGPASSWORD=$Super
+$DbPassBytes=New-Object byte[] 32
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($DbPassBytes)
+$DbPass=[Convert]::ToBase64String($DbPassBytes).Replace("/","_").Replace("+","-").TrimEnd("=")
+& $PsqlLocal -h 127.0.0.1 -p 55432 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE cluster_grid LOGIN PASSWORD '$DbPass';"
+if($LASTEXITCODE -ne 0){throw "Failed creating Grid PostgreSQL role"}
+& $PsqlLocal -h 127.0.0.1 -p 55432 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE bybit_cluster_grid OWNER cluster_grid;"
+if($LASTEXITCODE -ne 0){throw "Failed creating Grid PostgreSQL database"}
+Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+Add-EnvOnce "POSTGRES_DSN" "postgresql://cluster_grid:$DbPass@127.0.0.1:55432/bybit_cluster_grid"
+){
+        $dsn=Get-EnvValue $EnvFile "POSTGRES_DSN"
+        if(!$dsn){
+            throw "Interrupted Grid PostgreSQL install detected before database credentials were committed; safe automatic credential recovery is unavailable."
+        }
+        $manifest=[ordered]@{
+          schema=1; owned_by_grid=$true; instance_id=[guid]::NewGuid().ToString()
+          service_name="BybitClusterGridPostgres"; port=55432
+          root=$PartialRoot; data=$PartialData
+          recovered_at=(Get-Date).ToUniversalTime().ToString("o")
+        }
+        $manifest | ConvertTo-Json | Set-Content -Encoding UTF8 $Manifest
+        if($PartialSvc.Status -ne "Running"){Start-Service $PartialSvc.Name}
+        Write-Host "Recovered interrupted Grid-owned PostgreSQL ownership manifest."
+        exit 0
+    }
+}
+
 # A deliberately pre-provisioned Grid DSN also wins and is never modified.
 $existing=[Environment]::GetEnvironmentVariable("GRID_POSTGRES_DSN","Machine")
 if($existing){
