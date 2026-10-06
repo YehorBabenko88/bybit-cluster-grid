@@ -101,9 +101,10 @@ class ScientificPatternMiner:
                                 self.feature_version,{"tokens":list(pat)})
             if await negative_memory_active(pool,spec):continue
             reg=await register_hypothesis(pool,spec)
+            raw_mean=sum(grouped[(pat,direction,symbol,regime)])/len(grouped[(pat,direction,symbol,regime)])
             evidence=Evidence(
                 f"{symbol}|{regime}|{split_key}|{int(horizon_ms)}|miner",symbol,regime,str(split_key),
-                int(st["n"]),float(st["mean_net_bps"])+self.cost_bps,float(st["hit_rate"]),
+                int(st["n"]),float(raw_mean),float(st["hit_rate"]),
                 self.cost_bps,str(dataset_cutoff),
                 {"p_value":st["p_value"],"corrected_p_value":p_adj,"effect_z":st["z"],
                  "family_key":family,"mining_run_id":str(run_id)})
