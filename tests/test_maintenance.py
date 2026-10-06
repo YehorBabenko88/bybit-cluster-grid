@@ -62,3 +62,30 @@ def test_archive_orphan_cleanup_does_not_touch_part_files(tmp_path):
     assert cleanup_orphan_archive_files(tmp_path)==1
     assert not raw.exists()
     assert part.exists()
+
+
+def test_owned_postgres_log_cleanup_is_manifest_fenced(tmp_path):
+    import json,os,time
+    from grid.maintenance import cleanup_owned_postgres_logs
+    data=tmp_path/"grid"; pg=data/"postgres"; pgdata=pg/"data"; logs=pgdata/"log"
+    logs.mkdir(parents=True)
+    old=logs/"postgresql-old.log"; old.write_text("x")
+    os.utime(old,(time.time()-15*86400,)*2)
+    # No ownership manifest: never touch PostgreSQL-looking paths.
+    assert cleanup_owned_postgres_logs(data)==0
+    assert old.exists()
+    (data/"postgres-owned.json").write_text(json.dumps({
+        "owned_by_grid":True,"service_name":"BybitClusterGridPostgres","port":55432,
+        "root":str(pg),"data":str(pgdata)
+    }),encoding="utf-8")
+    assert cleanup_owned_postgres_logs(data)==1
+    assert not old.exists()
+
+
+def test_grid_owned_postgres_has_wal_and_log_bounds():
+    s=Path("installer/install-postgres.ps1").read_text(encoding="utf-8")
+    assert "max_wal_size = '2GB'" in s
+    assert "min_wal_size = '256MB'" in s
+    assert "log_rotation_age = 1d" in s
+    assert "log_rotation_size = 100MB" in s
+    assert "BybitClusterGridPostgres" in s
