@@ -418,7 +418,6 @@ created_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,completed_a
 UNIQUE(hypothesis_id,simulation_version,dataset_cutoff))""",
 "CREATE INDEX IF NOT EXISTS scientific_simulation_status_idx ON scientific_simulation_runs(status,created_at)",
 "ALTER TABLE scientific_simulation_runs ADD COLUMN IF NOT EXISTS oos_start timestamptz",
-"ALTER TABLE scientific_simulation_trades ADD COLUMN IF NOT EXISTS spread_bps double precision NOT NULL DEFAULT 0",
 """CREATE TABLE IF NOT EXISTS scientific_simulation_trades(
 run_id uuid NOT NULL REFERENCES scientific_simulation_runs(id) ON DELETE CASCADE,
 ordinal bigint NOT NULL,symbol text NOT NULL,event_ts_ms bigint NOT NULL,split_key text NOT NULL,
@@ -427,7 +426,22 @@ fill_fraction double precision NOT NULL,fee_bps double precision NOT NULL,
 slippage_bps double precision NOT NULL,latency_bps double precision NOT NULL,
 funding_bps double precision NOT NULL,equity_after double precision NOT NULL,
 PRIMARY KEY(run_id,ordinal))""",
+"ALTER TABLE scientific_simulation_trades ADD COLUMN IF NOT EXISTS spread_bps double precision NOT NULL DEFAULT 0",
 "CREATE INDEX IF NOT EXISTS scientific_simulation_trades_split_idx ON scientific_simulation_trades(run_id,split_key,ordinal)"
+]),
+(42,"historical_scientific_bootstrap",[
+"""CREATE TABLE IF NOT EXISTS historical_scientific_bundles(
+id uuid PRIMARY KEY,source text NOT NULL,sha256 text NOT NULL UNIQUE,
+capabilities jsonb NOT NULL,research_scope text NOT NULL,
+created_at_source double precision,imported_at timestamptz NOT NULL DEFAULT now(),
+status text NOT NULL DEFAULT 'IMPORTED',details jsonb NOT NULL DEFAULT '{}'::jsonb)""",
+"""CREATE TABLE IF NOT EXISTS historical_scientific_symbol_state(
+bundle_id uuid NOT NULL REFERENCES historical_scientific_bundles(id) ON DELETE CASCADE,
+symbol text NOT NULL,status text NOT NULL,samples bigint NOT NULL DEFAULT 0,
+from_ms bigint,through_ms bigint,summary jsonb NOT NULL DEFAULT '{}'::jsonb,
+features jsonb NOT NULL DEFAULT '{}'::jsonb,
+PRIMARY KEY(bundle_id,symbol))""",
+"CREATE INDEX IF NOT EXISTS historical_science_symbol_idx ON historical_scientific_symbol_state(symbol,through_ms DESC)"
 ])
 
 ]
