@@ -43,6 +43,14 @@ repair_breaker=RepairCircuitBreaker()
 ml_orchestrator=None
 
 
+
+def control_disk_state():
+    root=os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid")
+    return disk_state(root,DiskWatermarks(
+        soft_free_gb=float(settings.disk_soft_free_gb),
+        hard_free_gb=float(settings.disk_hard_free_gb),
+        emergency_free_gb=float(settings.disk_emergency_free_gb)))
+
 def constant_time_equal(left,right):
     """Compare authentication tokens without leaking early string mismatch timing."""
     return secrets.compare_digest(str(left or ""),str(right or ""))
@@ -121,11 +129,7 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     # Protect the central database volume, not only each worker's local disk.
     # SOFT pressure keeps minute/live collection but sheds high-rate micro data;
     # HARD/EMERGENCY stops new live assignments until space recovers.
-    control_root=os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid")
-    control_disk=disk_state(control_root,DiskWatermarks(
-        soft_free_gb=float(settings.disk_soft_free_gb),
-        hard_free_gb=float(settings.disk_hard_free_gb),
-        emergency_free_gb=float(settings.disk_emergency_free_gb)))
+    control_disk=control_disk_state()
     if not live_collection_allowed(control_disk["state"]):
         symbols=[]
     # High-rate microstructure capture remains pilot-only until the volatility
@@ -205,6 +209,8 @@ async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_no
         raise HTTPException(423,"market ingestion locked")
     if ingest_storage is None:
         raise HTTPException(503,"ingestion unavailable")
+    if not live_collection_allowed(control_disk_state()["state"]):
+        raise HTTPException(507,"CONTROL disk pressure")
     await ingest_storage._save_direct(payload)
     return {"ok":True}
 
@@ -224,6 +230,10 @@ async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_c
     event_payload=payload.get("payload")
     if not symbol or not event_type or event_ts is None or not isinstance(event_payload,dict):
         raise HTTPException(400,"invalid micro-event payload")
+    if control_disk_state()["state"]!="NORMAL":
+        # Micro events are shed already at SOFT pressure because they are the
+        # highest-rate, least essential live stream.
+        raise HTTPException(507,"CONTROL disk pressure")
     await db.insert_event(symbol,int(event_ts),event_type,event_payload)
     return {"ok":True}
 
