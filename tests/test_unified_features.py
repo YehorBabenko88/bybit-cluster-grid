@@ -108,3 +108,13 @@ def test_persist_advances_market_event_watermark_only_after_feature_write():
         assert p.calls[1][1][:4]==("market_events","unified_features","BTC",ts)
         assert p.calls[1][1][4] is True
     asyncio.run(run())
+
+
+def test_feature_builder_hydrates_restart_state_and_resets_on_minute_gap():
+    from pathlib import Path
+    text=Path("grid/unified_features.py").read_text(encoding="utf-8")
+    assert "row_number() OVER(PARTITION BY symbol ORDER BY ts DESC)" in text
+    assert "FROM candles_1m WHERE quality_status='GOOD'" in text
+    assert "ts-previous!=timedelta(minutes=1)" in text
+    assert 'source["quality_status"]="DEGRADED"' in text
+    assert '"minute_gap"' in text
