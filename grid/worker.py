@@ -90,7 +90,11 @@ class Worker:
                              "micro_queue_ratio":round(microm["queue_ratio"],4),
                              "micro_write_failures":microm["write_failures"],
                              "micro_spool_bytes":microm.get("spool_bytes",0),
-                             "micro_spool_ratio":round(microm.get("spool_ratio",0.0),4)})
+                             "micro_spool_ratio":round(microm.get("spool_ratio",0.0),4),
+                             "db_replay_active":bool(dbm.get("replay_active",False)),
+                             "db_replay_backlog_bytes":int(dbm.get("replay_backlog_bytes",0)),
+                             "micro_replay_active":bool(microm.get("replay_active",False)),
+                             "micro_replay_backlog_bytes":int(microm.get("replay_backlog_bytes",0))})
                 snap['pressure_state']=state
                 # Pressure control must remain autonomous when CONTROL is unreachable.
                 # Otherwise a long outage can fill the durable WAL while all market
@@ -175,7 +179,8 @@ class Worker:
                                 self.pressure_drained.update(self.pressure.symbols_to_drain(assigned-self.pressure_drained))
                             new=assigned-self.pressure_drained
                             requested_micro=set(reply.get("micro_symbols",[]))
-                            new_micro=requested_micro & new
+                            recovering=bool(dbm.get("replay_active",False) or microm.get("replay_active",False))
+                            new_micro=(requested_micro & new) if not recovering else set()
                             if new != self.wanted or new_micro != self.micro_wanted:
                                 self.wanted=new
                                 self.micro_wanted=new_micro
