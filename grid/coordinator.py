@@ -465,6 +465,8 @@ async def scientific_status(x_grid_token:str=Header(default="")):
     out["pattern_mining"]={"hypotheses_tested":int(mining["tested"] or 0),
                            "last_run_at":mining["last_run_at"],
                            "last":dict(last) if last else None}
+    sim=await db.pool.fetch("""SELECT status,count(*) n FROM scientific_simulation_runs GROUP BY status""")
+    out["simulation_gate"]={str(r["status"]):int(r["n"]) for r in sim}
     return out
 
 @app.get("/scientific/hypotheses")
@@ -485,6 +487,18 @@ async def scientific_hypothesis_evidence(hypothesis_id:str,x_grid_token:str=Head
       FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1::uuid
       ORDER BY created_at""",hypothesis_id)
     return {"hypothesis_id":hypothesis_id,"evidence":[dict(r) for r in rows]}
+
+@app.get("/scientific/simulations")
+async def scientific_simulations(status_filter:str="",limit:int=100,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    limit=max(1,min(500,int(limit)))
+    rows=await db.pool.fetch("""SELECT r.id,r.hypothesis_id,h.fingerprint,h.pattern,h.horizon_ms,
+      r.simulation_version,r.dataset_cutoff,r.status,r.metrics,r.stress_metrics,r.reason,
+      r.created_at,r.completed_at FROM scientific_simulation_runs r
+      JOIN scientific_hypotheses h ON h.id=r.hypothesis_id
+      WHERE ($1='' OR r.status=$1) ORDER BY r.created_at DESC LIMIT $2""",
+      str(status_filter).upper(),limit)
+    return {"simulations":[dict(r) for r in rows]}
 
 @app.post("/strategy/plugins")
 async def upload_strategy_plugin(payload:dict,x_grid_token:str=Header(default="")):
