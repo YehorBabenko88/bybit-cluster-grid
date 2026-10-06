@@ -49,7 +49,9 @@ def install_release(package_path,version,install_root):
 
 def _release_runnable(target):
     target=pathlib.Path(target)
-    return (target/"run_worker.py").exists() or (target/"grid"/"coordinator.py").exists()
+    return ((target/"run_worker.py").exists() or
+            (target/"run_coordinator.py").exists() or
+            (target/"grid"/"coordinator.py").exists())
 
 def _read_marker(root,name):
     p=pathlib.Path(root)/name
