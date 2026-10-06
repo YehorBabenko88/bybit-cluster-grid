@@ -30,7 +30,8 @@ async def materialize_archive(pool,aggregates):
     async with pool.acquire() as c:
         async with c.transaction():
             for row in aggregates:
-                await store_derived_minute(c,row);candles+=1;levels+=len(row["levels"])
+                if await store_derived_minute(c,row):
+                    candles+=1;levels+=len(row["levels"])
                 min_ts=row["ts"] if min_ts is None else min(min_ts,row["ts"])
                 max_ts=row["ts"] if max_ts is None else max(max_ts,row["ts"])
     return {"derived_candles":candles,"derived_footprint_rows":levels,"min_ts":min_ts,"max_ts":max_ts}
@@ -43,8 +44,8 @@ async def materialize_archive_stream(pool,aggregates,batch_minutes=30):
         async with pool.acquire() as c:
             async with c.transaction():
                 for row in items:
-                    await store_derived_minute(c,row)
-                    candles+=1;levels+=len(row["levels"]);source_rows+=int(row["trade_count"])
+                    if await store_derived_minute(c,row):
+                        candles+=1;levels+=len(row["levels"]);source_rows+=int(row["trade_count"])
                     min_ts=row["ts"] if min_ts is None else min(min_ts,row["ts"])
                     max_ts=row["ts"] if max_ts is None else max(max_ts,row["ts"])
     for row in aggregates:
