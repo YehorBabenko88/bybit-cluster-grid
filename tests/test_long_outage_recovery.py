@@ -95,3 +95,14 @@ def test_worker_applies_dynamic_replay_rate_and_pause_is_quiet():
         assert "while rate<=0:" in s
         assert "await asyncio.sleep(1.0)" in s
         assert "CONTROL paused WAL recovery" not in s
+
+
+def test_recovery_budget_is_shared_across_recovering_workers():
+    from pathlib import Path
+    c=Path("grid/coordinator.py").read_text(encoding="utf-8")
+    block=c.split("async def recovery_profile()",1)[1].split("def constant_time_equal",1)[0]
+    assert "recovering=sum(" in block
+    assert "db_replay_active" in block
+    assert "micro_replay_active" in block
+    assert "share=max(1,recovering)" in block
+    assert "/share" in block
