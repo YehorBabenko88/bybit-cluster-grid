@@ -75,6 +75,20 @@ jobs:
           $actual=(Get-FileHash $dst -Algorithm SHA256).Hash.ToLowerInvariant()
           if($actual -ne $env:PG_SHA256.ToLowerInvariant()){ throw "PostgreSQL installer SHA256 mismatch" }
 
+      - name: Parse all PowerShell installer scripts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          Get-ChildItem installer -Filter *.ps1 -File | ForEach-Object {
+            $tokens=$null
+            $errors=$null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
+            if($errors.Count -gt 0){
+              $msg=($errors | ForEach-Object {$_.Message}) -join "; "
+              throw ("PowerShell parse failed for "+$_.Name+": "+$msg)
+            }
+          }
+
       - name: CONTROL preflight on finished bundle
         shell: pwsh
         env:
