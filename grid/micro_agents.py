@@ -21,6 +21,12 @@ class _AdaptiveAgent:
         self.refractory=max(0,int(refractory)); self.hist=defaultdict(lambda:deque(maxlen=self.window))
         self.cooldown=defaultdict(int)
 
+    def restore(self,symbol,values):
+        h=self.hist[symbol];h.clear()
+        for v in list(values)[-self.window:]:
+            try:h.append(float(v))
+            except (TypeError,ValueError):pass
+
     def _score(self,symbol,value):
         h=self.hist[symbol]
         if len(h)<30:
@@ -40,6 +46,8 @@ class _AdaptiveAgent:
 class OIAgent(_AdaptiveAgent):
     def __init__(self,**kw):
         super().__init__(**kw); self.prev={}
+    def restore_prev(self,symbol,ts_ms,open_interest):
+        self.prev[str(symbol)]=(int(ts_ms),float(open_interest))
     def update(self,symbol,ts_ms,open_interest,price=None):
         oi=float(open_interest); old=self.prev.get(symbol); self.prev[symbol]=(int(ts_ms),oi)
         if not old or old[1]<=0:return MicroSignal("oi",symbol,int(ts_ms),"WARMUP",0,0,{"oi":oi})
