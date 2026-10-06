@@ -22,28 +22,33 @@ def _dot(a,b):return sum(x*y for x,y in zip(a,b))
 def _norm(a):return sqrt(_dot(a,a))
 
 class OnlineStandardizer:
-    """Past-only Welford normalization. transform() precedes update()."""
-    def __init__(self):self.n=0;self.mu=[];self.m2=[]
+    """Past-only Welford normalization with a frozen research epoch."""
+    def __init__(self,freeze_after=256):
+        self.n=0;self.mu=[];self.m2=[];self.freeze_after=max(2,int(freeze_after))
     def transform_then_update(self,row):
         x=[float(v) for v in row]
         if not self.mu:self.mu=[0.0]*len(x);self.m2=[0.0]*len(x)
         if len(x)!=len(self.mu):raise ValueError("feature dimension changed")
         z=[(v-self.mu[i])/sqrt(self.m2[i]/max(self.n-1,1)) if self.n>1 and self.m2[i]>1e-18 else 0.0 for i,v in enumerate(x)]
-        self.n+=1
-        for i,v in enumerate(x):
-            d=v-self.mu[i];self.mu[i]+=d/self.n;self.m2[i]+=d*(v-self.mu[i])
+        if self.n<self.freeze_after:
+            self.n+=1
+            for i,v in enumerate(x):
+                d=v-self.mu[i];self.mu[i]+=d/self.n;self.m2[i]+=d*(v-self.mu[i])
         return z
+    @property
+    def ready(self):return self.n>=self.freeze_after
 
 class StreamingProjection3D:
-    """Deterministic online orthogonal projection, adapted only from past points."""
-    def __init__(self,dim,lr=.01):
-        self.dim=int(dim);self.lr=float(lr)
+    """Past-trained 3-D projection frozen after a bounded warmup epoch."""
+    def __init__(self,dim,lr=.01,freeze_after=256):
+        self.dim=int(dim);self.lr=float(lr);self.n=0;self.freeze_after=max(2,int(freeze_after))
         self.axes=[]
         for k in range(3):
             a=[0.0]*self.dim;a[k%self.dim]=1.0;self.axes.append(a)
     def project_then_update(self,z):
         if len(z)!=self.dim:raise ValueError("feature dimension changed")
         coords=tuple(_dot(z,a) for a in self.axes)
+        if self.n>=self.freeze_after:return coords
         for k in range(3):
             a=self.axes[k]; y=_dot(z,a)
             a=[a[i]+self.lr*y*(z[i]-y*a[i]) for i in range(self.dim)]
@@ -52,7 +57,10 @@ class StreamingProjection3D:
             n=_norm(a)
             if n>1e-12:a=[u/n for u in a]
             self.axes[k]=a
+        self.n+=1
         return coords
+    @property
+    def ready(self):return self.n>=self.freeze_after
 
 def polynomial_terms3(p,degree=3):
     """Monomials in x,y,z through degree 3: affine, conic and cubic geometry."""
@@ -77,15 +85,15 @@ def geometric_invariants(points):
             "tortuosity":sum(steps)/max(sqrt(sum((pts[-1][i]-pts[0][i])**2 for i in range(3))),1e-12)}
 
 class ScientificGeometryEngine:
-    def __init__(self,feature_names,projection_lr=.01):
-        self.names=tuple(feature_names);self.projection_lr=float(projection_lr)
+    def __init__(self,feature_names,projection_lr=.01,warmup=256):
+        self.names=tuple(feature_names);self.projection_lr=float(projection_lr);self.warmup=max(2,int(warmup))
         self.scalers={};self.projections={};self.history={}
     def ingest(self,symbol,event_ts_ms,features,source="unified",quality="GOOD"):
         if quality!="GOOD":return None
         try:x=[float(features[n]) for n in self.names]
         except (KeyError,TypeError,ValueError):return None
-        scaler=self.scalers.setdefault(str(symbol),OnlineStandardizer())
-        projection=self.projections.setdefault(str(symbol),StreamingProjection3D(len(self.names),self.projection_lr))
+        scaler=self.scalers.setdefault(str(symbol),OnlineStandardizer(self.warmup))
+        projection=self.projections.setdefault(str(symbol),StreamingProjection3D(len(self.names),self.projection_lr,self.warmup))
         z=scaler.transform_then_update(x)
         xyz=projection.project_then_update(z)
         point=ScientificPoint(str(symbol),int(event_ts_ms),tuple(z),self.names,xyz,str(source),str(quality))
@@ -94,4 +102,8 @@ class ScientificGeometryEngine:
         return point
     def diagnostics(self,symbol,window=128):
         h=self.history.get(str(symbol),[])[-max(3,int(window)):]
-        return geometric_invariants([p.projection3d for p in h])
+        out=geometric_invariants([p.projection3d for p in h])
+        scaler=self.scalers.get(str(symbol));projection=self.projections.get(str(symbol))
+        out["projection_ready"]=bool(scaler and projection and scaler.ready and projection.ready)
+        out["research_epoch_samples"]=int(scaler.n if scaler else 0)
+        return out
