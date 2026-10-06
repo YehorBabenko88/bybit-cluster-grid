@@ -38,7 +38,6 @@ if(!$release){$release=Join-Path $InstallRoot "bootstrap"}
 $run=Join-Path $release "run_worker.py"
 if(!(Test-Path $run)){throw "No runnable Grid release found"}
 Set-Location $release
-$watch=Join-Path $env:ProgramData "BybitClusterGrid\installer\release-health.ps1"
 $version=Split-Path $release -Leaf
 & $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $release -- $Python $run
 exit $LASTEXITCODE
