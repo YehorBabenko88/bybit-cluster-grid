@@ -211,3 +211,32 @@ def test_pending_release_watchdog_rolls_back_only_fast_crash_loop():
         assert "-Phase AfterExit" in s
         assert "$runtime=" in s
         assert "if($LASTEXITCODE -eq 75){exit 75}" in s
+
+
+def test_bootstrap_repairs_partial_owned_python_transactionally():
+    from pathlib import Path
+    b=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    assert '$OwnedStage=$OwnedRoot+".staging"' in b
+    assert '$OwnedPrevious=$OwnedRoot+".previous"' in b
+    assert "Bundled Grid Python runtime failed staging validation" in b
+    assert "Move-Item $OwnedStage $OwnedRoot" in b
+    assert "Move-Item $OwnedPrevious $OwnedRoot" in b
+
+
+def test_postgres_install_is_journaled_before_installer_mutation():
+    from pathlib import Path
+    i=Path("installer/install-postgres.ps1").read_text(encoding="utf-8")
+    marker=i.index('"postgres-installing.json"')
+    process=i.index("Start-Process -FilePath $Installer")
+    manifest=i.index('"postgres-owned.json"')
+    assert marker < process < manifest
+    assert "Remove-Item $Installing" in i
+
+
+def test_postgres_partial_repair_requires_transaction_marker():
+    from pathlib import Path
+    p=Path("installer/provision_postgres.ps1").read_text(encoding="utf-8")
+    assert 'if(Test-Path $Installing)' in p
+    assert 'sc.exe delete "BybitClusterGridPostgres"' in p
+    assert "without committed credentials or transaction marker" in p
+    assert "Unrelated PostgreSQL exists" in p
