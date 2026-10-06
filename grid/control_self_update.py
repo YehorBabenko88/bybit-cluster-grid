@@ -42,6 +42,17 @@ async def apply(version,url,sha256):
     if not str(url).lower().startswith("https://"):
         raise ValueError("release URL must use HTTPS")
     install_root,data_root=_roots()
+    lock=data_root/"control-update.lock"
+    try:
+        fd=os.open(lock,os.O_CREAT|os.O_EXCL|os.O_WRONLY)
+    except FileExistsError:
+        try: age=time.time()-lock.stat().st_mtime
+        except OSError: age=0
+        if age<=1800: raise RuntimeError("another CONTROL update is already running")
+        lock.unlink(missing_ok=True)
+        fd=os.open(lock,os.O_CREAT|os.O_EXCL|os.O_WRONLY)
+    with os.fdopen(fd,"w",encoding="ascii") as f:
+        f.write(str(os.getpid()));f.flush();os.fsync(f.fileno())
     downloads=data_root/"downloads";downloads.mkdir(parents=True,exist_ok=True)
     _status(data_root,state="downloading",version=version)
     part=downloads/(version+".control.zip.part")
@@ -62,6 +73,7 @@ async def apply(version,url,sha256):
     # the coordinator task is terminated.
     await asyncio.sleep(3)
     _restart_tasks()
+    lock.unlink(missing_ok=True)
     return {"state":"control_update_staged","version":version,"previous":previous}
 
 def main(argv=None):
