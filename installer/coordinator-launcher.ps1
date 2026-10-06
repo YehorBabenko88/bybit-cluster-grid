@@ -56,7 +56,6 @@ if(!(Test-Path (Join-Path $Release "grid\coordinator.py"))){throw "No runnable G
 $WaitDb=Join-Path $Release "installer\wait-grid-postgres.ps1"
 if(Test-Path $WaitDb){ & $WaitDb -DataRoot $DataRoot -TimeoutSeconds 120 }
 Set-Location $Release
-$watch=Join-Path $env:ProgramData "BybitClusterGrid\installer\release-health.ps1"
 $version=Split-Path $Release -Leaf
 & $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $release -- $Python -m uvicorn grid.coordinator:app --host 0.0.0.0 --port 8765
 exit $LASTEXITCODE
