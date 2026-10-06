@@ -12,12 +12,11 @@ New-Item -ItemType Directory -Force -Path $out | Out-Null
 Copy-Item $BundlePath (Join-Path $out "grid-bundle.zip") -Force
 Copy-Item $EnvelopePath (Join-Path $out "bootstrap-envelope.json") -Force
 Copy-Item $TailscaleMsiPath (Join-Path $out "tailscale.msi") -Force
-$consumer=Join-Path $PSScriptRoot "bootstrap-from-envelope.ps1"
-Copy-Item $consumer (Join-Path $out "bootstrap-from-envelope.ps1") -Force
-$bootstrap=Join-Path $PSScriptRoot "bootstrap.ps1"
-Copy-Item $bootstrap (Join-Path $out "bootstrap.ps1") -Force
-# Bootstrap calls sibling installer scripts after extracting the verified bundle;
-# only the entry scripts and payloads are needed outside it.
+$installerOut=Join-Path $out "installer"
+New-Item -ItemType Directory -Force -Path $installerOut | Out-Null
+Copy-Item (Join-Path $PSScriptRoot "*") $installerOut -Recurse -Force
+# The complete installer directory is included because bootstrap performs
+# Tailscale/discovery/enrollment work before the release bundle is published.
 $cmd=@'
 @echo off
 net session >nul 2>&1
@@ -25,7 +24,7 @@ if not %errorlevel%==0 (
   powershell -NoProfile -Command "Start-Process -Verb RunAs -FilePath '%~f0'"
   exit /b
 )
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap-from-envelope.ps1" -EnvelopePath "%~dp0bootstrap-envelope.json" -BundlePath "%~dp0grid-bundle.zip" -TailscaleMsiPath "%~dp0tailscale.msi"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0installer\bootstrap-from-envelope.ps1" -EnvelopePath "%~dp0bootstrap-envelope.json" -BundlePath "%~dp0grid-bundle.zip" -TailscaleMsiPath "%~dp0tailscale.msi"
 set EC=%errorlevel%
 if %EC%==0 (
   echo Grid installation completed successfully.
