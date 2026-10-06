@@ -496,3 +496,35 @@ def test_control_update_overlap_gate_covers_pending_health_window():
         assert "pending.version" in text
         assert "control-update.lock" in text
         assert "health verification already running" in text
+
+
+def test_wal_replay_waits_for_sink_ack_before_live_producers():
+    from pathlib import Path
+    for name in ("grid/storage.py","grid/micro_event_storage.py"):
+        text=Path(name).read_text(encoding="utf-8")
+        replay=text[text.index("async def _replay"):text.index("async def ",text.index("async def _replay")+10)]
+        assert "await self.write_queue.q.join()" in replay
+        assert "else:\n            self.replay_done.set()" in replay
+        assert "finally:\n            self.replay_done.set()" not in replay
+
+
+def test_archive_does_not_mutate_consumed_feature_source():
+    from pathlib import Path
+    text=Path("grid/archive_materializer.py").read_text(encoding="utf-8")
+    assert "SELECT EXISTS(SELECT 1 FROM market_features_1m" in text
+    assert "DELETE FROM footprint_1m" in text
+    assert "EXCLUDED.trade_count >= candles_1m.trade_count" in text
+
+
+def test_dataset_cutoff_includes_label_horizon():
+    from pathlib import Path
+    text=Path("grid/ml_dataset_builder.py").read_text(encoding="utf-8")
+    assert "COALESCE(label_end_ts,event_ts)<=$1" in text
+
+
+def test_control_firewall_is_tailnet_only():
+    from pathlib import Path
+    text=Path("installer/configure-control-firewall.ps1").read_text(encoding="utf-8")
+    assert "100.64.0.0/10" in text
+    assert "fd7a:115c:a1e0::/48" in text
+    assert "LocalSubnet" not in text
