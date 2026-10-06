@@ -45,3 +45,9 @@ def test_pattern_mining_schema_tracks_multiple_testing():
     assert '"scientific_pattern_mining"' in m
     assert "scientific_mining_families" in m
     assert "corrected_p_value" in m
+
+
+def test_regime_specific_pattern_can_validate_across_symbols_and_weeks():
+    s=spec()
+    rows=[ev("A","BTC","HIGH","W1",80),ev("B","ETH","HIGH","W2",80),ev("C","BTC","HIGH","W3",80)]
+    assert lifecycle(s,rows)=="VALIDATED"
