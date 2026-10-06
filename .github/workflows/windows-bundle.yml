@@ -6,6 +6,7 @@ on:
     paths:
       - "grid/**"
       - "installer/**"
+      - "strategies/**"
       - "run_worker.py"
       - "run_coordinator.py"
       - "requirements.txt"
@@ -15,6 +16,7 @@ on:
     paths:
       - "grid/**"
       - "installer/**"
+      - "strategies/**"
       - "run_worker.py"
       - "run_coordinator.py"
       - "requirements.txt"
@@ -23,11 +25,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: windows-bundle-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Keep the Windows artifact gate tied to the same release HEAD as preflight.
 
 jobs:
   build-windows-bundle:
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
