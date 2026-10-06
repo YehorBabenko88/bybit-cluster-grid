@@ -390,6 +390,23 @@ updated_at timestamptz NOT NULL DEFAULT now())"""
 "ALTER TABLE micro_agent_signals ADD COLUMN IF NOT EXISTS source_event_id bigint",
 "CREATE UNIQUE INDEX IF NOT EXISTS micro_agent_signals_source_idx ON micro_agent_signals(source_event_id,agent) WHERE source_event_id IS NOT NULL",
 "CREATE INDEX IF NOT EXISTS micro_agent_signals_recovery_idx ON micro_agent_signals(source_event_id) WHERE source_event_id IS NOT NULL"
+]),
+(40,"scientific_pattern_mining",[
+"""CREATE TABLE IF NOT EXISTS scientific_mining_families(
+family_key text PRIMARY KEY,method text NOT NULL,horizon_ms integer NOT NULL,
+feature_version text NOT NULL,hypotheses_tested bigint NOT NULL DEFAULT 0,
+last_run_at timestamptz,details jsonb NOT NULL DEFAULT '{}'::jsonb,
+updated_at timestamptz NOT NULL DEFAULT now())""",
+"""CREATE TABLE IF NOT EXISTS scientific_mining_runs(
+id uuid PRIMARY KEY,family_key text NOT NULL REFERENCES scientific_mining_families(family_key),
+split_key text NOT NULL,dataset_cutoff timestamptz NOT NULL,
+candidate_count integer NOT NULL DEFAULT 0,accepted_count integer NOT NULL DEFAULT 0,
+status text NOT NULL DEFAULT 'RUNNING',details jsonb NOT NULL DEFAULT '{}'::jsonb,
+started_at timestamptz NOT NULL DEFAULT now(),completed_at timestamptz)""",
+"CREATE INDEX IF NOT EXISTS scientific_mining_runs_idx ON scientific_mining_runs(family_key,started_at DESC)",
+"ALTER TABLE scientific_hypothesis_evidence ADD COLUMN IF NOT EXISTS p_value double precision",
+"ALTER TABLE scientific_hypothesis_evidence ADD COLUMN IF NOT EXISTS corrected_p_value double precision",
+"ALTER TABLE scientific_hypothesis_evidence ADD COLUMN IF NOT EXISTS effect_z double precision"
 ])
 ]
 
