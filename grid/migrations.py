@@ -325,6 +325,14 @@ state text NOT NULL DEFAULT 'DETECTED',invalidated_at timestamptz,
 outcome jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAULT now())""",
 "CREATE INDEX IF NOT EXISTS setup_candidates_lookup_idx ON setup_candidates(setup_type,symbol,detected_at DESC)",
 "CREATE INDEX IF NOT EXISTS setup_candidates_state_idx ON setup_candidates(state,detected_at DESC)"
+]),
+(35,"hot_table_autovacuum_policy",[
+"ALTER TABLE market_events SET (autovacuum_vacuum_scale_factor=0.02,autovacuum_analyze_scale_factor=0.01,autovacuum_vacuum_threshold=1000)",
+"ALTER TABLE orderbook_snapshots SET (autovacuum_vacuum_scale_factor=0.02,autovacuum_analyze_scale_factor=0.01,autovacuum_vacuum_threshold=1000)",
+"ALTER TABLE footprint_1m SET (autovacuum_vacuum_scale_factor=0.03,autovacuum_analyze_scale_factor=0.02,autovacuum_vacuum_threshold=1000)",
+"ALTER TABLE dataset_sample_payloads SET (autovacuum_vacuum_scale_factor=0.02,autovacuum_analyze_scale_factor=0.01,autovacuum_vacuum_threshold=500)",
+"ALTER TABLE ml_jobs SET (autovacuum_vacuum_scale_factor=0.05,autovacuum_analyze_scale_factor=0.02,autovacuum_vacuum_threshold=100)",
+"ALTER TABLE dataset_snapshots SET (autovacuum_vacuum_scale_factor=0.05,autovacuum_analyze_scale_factor=0.02,autovacuum_vacuum_threshold=100)"
 ])
 ]
 
