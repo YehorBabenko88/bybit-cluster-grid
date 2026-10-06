@@ -15,15 +15,16 @@ if(Test-Path $EnvFile){
         [Environment]::SetEnvironmentVariable($key,$value,"Process")
     }
 }
-$marker=Join-Path $InstallRoot "current.version"
 $release=$null
-if(Test-Path $marker){
+foreach($name in @("current.version","previous.version")){
+    $marker=Join-Path $InstallRoot $name
+    if(!(Test-Path $marker)){continue}
     $v=(Get-Content $marker -Raw).Trim()
-    if($v){$release=Join-Path (Join-Path $InstallRoot "releases") $v}
+    if(!$v){continue}
+    $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
+    if(Test-Path (Join-Path $candidate "run_worker.py")){$release=$candidate;break}
 }
-if(!$release -or !(Test-Path (Join-Path $release "run_worker.py"))){
-    $release=Join-Path $InstallRoot "bootstrap"
-}
+if(!$release){$release=Join-Path $InstallRoot "bootstrap"}
 $run=Join-Path $release "run_worker.py"
 if(!(Test-Path $run)){throw "No runnable Grid release found"}
 Set-Location $release
