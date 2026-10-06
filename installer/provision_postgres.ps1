@@ -30,12 +30,27 @@ if(Test-Path $Manifest){
            $root.StartsWith($safe,[StringComparison]::OrdinalIgnoreCase)
     if(!$valid){throw "Existing Grid PostgreSQL ownership manifest is invalid; refusing repair"}
     $dsn=Get-EnvValue $EnvFile "POSTGRES_DSN"
-    if(!$dsn){throw "Grid PostgreSQL exists but its DSN is missing; refusing to rotate credentials automatically"}
+    if(!$dsn){
+        if(Test-Path $Installing){
+            # Ownership + transaction journal prove this is an incomplete Grid
+            # fresh install. Remove it and restart provisioning with new secrets.
+            Stop-Service -Name $m.service_name -Force -ErrorAction SilentlyContinue
+            & sc.exe delete ([string]$m.service_name) | Out-Null
+            Start-Sleep -Seconds 2
+            Remove-Item -Recurse -Force ([string]$m.root) -ErrorAction Stop
+            Remove-Item $Manifest -Force -ErrorAction SilentlyContinue
+            Remove-Item $Installing -Force -ErrorAction SilentlyContinue
+        } else {
+            throw "Grid PostgreSQL exists but its DSN is missing; refusing to rotate credentials automatically"
+        }
+    }
+    if($dsn){
     $svc=Get-Service -Name $m.service_name -ErrorAction SilentlyContinue
     if($svc -and $svc.Status -ne "Running"){Start-Service -Name $m.service_name}
     Remove-Item $Installing -Force -ErrorAction SilentlyContinue
     Write-Host "Reusing Grid-owned PostgreSQL instance."
     exit 0
+    }
 }
 
 # Repair only an interrupted install carrying our pre-mutation transaction marker.
@@ -112,3 +127,4 @@ if($LASTEXITCODE -ne 0){throw "Failed creating Grid PostgreSQL role"}
 if($LASTEXITCODE -ne 0){throw "Failed creating Grid PostgreSQL database"}
 Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
 Add-EnvOnce "POSTGRES_DSN" "postgresql://cluster_grid:$DbPass@127.0.0.1:55432/bybit_cluster_grid"
+Remove-Item $Installing -Force -ErrorAction SilentlyContinue
