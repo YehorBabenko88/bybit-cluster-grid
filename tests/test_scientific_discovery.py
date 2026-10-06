@@ -51,3 +51,10 @@ def test_control_wires_scientific_service_without_worker_dependency():
     assert '@app.get("/scientific/status")' in c
     assert "self.scientific=None" in st
     assert "self.scientific.ingest_feature_row" in st
+
+
+def test_geometry_bucket_waits_for_frozen_projection():
+    from grid.scientific_orchestrator import _geometry_bucket
+    assert _geometry_bucket({"projection_ready":False,"tortuosity":10})=="WARMUP"
+    assert _geometry_bucket({"projection_ready":True,"tortuosity":1,"mean_turn_cos":.8,
+                             "surface_cubic":{"ready":False},"cubic_fit_gain":None})=="PERSISTENT"
