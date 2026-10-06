@@ -46,7 +46,7 @@ def conflict_flags(historical,live):
             try:
                 a=float(v);b=float(l[k])
                 scale=max(abs(a),abs(b),1e-12)
-                if abs(a-b)/scale>1.0:flags.append({"feature":k,"kind":"REGIME_SHIFT","historical":a,"live":b})
+                if abs(a-b)/scale>=.5:flags.append({"feature":k,"kind":"REGIME_SHIFT","historical":a,"live":b})
             except (TypeError,ValueError):
                 if v!=l[k]:flags.append({"feature":k,"kind":"CATEGORY_SHIFT","historical":v,"live":l[k]})
     return flags
