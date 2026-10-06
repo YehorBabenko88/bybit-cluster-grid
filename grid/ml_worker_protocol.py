@@ -45,8 +45,8 @@ async def fail_running_job(pool,job_id,node_id,lease_generation,exc):
 
 async def run_with_lease(pool,job,node_id,work,lease_seconds=120,renew_every=None):
     # Run an async ML workload while continuously fencing it with its DB lease.
-    # If renewal fails, cancel the workload so a stale worker cannot keep using
-    # resources or publish after ownership moved to another node.
+    # Any loss of lease supervision, including a database exception, must cancel
+    # the workload so a stale process cannot keep consuming resources.
     generation=int(job["lease_generation"])
     interval=float(renew_every or max(5,lease_seconds/3))
     task=asyncio.create_task(work())
@@ -58,11 +58,9 @@ async def run_with_lease(pool,job,node_id,work,lease_seconds=120,renew_every=Non
                 if not await renew_running_job(
                     pool,job["id"],node_id,generation,lease_seconds=lease_seconds
                 ):
-                    task.cancel()
-                    await asyncio.gather(task,return_exceptions=True)
                     raise RuntimeError("ML job lease lost during execution")
         return await task
-    except asyncio.CancelledError:
-        task.cancel()
+    finally:
+        if not task.done():
+            task.cancel()
         await asyncio.gather(task,return_exceptions=True)
-        raise
