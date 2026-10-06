@@ -18,13 +18,20 @@ def iter_archive_rows(path):
         with open(path,"rb") as f:yield from _iter_csv_text(f)
 
 def iter_minute_aggregates(path,symbol,tick_size):
-    minute=[];current=None;source_rows=0
+    minute=[];current=None;seen_ids=set();last_ts=None
     for raw in iter_archive_rows(path):
-        t=normalize_archive_trade(raw);source_rows+=1
+        t=normalize_archive_trade(raw)
+        if last_ts is not None and t["ts"] < last_ts:
+            raise ValueError("archive trades are not monotonically ordered")
+        last_ts=t["ts"]
         key=t["ts"].replace(second=0,microsecond=0)
         if current is not None and key!=current:
             for x in aggregate_minute(symbol,minute,tick_size):yield x
-            minute=[]
-        current=key;minute.append(t)
+            minute=[];seen_ids=set()
+        current=key
+        trade_id=t["trade_id"]
+        if trade_id in seen_ids:
+            continue
+        seen_ids.add(trade_id);minute.append(t)
     if minute:
         for x in aggregate_minute(symbol,minute,tick_size):yield x
