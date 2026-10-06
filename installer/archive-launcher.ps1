@@ -16,15 +16,16 @@ if(Test-Path $EnvFile){
         [Environment]::SetEnvironmentVariable($key,$value,"Process")
     }
 }
-$marker=Join-Path $InstallRoot "current.version"
 $release=$null
-if(Test-Path $marker){
+foreach($name in @("current.version","previous.version")){
+    $marker=Join-Path $InstallRoot $name
+    if(!(Test-Path $marker)){continue}
     $v=(Get-Content $marker -Raw).Trim()
-    if($v){$release=Join-Path (Join-Path $InstallRoot "releases") $v}
+    if(!$v){continue}
+    $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
+    if(Test-Path (Join-Path $candidate "grid\archive_service.py")){$release=$candidate;break}
 }
-if(!$release -or !(Test-Path (Join-Path $release "grid\archive_service.py"))){
-    $release=Join-Path $InstallRoot "bootstrap"
-}
+if(!$release){$release=Join-Path $InstallRoot "bootstrap"}
 if(!(Test-Path (Join-Path $release "grid\archive_service.py"))){throw "No ArchivePipeline module found"}
 $WaitDb=Join-Path $release "installer\\wait-grid-postgres.ps1"
 if(Test-Path $WaitDb){ & $WaitDb -DataRoot $DataRoot -TimeoutSeconds 120 }
