@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import asyncpg
 from datetime import datetime,timezone
 import json
@@ -48,8 +49,17 @@ class Storage:
         self.replay_task=asyncio.create_task(self._replay(pending))
     async def _replay(self,pending):
         try:
+            # Deterministic node jitter prevents all agents from hammering CONTROL
+            # in the same second after a fleet/network outage.
+            jitter=max(0.0,float(settings.replay_start_jitter_seconds))
+            if jitter:
+                seed=int(hashlib.sha256(NODE_ID.encode("utf-8")).hexdigest()[:8],16)
+                await asyncio.sleep((seed%10000)/10000.0*jitter)
+            rate=max(0.1,float(settings.replay_minute_per_second))
+            interval=1.0/rate
             for record_id,row in pending:
                 await self.write_queue.put(record_id,row)
+                await asyncio.sleep(interval)
         finally:
             self.replay_done.set()
 
