@@ -68,3 +68,25 @@ def test_expired_ml_recovery_uses_cooldown_before_reassignment():
     assert "not_before=now()+interval '5 seconds'" in recover
     assert "attempts<max_attempts" in recover
     assert "attempts>=max_attempts" in recover
+
+
+def test_lease_renew_database_error_cancels_running_workload():
+    async def run():
+        class BrokenLeasePool:
+            async def execute(self,sql,*args):
+                if "UPDATE ml_jobs SET lease_until" in sql:
+                    raise ConnectionError("database unavailable")
+                return "UPDATE 1"
+        cancelled=asyncio.Event()
+        async def work():
+            try:
+                await asyncio.sleep(60)
+            finally:
+                cancelled.set()
+        with __import__("pytest").raises(ConnectionError,match="database unavailable"):
+            await run_with_lease(
+                BrokenLeasePool(),{"id":"j2","lease_generation":3},
+                "worker-a",work,lease_seconds=1,renew_every=.01
+            )
+        assert cancelled.is_set()
+    asyncio.run(run())
