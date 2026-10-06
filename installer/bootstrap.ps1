@@ -8,6 +8,7 @@ param(
   [string]$TelegramAllowedChatIds="",
   [string]$TailscaleAuthKey="",
   [string]$TailscaleTags="",
+  [string]$TailscaleMsiPath="",
   [string]$BundlePath="",
   [ValidateSet("CONTROL","PILOT","NORMAL","AUTO")][string]$AgentMode="NORMAL"
 )
@@ -36,7 +37,7 @@ if(!$TailscaleTags){
     $TailscaleTags=$(if($AgentMode -eq "CONTROL"){"tag:grid-control"}else{"tag:grid-node"})
 }
 if(Test-Path $TsScript){
-    & $TsScript -AuthKey $TailscaleAuthKey -AdvertiseTags $TailscaleTags
+    & $TsScript -AuthKey $TailscaleAuthKey -AdvertiseTags $TailscaleTags -MsiPath $TailscaleMsiPath
     if($LASTEXITCODE -ne 0){throw "Tailscale bootstrap failed"}
     # Do not retain the one-time key beyond onboarding.
     $TailscaleAuthKey=""
