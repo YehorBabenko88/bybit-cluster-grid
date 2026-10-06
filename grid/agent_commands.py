@@ -1,6 +1,6 @@
 import asyncio, logging, os, pathlib, subprocess, tempfile, collections
 import aiohttp
-from .update_manager import rollback,verify_package,install_release,switch_current,current_version
+from .update_manager import rollback,verify_package,install_release,switch_current,current_version,mark_pending
 from .integrity_guard import verify_manifest
 log=logging.getLogger("agent_commands")
 
@@ -49,6 +49,7 @@ async def _update(payload):
         raise RuntimeError("release preflight failed: "+(p.stderr or p.stdout)[-2000:])
     previous=current_version(install_root)
     switch_current(install_root,version)
+    mark_pending(install_root,version)
     return {"state":"update_staged","version":version,"previous":previous}
 
 def _grid_log_tail(lines=120,max_bytes=24000):
