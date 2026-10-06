@@ -104,7 +104,10 @@ async def cleanup_control_metadata(pool):
     artifacts=await pool.execute("""UPDATE ml_artifacts a SET status='DELETING'
       WHERE a.status='ACTIVE' AND a.reusable=false AND a.expires_at IS NOT NULL AND a.expires_at<now()
       AND NOT EXISTS(SELECT 1 FROM model_registry m WHERE m.artifact_id=a.id)""")
-    return {"reservations":reservations,"jobs":jobs,"datasets":datasets,"artifacts_marked":artifacts}
+    retention_runs=await pool.execute("""DELETE FROM retention_runs
+      WHERE finished_at IS NOT NULL AND finished_at<now()-interval '90 days'""")
+    return {"reservations":reservations,"jobs":jobs,"datasets":datasets,
+            "artifacts_marked":artifacts,"retention_runs":retention_runs}
 
 
 async def maintain_postgres_statistics(pool):
