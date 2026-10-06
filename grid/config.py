@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     microstructure_snapshot_ms: int = 250
     micro_tape_bucket_ms: int = 250
     micro_event_spool_max_gb: float = 4.0
+    replay_minute_per_second: float = 25.0
+    replay_micro_per_second: float = 100.0
+    replay_start_jitter_seconds: float = 5.0
     telegram_bot_token: str = ""
     telegram_allowed_chat_ids: str = ""
     retention_enabled: bool = True
