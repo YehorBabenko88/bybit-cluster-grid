@@ -54,6 +54,7 @@ class Worker:
         self.command_receipts=CommandReceiptStore()
         self.ml_task=None
         self.ml_stop=asyncio.Event()
+        self.restart_requested=False
 
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
@@ -191,6 +192,11 @@ class Worker:
                             await execute_command(self,{"action":"uninstall","payload":{"purge_data":True}})
                         finally:
                             os._exit(0)
+                if self.restart_requested:
+                    # Receipt is durable and ACK was attempted above. Return through
+                    # Worker.run() so ML/process-tree and WAL cleanup runs first.
+                    log.info("graceful worker restart requested",extra={"event":"worker_restart_requested"})
+                    return
                 await asyncio.sleep(settings.heartbeat_seconds)
 
     async def set_operator_stop(self,stopped):
