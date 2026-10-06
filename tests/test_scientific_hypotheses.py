@@ -51,3 +51,11 @@ def test_regime_specific_pattern_can_validate_across_symbols_and_weeks():
     s=spec()
     rows=[ev("A","BTC","HIGH","W1",80),ev("B","ETH","HIGH","W2",80),ev("C","BTC","HIGH","W3",80)]
     assert lifecycle(s,rows)=="VALIDATED"
+
+
+def test_simulation_promotion_schema_is_separate_from_hypothesis_status():
+    from pathlib import Path
+    m=Path("grid/migrations.py").read_text(encoding="utf-8")
+    assert '"scientific_simulation_promotion_gate"' in m
+    assert "scientific_simulation_runs" in m
+    assert "SIMULATION_PASSED" not in Path("grid/scientific_hypotheses.py").read_text(encoding="utf-8")
