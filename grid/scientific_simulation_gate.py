@@ -43,6 +43,8 @@ class ScientificSimulationGate:
           FROM scientific_hypotheses WHERE id=$1""",hypothesis_id)
         if not h or str(h["status"])!="VALIDATED":
             return await self._fail(run_id,"hypothesis is no longer VALIDATED")
+        if str(h["method"])!="combinatorial-v1":
+            return await self._waiting(run_id,f"exact simulation matcher unavailable for method {h['method']}")
         definition=_dict(h["definition"]);params=definition.get("parameters") or {}
         wanted=set(str(x) for x in params.get("tokens") or ())
         rows=await self.pool.fetch("""SELECT symbol,event_ts_ms,return_bps,payload
