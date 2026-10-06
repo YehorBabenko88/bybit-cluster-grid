@@ -27,7 +27,9 @@ try {
   $dir=Split-Path ([IO.Path]::GetFullPath($OutputPath)) -Parent
   if($dir){New-Item -ItemType Directory -Force -Path $dir | Out-Null}
   $r | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $OutputPath
-  & icacls $OutputPath /inheritance:r /grant:r "$env:USERNAME:F" "Administrators:F" | Out-Null
+  $currentSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  & icacls $OutputPath /inheritance:r /grant:r "*$currentSid:(F)" "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Null
+  if($LASTEXITCODE -ne 0){throw "Failed to protect bootstrap envelope ACL"}
   Write-Host "One-time bootstrap envelope created. Transfer it securely and use it before expiry."
 } finally {
   $token=$null
