@@ -101,13 +101,23 @@ async def cleanup_control_metadata(pool):
     datasets=await pool.execute("""DELETE FROM dataset_snapshots d
       WHERE d.status IN ('FAILED','BUILDING') AND d.created_at<now()-interval '7 days'
       AND NOT EXISTS(SELECT 1 FROM model_registry m WHERE m.dataset_id=d.id)""")
+    orphan_ready=await pool.execute("""DELETE FROM dataset_snapshots d
+      WHERE d.status='READY' AND d.created_at<now()-interval '30 days'
+      AND NOT EXISTS(SELECT 1 FROM model_registry m WHERE m.dataset_id=d.id)
+      AND NOT EXISTS(SELECT 1 FROM model_evaluations e WHERE e.dataset_id=d.id)
+      AND NOT EXISTS(SELECT 1 FROM markov_transition_edges x WHERE x.dataset_id=d.id)
+      AND NOT EXISTS(SELECT 1 FROM strategy_comparison_results x WHERE x.dataset_id=d.id)
+      AND NOT EXISTS(SELECT 1 FROM historical_experiment_runs x WHERE x.dataset_id=d.id)
+      AND NOT EXISTS(SELECT 1 FROM ml_jobs j
+        WHERE j.payload->>'dataset_id'=d.id::text)""")
     artifacts=await pool.execute("""UPDATE ml_artifacts a SET status='DELETING'
       WHERE a.status='ACTIVE' AND a.reusable=false AND a.expires_at IS NOT NULL AND a.expires_at<now()
       AND NOT EXISTS(SELECT 1 FROM model_registry m WHERE m.artifact_id=a.id)""")
     retention_runs=await pool.execute("""DELETE FROM retention_runs
       WHERE finished_at IS NOT NULL AND finished_at<now()-interval '90 days'""")
     return {"reservations":reservations,"jobs":jobs,"datasets":datasets,
-            "artifacts_marked":artifacts,"retention_runs":retention_runs}
+            "orphan_ready_datasets":orphan_ready,"artifacts_marked":artifacts,
+            "retention_runs":retention_runs}
 
 
 async def maintain_postgres_statistics(pool):
