@@ -19,8 +19,6 @@ class ScientificResearchService:
     async def start(self):
         if self.started:return
         await register_consumer(self.pool,"market_events","scientific_research",required=False,active=True)
-        await self._hydrate_features()
-        await self._hydrate_micro_agents()
         row=await self.pool.fetchrow("""SELECT state,last_ts FROM observer_checkpoints
           WHERE observer='scientific_research' AND symbol='*'""")
         if row:
@@ -29,15 +27,19 @@ class ScientificResearchService:
             self.last_id=int(await self.pool.fetchval("SELECT COALESCE(max(id),0) FROM market_events") or 0)
             self.last_event_ts=await self.pool.fetchval("SELECT max(event_ts) FROM market_events")
             await self._checkpoint()
+        # Hydrate only state known to be at-or-before the durable source checkpoint.
+        await self._hydrate_features()
+        await self._hydrate_micro_agents()
         self.started=True
 
     async def _hydrate_micro_agents(self):
         rows=await self.pool.fetch("""WITH ranked AS (
           SELECT symbol,event_ts,agent,state,score,direction,features,
                  row_number() OVER(PARTITION BY symbol,agent ORDER BY event_ts DESC) rn
-          FROM micro_agent_signals WHERE event_ts>now()-interval '7 days')
+          FROM micro_agent_signals WHERE event_ts>now()-interval '7 days'
+            AND (source_event_id IS NULL OR source_event_id<=$1))
           SELECT symbol,event_ts,agent,state,score,direction,features
-          FROM ranked WHERE rn<=600 ORDER BY symbol,agent,event_ts""")
+          FROM ranked WHERE rn<=600 ORDER BY symbol,agent,event_ts""",int(self.last_id))
         groups={}
         latest={}
         for r in rows:
@@ -102,7 +104,7 @@ class ScientificResearchService:
             payload=_dict(r["payload"]);ts_ms=int(r["event_ts"].timestamp()*1000)
             split_key=_split_key(r["event_ts"])
             result=await route_market_event(
-                self.orchestrator,self.pool,r["symbol"],ts_ms,r["event_type"],payload,split_key)
+                self.orchestrator,self.pool,r["symbol"],ts_ms,r["event_type"],payload,split_key,int(r["id"]))
             self.processed+=1;self.scheduled+=int(result.get("scheduled") or 0)
             self.last_id=int(r["id"]);self.last_event_ts=r["event_ts"]
             watermarks[r["symbol"]]=r["event_ts"]
