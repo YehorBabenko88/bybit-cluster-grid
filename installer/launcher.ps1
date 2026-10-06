@@ -40,19 +40,5 @@ if(!(Test-Path $run)){throw "No runnable Grid release found"}
 Set-Location $release
 $watch=Join-Path $env:ProgramData "BybitClusterGrid\installer\release-health.ps1"
 $version=Split-Path $release -Leaf
-$started=[DateTime]::UtcNow
-$p=Start-Process -FilePath $Python -ArgumentList @($run) -WorkingDirectory $release -PassThru
-if(Test-Path $watch){
-  $healthArgs=@("-NoProfile","-ExecutionPolicy","Bypass","-File",$watch,
-    "-InstallRoot",$InstallRoot,"-Phase","ConfirmRunning","-Version",$version,
-    "-ProcessId",[string]$p.Id)
-  Start-Process -FilePath "powershell.exe" -ArgumentList $healthArgs -WindowStyle Hidden | Out-Null
-}
-$p.WaitForExit()
-$code=$p.ExitCode
-$runtime=[int]([DateTime]::UtcNow-$started).TotalSeconds
-if(Test-Path $watch){
-  & $watch -InstallRoot $InstallRoot -Phase AfterExit -Version $version -RuntimeSeconds $runtime -ExitCode $code
-  if($LASTEXITCODE -eq 75){exit 75}
-}
-exit $code
+& $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $release -- $Python $run
+exit $LASTEXITCODE
