@@ -33,6 +33,15 @@ async def _update(payload):
     final=downloads/(version+".zip")
     os.replace(package,final)
     target=install_release(final,version,install_root)
+    manifest=target/"release-manifest.json"
+    if not manifest.is_file():
+        raise RuntimeError("release manifest missing")
+    report=verify_manifest(target,manifest)
+    if str(report.get("version") or "")!=version:
+        raise RuntimeError("release manifest version mismatch")
+    if not report.get("ok"):
+        raise RuntimeError("release manifest integrity failure: "+str({
+            "bad":report.get("bad",[])[:20],"missing":report.get("missing",[])[:20]}))
     python=data_root/"runtime"/"venv"/"Scripts"/"python.exe"
     preflight=data_root/"installer"/"preflight.ps1"
     role="NORMAL"
