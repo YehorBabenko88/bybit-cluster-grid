@@ -465,7 +465,8 @@ def test_control_update_api_requires_completed_registered_rollout():
     c=Path("grid/coordinator.py").read_text(encoding="utf-8")
     assert '@app.post("/control/update")' in c
     assert 'rollout_status"]!="complete"' in c
-    assert "release URL/SHA do not match" in c
+    assert "registered release metadata is invalid" in c
+    assert 'payload.get("package_url")' not in c
     assert '@app.get("/control/update/status")' in c
 
 
