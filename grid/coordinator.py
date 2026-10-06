@@ -460,6 +460,25 @@ async def scientific_status(x_grid_token:str=Header(default="")):
     out["hypotheses"]={str(r["status"]):int(r["n"]) for r in counts}
     return out
 
+@app.get("/scientific/hypotheses")
+async def scientific_hypotheses(status_filter:str="",limit:int=100,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    limit=max(1,min(500,int(limit)))
+    rows=await db.pool.fetch("""SELECT id,fingerprint,method,pattern,horizon_ms,direction,
+      feature_version,status,research_only,first_seen_at,updated_at,validated_at,rejected_at
+      FROM scientific_hypotheses WHERE ($1='' OR status=$1)
+      ORDER BY updated_at DESC LIMIT $2""",str(status_filter).upper(),limit)
+    return {"hypotheses":[dict(r) for r in rows]}
+
+@app.get("/scientific/hypotheses/{hypothesis_id}/evidence")
+async def scientific_hypothesis_evidence(hypothesis_id:str,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    rows=await db.pool.fetch("""SELECT experiment_key,symbol,regime,split_key,sample_count,
+      mean_return_bps,hit_rate,cost_bps,dataset_cutoff,passed,metrics,created_at
+      FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1::uuid
+      ORDER BY created_at""",hypothesis_id)
+    return {"hypothesis_id":hypothesis_id,"evidence":[dict(r) for r in rows]}
+
 @app.post("/strategy/plugins")
 async def upload_strategy_plugin(payload:dict,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
