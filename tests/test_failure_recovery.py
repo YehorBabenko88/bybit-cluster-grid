@@ -194,24 +194,47 @@ def test_update_marks_release_pending_for_boot_health():
     assert "mark_pending(install_root,version)" in a
 
 
-def test_pending_release_watchdog_rolls_back_only_fast_crash_loop():
-    from pathlib import Path
-    h=Path("installer/release-health.ps1").read_text(encoding="utf-8")
-    assert "$RuntimeSeconds -ge 60" in h
-    assert "$count -lt 3" in h
-    assert '"previous.version"' in h
-    assert '"current.version"' in h
-    assert "exit 75" in h
-    install=Path("installer/install.ps1").read_text(encoding="utf-8")
-    assert 'release-health.ps1' in install
-    for name in ("installer/launcher.ps1","installer/archive-launcher.ps1",
-                 "installer/coordinator-launcher.ps1"):
-        s=Path(name).read_text(encoding="utf-8")
-        assert "release-health.ps1" in s
-        assert "-Phase AfterExit" in s
-        assert "$runtime=" in s
-        assert "if($LASTEXITCODE -eq 75){exit 75}" in s
+def test_release_supervisor_rolls_back_after_three_fast_crashes(tmp_path):
+    from grid.release_supervisor import _after_exit
+    root=tmp_path/"install"; releases=root/"releases"; releases.mkdir(parents=True)
+    (releases/"bad").mkdir(); (releases/"bad"/"run_worker.py").write_text("",encoding="utf-8")
+    (releases/"good").mkdir(); (releases/"good"/"run_worker.py").write_text("",encoding="utf-8")
+    (root/"current.version").write_text("bad",encoding="utf-8")
+    (root/"previous.version").write_text("good",encoding="utf-8")
+    (root/"pending.version").write_text("bad",encoding="utf-8")
+    assert _after_exit(root,"bad",2) is False
+    assert _after_exit(root,"bad",3) is False
+    assert _after_exit(root,"bad",4) is True
+    assert (root/"current.version").read_text(encoding="utf-8")=="good"
+    assert not (root/"pending.version").exists()
 
+
+def test_release_supervisor_confirms_same_live_process(tmp_path):
+    import subprocess,sys,threading
+    from grid.release_supervisor import _confirm
+    root=tmp_path/"install";root.mkdir()
+    (root/"pending.version").write_text("v2",encoding="utf-8")
+    p=subprocess.Popen([sys.executable,"-c","import time;time.sleep(.5)"])
+    _confirm(root,"v2",p,.05)
+    assert not (root/"pending.version").exists()
+    p.wait()
+
+
+def test_archive_cannot_trigger_release_rollback():
+    from pathlib import Path
+    a=Path("installer/archive-launcher.ps1").read_text(encoding="utf-8")
+    assert "never decides" in a
+    assert "release-health.ps1" not in a
+    assert "grid.archive_service" in a
+
+
+def test_main_launchers_use_release_supervisor():
+    from pathlib import Path
+    for name in ("installer/launcher.ps1","installer/coordinator-launcher.ps1"):
+        s=Path(name).read_text(encoding="utf-8")
+        assert "grid.release_supervisor" in s
+        assert "--install-root $InstallRoot" in s
+        assert "release-health.ps1" not in s
 
 def test_bootstrap_repairs_partial_owned_python_transactionally():
     from pathlib import Path
