@@ -21,13 +21,27 @@ def _safe_extract(zip_path,destination):
 def install_release(package_path,version,install_root):
     root=pathlib.Path(install_root)
     releases=root/"releases"; releases.mkdir(parents=True,exist_ok=True)
-    target=releases/version; staging=releases/(version+".staging")
+    target=releases/version
+    staging=releases/(version+".staging")
+    replaced=releases/(version+".replaced")
+    # Recover a power loss that happened after old target -> .replaced but
+    # before staging -> target. Never discard the last runnable copy.
+    if not target.exists() and replaced.exists():
+        os.replace(replaced,target)
     if staging.exists(): shutil.rmtree(staging)
+    if replaced.exists(): shutil.rmtree(replaced)
     staging.mkdir(parents=True)
     try:
         _safe_extract(package_path,staging)
-        if target.exists(): shutil.rmtree(target)
-        os.replace(staging,target)
+        if target.exists():
+            os.replace(target,replaced)
+        try:
+            os.replace(staging,target)
+        except Exception:
+            if not target.exists() and replaced.exists():
+                os.replace(replaced,target)
+            raise
+        shutil.rmtree(replaced,ignore_errors=True)
     except Exception:
         shutil.rmtree(staging,ignore_errors=True)
         raise
