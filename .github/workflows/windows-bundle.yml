@@ -23,6 +23,8 @@ on:
 permissions:
   contents: read
 
+# Keep the Windows artifact gate tied to the same release HEAD as preflight.
+
 jobs:
   build-windows-bundle:
     runs-on: windows-latest
