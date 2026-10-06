@@ -407,7 +407,27 @@ started_at timestamptz NOT NULL DEFAULT now(),completed_at timestamptz)""",
 "ALTER TABLE scientific_hypothesis_evidence ADD COLUMN IF NOT EXISTS p_value double precision",
 "ALTER TABLE scientific_hypothesis_evidence ADD COLUMN IF NOT EXISTS corrected_p_value double precision",
 "ALTER TABLE scientific_hypothesis_evidence ADD COLUMN IF NOT EXISTS effect_z double precision"
+]),
+(41,"scientific_simulation_promotion_gate",[
+"""CREATE TABLE IF NOT EXISTS scientific_simulation_runs(
+id uuid PRIMARY KEY,hypothesis_id uuid NOT NULL REFERENCES scientific_hypotheses(id) ON DELETE CASCADE,
+simulation_version text NOT NULL,config jsonb NOT NULL,dataset_cutoff timestamptz NOT NULL,
+status text NOT NULL DEFAULT 'QUEUED',metrics jsonb NOT NULL DEFAULT '{}'::jsonb,
+stress_metrics jsonb NOT NULL DEFAULT '{}'::jsonb,reason text,
+created_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,completed_at timestamptz,
+UNIQUE(hypothesis_id,simulation_version,dataset_cutoff))""",
+"CREATE INDEX IF NOT EXISTS scientific_simulation_status_idx ON scientific_simulation_runs(status,created_at)",
+"""CREATE TABLE IF NOT EXISTS scientific_simulation_trades(
+run_id uuid NOT NULL REFERENCES scientific_simulation_runs(id) ON DELETE CASCADE,
+ordinal bigint NOT NULL,symbol text NOT NULL,event_ts_ms bigint NOT NULL,split_key text NOT NULL,
+raw_return_bps double precision NOT NULL,net_return_bps double precision NOT NULL,
+fill_fraction double precision NOT NULL,fee_bps double precision NOT NULL,
+slippage_bps double precision NOT NULL,latency_bps double precision NOT NULL,
+funding_bps double precision NOT NULL,equity_after double precision NOT NULL,
+PRIMARY KEY(run_id,ordinal))""",
+"CREATE INDEX IF NOT EXISTS scientific_simulation_trades_split_idx ON scientific_simulation_trades(run_id,split_key,ordinal)"
 ])
+
 ]
 
 async def apply_migrations(pool):
