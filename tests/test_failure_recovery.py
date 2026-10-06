@@ -299,3 +299,11 @@ def test_bootstrap_envelope_is_destroyed_after_use():
     assert "-AgentMode AUTO" in s
     assert "finally" in s
     assert "Remove-Item $full" in s
+
+
+def test_bootstrap_envelope_requires_non_loopback_control_address():
+    from pathlib import Path
+    c=Path("grid/coordinator.py").read_text(encoding="utf-8")
+    block=c.split('@app.post("/bootstrap/envelope")',1)[1].split('@app.post("/enroll")',1)[0]
+    assert "reachable non-loopback coordinator_url is required" in block
+    assert '"coordinator_url":coordinator_url' in block
