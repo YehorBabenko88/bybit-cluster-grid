@@ -80,11 +80,11 @@ class ScientificSimulationGate:
         for t in base["trades"]:
             await self.pool.execute("""INSERT INTO scientific_simulation_trades(
               run_id,ordinal,symbol,event_ts_ms,split_key,raw_return_bps,net_return_bps,
-              fill_fraction,fee_bps,slippage_bps,latency_bps,funding_bps,equity_after)
-              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+              fill_fraction,fee_bps,spread_bps,slippage_bps,latency_bps,funding_bps,equity_after)
+              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
               ON CONFLICT(run_id,ordinal) DO NOTHING""",run_id,t["ordinal"],t["symbol"],
               t["event_ts_ms"],t["split_key"],t["raw_return_bps"],t["net_return_bps"],
-              t["fill_fraction"],t["fee_bps"],t["slippage_bps"],t["latency_bps"],
+              t["fill_fraction"],t["fee_bps"],t["spread_bps"],t["slippage_bps"],t["latency_bps"],
               t["funding_bps"],t["equity_after"])
         metrics={**base["metrics"],"checks":checks,"monte_carlo_max_dd_p95":p95}
         status="SIMULATION_PASSED" if passed else "SIMULATION_FAILED"
