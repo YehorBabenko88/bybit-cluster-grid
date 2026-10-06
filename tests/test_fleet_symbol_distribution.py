@@ -53,3 +53,26 @@ def test_normal_policy_rejects_unassigned_symbols():
         node_assignments=["ETHUSDT"],instrument_symbols=UNIVERSE,
     )
     assert out==["ETHUSDT"]
+
+
+def test_heterogeneous_capacity_gives_more_work_to_stronger_node():
+    symbols=[f"H{i}USDT" for i in range(120)]
+    nodes={"SMALL":{"pressure_state":"NORMAL"},"BIG":{"pressure_state":"NORMAL"}}
+    out=weighted_assign(symbols,{"SMALL":1.0,"BIG":3.0},nodes)
+    flat=out["SMALL"]+out["BIG"]
+    assert len(flat)==len(symbols)
+    assert len(set(flat))==len(symbols)
+    assert len(out["BIG"]) > len(out["SMALL"])
+
+def test_rebalance_stability_limits_healthy_churn():
+    symbols=[f"C{i}USDT" for i in range(100)]
+    nodes={"PC1":{"pressure_state":"NORMAL"},"PC2":{"pressure_state":"NORMAL"}}
+    current={"PC1":symbols[:50],"PC2":symbols[50:]}
+    # Deliberately request a complete swap. Stabilizer must cap healthy moves.
+    proposed={"PC1":symbols[50:],"PC2":symbols[:50]}
+    out=stabilize_assignments(proposed,current,nodes,.10)
+    old_owner={s:n for n,ss in current.items() for s in ss}
+    new_owner={s:n for n,ss in out.items() for s in ss}
+    moved=sum(old_owner[s]!=new_owner[s] for s in symbols)
+    assert moved <= 10
+    assert len(set(s for ss in out.values() for s in ss))==100
