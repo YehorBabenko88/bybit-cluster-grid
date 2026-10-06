@@ -15,6 +15,9 @@ $SecretDir=Join-Path $DataRoot "secrets"
 New-Item -ItemType Directory -Force -Path $SecretDir | Out-Null
 $CredentialFile=Join-Path $SecretDir "node.credential"
 Set-Content -Path $CredentialFile -Value $r.credential -NoNewline -Encoding ascii
+$NodeIdFile=Join-Path $SecretDir "node.id"
+Set-Content -Path $NodeIdFile -Value $r.node_id -NoNewline -Encoding ascii
 & icacls $SecretDir /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" | Out-Null
 & icacls $CredentialFile /inheritance:r /grant:r "SYSTEM:F" "Administrators:F" | Out-Null
-@{node_id=$r.node_id;credential_file=$CredentialFile;install_mode=$r.install_mode} | ConvertTo-Json
+& icacls $NodeIdFile /inheritance:r /grant:r "SYSTEM:F" "Administrators:F" | Out-Null
+@{node_id=$r.node_id;credential_file=$CredentialFile;node_id_file=$NodeIdFile;install_mode=$r.install_mode} | ConvertTo-Json
