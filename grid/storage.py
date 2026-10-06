@@ -30,6 +30,7 @@ class Storage:
         self.replay_done=asyncio.Event(); self.replay_done.set()
         self.replay_ids=set()
         self._last_replay_send=0.0
+        self.replay_rate=float(settings.replay_minute_per_second)
         self.feature_builder=UnifiedFeatureBuilder()
         self.derived=None
         root=os.path.join(os.getenv("ProgramData",os.getcwd()),"BybitClusterGrid","spool")
@@ -87,11 +88,20 @@ class Storage:
         m['spool_ratio']=self.spool.ratio()
         m["replay_active"]=not self.replay_done.is_set()
         m["replay_backlog_bytes"]=m["spool_bytes"] if m["replay_active"] else 0
+        m["replay_rate_per_second"]=float(self.replay_rate)
         return m
+
+
+    def set_replay_rate(self,rate):
+        try:self.replay_rate=max(0.0,float(rate))
+        except (TypeError,ValueError):pass
 
     async def _save_spooled(self,record_id,row):
         if record_id in self.replay_ids:
-            interval=1.0/max(0.1,float(settings.replay_minute_per_second))
+            rate=float(self.replay_rate)
+            if rate<=0:
+                raise RuntimeError("CONTROL paused WAL recovery")
+            interval=1.0/max(0.1,rate)
             wait=interval-(asyncio.get_running_loop().time()-self._last_replay_send)
             if wait>0: await asyncio.sleep(wait)
             self._last_replay_send=asyncio.get_running_loop().time()
