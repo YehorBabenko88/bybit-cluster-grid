@@ -369,13 +369,43 @@ async def handle_command(db,session,chat_id,text,nodes):
             await tg_send(session,chat_id,"All agent purge commands acknowledged. CONTROL is ready for final local purge.")
         else:
             await tg_send(session,chat_id,"DELETE waiting. Pending: "+(", ".join(r["pending"]) or "-")+"; failed: "+(", ".join(r["failed"]) or "-"))
+    elif cmd=="/controlupdate":
+        if len(parts)!=2:
+            await tg_send(session,chat_id,"Usage: /controlupdate VERSION"); return
+        rel=await db.pool.fetchrow("""SELECT version,package_url,sha256 FROM agent_releases
+          WHERE version=$1 AND channel='stable' AND enabled=true""",parts[1])
+        if not rel:
+            await tg_send(session,chat_id,"CONTROL update rejected: release is not promoted stable."); return
+        data_root=pathlib.Path(os.environ.get("ProgramData",r"C:\\ProgramData"))/"BybitClusterGrid"
+        if (data_root/"control-update.lock").exists():
+            await tg_send(session,chat_id,"CONTROL update already running."); return
+        python=data_root/"runtime"/"venv"/"Scripts"/"python.exe"
+        log_path=data_root/"logs"/"control-self-update.log";log_path.parent.mkdir(parents=True,exist_ok=True)
+        out=open(log_path,"ab",buffering=0)
+        try:
+            subprocess.Popen([str(python),"-m","grid.control_self_update",
+                "--version",str(rel["version"]),"--url",str(rel["package_url"]),"--sha256",str(rel["sha256"])],
+                cwd=str(pathlib.Path(__file__).resolve().parents[1]),stdout=out,stderr=subprocess.STDOUT,
+                creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0),close_fds=True)
+        finally: out.close()
+        await tg_send(session,chat_id,f"CONTROL update {rel['version']} started. The bot may be offline briefly; use /controlupdatestatus after restart.")
+    elif cmd=="/controlupdatestatus":
+        data_root=pathlib.Path(os.environ.get("ProgramData",r"C:\\ProgramData"))/"BybitClusterGrid"
+        install_root=pathlib.Path(os.environ.get("ProgramFiles",r"C:\\Program Files"))/"BybitClusterGrid"
+        try: st=json.loads((data_root/"control-update-status.json").read_text(encoding="utf-8"))
+        except Exception: st={}
+        def marker(name):
+            try:return (install_root/name).read_text(encoding="utf-8-sig").strip()
+            except OSError:return "-"
+        await tg_send(session,chat_id,
+            f"CONTROL update: {st.get('state','idle')}\nVersion: {st.get('version','-')}\nCurrent: {marker('current.version')}\nPrevious: {marker('previous.version')}\nPending: {marker('pending.version') or '-'}")
     elif cmd in ("/db","/dbsize","/storage"):
         st=await database_stats(db.pool)
         lines=[f"DB: {st['database']['name']}","Size: "+str(st["database"]["pretty"]),"Largest tables:"]
         lines += [f"- {t['table_name']}: {t['pretty']}" for t in st["tables"][:8]]
         await tg_send(session,chat_id,"\n".join(lines))
     else:
-        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db")
+        await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db /controlupdate VERSION /controlupdatestatus")
 
 async def _maybe_finalize_fleet_delete(db,session):
     op=await latest_operation(db.pool,"DELETE")
