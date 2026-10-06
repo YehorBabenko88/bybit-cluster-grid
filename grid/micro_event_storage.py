@@ -28,6 +28,8 @@ class MicroEventStorage:
         self.http=None
         self.replay_task=None
         self.replay_done=asyncio.Event(); self.replay_done.set()
+        self.replay_ids=set()
+        self._last_replay_send=0.0
         self.write_queue=BoundedWriteQueue(
             self._save_spooled,
             maxsize=20000,
@@ -49,11 +51,9 @@ class MicroEventStorage:
             if jitter:
                 seed=int(hashlib.sha256(NODE_ID.encode("utf-8")).hexdigest()[:8],16)
                 await asyncio.sleep((seed%10000)/10000.0*jitter)
-            rate=max(0.1,float(settings.replay_micro_per_second))
-            interval=1.0/rate
             for record_id,row in pending:
+                self.replay_ids.add(record_id)
                 await self.write_queue.put(record_id,row)
-                await asyncio.sleep(interval)
         finally:
             self.replay_done.set()
 
@@ -81,6 +81,11 @@ class MicroEventStorage:
 
     async def _save_spooled(self,record_id,row):
         from .credential_store import node_credential
+        if record_id in self.replay_ids:
+            interval=1.0/max(0.1,float(settings.replay_micro_per_second))
+            wait=interval-(asyncio.get_running_loop().time()-self._last_replay_send)
+            if wait>0: await asyncio.sleep(wait)
+            self._last_replay_send=asyncio.get_running_loop().time()
 
         headers={
             "X-Grid-Token":settings.grid_shared_token,
@@ -99,6 +104,7 @@ class MicroEventStorage:
                     "CONTROL micro-event ingest rejected: "+str(resp.status)
                 )
         await self.spool.ack(record_id)
+        self.replay_ids.discard(record_id)
 
     def metrics(self):
         m=self.write_queue.metrics()
