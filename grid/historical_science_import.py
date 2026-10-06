@@ -46,6 +46,6 @@ async def import_historical_science(pool,bundle):
           summary=EXCLUDED.summary,features=EXCLUDED.features""",
           bundle_id,str(item.get("symbol") or ""),str(item.get("status") or "UNKNOWN"),
           int(item.get("samples") or 0),item.get("from_ms"),item.get("through_ms"),
-          json.dumps(item.get("summary") or {},sort_keys=True,separators=(",",:"")),
+          json.dumps(item.get("summary") or {},sort_keys=True,separators=(",",":")),
           json.dumps(item.get("features") or {},sort_keys=True,separators=(",",:"")))
     return {"bundle_id":str(bundle_id),"status":row["status"],"symbols":len(bundle.get("symbols") or ())}
