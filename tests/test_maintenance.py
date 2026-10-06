@@ -133,7 +133,8 @@ def test_artifact_gc_is_bounded_multi_batch():
 def test_control_disk_pressure_sheds_collection_before_disk_full():
     s=Path("grid/coordinator.py").read_text(encoding="utf-8")
     heartbeat=s.split("async def heartbeat",1)[1].split('@app.post("/commands/',1)[0]
-    assert "control_disk=disk_state" in heartbeat
+    assert "control_disk=control_disk_state()" in heartbeat
+    assert "def control_disk_state():" in s
     assert "live_collection_allowed(control_disk" in heartbeat
     assert 'control_disk["state"]=="NORMAL"' in heartbeat
     assert '"control_disk_state":control_disk["state"]' in heartbeat
