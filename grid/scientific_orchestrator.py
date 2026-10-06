@@ -109,7 +109,13 @@ async def _aggregate_evidence(pool,spec,fingerprint,symbol,regime,split_key,cost
                     hit,float(cost_bps),None,{"last_observed_ts_ms":cutoff})
 
 def _geometry_bucket(d):
-    if not d or "tortuosity" not in d:return "WARMUP"
+    if not d or not d.get("projection_ready") or "tortuosity" not in d:return "WARMUP"
+    cubic=d.get("surface_cubic") or {}
+    if cubic.get("ready") and abs(float(cubic.get("residual_z") or 0))>=3:
+        return "SURFACE_BREAK"
+    gain=d.get("cubic_fit_gain")
+    if cubic.get("ready") and gain is not None and float(gain)>=1.20:
+        return "CUBIC_STRUCTURE"
     tort=float(d.get("tortuosity") or 0)
     turn=float(d.get("mean_turn_cos") or 0)
     if tort>=3:return "HIGH_TORTUOSITY"
