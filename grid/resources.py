@@ -25,6 +25,32 @@ def _node_id():
 NODE_ID = _node_id()
 STARTED_AT=time.time()
 _RESOURCE_TREND=ResourceTrend()
+_STORAGE_CACHE={"at":0.0,"value":{}}
+
+def _tree_bytes(root):
+    total=0
+    try:
+        for base,dirs,files in os.walk(root):
+            for name in files:
+                try: total+=os.path.getsize(os.path.join(base,name))
+                except OSError: pass
+    except OSError:
+        pass
+    return total
+
+def local_storage_usage(cache_seconds=300):
+    """Bounded-frequency local Grid footprint telemetry for DB-less agents."""
+    now=time.time()
+    if now-_STORAGE_CACHE["at"] < cache_seconds and _STORAGE_CACHE["value"]:
+        return dict(_STORAGE_CACHE["value"])
+    root=os.path.join(os.getenv("ProgramData",os.getcwd()),"BybitClusterGrid")
+    parts={}
+    for key,name in (("spool","spool"),("micro_spool","micro-spool"),("logs","logs"),
+                     ("ml_artifacts","ml-artifacts"),("strategy_cache","runtime_strategies")):
+        parts[key+"_bytes"]=_tree_bytes(os.path.join(root,name))
+    parts["grid_local_data_bytes"]=_tree_bytes(root)
+    _STORAGE_CACHE.update(at=now,value=parts)
+    return dict(parts)
 
 def ml_runtime_ready():
     try:
@@ -72,6 +98,7 @@ def snapshot():
         "uptime_s":int(time.time()-STARTED_AT),
         "agent_version":agent_version(),
         "ml_runtime_ready":ml_runtime_ready(),
+        **local_storage_usage(),
     }
 
 def capacity_score(s,cpu_limit=75,ram_limit=78,min_disk_gb=25,reserve_cores=2):
