@@ -42,8 +42,11 @@ def _restart_tasks():
       'Start-ScheduledTask -TaskName "BybitClusterGridCoordinator"; '
       'Start-ScheduledTask -TaskName "BybitClusterGridArchivePipeline" -ErrorAction SilentlyContinue'
     )
+    flags=(getattr(subprocess,"CREATE_NO_WINDOW",0) |
+           getattr(subprocess,"CREATE_NEW_PROCESS_GROUP",0) |
+           getattr(subprocess,"DETACHED_PROCESS",0))
     subprocess.Popen(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-Command",script],
-                     creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+                     creationflags=flags,close_fds=True)
 
 async def apply(version,url,sha256):
     if not str(url).lower().startswith("https://"):
