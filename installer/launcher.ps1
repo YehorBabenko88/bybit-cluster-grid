@@ -38,5 +38,14 @@ if(!$release){$release=Join-Path $InstallRoot "bootstrap"}
 $run=Join-Path $release "run_worker.py"
 if(!(Test-Path $run)){throw "No runnable Grid release found"}
 Set-Location $release
+$watch=Join-Path $env:ProgramData "BybitClusterGrid\installer\release-health.ps1"
+$version=Split-Path $release -Leaf
+$started=[DateTime]::UtcNow
 & $Python $run
-exit $LASTEXITCODE
+$code=$LASTEXITCODE
+$runtime=[int]([DateTime]::UtcNow-$started).TotalSeconds
+if(Test-Path $watch){
+  & $watch -InstallRoot $InstallRoot -Phase AfterExit -Version $version -RuntimeSeconds $runtime -ExitCode $code
+  if($LASTEXITCODE -eq 75){exit 75}
+}
+exit $code
