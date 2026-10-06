@@ -33,3 +33,21 @@ def test_discovery_combines_geometry_stochastic_and_regime_diagnostics():
     for i in range(40):out=e.ingest_feature_row("BTC",i+1,row(1+i/100))
     d=out["diagnostics"]
     assert "tortuosity" in d and "return_lag1_acf" in d and "volatility_regime" in d
+
+
+def test_geometry_learning_state_is_isolated_per_symbol():
+    e=ScientificGeometryEngine(DEFAULT_FEATURES)
+    e.ingest("BTC",1,row(1))
+    e.ingest("BTC",2,row(10))
+    eth=e.ingest("ETH",1,row(100))
+    assert eth.projection3d==(0.0,0.0,0.0)
+
+def test_control_wires_scientific_service_without_worker_dependency():
+    from pathlib import Path
+    c=Path("grid/coordinator.py").read_text(encoding="utf-8")
+    st=Path("grid/storage.py").read_text(encoding="utf-8")
+    assert "ScientificResearchService" in c
+    assert "asyncio.create_task(scientific_service.run())" in c
+    assert '@app.get("/scientific/status")' in c
+    assert "self.scientific=None" in st
+    assert "self.scientific.ingest_feature_row" in st
