@@ -46,10 +46,20 @@ async def observe_price(pool,symbol,ts_ms,price):
                     "event_ts_ms":int(r["event_ts_ms"]),"label_ts_ms":now,
                     "horizon_ms":int(r["horizon_ms"]),"reference_price":ref,
                     "outcome_price":px,"log_return":lr,"return_bps":lr*10000.0,
-                    "event_type":r["event_type"],"payload":dict(r["payload"]) if r["payload"] else {}})
+                    "event_type":r["event_type"],"payload":_payload(r["payload"])})
             return out
 
 async def pending_count(pool,symbol=None):
     if symbol is None:
         return int(await pool.fetchval("SELECT count(*) FROM scientific_outcome_requests WHERE status='PENDING'"))
     return int(await pool.fetchval("SELECT count(*) FROM scientific_outcome_requests WHERE status='PENDING' AND symbol=$1",symbol))
+
+
+def _payload(v):
+    if isinstance(v,dict):return v
+    if isinstance(v,str):
+        try:
+            x=json.loads(v);return x if isinstance(x,dict) else {}
+        except (ValueError,TypeError):return {}
+    try:return dict(v) if v is not None else {}
+    except (TypeError,ValueError):return {}
