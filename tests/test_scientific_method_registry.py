@@ -1,5 +1,4 @@
 import asyncio
-import pytest
 from grid.scientific_method_registry import ScientificMethod,ScientificMethodRegistry
 
 class FakePool:
@@ -18,18 +17,19 @@ class FakePool:
             return self.failures[k]
         return None
 
-@pytest.mark.asyncio
-async def test_broken_scientific_method_does_not_break_healthy_method():
-    pool=FakePool();r=ScientificMethodRegistry(quarantine_after=2)
-    r.register(ScientificMethod("bad","1",1,lambda e:1/0,{}))
-    r.register(ScientificMethod("good","1",1,lambda e:{"x":e["x"]+1},{}))
-    await r.sync_db(pool)
-    first=await r.dispatch(pool,{"event_type":"x","x":2})
-    assert not first["bad"]["ok"] and first["good"]["payload"]["x"]==3
-    await r.dispatch(pool,{"event_type":"x","x":2})
-    assert pool.status["bad"]=="QUARANTINED"
-    third=await r.dispatch(pool,{"event_type":"x","x":2})
-    assert "bad" not in third and third["good"]["ok"]
+def test_broken_scientific_method_does_not_break_healthy_method():
+    async def scenario():
+        pool=FakePool();r=ScientificMethodRegistry(quarantine_after=2)
+        r.register(ScientificMethod("bad","1",1,lambda e:1/0,{}))
+        r.register(ScientificMethod("good","1",1,lambda e:{"x":e["x"]+1},{}))
+        await r.sync_db(pool)
+        first=await r.dispatch(pool,{"event_type":"x","x":2})
+        assert not first["bad"]["ok"] and first["good"]["payload"]["x"]==3
+        await r.dispatch(pool,{"event_type":"x","x":2})
+        assert pool.status["bad"]=="QUARANTINED"
+        third=await r.dispatch(pool,{"event_type":"x","x":2})
+        assert "bad" not in third and third["good"]["ok"]
+    asyncio.run(scenario())
 
 def test_scientific_plugin_migration_uses_jsonb_extension_payloads():
     from pathlib import Path
