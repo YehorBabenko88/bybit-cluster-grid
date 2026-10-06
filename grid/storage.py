@@ -34,6 +34,7 @@ class Storage:
         self.replay_sent=0
         self.replay_rate=float(settings.replay_minute_per_second)
         self.feature_builder=UnifiedFeatureBuilder()
+        self.scientific=None
         self.derived=None
         root=os.path.join(os.getenv("ProgramData",os.getcwd()),"BybitClusterGrid","spool")
         self.spool=SegmentWAL(root,max_bytes=int(settings.spool_max_gb*1024**3))
@@ -170,4 +171,11 @@ class Storage:
         feature_row=dict(row); feature_row["ts"]=ts
         built=await self.feature_builder.build(self.pool,feature_row)
         await self.feature_builder.persist(self.pool,built)
+        if self.scientific is not None:
+            # Research is a one-way consumer; failure must never mutate or reject
+            # the canonical candle/feature transaction that already succeeded.
+            try:self.scientific.ingest_feature_row(feature_row,built)
+            except Exception:
+                import logging
+                logging.getLogger("storage").exception("scientific feature ingest failed")
         await self.derived.on_candle(feature_row,built)
