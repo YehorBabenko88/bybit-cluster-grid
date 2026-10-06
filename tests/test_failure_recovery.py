@@ -362,7 +362,9 @@ def test_owned_postgres_config_is_idempotently_managed():
 def test_control_env_acl_protects_database_and_telegram_secrets():
     from pathlib import Path
     b=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
-    assert 'icacls $EnvFile /inheritance:r /grant:r "SYSTEM:F" "Administrators:F"' in b
+    assert '*S-1-5-18:(F)' in b
+    assert '*S-1-5-32-544:(F)' in b
+    assert '"Administrators:F"' not in b
 
 
 def test_telegram_validates_api_and_credentials_before_polling():
