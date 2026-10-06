@@ -4,7 +4,25 @@ from .config import settings
 from .disk_guard import DiskWatermarks,disk_state
 from .resource_trend import ResourceTrend
 
-NODE_ID = os.getenv("NODE_ID") or f"{socket.gethostname()}-{uuid.getnode():x}"
+def _node_id():
+    explicit=os.getenv("NODE_ID","").strip()
+    if explicit:
+        return explicit
+    programdata=os.getenv("PROGRAMDATA")
+    if programdata:
+        path=os.path.join(programdata,"BybitClusterGrid","secrets","node.id")
+        try:
+            with open(path,"r",encoding="ascii") as f:
+                persisted=f.read().strip()
+            if persisted:
+                return persisted
+        except OSError:
+            pass
+    # Bootstrap-only fallback. Enrollment persists this value in node.id so
+    # later NIC/Tailscale changes cannot silently create a new agent identity.
+    return f"{socket.gethostname()}-{uuid.getnode():x}"
+
+NODE_ID = _node_id()
 STARTED_AT=time.time()
 _RESOURCE_TREND=ResourceTrend()
 
