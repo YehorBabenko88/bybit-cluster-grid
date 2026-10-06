@@ -9,7 +9,7 @@ from .strategy_jobs import ensure_strategy_schema,submit_job
 from .strategy_plugins import ensure_plugin_schema,register_plugin,list_plugins
 from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result
 from .update_protocol import ensure_update_schema,note_heartbeat,register_release,start_canary,promote_stable,expired_canaries
-from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent,registered_install_mode
+from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent,registered_install_mode,create_enrollment_token
 from .rollout import begin_stable_rollout,note_rollout_heartbeat,expire_rollout_nodes
 from .telegram_bot import telegram_loop
 from .scheduler import weighted_assign,stabilize_assignments
@@ -32,6 +32,7 @@ from .ml_orchestrator_service import MLOrchestratorService
 from .resources import snapshot as resource_snapshot
 from .asyncio_guard import install_asyncio_exception_filter
 from .disk_guard import DiskWatermarks,disk_state,live_collection_allowed
+from .tailscale_provisioning import create_one_time_auth_key,TailscaleProvisioningError
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -115,6 +116,37 @@ async def health():
         "service": "Bybit Cluster Grid Coordinator",
         "runtime_state": str(fleet_state.get("state","UNKNOWN")),
     }
+
+@app.post("/bootstrap/envelope")
+async def create_bootstrap_envelope(payload:dict,x_grid_token:str=Header(default="")):
+    """Create short-lived onboarding material without exposing CONTROL OAuth credentials."""
+    auth(x_grid_token)
+    import datetime
+    mode=str(payload.get("install_mode","NORMAL")).upper()
+    label=str(payload.get("label") or "grid-node")[:128]
+    ttl_minutes=max(5,min(60,int(payload.get("ttl_minutes",20))))
+    expires=datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=ttl_minutes)
+    try:
+        enrollment_token=await create_enrollment_token(db.pool,label,expires,mode)
+        tag=settings.tailscale_node_tags
+        tailscale_key=await create_one_time_auth_key(
+            settings.tailscale_oauth_client_id,
+            settings.tailscale_oauth_client_secret,
+            tag,
+        )
+    except (ValueError,TailscaleProvisioningError) as e:
+        raise HTTPException(409,str(e))
+    return {
+        "schema":1,
+        "coordinator_url":str(payload.get("coordinator_url") or settings.coordinator_url),
+        "install_mode":"AUTO",
+        "authorized_mode":mode,
+        "enrollment_token":enrollment_token,
+        "tailscale_auth_key":tailscale_key,
+        "tailscale_tags":tag,
+        "expires_at":expires.isoformat(),
+    }
+
 
 @app.post("/enroll")
 async def enroll_node(payload:dict):
