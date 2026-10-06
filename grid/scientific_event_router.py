@@ -32,9 +32,11 @@ async def route_market_event(orchestrator,pool,symbol,ts_ms,event_type,payload,s
     scheduled=0;hypotheses=[]
     for signal in signals:
         await _persist_signal(pool,signal,source_event_id)
+        consensus=orchestrator.consensus.update(signal)
         if signal.state!="EXCITED" or not fresh_ref:
             continue
-        result=await orchestrator.ingest_micro_signal(pool,signal,float(ref[1]),split_key)
+        result=await orchestrator.ingest_micro_signal(
+            pool,signal,float(ref[1]),split_key,consensus_result=consensus)
         scheduled+=int(result.get("scheduled") or 0)
         hypotheses.extend(result.get("hypotheses") or [])
     return {"processed":True,"signals":len(signals),"scheduled":scheduled,
