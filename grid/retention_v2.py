@@ -53,9 +53,14 @@ async def cleanup_dataset_safe(pool,dataset,retention_days,batch_size=10000):
 
 
 async def retention_backlog(pool,dataset,retention_days):
-    """Count rows past policy age that remain retained for any safety reason."""
+    """Planner estimate of rows past policy age; avoids a periodic full COUNT scan."""
     if dataset not in TABLE_TS:raise ValueError("unsupported dataset")
     ts=TABLE_TS[dataset]
-    return int(await pool.fetchval(
-        f"SELECT count(*) FROM {dataset} WHERE {ts}<now()-($1::int*interval '1 day')",
-        int(retention_days)) or 0)
+    plan=await pool.fetchval(
+        f"EXPLAIN (FORMAT JSON) SELECT 1 FROM {dataset} WHERE {ts}<now()-($1::int*interval '1 day')",
+        int(retention_days))
+    if isinstance(plan,str):
+        import json
+        plan=json.loads(plan)
+    try:return max(0,int(plan[0]["Plan"]["Plan Rows"]))
+    except (TypeError,KeyError,IndexError,ValueError):return 0
