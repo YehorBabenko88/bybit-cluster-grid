@@ -65,17 +65,30 @@ Move-Item $Stage $Release
 # Prefer an isolated Grid-owned Python runtime. Never mutate system Python.
 $OwnedPython=Join-Path $RuntimeRoot "python\python.exe"
 $Bundled=Join-Path $Release "runtime\python.exe"
-if(!(Test-Path $OwnedPython)){
-    if(Test-Path $Bundled){
-        $OwnedRoot=Split-Path $OwnedPython -Parent
-        New-Item -ItemType Directory -Force -Path $OwnedRoot | Out-Null
-        # Copy the runtime contents into OwnedRoot, not the runtime directory itself.
-        # Copy-Item <directory> <existing-directory> would create an unwanted
-        # ...\\python\\runtime\\python.exe nesting.
-        Copy-Item (Join-Path (Split-Path $Bundled -Parent) "*") $OwnedRoot -Recurse -Force
-    } else {
-        throw "Grid-owned Python runtime is missing from deployment bundle."
+$OwnedRoot=Split-Path $OwnedPython -Parent
+$OwnedStage=$OwnedRoot+".staging"
+$OwnedPrevious=$OwnedRoot+".previous"
+$RuntimeHealthy=$false
+if(Test-Path $OwnedPython){
+    & $OwnedPython -c "import sys; assert sys.version_info >= (3,11)" 2>$null
+    $RuntimeHealthy=($LASTEXITCODE -eq 0)
+}
+if(!$RuntimeHealthy){
+    if(!(Test-Path $Bundled)){throw "Grid-owned Python runtime is missing from deployment bundle."}
+    Remove-Item -Recurse -Force $OwnedStage -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $OwnedStage | Out-Null
+    Copy-Item (Join-Path (Split-Path $Bundled -Parent) "*") $OwnedStage -Recurse -Force
+    $StagePython=Join-Path $OwnedStage "python.exe"
+    & $StagePython -c "import sys; assert sys.version_info >= (3,11)"
+    if($LASTEXITCODE -ne 0){throw "Bundled Grid Python runtime failed staging validation"}
+    Remove-Item -Recurse -Force $OwnedPrevious -ErrorAction SilentlyContinue
+    if(Test-Path $OwnedRoot){Move-Item $OwnedRoot $OwnedPrevious}
+    try { Move-Item $OwnedStage $OwnedRoot }
+    catch {
+        if(!(Test-Path $OwnedRoot) -and (Test-Path $OwnedPrevious)){Move-Item $OwnedPrevious $OwnedRoot}
+        throw
     }
+    Remove-Item -Recurse -Force $OwnedPrevious -ErrorAction SilentlyContinue
 }
 $BasePython=$OwnedPython
 try {
