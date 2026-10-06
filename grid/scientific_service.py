@@ -6,6 +6,7 @@ from .scientific_event_router import route_market_event
 from .retention_v2 import register_consumer
 from .control_state import set_consumer_watermarks
 from .micro_agents import MicroSignal
+from .scientific_mining_scheduler import ScientificMiningScheduler
 
 log=logging.getLogger("scientific_service")
 
@@ -15,6 +16,7 @@ class ScientificResearchService:
         self.orchestrator=ScientificResearchOrchestrator()
         self.stop_event=asyncio.Event();self.last_id=0;self.processed=0;self.scheduled=0
         self.errors=0;self.last_event_ts=None;self.started=False
+        self.mining=ScientificMiningScheduler(pool);self.last_mining_check=0.0;self.mining_runs=0
 
     async def start(self):
         if self.started:return
@@ -118,6 +120,11 @@ class ScientificResearchService:
         while not self.stop_event.is_set():
             try:
                 n=await self.run_once()
+                now=time.monotonic()
+                if now-self.last_mining_check>=3600:
+                    mined=await self.mining.run_closed_split_once()
+                    self.mining_runs+=len(mined.get("runs") or [])
+                    self.last_mining_check=now
                 if not n:await asyncio.sleep(self.poll_seconds)
             except asyncio.CancelledError:
                 raise
@@ -134,7 +141,8 @@ class ScientificResearchService:
             lag=max(0.0,time.time()-self.last_event_ts.timestamp())
         return {"started":self.started,"last_event_id":int(self.last_id),
                 "processed":int(self.processed),"scheduled_outcomes":int(self.scheduled),
-                "errors":int(self.errors),"lag_seconds":round(lag,2) if lag is not None else None}
+                "errors":int(self.errors),"mining_runs":int(self.mining_runs),
+                "lag_seconds":round(lag,2) if lag is not None else None}
 
 def _split_key(ts):
     iso=ts.isocalendar()
