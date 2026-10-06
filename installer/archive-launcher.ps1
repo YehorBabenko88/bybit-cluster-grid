@@ -25,6 +25,16 @@ foreach($name in @("current.version","previous.version")){
     $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
     if(Test-Path (Join-Path $candidate "grid\archive_service.py")){$release=$candidate;break}
 }
+if(!$release){
+    $currentMarker=Join-Path $InstallRoot "current.version"
+    if(Test-Path $currentMarker){
+        $cv=(Get-Content $currentMarker -Raw).Trim()
+        if($cv){
+            $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
+            if(Test-Path (Join-Path $replaced "grid\archive_service.py")){$release=$replaced}
+        }
+    }
+}
 if(!$release){$release=Join-Path $InstallRoot "bootstrap"}
 if(!(Test-Path (Join-Path $release "grid\archive_service.py"))){throw "No ArchivePipeline module found"}
 $WaitDb=Join-Path $release "installer\\wait-grid-postgres.ps1"
