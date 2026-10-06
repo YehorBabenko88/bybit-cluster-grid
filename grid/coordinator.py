@@ -266,6 +266,12 @@ async def control_update(payload:dict,x_grid_token:str=Header(default="")):
         raise HTTPException(400,"valid version, package_url and sha256 are required")
     if not url.lower().startswith("https://"):
         raise HTTPException(400,"release URL must use HTTPS")
+    rel=await db.pool.fetchrow("""SELECT r.version,r.package_url,r.sha256,r.enabled,r.channel,s.status AS rollout_status
+      FROM agent_releases r LEFT JOIN rollout_state s ON s.version=r.version WHERE r.version=$1""",version)
+    if not rel or not rel["enabled"] or rel["channel"]!="stable" or rel["rollout_status"]!="complete":
+        raise HTTPException(409,"CONTROL may update only after the promoted stable worker rollout is complete")
+    if str(rel["package_url"])!=url or str(rel["sha256"]).lower()!=sha:
+        raise HTTPException(409,"release URL/SHA do not match the registered promoted release")
     data_root=pathlib.Path(os.environ.get("ProgramData",r"C:\\ProgramData"))/"BybitClusterGrid"
     if (data_root/"control-update.lock").exists():
         raise HTTPException(409,"CONTROL update already running")
