@@ -372,10 +372,11 @@ async def handle_command(db,session,chat_id,text,nodes):
     elif cmd=="/controlupdate":
         if len(parts)!=2:
             await tg_send(session,chat_id,"Usage: /controlupdate VERSION"); return
-        rel=await db.pool.fetchrow("""SELECT version,package_url,sha256 FROM agent_releases
-          WHERE version=$1 AND channel='stable' AND enabled=true""",parts[1])
-        if not rel:
-            await tg_send(session,chat_id,"CONTROL update rejected: release is not promoted stable."); return
+        rel=await db.pool.fetchrow("""SELECT r.version,r.package_url,r.sha256,s.status AS rollout_status
+          FROM agent_releases r JOIN rollout_state s ON s.version=r.version
+          WHERE r.version=$1 AND r.channel='stable' AND r.enabled=true""",parts[1])
+        if not rel or rel["rollout_status"]!="complete":
+            await tg_send(session,chat_id,"CONTROL update rejected: promoted worker rollout is not complete."); return
         data_root=pathlib.Path(os.environ.get("ProgramData",r"C:\\ProgramData"))/"BybitClusterGrid"
         if (data_root/"control-update.lock").exists():
             await tg_send(session,chat_id,"CONTROL update already running."); return
