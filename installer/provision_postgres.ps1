@@ -45,6 +45,7 @@ $PartialData=Join-Path $PartialRoot "data"
 $PartialPsql=Join-Path $PartialRoot "bin\psql.exe"
 $PartialConf=Join-Path $PartialData "postgresql.conf"
 $PartialSvc=Get-Service -Name "BybitClusterGridPostgres" -ErrorAction SilentlyContinue
+$Installing=Join-Path $DataRoot "postgres-installing.json"
 if(!(Test-Path $Manifest) -and $PartialSvc -and (Test-Path $PartialPsql) -and (Test-Path $PartialConf)){
     $confText=Get-Content $PartialConf -Raw
     if($confText -match '(?m)^\s*port\s*=\s*55432\s*(?:#.*)?
@@ -89,8 +90,21 @@ Add-EnvOnce "POSTGRES_DSN" "postgresql://cluster_grid:$DbPass@127.0.0.1:55432/by
 ){
         $dsn=Get-EnvValue $EnvFile "POSTGRES_DSN"
         if(!$dsn){
-            throw "Interrupted Grid PostgreSQL install detected before database credentials were committed; safe automatic credential recovery is unavailable."
+            if(Test-Path $Installing){
+                # A transaction marker created before installer mutation proves this
+                # is our incomplete fresh install. Remove only that dedicated instance
+                # so provisioning can restart with new credentials.
+                Stop-Service -Name "BybitClusterGridPostgres" -Force -ErrorAction SilentlyContinue
+                & sc.exe delete "BybitClusterGridPostgres" | Out-Null
+                Start-Sleep -Seconds 2
+                Remove-Item -Recurse -Force $PartialRoot -ErrorAction Stop
+                Remove-Item $Installing -Force -ErrorAction SilentlyContinue
+                $PartialSvc=$null
+            } else {
+                throw "Interrupted Grid PostgreSQL install detected before database credentials were committed; no transaction marker exists, refusing destructive repair."
+            }
         }
+        if(!$dsn){ } else {
         $manifest=[ordered]@{
           schema=1; owned_by_grid=$true; instance_id=[guid]::NewGuid().ToString()
           service_name="BybitClusterGridPostgres"; port=55432
@@ -101,6 +115,7 @@ Add-EnvOnce "POSTGRES_DSN" "postgresql://cluster_grid:$DbPass@127.0.0.1:55432/by
         if($PartialSvc.Status -ne "Running"){Start-Service $PartialSvc.Name}
         Write-Host "Recovered interrupted Grid-owned PostgreSQL ownership manifest."
         exit 0
+        }
     }
 }
 
