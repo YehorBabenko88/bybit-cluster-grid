@@ -77,6 +77,12 @@ def switch_current(install_root,version,record_previous=True):
         _write_marker(root,"previous.version",current)
     _write_marker(root,"current.version",version)
 
+def mark_pending(install_root,version):
+    _write_marker(install_root,"pending.version",version)
+    for name in ("pending-crashes.txt","pending-started.txt"):
+        try:(pathlib.Path(install_root)/name).unlink()
+        except FileNotFoundError:pass
+
 def _runnable_releases(install_root):
     releases=pathlib.Path(install_root)/"releases"
     if not releases.exists(): return []
