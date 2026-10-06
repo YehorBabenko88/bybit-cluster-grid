@@ -130,11 +130,19 @@ async def maintain_postgres_statistics(pool):
             try:await c.execute(f"ANALYZE {table}")
             except Exception:
                 log.debug("analyze skipped",extra={"event":"analyze_skipped","component":table},exc_info=True)
-        rows=await c.fetch("""SELECT relname,n_live_tup,n_dead_tup,
-          last_autovacuum,last_autoanalyze
-          FROM pg_stat_user_tables
-          WHERE relname=ANY($1::text[])""",list(tables))
-    return [dict(x) for x in rows]
+        rows=await c.fetch("""SELECT s.relname,s.n_live_tup,s.n_dead_tup,
+          s.last_autovacuum,s.last_autoanalyze,
+          pg_total_relation_size(s.relid) AS total_bytes
+          FROM pg_stat_user_tables s
+          WHERE s.relname=ANY($1::text[])""",list(tables))
+    out=[]
+    for row in rows:
+        item=dict(row)
+        live=max(0,int(item.get("n_live_tup") or 0))
+        dead=max(0,int(item.get("n_dead_tup") or 0))
+        item["dead_ratio"]=round(dead/max(1,live+dead),4)
+        out.append(item)
+    return out
 
 
 async def maintenance_scheduler(pool,settings):
@@ -160,6 +168,13 @@ async def maintenance_scheduler(pool,settings):
                                              older_than_seconds=3600 if aggressive else 86400)
             pglogs=cleanup_owned_postgres_logs(root,3*86400 if aggressive else 14*86400)
             pgstats=await maintain_postgres_statistics(pool)
+            bloated=[{"table":x["relname"],"dead_ratio":x["dead_ratio"],
+                      "total_bytes":int(x["total_bytes"])}
+                     for x in pgstats
+                     if x["dead_ratio"]>=0.20 and int(x["n_dead_tup"] or 0)>=10000]
+            if bloated:
+                log.warning("postgres table bloat pressure detected",extra={
+                    "event":"postgres_bloat_pressure","component":str(bloated)})
             schema=await schema_type_audit(pool)
             if not schema["ok"]:
                 log.error("database schema type drift detected",extra={
@@ -167,7 +182,8 @@ async def maintenance_scheduler(pool,settings):
             log.info("maintenance completed",extra={
                 "event":"maintenance_complete",
                 "component":str({"metadata":meta,"temp_files":temps,"strategy_cache":strategy,
-                                 "archive_orphans":archive,"release_cleanup":releases,"postgres_logs":pglogs,"pg_tables":len(pgstats),
+                                 "archive_orphans":archive,"release_cleanup":releases,"postgres_logs":pglogs,
+                                 "pg_tables":len(pgstats),"pg_bloat_alerts":len(bloated),
                                  "disk":disk["state"],"disk_free_gb":round(disk["free_gb"],2),
                                  "schema_ok":schema["ok"]}),
             })
