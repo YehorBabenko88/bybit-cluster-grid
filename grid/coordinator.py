@@ -51,6 +51,24 @@ def auth(token):
     if not constant_time_equal(token,settings.grid_shared_token):
         raise HTTPException(401,"bad grid token")
 
+
+@app.get("/health")
+async def health():
+    """Unauthenticated liveness/readiness probe with no secret data."""
+    if db is None or getattr(db,"pool",None) is None:
+        raise HTTPException(503,"database not ready")
+    try:
+        await db.pool.fetchval("SELECT 1")
+        fleet_state=await runtime_state(db.pool)
+    except Exception:
+        log.exception("health probe failed",extra={"event":"health_failed","component":"coordinator"})
+        raise HTTPException(503,"database unavailable")
+    return {
+        "ok": True,
+        "service": "Bybit Cluster Grid Coordinator",
+        "runtime_state": str(fleet_state.get("state","UNKNOWN")),
+    }
+
 @app.post("/enroll")
 async def enroll_node(payload:dict):
     try:
