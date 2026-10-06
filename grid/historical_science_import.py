@@ -38,6 +38,9 @@ async def import_historical_science(pool,bundle):
       json.dumps({"schema":bundle.get("schema",1)},separators=(",",":")))
     bundle_id=row["id"]
     for item in bundle.get("symbols") or ():
+        features=dict(item.get("features") or {})
+        scalp_events=list(features.get("scalp_events") or ())
+        features["scalp_events"]=scalp_events[-2048:]
         await pool.execute("""INSERT INTO historical_scientific_symbol_state(
           bundle_id,symbol,status,samples,from_ms,through_ms,summary,features)
           VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb)
@@ -48,4 +51,6 @@ async def import_historical_science(pool,bundle):
           int(item.get("samples") or 0),item.get("from_ms"),item.get("through_ms"),
           json.dumps(item.get("summary") or {},sort_keys=True,separators=(",",":")),
           json.dumps(item.get("features") or {},sort_keys=True,separators=(",",:"")))
-    return {"bundle_id":str(bundle_id),"status":row["status"],"symbols":len(bundle.get("symbols") or ())}
+    scalp_count=sum(len(((x.get("features") or {}).get("scalp_events") or ())) for x in bundle.get("symbols") or ())
+    return {"bundle_id":str(bundle_id),"status":row["status"],"symbols":len(bundle.get("symbols") or ()),
+            "historical_scalp_events":scalp_count,"live_evidence_promoted":False}
