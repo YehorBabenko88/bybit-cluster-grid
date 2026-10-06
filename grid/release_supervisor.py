@@ -29,7 +29,8 @@ def _after_exit(root,version,runtime):
     if count<3:return False
     prev=_read(root/"previous.version")
     candidate=root/"releases"/prev
-    if not prev or prev==version or not candidate.is_dir():return False
+    runnable=(candidate/"run_worker.py").exists() or (candidate/"grid"/"coordinator.py").exists()
+    if not prev or prev==version or not runnable:return False
     _atomic(root/"current.version",prev)
     pending.unlink(missing_ok=True); crash.unlink(missing_ok=True)
     return True
