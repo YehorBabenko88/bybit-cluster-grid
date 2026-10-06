@@ -442,6 +442,16 @@ from_ms bigint,through_ms bigint,summary jsonb NOT NULL DEFAULT '{}'::jsonb,
 features jsonb NOT NULL DEFAULT '{}'::jsonb,
 PRIMARY KEY(bundle_id,symbol))""",
 "CREATE INDEX IF NOT EXISTS historical_science_symbol_idx ON historical_scientific_symbol_state(symbol,through_ms DESC)"
+]),
+(43,"system_lifecycle_orchestration",[
+"""CREATE TABLE IF NOT EXISTS system_lifecycle_state(
+singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),
+phase text NOT NULL DEFAULT 'INFRASTRUCTURE',
+completed jsonb NOT NULL DEFAULT '[]'::jsonb,
+details jsonb NOT NULL DEFAULT '{}'::jsonb,
+updated_at timestamptz NOT NULL DEFAULT now())""",
+"""INSERT INTO system_lifecycle_state(singleton,phase) VALUES(true,'INFRASTRUCTURE')
+ON CONFLICT(singleton) DO NOTHING"""
 ])
 
 ]
