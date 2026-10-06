@@ -452,6 +452,23 @@ details jsonb NOT NULL DEFAULT '{}'::jsonb,
 updated_at timestamptz NOT NULL DEFAULT now())""",
 """INSERT INTO system_lifecycle_state(singleton,phase) VALUES(true,'INFRASTRUCTURE')
 ON CONFLICT(singleton) DO NOTHING"""
+]),
+(44,"scientific_method_plugins",[
+"""CREATE TABLE IF NOT EXISTS scientific_methods(
+method_key text PRIMARY KEY,method_version text NOT NULL,schema_version integer NOT NULL DEFAULT 1,
+status text NOT NULL DEFAULT 'ENABLED',config jsonb NOT NULL DEFAULT '{}'::jsonb,
+capabilities jsonb NOT NULL DEFAULT '{}'::jsonb,failure_count integer NOT NULL DEFAULT 0,
+last_error text,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now())""",
+"""CREATE TABLE IF NOT EXISTS scientific_method_events(
+id bigserial PRIMARY KEY,method_key text NOT NULL,event_ts timestamptz NOT NULL DEFAULT now(),
+event_type text NOT NULL,payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+schema_version integer NOT NULL DEFAULT 1,created_at timestamptz NOT NULL DEFAULT now())""",
+"CREATE INDEX IF NOT EXISTS scientific_method_events_lookup_idx ON scientific_method_events(method_key,event_ts DESC)",
+"""CREATE TABLE IF NOT EXISTS scientific_method_errors(
+id bigserial PRIMARY KEY,method_key text NOT NULL,event_ts timestamptz,
+error_type text NOT NULL,error_message text NOT NULL,context jsonb NOT NULL DEFAULT '{}'::jsonb,
+created_at timestamptz NOT NULL DEFAULT now())""",
+"CREATE INDEX IF NOT EXISTS scientific_method_errors_lookup_idx ON scientific_method_errors(method_key,created_at DESC)"
 ])
 
 ]
