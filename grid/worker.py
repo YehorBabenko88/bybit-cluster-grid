@@ -188,10 +188,14 @@ class Worker:
                         mark_internet_success()
                     elif decommission_due(settings.decommission_days):
                         log.critical("offline decommission threshold reached",extra={"event":"self_decommission"})
-                        try:
-                            await execute_command(self,{"action":"uninstall","payload":{"purge_data":True}})
-                        finally:
-                            os._exit(0)
+                        await execute_command(
+                            self,{"action":"uninstall","payload":{"purge_data":True}}
+                        )
+                        # Uninstaller unregisters the Scheduled Task. Return through
+                        # normal Worker.run() cleanup instead of bypassing finally.
+                        log.info("graceful self-decommission shutdown",
+                                 extra={"event":"self_decommission_shutdown"})
+                        return
                 if self.restart_requested:
                     # Receipt is durable and ACK was attempted above. Return through
                     # Worker.run() so ML/process-tree and WAL cleanup runs first.
