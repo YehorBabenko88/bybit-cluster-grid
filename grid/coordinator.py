@@ -295,8 +295,12 @@ async def control_update_status(x_grid_token:str=Header(default="")):
     def marker(name):
         try:return (install_root/name).read_text(encoding="utf-8-sig").strip()
         except OSError:return ""
-    status.update({"current":marker("current.version"),"previous":marker("previous.version"),
-                   "pending":marker("pending.version"),
+    current=marker("current.version");previous=marker("previous.version");pending=marker("pending.version")
+    journal_version=str(status.get("version") or "")
+    if status.get("state")=="staged" and journal_version:
+        if current==journal_version and not pending: status["state"]="healthy"
+        elif current!=journal_version and not pending: status["state"]="rolled_back"
+    status.update({"current":current,"previous":previous,"pending":pending,
                    "running":(data_root/"control-update.lock").exists()})
     return status
 
