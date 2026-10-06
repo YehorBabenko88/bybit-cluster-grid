@@ -5,6 +5,7 @@ from .scientific_orchestrator import ScientificResearchOrchestrator
 from .scientific_event_router import route_market_event
 from .retention_v2 import register_consumer
 from .control_state import set_consumer_watermarks
+from .micro_agents import MicroSignal
 
 log=logging.getLogger("scientific_service")
 
@@ -19,6 +20,7 @@ class ScientificResearchService:
         if self.started:return
         await register_consumer(self.pool,"market_events","scientific_research",required=False,active=True)
         await self._hydrate_features()
+        await self._hydrate_micro_agents()
         row=await self.pool.fetchrow("""SELECT state,last_ts FROM observer_checkpoints
           WHERE observer='scientific_research' AND symbol='*'""")
         if row:
@@ -28,6 +30,40 @@ class ScientificResearchService:
             self.last_event_ts=await self.pool.fetchval("SELECT max(event_ts) FROM market_events")
             await self._checkpoint()
         self.started=True
+
+    async def _hydrate_micro_agents(self):
+        rows=await self.pool.fetch("""WITH ranked AS (
+          SELECT symbol,event_ts,agent,state,score,direction,features,
+                 row_number() OVER(PARTITION BY symbol,agent ORDER BY event_ts DESC) rn
+          FROM micro_agent_signals WHERE event_ts>now()-interval '7 days')
+          SELECT symbol,event_ts,agent,state,score,direction,features
+          FROM ranked WHERE rn<=600 ORDER BY symbol,agent,event_ts""")
+        groups={}
+        latest={}
+        for r in rows:
+            key=(str(r["symbol"]),str(r["agent"]))
+            features=_dict(r["features"])
+            groups.setdefault(key,[]).append((r,features))
+            latest[key]=(r,features)
+        mapping={
+            "oi":(self.orchestrator.oi_agent,"oi_return_per_s"),
+            "delta":(self.orchestrator.delta_agent,"delta_ratio"),
+            "book_velocity":(self.orchestrator.book_agent,"book_update_rate"),
+            "large_order":(self.orchestrator.wall_agent,"wall_ratio"),
+            "volume":(self.orchestrator.volume_agent,"volume"),
+        }
+        for (symbol,agent_name),items in groups.items():
+            pair=mapping.get(agent_name)
+            if pair is not None:
+                agent,key=pair
+                agent.restore(symbol,[f.get(key) for _,f in items if f.get(key) is not None])
+            row,features=items[-1]
+            if agent_name=="oi" and features.get("oi") is not None:
+                self.orchestrator.oi_agent.restore_prev(
+                    symbol,int(row["event_ts"].timestamp()*1000),features["oi"])
+            self.orchestrator.consensus.last[symbol][agent_name]=MicroSignal(
+                agent_name,symbol,int(row["event_ts"].timestamp()*1000),str(row["state"]),
+                float(row["score"]),int(row["direction"]),features)
 
     async def _hydrate_features(self):
         rows=await self.pool.fetch("""WITH ranked AS (
