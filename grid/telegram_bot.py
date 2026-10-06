@@ -60,11 +60,25 @@ def _main_keyboard():
       [{"text":"🖥 АГЕНТЫ","callback_data":"fleet:nodes"},{"text":"ℹ СОСТОЯНИЕ","callback_data":"fleet:system"}]
     ]}
 
+async def _tg_api(session,method,body=None,params=None,retries=2):
+    url=f"https://api.telegram.org/bot{settings.telegram_bot_token}/{method}"
+    for attempt in range(retries+1):
+        async with session.post(url,json=body) if body is not None else session.get(url,params=params) as r:
+            try:data=await r.json()
+            except Exception:data={}
+            if r.status==429 and attempt<retries:
+                retry_after=min(30,max(1,int((data.get("parameters") or {}).get("retry_after",2))))
+                await asyncio.sleep(retry_after)
+                continue
+            if r.status>=400 or data.get("ok") is not True:
+                raise RuntimeError(f"Telegram API {method} failed: HTTP {r.status}")
+            return data
+    raise RuntimeError(f"Telegram API {method} retry budget exhausted")
+
 async def tg_send(session,chat_id,text,reply_markup=None):
-    url=f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
     body={"chat_id":chat_id,"text":text[:4000]}
     if reply_markup: body["reply_markup"]=reply_markup
-    await session.post(url,json=body)
+    await _tg_api(session,"sendMessage",body=body)
 
 def _node_line(nid,n,now):
     age=max(0,int(now-float(n.get("last_seen",0))))
@@ -414,12 +428,17 @@ async def telegram_loop(db,nodes):
         return
     offset=await telegram_cursor(db.pool)
     node_id=getattr(db,'node_id','telegram-leader')
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=40)) as session:
+        try:
+            me=await _tg_api(session,"getMe",retries=1)
+            log.info("telegram authenticated",extra={"event":"telegram_authenticated",
+                     "component":str((me.get("result") or {}).get("username") or "bot")})
+        except Exception:
+            log.exception("telegram disabled: bot authentication failed",extra={"event":"telegram_auth_failed"})
+            return
         while True:
             try:
-                url=f"https://api.telegram.org/bot{settings.telegram_bot_token}/getUpdates"
-                async with session.get(url,params={"timeout":30,"offset":offset},timeout=40) as r:
-                    data=await r.json()
+                data=await _tg_api(session,"getUpdates",params={"timeout":30,"offset":offset})
                 op_result=await reconcile_fleet_operation(db.pool)
                 if op_result and op_result.get("status")=="DONE":
                     for notify_chat in [x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()]:
