@@ -29,16 +29,5 @@ $args=@(
 $p=Start-Process -FilePath $Installer -ArgumentList $args -Wait -PassThru
 if($p.ExitCode -ne 0){throw "PostgreSQL installer failed: $($p.ExitCode)"}
 
-$manifest=[ordered]@{
-  schema=1
-  owned_by_grid=$true
-  instance_id=$InstanceId
-  service_name=$ServiceName
-  port=$Port
-  root=$PgRoot
-  data=$PgData
-  created_at=(Get-Date).ToUniversalTime().ToString("o")
-}
-$manifest | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $DataRoot "postgres-owned.json")
-# Keep postgres-installing.json until role/database credentials and POSTGRES_DSN
-# are committed by provision_postgres.ps1.
+# Ownership is committed only after role/database/DSN provisioning succeeds.
+# postgres-installing.json remains the sole recovery journal at this stage.
