@@ -23,8 +23,13 @@ class FootprintBuilder:
         b = self.buckets.setdefault((t.symbol, start), {
             "open": t.price, "high": t.price, "low": t.price, "close": t.price,
             "buy": 0.0, "sell": 0.0, "trades": 0, "levels": defaultdict(PriceCluster),
+            "seen_trade_ids":set(),
             "quality_status":"GOOD", "quality_reasons":[]
         })
+        if t.trade_id and t.trade_id in b["seen_trade_ids"]:
+            return False
+        if t.trade_id:
+            b["seen_trade_ids"].add(t.trade_id)
         b["high"] = max(b["high"], t.price); b["low"] = min(b["low"], t.price); b["close"] = t.price
         lvl = b["levels"][self._price_key(t.price)]
         # Bybit publicTrade S=Buy means buyer was taker/aggressor.
