@@ -1,4 +1,12 @@
 async def store_derived_minute(conn,row):
+    # Once downstream features exist, the candle is an immutable consumed
+    # source. Replacing it would desynchronize features/models from raw truth.
+    consumed=await conn.fetchval(
+        "SELECT EXISTS(SELECT 1 FROM market_features_1m WHERE symbol=$1 AND ts=$2)",
+        row["symbol"],row["ts"],
+    )
+    if consumed:
+        return False
     accepted=await conn.fetchval("""INSERT INTO candles_1m
       (symbol,ts,open,high,low,close,buy_volume,sell_volume,delta,trade_count,poc_price,quality_status,quality_reasons)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'ARCHIVE', '[]'::jsonb)
