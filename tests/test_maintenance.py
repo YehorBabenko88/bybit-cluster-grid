@@ -89,3 +89,16 @@ def test_grid_owned_postgres_has_wal_and_log_bounds():
     assert "log_rotation_age = 1d" in s
     assert "log_rotation_size = 100MB" in s
     assert "BybitClusterGridPostgres" in s
+
+
+def test_ready_snapshot_gc_is_reference_fenced():
+    s=Path("grid/maintenance.py").read_text(encoding="utf-8")
+    block=s.split("orphan_ready=await pool.execute",1)[1].split("artifacts=await",1)[0]
+    assert "d.status='READY'" in block
+    assert "interval '30 days'" in block
+    for table in (
+        "model_registry","model_evaluations","markov_transition_edges",
+        "strategy_comparison_results","historical_experiment_runs","ml_jobs"
+    ):
+        assert table in block
+    assert "j.payload->>'dataset_id'=d.id::text" in block
