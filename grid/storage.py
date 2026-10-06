@@ -30,6 +30,8 @@ class Storage:
         self.replay_done=asyncio.Event(); self.replay_done.set()
         self.replay_ids=set()
         self._last_replay_send=0.0
+        self.replay_started_at=0.0
+        self.replay_sent=0
         self.replay_rate=float(settings.replay_minute_per_second)
         self.feature_builder=UnifiedFeatureBuilder()
         self.derived=None
@@ -52,6 +54,8 @@ class Storage:
         self.replay_task=asyncio.create_task(self._replay(pending))
     async def _replay(self,pending):
         try:
+            self.replay_started_at=asyncio.get_running_loop().time()
+            self.replay_sent=0
             # Deterministic node jitter prevents all agents from hammering CONTROL
             # in the same second after a fleet/network outage.
             jitter=max(0.0,float(settings.replay_start_jitter_seconds))
@@ -89,6 +93,10 @@ class Storage:
         m["replay_active"]=not self.replay_done.is_set()
         m["replay_backlog_bytes"]=m["spool_bytes"] if m["replay_active"] else 0
         m["replay_rate_per_second"]=float(self.replay_rate)
+        elapsed=max(0.0,asyncio.get_running_loop().time()-self.replay_started_at) if self.replay_started_at else 0.0
+        m["replay_sent"]=int(self.replay_sent)
+        m["replay_elapsed_seconds"]=round(elapsed,1)
+        m["replay_observed_per_second"]=round(self.replay_sent/elapsed,2) if elapsed>0 else 0.0
         return m
 
 
@@ -116,6 +124,8 @@ class Storage:
         else:
             await self._save_direct(row)
         await self.spool.ack(record_id)
+        if record_id in self.replay_ids:
+            self.replay_sent+=1
         self.replay_ids.discard(record_id)
 
     async def _save_direct(self,row):
