@@ -15,8 +15,8 @@ def test_agent_reports_local_storage_and_telegram_displays_it():
     resources=Path("grid/resources.py").read_text(encoding="utf-8")
     telegram=Path("grid/telegram_bot.py").read_text(encoding="utf-8")
     assert '"grid_local_data_bytes"' in resources
-    assert '"spool_bytes"' in resources
-    assert '"micro_spool_bytes"' in resources
+    assert '("spool","spool")' in resources
+    assert '("micro_spool","micro-spool")' in resources
     assert "agents are DB-less" in telegram
     assert "ml_artifacts_bytes" in telegram
     assert "strategy_cache_bytes" in telegram
