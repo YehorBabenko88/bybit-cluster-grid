@@ -6,7 +6,12 @@ param(
 $ErrorActionPreference="Stop"
 $exe=Join-Path $env:ProgramFiles "Tailscale\tailscale.exe"
 if(!(Test-Path $exe)){
-  throw "Tailscale is not installed. Install the official Windows client, then rerun Grid bootstrap."
+  $winget=Get-Command winget.exe -ErrorAction SilentlyContinue
+  if(!$winget){throw "Tailscale is not installed and winget is unavailable for automatic installation."}
+  Write-Host "Installing official Tailscale Windows client..."
+  & $winget.Source install --id Tailscale.Tailscale --exact --silent --accept-package-agreements --accept-source-agreements
+  if($LASTEXITCODE -ne 0){throw "Automatic Tailscale installation failed"}
+  if(!(Test-Path $exe)){throw "Tailscale installation completed but tailscale.exe was not found"}
 }
 # Never persist or print AuthKey. Existing authenticated nodes need no key.
 $status=& $exe status --json 2>$null
