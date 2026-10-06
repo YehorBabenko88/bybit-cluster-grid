@@ -16,6 +16,7 @@ Copy-Item (Join-Path $ReleaseDir "installer\launcher.ps1") (Join-Path $Installer
 Copy-Item (Join-Path $ReleaseDir "installer\archive-launcher.ps1") (Join-Path $InstallerRoot "archive-launcher.ps1") -Force
 Copy-Item (Join-Path $ReleaseDir "installer\uninstall.ps1") (Join-Path $InstallerRoot "uninstall.ps1") -Force
 Copy-Item (Join-Path $ReleaseDir "installer\preflight.ps1") (Join-Path $InstallerRoot "preflight.ps1") -Force
+Copy-Item (Join-Path $ReleaseDir "installer\release-health.ps1") (Join-Path $InstallerRoot "release-health.ps1") -Force
 
 $Launcher=Join-Path $InstallerRoot "launcher.ps1"
 $ArchiveLauncher=Join-Path $InstallerRoot "archive-launcher.ps1"
