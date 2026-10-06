@@ -378,8 +378,10 @@ async def handle_command(db,session,chat_id,text,nodes):
         if not rel or rel["rollout_status"]!="complete":
             await tg_send(session,chat_id,"CONTROL update rejected: promoted worker rollout is not complete."); return
         data_root=pathlib.Path(os.environ.get("ProgramData",r"C:\\ProgramData"))/"BybitClusterGrid"
-        if (data_root/"control-update.lock").exists():
-            await tg_send(session,chat_id,"CONTROL update already running."); return
+        install_root=pathlib.Path(os.environ.get("ProgramFiles",r"C:\\Program Files"))/"BybitClusterGrid"
+        pending=install_root/"pending.version"
+        if (data_root/"control-update.lock").exists() or (pending.exists() and pending.read_text(encoding="utf-8-sig").strip()):
+            await tg_send(session,chat_id,"CONTROL update or release health verification already running."); return
         python=data_root/"runtime"/"venv"/"Scripts"/"python.exe"
         log_path=data_root/"logs"/"control-self-update.log";log_path.parent.mkdir(parents=True,exist_ok=True)
         out=open(log_path,"ab",buffering=0)
