@@ -242,7 +242,7 @@ if($LegacyHandoff){
 # .env contains CONTROL-only PostgreSQL/Telegram/admin credentials. Restrict
 # local access after all provisioning writes and on every repair/bootstrap run.
 if(Test-Path $EnvFile){
-    & icacls $EnvFile /inheritance:r /grant:r "SYSTEM:F" "Administrators:F" | Out-Null
+    & icacls $EnvFile /inheritance:r /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Null
     if($LASTEXITCODE -ne 0){throw "Failed to harden Grid .env ACL"}
 }
 
