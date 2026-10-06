@@ -44,3 +44,10 @@ def test_lifecycle_commands_do_not_hard_exit_worker_process():
     source=Path("grid/agent_commands.py").read_text(encoding="utf-8")
     assert "os._exit(75)" not in source
     assert "restart_requested=True" in source
+
+
+def test_worker_has_no_hard_exit_in_lifecycle_paths():
+    from pathlib import Path
+    source=Path("grid/worker.py").read_text(encoding="utf-8")
+    assert "os._exit(" not in source
+    assert "self_decommission_shutdown" in source
