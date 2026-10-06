@@ -48,8 +48,9 @@ async def materialize_archive(pool,aggregates):
         async with c.transaction():
             for row in aggregates:
                 materialized_levels=await store_derived_minute(c,row)
-                if materialized_levels:
-                    candles+=1;levels+=materialized_levels
+                if not materialized_levels:
+                    raise RuntimeError("archive minute has no verified canonical footprint")
+                candles+=1;levels+=materialized_levels
                 min_ts=row["ts"] if min_ts is None else min(min_ts,row["ts"])
                 max_ts=row["ts"] if max_ts is None else max(max_ts,row["ts"])
     return {"derived_candles":candles,"derived_footprint_rows":levels,"min_ts":min_ts,"max_ts":max_ts}
@@ -63,8 +64,9 @@ async def materialize_archive_stream(pool,aggregates,batch_minutes=30):
             async with c.transaction():
                 for row in items:
                     materialized_levels=await store_derived_minute(c,row)
-                    if materialized_levels:
-                        candles+=1;levels+=materialized_levels;source_rows+=int(row["trade_count"])
+                    if not materialized_levels:
+                        raise RuntimeError("archive minute has no verified canonical footprint")
+                    candles+=1;levels+=materialized_levels;source_rows+=int(row["trade_count"])
                     min_ts=row["ts"] if min_ts is None else min(min_ts,row["ts"])
                     max_ts=row["ts"] if max_ts is None else max(max_ts,row["ts"])
     for row in aggregates:
