@@ -31,6 +31,7 @@ from .ml_dispatcher import MLDispatcher
 from .ml_orchestrator_service import MLOrchestratorService
 from .resources import snapshot as resource_snapshot
 from .asyncio_guard import install_asyncio_exception_filter
+from .disk_guard import DiskWatermarks,disk_state,live_collection_allowed
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -117,12 +118,22 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
         node_assignments=assignments.get(nid,[]),
         instrument_symbols=instruments,
     )
+    # Protect the central database volume, not only each worker's local disk.
+    # SOFT pressure keeps minute/live collection but sheds high-rate micro data;
+    # HARD/EMERGENCY stops new live assignments until space recovers.
+    control_root=os.path.join(os.environ.get("ProgramData",r"C:\ProgramData"),"BybitClusterGrid")
+    control_disk=disk_state(control_root,DiskWatermarks(
+        soft_free_gb=float(settings.disk_soft_free_gb),
+        hard_free_gb=float(settings.disk_hard_free_gb),
+        emergency_free_gb=float(settings.disk_emergency_free_gb)))
+    if not live_collection_allowed(control_disk["state"]):
+        symbols=[]
     # High-rate microstructure capture remains pilot-only until the volatility
-    # selector is implemented; this prevents accidental fleet-wide 250 ms capture.
-    micro_symbols=symbols if install_mode=="PILOT" else []
+    # selector is implemented; disk SOFT pressure also disables it first.
+    micro_symbols=symbols if install_mode=="PILOT" and control_disk["state"]=="NORMAL" else []
     return {"symbols":symbols,"micro_symbols":micro_symbols,"commands":commands,"control_replica":replica,
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
-            "install_mode":install_mode,
+            "install_mode":install_mode,"control_disk_state":control_disk["state"],
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
 
 @app.post("/commands/{command_id}/result")
