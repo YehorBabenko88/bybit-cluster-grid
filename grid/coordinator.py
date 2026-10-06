@@ -34,6 +34,8 @@ from .asyncio_guard import install_asyncio_exception_filter
 from .disk_guard import DiskWatermarks,disk_state,live_collection_allowed
 from .tailscale_provisioning import create_one_time_auth_key,TailscaleProvisioningError
 from .scientific_service import ScientificResearchService
+from .historical_science_import import import_historical_science
+from .system_lifecycle import get_phase,advance_phase,phase_capabilities
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -487,6 +489,31 @@ async def scientific_hypothesis_evidence(hypothesis_id:str,x_grid_token:str=Head
       FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1::uuid
       ORDER BY created_at""",hypothesis_id)
     return {"hypothesis_id":hypothesis_id,"evidence":[dict(r) for r in rows]}
+
+@app.get("/lifecycle")
+async def lifecycle_status(x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    p=await get_phase(db.pool)
+    p["capabilities"]=phase_capabilities(p["phase"])
+    return p
+
+@app.post("/lifecycle/phase/{target}")
+async def lifecycle_advance(target:str,payload:dict|None=None,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    try:return await advance_phase(db.pool,target,(payload or {}).get("details"))
+    except ValueError as e:raise HTTPException(409,str(e))
+
+@app.post("/scientific/history/import")
+async def scientific_history_import(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    phase=await get_phase(db.pool)
+    if phase["phase"] not in ("HISTORICAL_SCIENCE_BOOTSTRAP","GRID_IMPORT","LIVE_LEARNING","PAPER_TRADING"):
+        raise HTTPException(409,"historical science import is not allowed in current lifecycle phase")
+    try:result=await import_historical_science(db.pool,payload)
+    except ValueError as e:raise HTTPException(400,str(e))
+    if phase["phase"]=="HISTORICAL_SCIENCE_BOOTSTRAP":
+        await advance_phase(db.pool,"GRID_IMPORT",{"historical_science_bundle":result["bundle_id"]})
+    return result
 
 @app.get("/scientific/simulations")
 async def scientific_simulations(status_filter:str="",limit:int=100,x_grid_token:str=Header(default="")):
