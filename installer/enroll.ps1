@@ -17,7 +17,10 @@ $CredentialFile=Join-Path $SecretDir "node.credential"
 Set-Content -Path $CredentialFile -Value $r.credential -NoNewline -Encoding ascii
 $NodeIdFile=Join-Path $SecretDir "node.id"
 Set-Content -Path $NodeIdFile -Value $r.node_id -NoNewline -Encoding ascii
-& icacls $SecretDir /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" | Out-Null
-& icacls $CredentialFile /inheritance:r /grant:r "SYSTEM:F" "Administrators:F" | Out-Null
-& icacls $NodeIdFile /inheritance:r /grant:r "SYSTEM:F" "Administrators:F" | Out-Null
+& icacls $SecretDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)(F)" "*S-1-5-32-544:(OI)(CI)(F)" | Out-Null
+if($LASTEXITCODE -ne 0){throw "Failed to protect Grid secret directory ACL"}
+& icacls $CredentialFile /inheritance:r /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Null
+if($LASTEXITCODE -ne 0){throw "Failed to protect node credential ACL"}
+& icacls $NodeIdFile /inheritance:r /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Null
+if($LASTEXITCODE -ne 0){throw "Failed to protect node id ACL"}
 @{node_id=$r.node_id;credential_file=$CredentialFile;node_id_file=$NodeIdFile;install_mode=$r.install_mode} | ConvertTo-Json
