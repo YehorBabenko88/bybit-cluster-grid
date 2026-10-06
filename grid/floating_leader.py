@@ -33,7 +33,20 @@ class FloatingLeader:
     async def run(self,on_gain=None,on_loss=None):
         previous=False
         while not self.stop_event.is_set():
-            current=await (self.renew() if self.is_leader else self.campaign())
+            try:
+                current=await (self.renew() if self.is_leader else self.campaign())
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # Loss of the shared lease store must fail closed immediately.
+                # Do not let a transient PostgreSQL outage kill the election loop:
+                # clear local leadership and keep campaigning after the normal
+                # renewal interval so recovery is automatic when DB returns.
+                log.exception("leader election database operation failed",
+                              extra={"event":"leader_db_error","node_id":self.node_id})
+                current=False
+                self.is_leader=False
+                self.epoch=None
             if current and not previous and on_gain: await on_gain(self.epoch)
             if previous and not current and on_loss: await on_loss()
             previous=current
