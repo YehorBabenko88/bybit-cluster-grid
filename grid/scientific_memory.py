@@ -31,7 +31,11 @@ async def record_evidence(pool,hypothesis_id,spec:HypothesisSpec,evidence:Eviden
       id,hypothesis_id,experiment_key,symbol,regime,split_key,sample_count,
       mean_return_bps,hit_rate,cost_bps,dataset_cutoff,passed,metrics)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
-      ON CONFLICT(hypothesis_id,experiment_key) DO NOTHING""",
+      ON CONFLICT(hypothesis_id,experiment_key) DO UPDATE SET
+      symbol=EXCLUDED.symbol,regime=EXCLUDED.regime,split_key=EXCLUDED.split_key,
+      sample_count=EXCLUDED.sample_count,mean_return_bps=EXCLUDED.mean_return_bps,
+      hit_rate=EXCLUDED.hit_rate,cost_bps=EXCLUDED.cost_bps,dataset_cutoff=EXCLUDED.dataset_cutoff,
+      passed=EXCLUDED.passed,metrics=EXCLUDED.metrics,created_at=now()""",
       uuid.uuid4(),hypothesis_id,evidence.experiment_key,evidence.symbol,evidence.regime,
       evidence.split_key,int(evidence.sample_count),float(evidence.mean_return_bps),
       float(evidence.hit_rate),float(evidence.cost_bps),evidence.dataset_cutoff,bool(passed),
