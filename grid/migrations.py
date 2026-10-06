@@ -333,6 +333,21 @@ outcome jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAU
 "ALTER TABLE dataset_sample_payloads SET (autovacuum_vacuum_scale_factor=0.02,autovacuum_analyze_scale_factor=0.01,autovacuum_vacuum_threshold=500)",
 "ALTER TABLE ml_jobs SET (autovacuum_vacuum_scale_factor=0.05,autovacuum_analyze_scale_factor=0.02,autovacuum_vacuum_threshold=100)",
 "ALTER TABLE dataset_snapshots SET (autovacuum_vacuum_scale_factor=0.05,autovacuum_analyze_scale_factor=0.02,autovacuum_vacuum_threshold=100)"
+]),
+(36,"micro_agent_research",[
+"""CREATE TABLE IF NOT EXISTS micro_agent_signals(
+id bigserial PRIMARY KEY,symbol text NOT NULL,event_ts timestamptz NOT NULL,
+agent text NOT NULL,state text NOT NULL,score double precision NOT NULL,
+direction smallint NOT NULL DEFAULT 0,features jsonb NOT NULL DEFAULT '{}'::jsonb,
+created_at timestamptz NOT NULL DEFAULT now())""",
+"CREATE INDEX IF NOT EXISTS micro_agent_signals_lookup_idx ON micro_agent_signals(symbol,agent,event_ts DESC)",
+"""CREATE TABLE IF NOT EXISTS micro_pattern_candidates(
+id bigserial PRIMARY KEY,symbol text NOT NULL,event_ts timestamptz NOT NULL,
+pattern_key text NOT NULL,direction smallint NOT NULL DEFAULT 0,strength double precision NOT NULL,
+agents jsonb NOT NULL DEFAULT '[]'::jsonb,features jsonb NOT NULL DEFAULT '{}'::jsonb,
+outcome jsonb NOT NULL DEFAULT '{}'::jsonb,outcome_ready boolean NOT NULL DEFAULT false,
+research_only boolean NOT NULL DEFAULT true,created_at timestamptz NOT NULL DEFAULT now())""",
+"CREATE INDEX IF NOT EXISTS micro_pattern_candidates_eval_idx ON micro_pattern_candidates(outcome_ready,pattern_key,event_ts)"
 ])
 ]
 
