@@ -26,3 +26,43 @@ def test_transport_client_has_no_database_dependency():
     assert "postgres" not in s.lower()
     assert "node_credential()" in s
     assert "X-Node-Credential" in s
+
+
+class RenewError:
+    async def renew(self,job):
+        raise ConnectionError("CONTROL unreachable")
+
+
+def test_remote_renew_exception_cancels_work():
+    async def scenario():
+        cancelled=asyncio.Event()
+        async def work():
+            try:
+                await asyncio.sleep(30)
+            finally:
+                cancelled.set()
+        with pytest.raises(ConnectionError,match="CONTROL unreachable"):
+            await run_remote_lease(
+                RenewError(),{"id":"j","lease_generation":2},work,renew_every=.01
+            )
+        assert cancelled.is_set()
+    asyncio.run(scenario())
+
+
+def test_remote_lease_caller_cancellation_cleans_work():
+    async def scenario():
+        cancelled=asyncio.Event()
+        async def work():
+            try:
+                await asyncio.sleep(30)
+            finally:
+                cancelled.set()
+        outer=asyncio.create_task(
+            run_remote_lease(Lost(),{"id":"j","lease_generation":2},work,renew_every=30)
+        )
+        await asyncio.sleep(.01)
+        outer.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await outer
+        assert cancelled.is_set()
+    asyncio.run(scenario())
