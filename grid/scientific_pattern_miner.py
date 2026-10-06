@@ -13,6 +13,7 @@ from .scientific_memory import register_hypothesis,record_evidence,negative_memo
 @dataclass(frozen=True)
 class PatternObservation:
     symbol:str
+    event_ts_ms:int
     split_key:str
     regime:str
     geometry:str
@@ -82,10 +83,14 @@ class ScientificPatternMiner:
           id,family_key,split_key,dataset_cutoff) VALUES($1,$2,$3,$4)""",
           run_id,family,str(split_key),dataset_cutoff)
         observations=await self._load(pool,horizon_ms,split_key,dataset_cutoff)
-        grouped={}
+        grouped={};last_bucket={}
+        embargo_ms=max(int(horizon_ms),5000)
         for o in observations:
             for pat in generate_patterns(o,self.min_size,self.max_size,self.max_patterns_per_event):
                 key=(pat,int(o.direction),o.symbol,o.regime)
+                bucket=int(o.event_ts_ms)//embargo_ms
+                if last_bucket.get(key)==bucket:continue
+                last_bucket[key]=bucket
                 grouped.setdefault(key,[]).append(float(o.return_bps))
         candidates=[]
         for (pat,direction,symbol,regime),vals in grouped.items():
@@ -131,7 +136,7 @@ class ScientificPatternMiner:
                 "candidates":len(candidates),"accepted":accepted}
 
     async def _load(self,pool,horizon_ms,split_key,dataset_cutoff):
-        rows=await pool.fetch("""SELECT symbol,return_bps,payload FROM scientific_outcome_requests
+        rows=await pool.fetch("""SELECT symbol,event_ts_ms,return_bps,payload FROM scientific_outcome_requests
           WHERE status='DONE' AND horizon_ms=$1 AND payload->>'split_key'=$2
             AND to_timestamp(observed_ts_ms/1000.0)<=$3
             AND event_type='micro_geometry_consensus'""",int(horizon_ms),str(split_key),dataset_cutoff)
@@ -140,7 +145,7 @@ class ScientificPatternMiner:
             p=_dict(r["payload"]);raw=p.get("spec") or {};params=raw.get("parameters") or {}
             try:
                 out.append(PatternObservation(
-                    str(r["symbol"]),str(split_key),str(p.get("regime","UNKNOWN")),
+                    str(r["symbol"]),int(r["event_ts_ms"]),str(split_key),str(p.get("regime","UNKNOWN")),
                     str(p.get("geometry_bucket","UNKNOWN")),int(raw["direction"]),
                     tuple(str(x) for x in p.get("agents") or params.get("agents") or ()),
                     strength_bucket(p.get("strength",params.get("consensus_strength",0))),
