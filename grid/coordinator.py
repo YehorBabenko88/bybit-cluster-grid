@@ -35,7 +35,7 @@ from .disk_guard import DiskWatermarks,disk_state,live_collection_allowed
 from .tailscale_provisioning import create_one_time_auth_key,TailscaleProvisioningError
 from .scientific_service import ScientificResearchService
 from .historical_science_import import import_historical_science
-from .system_lifecycle import get_phase,advance_phase,phase_capabilities
+from .system_lifecycle import get_phase,advance_phase,phase_capabilities,PHASES
 
 log=logging.getLogger("coordinator")
 app=FastAPI(title="Bybit Cluster Grid Coordinator")
@@ -507,12 +507,23 @@ async def lifecycle_advance(target:str,payload:dict|None=None,x_grid_token:str=H
 async def scientific_history_import(payload:dict,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
     phase=await get_phase(db.pool)
-    if phase["phase"] not in ("HISTORICAL_SCIENCE_BOOTSTRAP","GRID_IMPORT","LIVE_LEARNING","PAPER_TRADING"):
-        raise HTTPException(409,"historical science import is not allowed in current lifecycle phase")
+    if phase["phase"] in ("LIVE_LEARNING","PAPER_TRADING"):
+        # Later phases may import additional historical bundles as priors, but
+        # the lifecycle itself must never regress.
+        try:return await import_historical_science(db.pool,payload)
+        except ValueError as e:raise HTTPException(400,str(e))
     try:result=await import_historical_science(db.pool,payload)
     except ValueError as e:raise HTTPException(400,str(e))
-    if phase["phase"]=="HISTORICAL_SCIENCE_BOOTSTRAP":
-        await advance_phase(db.pool,"GRID_IMPORT",{"historical_science_bundle":result["bundle_id"]})
+    # Verified Strattester handoff is proof that the historical prerequisites
+    # were completed outside Grid. Advance the local lifecycle monotonically.
+    current=(await get_phase(db.pool))["phase"]
+    for target in ("MARKET_HISTORY_SYNC","HISTORICAL_STRATEGY_RESEARCH",
+                   "HISTORICAL_SCIENCE_BOOTSTRAP","GRID_IMPORT"):
+        if current==target:continue
+        if PHASES.index(current)<PHASES.index(target):
+            await advance_phase(db.pool,target,{"historical_science_bundle":result["bundle_id"],
+                                                "handoff_source":"strattester"})
+            current=target
     return result
 
 @app.get("/scientific/simulations")
