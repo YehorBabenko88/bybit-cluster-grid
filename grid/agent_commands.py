@@ -97,11 +97,11 @@ async def execute_command(worker,cmd):
     if action=="log_tail":
         return _grid_log_tail(payload.get("lines",120))
     if action=="restart":
-        asyncio.get_running_loop().call_later(1.0,lambda:os._exit(75))
+        worker.restart_requested=True
         return {"state":"restarting"}
     if action=="update":
         result=await _update(payload)
-        asyncio.get_running_loop().call_later(2.0,lambda:os._exit(75))
+        worker.restart_requested=True
         return result
     if action=="repair":
         # Repair is deliberately the same verified release path as update, never arbitrary file download.
