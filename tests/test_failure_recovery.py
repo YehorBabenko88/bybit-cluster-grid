@@ -425,3 +425,55 @@ def test_manual_rollback_clears_pending_health_state(tmp_path):
     assert rollback(root)=="good"
     assert not (root/"pending.version").exists()
     assert not (root/"pending-crashes.txt").exists()
+
+
+def test_control_self_update_rejects_non_https_before_mutation():
+    import asyncio
+    from grid.control_self_update import apply
+    try:
+        asyncio.run(apply("v","http://example.invalid/x.zip","0"*64))
+    except ValueError as e:
+        assert "HTTPS" in str(e)
+    else:
+        raise AssertionError("non-HTTPS CONTROL update accepted")
+
+
+def test_control_update_status_journal_is_atomic(tmp_path):
+    import json
+    from grid.control_self_update import _status
+    _status(tmp_path,state="preflight",version="v2")
+    p=tmp_path/"control-update-status.json"
+    data=json.loads(p.read_text(encoding="utf-8"))
+    assert data["state"]=="preflight" and data["version"]=="v2"
+    assert not (tmp_path/"control-update-status.json.tmp").exists()
+
+
+def test_control_update_unlock_removes_only_own_lock(tmp_path):
+    import os
+    from grid.control_self_update import _unlock_own
+    p=tmp_path/"control-update.lock"
+    p.write_text(str(os.getpid()),encoding="ascii")
+    _unlock_own(tmp_path)
+    assert not p.exists()
+    p.write_text("99999999",encoding="ascii")
+    _unlock_own(tmp_path)
+    assert p.exists()
+
+
+def test_control_update_api_requires_completed_registered_rollout():
+    from pathlib import Path
+    c=Path("grid/coordinator.py").read_text(encoding="utf-8")
+    assert '@app.post("/control/update")' in c
+    assert 'rollout_status"]!="complete"' in c
+    assert "release URL/SHA do not match" in c
+    assert '@app.get("/control/update/status")' in c
+
+
+def test_telegram_control_update_uses_promoted_registered_release_only():
+    from pathlib import Path
+    t=Path("grid/telegram_bot.py").read_text(encoding="utf-8")
+    assert 'cmd=="/controlupdate"' in t
+    assert "r.channel='stable'" in t
+    assert "r.enabled=true" in t
+    assert 'rel["rollout_status"]!="complete"' in t
+    assert 'cmd=="/controlupdatestatus"' in t
