@@ -71,6 +71,15 @@ def _node_line(nid,n,now):
     state="ONLINE" if age < settings.heartbeat_seconds*3 else "OFFLINE"
     return f"{nid}: {state}, v={n.get('agent_version','?')}, cpu={n.get('cpu_pct','?')}%, ram={n.get('ram_pct','?')}%, seen={age}s"
 
+def _pretty_bytes(value):
+    try: n=max(0,float(value or 0))
+    except (TypeError,ValueError): return "?"
+    units=("B","KB","MB","GB","TB")
+    for unit in units:
+        if n<1024 or unit==units[-1]:
+            return f"{n:.1f} {unit}" if unit!="B" else f"{int(n)} B"
+        n/=1024
+
 def _healthy_canary(nodes):
     now=time.time()
     candidates=[]
@@ -190,7 +199,10 @@ async def handle_command(db,session,chat_id,text,nodes):
         lines=[f"Node {nid}",f"mode={mode} online={age<settings.heartbeat_seconds*3} seen={age}s",
                f"workload: wanted={syms} streams={streams} stopped={n.get('operator_stopped',False)}",
                f"resources: cpu={n.get('cpu_pct','?')}% ram={n.get('ram_pct','?')}% pressure={n.get('pressure_state','?')}",
-               f"storage: queue={n.get('db_queue_ratio','?')} spool={n.get('db_spool_ratio','?')}",
+               f"local data: {_pretty_bytes(n.get('grid_local_data_bytes'))} (agents are DB-less)",
+               f"WAL: minute={_pretty_bytes(n.get('spool_bytes'))} micro={_pretty_bytes(n.get('micro_spool_bytes'))}",
+               f"logs={_pretty_bytes(n.get('logs_bytes'))} ML={_pretty_bytes(n.get('ml_artifacts_bytes'))} strategies={_pretty_bytes(n.get('strategy_cache_bytes'))}",
+               f"queues: minute={n.get('db_queue_ratio','?')} micro={n.get('micro_queue_ratio','?')}",
                f"integrity={n.get('integrity_ok','?')} assignments={len(assigned) if isinstance(assigned,list) else syms}"]
         await tg_send(session,chat_id,"\n".join(lines))
     elif cmd=="/status":
