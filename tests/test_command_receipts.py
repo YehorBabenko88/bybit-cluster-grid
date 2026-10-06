@@ -21,3 +21,26 @@ def test_command_receipts_are_bounded(tmp_path):
     rows=store._load()
     assert len(rows)==100
     assert store.get("cmd-139") is not None
+
+
+def test_restart_commands_request_graceful_worker_shutdown():
+    import asyncio
+    from grid.agent_commands import execute_command
+
+    class Worker:
+        restart_requested=False
+
+    async def run():
+        worker=Worker()
+        result=await execute_command(worker,{"action":"restart","payload":{}})
+        assert result["state"]=="restarting"
+        assert worker.restart_requested is True
+
+    asyncio.run(run())
+
+
+def test_lifecycle_commands_do_not_hard_exit_worker_process():
+    from pathlib import Path
+    source=Path("grid/agent_commands.py").read_text(encoding="utf-8")
+    assert "os._exit(75)" not in source
+    assert "restart_requested=True" in source
