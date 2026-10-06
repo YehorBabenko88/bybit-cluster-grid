@@ -30,3 +30,9 @@ def test_bootstrap_has_role_tags_and_network_preflight():
     assert "Test-NetConnection" in check
     assert "/health" in check
     assert "ESET" in check
+
+def test_legacy_control_launcher_generates_admin_token_before_env_import():
+    launcher=Path("installer/coordinator-launcher.ps1").read_text(encoding="utf-8")
+    assert "'^GRID_SHARED_TOKEN=.+$'" in launcher
+    assert "RandomNumberGenerator" in launcher
+    assert 'Add-Content -Encoding UTF8 $EnvFile ("GRID_SHARED_TOKEN="+$token)' in launcher
