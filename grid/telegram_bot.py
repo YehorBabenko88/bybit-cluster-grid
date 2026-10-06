@@ -137,7 +137,82 @@ async def handle_command(db,session,chat_id,text,nodes):
     cmd=parts[0].lower()
     now=time.time()
     if cmd=="/menu" or (cmd=="/start" and len(parts)==1):
-        await tg_send(session,chat_id,"Управление Bybit Cluster Grid",_main_keyboard())
+        phase=await get_phase(db.pool)
+        await tg_send(session,chat_id,f"Bybit Research Grid\nPhase: {phase['phase']}",_main_keyboard())
+    elif cmd=="/ops":
+        await tg_send(session,chat_id,"⚙ Управление системой",_ops_keyboard())
+    elif cmd=="/sim":
+        await tg_send(session,chat_id,"📈 Симулятивная торговля",_sim_keyboard())
+    elif cmd=="/science":
+        await tg_send(session,chat_id,"🔬 Научный модуль",_science_keyboard())
+    elif cmd=="/phase":
+        p=await get_phase(db.pool);caps=phase_capabilities(p["phase"])
+        await tg_send(session,chat_id,
+            "Lifecycle: "+p["phase"]+"\nCompleted: "+(", ".join(p["completed"]) or "-")+
+            "\nCapabilities: "+", ".join(f"{k}={'ON' if v else 'OFF'}" for k,v in caps.items()))
+    elif cmd=="/simstatus":
+        rows=await db.pool.fetch("""SELECT status,count(*) n FROM scientific_simulation_runs GROUP BY status""")
+        recent=await db.pool.fetchrow("""SELECT r.status,r.reason,r.completed_at,h.pattern,h.horizon_ms
+          FROM scientific_simulation_runs r JOIN scientific_hypotheses h ON h.id=r.hypothesis_id
+          ORDER BY r.created_at DESC LIMIT 1""")
+        lines=["📈 Simulation gate"]+[f"{x['status']}: {x['n']}" for x in rows]
+        if recent: lines.append(f"Last: {recent['status']} {recent['pattern']} h={recent['horizon_ms']}ms")
+        await tg_send(session,chat_id,"\n".join(lines),_sim_keyboard())
+    elif cmd=="/simruns":
+        rows=await db.pool.fetch("""SELECT r.status,h.pattern,h.horizon_ms,r.metrics,r.reason
+          FROM scientific_simulation_runs r JOIN scientific_hypotheses h ON h.id=r.hypothesis_id
+          ORDER BY r.created_at DESC LIMIT 10""")
+        lines=["Последние simulation runs:"]
+        for x in rows:
+            m=x["metrics"] or {}
+            lines.append(f"{x['status']} | {x['pattern']} | h={x['horizon_ms']} | n={m.get('trades','-')} exp={m.get('expectancy_bps','-')} PF={m.get('profit_factor','-')}")
+        await tg_send(session,chat_id,"\n".join(lines) if rows else "Simulation runs пока нет.",_sim_keyboard())
+    elif cmd=="/simpassed":
+        rows=await db.pool.fetch("""SELECT h.pattern,h.horizon_ms,r.metrics FROM scientific_simulation_runs r
+          JOIN scientific_hypotheses h ON h.id=r.hypothesis_id
+          WHERE r.status='SIMULATION_PASSED' ORDER BY r.completed_at DESC LIMIT 10""")
+        lines=["✅ Simulation passed:"]
+        for x in rows:
+            m=x["metrics"] or {};lines.append(f"{x['pattern']} h={x['horizon_ms']} n={m.get('trades','-')} exp={m.get('expectancy_bps','-')}")
+        await tg_send(session,chat_id,"\n".join(lines) if rows else "Нет SIMULATION_PASSED.",_sim_keyboard())
+    elif cmd=="/simwaiting":
+        rows=await db.pool.fetch("""SELECT h.pattern,h.horizon_ms,r.reason FROM scientific_simulation_runs r
+          JOIN scientific_hypotheses h ON h.id=r.hypothesis_id
+          WHERE r.status='WAITING_OOS' ORDER BY r.created_at DESC LIMIT 10""")
+        lines=["⏳ Waiting OOS:"]
+        lines += [f"{x['pattern']} h={x['horizon_ms']}: {x['reason']}" for x in rows]
+        await tg_send(session,chat_id,"\n".join(lines) if rows else "Нет WAITING_OOS.",_sim_keyboard())
+    elif cmd=="/sciencestatus":
+        counts=await db.pool.fetch("""SELECT status,count(*) n FROM scientific_hypotheses GROUP BY status""")
+        pending=await db.pool.fetchval("SELECT count(*) FROM scientific_outcome_requests WHERE status='PENDING'")
+        bundles=await db.pool.fetchval("SELECT count(*) FROM historical_scientific_bundles")
+        lines=["🔬 Scientific status",f"Historical bundles: {int(bundles or 0)}",f"Pending outcomes: {int(pending or 0)}"]
+        lines += [f"{x['status']}: {x['n']}" for x in counts]
+        await tg_send(session,chat_id,"\n".join(lines),_science_keyboard())
+    elif cmd=="/discoveries":
+        rows=await db.pool.fetch("""SELECT pattern,horizon_ms,status,updated_at FROM scientific_hypotheses
+          WHERE status IN ('OBSERVED','REPLICATED','VALIDATED') ORDER BY updated_at DESC LIMIT 12""")
+        lines=["💡 Научные открытия/кандидаты:"]
+        lines += [f"{x['status']} | {x['pattern']} | h={x['horizon_ms']}ms" for x in rows]
+        await tg_send(session,chat_id,"\n".join(lines) if rows else "Пока устойчивых открытий нет.",_science_keyboard())
+    elif cmd=="/sciencehistory":
+        rows=await db.pool.fetch("""SELECT source,sha256,research_scope,imported_at,status FROM historical_scientific_bundles
+          ORDER BY imported_at DESC LIMIT 5""")
+        lines=["📚 Historical scientific bootstrap:"]
+        lines += [f"{x['status']} {x['source']} {str(x['sha256'])[:10]}… {x['research_scope']}" for x in rows]
+        await tg_send(session,chat_id,"\n".join(lines) if rows else "Historical science bundle ещё не импортирован.",_science_keyboard())
+    elif cmd=="/sciencemining":
+        row=await db.pool.fetchrow("""SELECT split_key,candidate_count,accepted_count,status,completed_at
+          FROM scientific_mining_runs ORDER BY started_at DESC LIMIT 1""")
+        fam=await db.pool.fetchval("SELECT COALESCE(sum(hypotheses_tested),0) FROM scientific_mining_families")
+        await tg_send(session,chat_id,
+            f"⛏ Pattern mining\nTested: {int(fam or 0)}\nLast: {dict(row) if row else 'none'}",_science_keyboard())
+    elif cmd=="/sciencerejected":
+        rows=await db.pool.fetch("""SELECT h.pattern,h.horizon_ms,n.reason,n.updated_at FROM scientific_negative_memory n
+          JOIN scientific_hypotheses h ON h.fingerprint=n.fingerprint ORDER BY n.updated_at DESC LIMIT 10""")
+        lines=["❌ Отвергнутые закономерности:"]
+        lines += [f"{x['pattern']} h={x['horizon_ms']}: {x['reason']}" for x in rows]
+        await tg_send(session,chat_id,"\n".join(lines) if rows else "Negative memory пуста.",_science_keyboard())
     elif cmd=="/system":
         s=await runtime_state(db.pool)
         online=sum(1 for n in nodes.values() if now-float(n.get("last_seen",0))<settings.heartbeat_seconds*3)
