@@ -63,3 +63,14 @@ def test_linear_symbols_fails_closed_on_exchange_error(monkeypatch):
         with pytest.raises(RuntimeError,match="10006"):
             await bybit.linear_symbols("https://example.invalid",max_attempts=1)
     asyncio.run(run())
+
+
+def test_reachability_probe_always_closes_socket(monkeypatch):
+    from grid import resilience
+    class FakeSocket:
+        def __init__(self): self.closed=False
+        def close(self): self.closed=True
+    sock=FakeSocket()
+    monkeypatch.setattr(resilience.socket,"create_connection",lambda *a,**k:sock)
+    assert resilience._probe_tcp("example.invalid",443,3) is True
+    assert sock.closed is True
