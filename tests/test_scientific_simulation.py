@@ -47,3 +47,12 @@ def test_simulator_has_no_exchange_execution_dependency():
     g=Path("grid/scientific_simulation_gate.py").read_text(encoding="utf-8")
     assert "place_order" not in s+g
     assert "pybit" not in s+g
+
+
+def test_promotion_gate_is_strictly_oos_and_fail_closed():
+    from pathlib import Path
+    g=Path("grid/scientific_simulation_gate.py").read_text(encoding="utf-8")
+    assert "max(dataset_cutoff)" in g
+    assert "to_timestamp(event_ts_ms/1000.0)>$2" in g
+    assert "WAITING_OOS" in g
+    assert '"combinatorial-v1"' in g
