@@ -32,13 +32,17 @@ if(Test-Path $EnvFile){
   }
 }
 
-$VersionFile=Join-Path $InstallRoot "current.version"
-$Release=if(Test-Path $VersionFile){
-  Join-Path (Join-Path $InstallRoot "releases") ((Get-Content $VersionFile -Raw).Trim())
-}else{
-  Join-Path $InstallRoot "bootstrap"
+$Release=$null
+foreach($name in @("current.version","previous.version")){
+  $marker=Join-Path $InstallRoot $name
+  if(!(Test-Path $marker)){continue}
+  $v=(Get-Content $marker -Raw).Trim()
+  if(!$v){continue}
+  $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
+  if(Test-Path (Join-Path $candidate "grid\coordinator.py")){$Release=$candidate;break}
 }
-if(!(Test-Path $Release)){throw "Grid CONTROL release not found: $Release"}
+if(!$Release){$Release=Join-Path $InstallRoot "bootstrap"}
+if(!(Test-Path (Join-Path $Release "grid\coordinator.py"))){throw "No runnable Grid CONTROL release found"}
 $WaitDb=Join-Path $Release "installer\wait-grid-postgres.ps1"
 if(Test-Path $WaitDb){ & $WaitDb -DataRoot $DataRoot -TimeoutSeconds 120 }
 Set-Location $Release
