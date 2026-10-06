@@ -61,3 +61,15 @@ jobs:
         run: python -m pytest -q
       - name: Enrollment lifecycle integration tests
         run: python -m pytest -q tests/test_enrollment_postgres_integration.py
+      - name: Failure-recovery stress gates
+        run: >-
+          python -m pytest -q
+          tests/test_failure_recovery.py
+          tests/test_long_outage_recovery.py
+          tests/test_spool.py
+          tests/test_floating_control_plane.py
+          tests/test_bybit_resilience.py
+          tests/test_ml_concurrency.py
+          tests/test_ml_retry.py
+          tests/test_ml_process_supervisor.py
+          tests/test_ml_publication_fence.py
