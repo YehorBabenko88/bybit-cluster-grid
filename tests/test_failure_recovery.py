@@ -251,8 +251,8 @@ def test_postgres_install_is_journaled_before_installer_mutation():
     i=Path("installer/install-postgres.ps1").read_text(encoding="utf-8")
     marker=i.index('"postgres-installing.json"')
     process=i.index("Start-Process -FilePath $Installer")
-    manifest=i.index('"postgres-owned.json"')
-    assert marker < process < manifest
+    assert '"postgres-owned.json"' not in i
+    assert marker < process
     assert "postgres-installing.json remains the sole recovery journal" in i
 
 
@@ -344,7 +344,7 @@ def test_postgres_transaction_closes_only_after_dsn_commit():
     from pathlib import Path
     i=Path("installer/install-postgres.ps1").read_text(encoding="utf-8")
     p=Path("installer/provision_postgres.ps1").read_text(encoding="utf-8")
-    assert "Keep postgres-installing.json until role/database credentials" in i
+    assert "postgres-installing.json remains the sole recovery journal" in i
     assert p.index('Add-EnvOnce "POSTGRES_DSN"') < p.rindex("Remove-Item $Installing")
     assert "configure-postgres.ps1" in p
 
