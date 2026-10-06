@@ -6,7 +6,12 @@ async def store_derived_minute(conn,row):
         row["symbol"],row["ts"],
     )
     if consumed:
-        return False
+        # Existing downstream consumption is valid compaction evidence only when
+        # the canonical minute still has materialized footprint rows.
+        return int(await conn.fetchval(
+            "SELECT count(*) FROM footprint_1m WHERE symbol=$1 AND ts=$2",
+            row["symbol"],row["ts"],
+        ) or 0)
     accepted=await conn.fetchval("""INSERT INTO candles_1m
       (symbol,ts,open,high,low,close,buy_volume,sell_volume,delta,trade_count,poc_price,quality_status,quality_reasons)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'ARCHIVE', '[]'::jsonb)
@@ -19,7 +24,11 @@ async def store_derived_minute(conn,row):
       row["symbol"],row["ts"],row["open"],row["high"],row["low"],row["close"],
       row["buy_volume"],row["sell_volume"],row["delta"],row["trade_count"],row["poc_price"])
     if not accepted:
-        return False
+        # A more complete canonical live minute won the trade_count fence.
+        return int(await conn.fetchval(
+            "SELECT count(*) FROM footprint_1m WHERE symbol=$1 AND ts=$2",
+            row["symbol"],row["ts"],
+        ) or 0)
     # Footprint is one versioned object with its candle. Replace the complete
     # minute so levels from an older/live aggregation cannot survive as ghosts.
     await conn.execute("DELETE FROM footprint_1m WHERE symbol=$1 AND ts=$2",row["symbol"],row["ts"])
@@ -31,15 +40,16 @@ async def store_derived_minute(conn,row):
         await conn.executemany("""INSERT INTO footprint_1m
           (symbol,ts,price,buy_volume,sell_volume,delta,volume,buy_count,sell_count)
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)""",values)
-    return True
+    return len(values)
 
 async def materialize_archive(pool,aggregates):
     candles=levels=0;min_ts=max_ts=None
     async with pool.acquire() as c:
         async with c.transaction():
             for row in aggregates:
-                if await store_derived_minute(c,row):
-                    candles+=1;levels+=len(row["levels"])
+                materialized_levels=await store_derived_minute(c,row)
+                if materialized_levels:
+                    candles+=1;levels+=materialized_levels
                 min_ts=row["ts"] if min_ts is None else min(min_ts,row["ts"])
                 max_ts=row["ts"] if max_ts is None else max(max_ts,row["ts"])
     return {"derived_candles":candles,"derived_footprint_rows":levels,"min_ts":min_ts,"max_ts":max_ts}
@@ -52,8 +62,9 @@ async def materialize_archive_stream(pool,aggregates,batch_minutes=30):
         async with pool.acquire() as c:
             async with c.transaction():
                 for row in items:
-                    if await store_derived_minute(c,row):
-                        candles+=1;levels+=len(row["levels"]);source_rows+=int(row["trade_count"])
+                    materialized_levels=await store_derived_minute(c,row)
+                    if materialized_levels:
+                        candles+=1;levels+=materialized_levels;source_rows+=int(row["trade_count"])
                     min_ts=row["ts"] if min_ts is None else min(min_ts,row["ts"])
                     max_ts=row["ts"] if max_ts is None else max(max_ts,row["ts"])
     for row in aggregates:
