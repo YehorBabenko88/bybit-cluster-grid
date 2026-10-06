@@ -102,3 +102,29 @@ def test_ready_snapshot_gc_is_reference_fenced():
     ):
         assert table in block
     assert "j.payload->>'dataset_id'=d.id::text" in block
+
+
+def test_hot_tables_have_early_autovacuum_policy():
+    s=Path("grid/migrations.py").read_text(encoding="utf-8")
+    block=s.split('(35,"hot_table_autovacuum_policy"',1)[1]
+    for table in ("market_events","orderbook_snapshots","footprint_1m",
+                  "dataset_sample_payloads","ml_jobs","dataset_snapshots"):
+        assert f"ALTER TABLE {table} SET" in block
+    assert "autovacuum_vacuum_scale_factor=0.02" in block
+
+
+def test_maintenance_tracks_relation_size_and_bloat_without_vacuum_full():
+    s=Path("grid/maintenance.py").read_text(encoding="utf-8")
+    assert "pg_total_relation_size" in s
+    assert "dead_ratio" in s
+    assert "postgres_bloat_pressure" in s
+    executable=[line for line in s.splitlines()
+                if "VACUUM FULL" in line and not line.lstrip().startswith("#")]
+    assert not executable
+
+
+def test_artifact_gc_is_bounded_multi_batch():
+    s=Path("grid/ml_artifact_gc.py").read_text(encoding="utf-8")
+    assert "max_batches=5" in s
+    assert "batch_size=200" in s
+    assert "for _ in range(max(1,int(max_batches)))" in s
