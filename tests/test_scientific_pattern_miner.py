@@ -1,11 +1,11 @@
 from datetime import datetime,timezone
 from grid.scientific_pattern_miner import (
-    PatternObservation,generate_patterns,directional_stats,holm_adjust,strength_bucket)
+    PatternObservation,generate_patterns,directional_stats,holm_adjust,strength_bucket,independent_bucket)
 from grid.scientific_mining_scheduler import previous_closed_iso_week
 from grid.scientific_hypotheses import HypothesisSpec,Evidence,evidence_passes
 
 def obs():
-    return PatternObservation("BTC","2026-W40","HIGH","SURFACE_BREAK",1,
+    return PatternObservation("BTC",10000,"2026-W40","HIGH","SURFACE_BREAK",1,
                               ("delta","oi","volume"),"S3",5.0)
 
 def test_pattern_generation_is_bounded_and_requires_micro_agent():
@@ -38,3 +38,8 @@ def test_scheduler_returns_previous_closed_iso_week():
     split,cutoff=previous_closed_iso_week(datetime(2026,10,6,12,tzinfo=timezone.utc))
     assert split=="2026-W40"
     assert cutoff==datetime(2026,10,5,0,tzinfo=timezone.utc)
+
+
+def test_overlapping_outcomes_share_independent_bucket():
+    assert independent_bucket(10000,60000)==independent_bucket(59000,60000)
+    assert independent_bucket(10000,60000)!=independent_bucket(70000,60000)
