@@ -27,11 +27,10 @@ def test_normal_normal_active_receives_full_assignment():
     assert len(result) == 890
 
 
-def test_pilot_validating_active_is_hard_capped_at_five():
-    result=guarded(True,"PILOT","PILOT_VALIDATING")
-    assert result == [
-        "BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","DOGEUSDT"
-    ]
+def test_pilot_validating_active_is_hard_capped_at_five_and_scheduler_owned():
+    pilot=["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","DOGEUSDT"]
+    result=guarded(True,"PILOT","PILOT_VALIDATING",assignments=pilot)
+    assert result == pilot
     assert len(result) <= 5
 
 
@@ -63,6 +62,7 @@ def test_pilot_only_receives_available_preferred_symbols():
         True,
         "PILOT",
         "PILOT_VALIDATING",
+        assignments=["BTCUSDT","SOLUSDT","ADAUSDT"],
         instruments={"BTCUSDT","SOLUSDT","ADAUSDT"},
     )
     assert result == ["BTCUSDT","SOLUSDT"]
