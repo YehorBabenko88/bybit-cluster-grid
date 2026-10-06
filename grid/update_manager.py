@@ -67,6 +67,15 @@ def current_version(install_root):
 def previous_version(install_root):
     return _read_marker(install_root,"previous.version")
 
+def pending_version(install_root):
+    return _read_marker(install_root,"pending.version")
+
+def clear_pending(install_root):
+    root=pathlib.Path(install_root)
+    for name in ("pending.version","pending-crashes.txt","pending-started.txt"):
+        try:(root/name).unlink()
+        except FileNotFoundError:pass
+
 def switch_current(install_root,version,record_previous=True):
     root=pathlib.Path(install_root)
     target=root/"releases"/version
@@ -103,13 +112,14 @@ def rollback(install_root):
     if prev:
         # Preserve the failed/current release as the next rollback target.
         switch_current(root,prev,record_previous=True)
+        clear_pending(root)
     return prev
 
 def cleanup_release_storage(install_root,data_root,keep_recent=2,older_than_seconds=86400):
     """Bound immutable release/update storage without touching current or rollback targets."""
     install_root=pathlib.Path(install_root); data_root=pathlib.Path(data_root)
     releases=install_root/"releases"; cutoff=time.time()-max(3600,int(older_than_seconds))
-    protected={v for v in (current_version(install_root),previous_version(install_root)) if v}
+    protected={v for v in (current_version(install_root),previous_version(install_root),pending_version(install_root)) if v}
     recent={p.name for p in _runnable_releases(install_root)[:max(0,int(keep_recent))]}
     protected|=recent
     removed_releases=[]; removed_staging=[]; removed_downloads=[]; removed_upgrades=[]
