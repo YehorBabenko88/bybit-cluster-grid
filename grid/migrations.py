@@ -370,6 +370,21 @@ UNIQUE(hypothesis_id,experiment_key))""",
 fingerprint text PRIMARY KEY,reason text NOT NULL,evidence_count bigint NOT NULL DEFAULT 0,
 cooldown_until timestamptz,details jsonb NOT NULL DEFAULT '{}'::jsonb,
 updated_at timestamptz NOT NULL DEFAULT now())"""
+]),
+(38,"durable_scientific_outcomes",[
+"""CREATE TABLE IF NOT EXISTS scientific_outcome_requests(
+id uuid PRIMARY KEY,event_id text NOT NULL,hypothesis_fingerprint text NOT NULL,
+symbol text NOT NULL,event_ts_ms bigint NOT NULL,due_ts_ms bigint NOT NULL,
+horizon_ms integer NOT NULL,reference_price double precision NOT NULL,
+event_type text NOT NULL,payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+status text NOT NULL DEFAULT 'PENDING',created_at timestamptz NOT NULL DEFAULT now(),
+completed_at timestamptz,observed_ts_ms bigint,outcome_price double precision,
+log_return double precision,return_bps double precision,
+UNIQUE(event_id,hypothesis_fingerprint,horizon_ms))""",
+"CREATE INDEX IF NOT EXISTS scientific_outcomes_due_idx ON scientific_outcome_requests(symbol,status,due_ts_ms)",
+"""CREATE TABLE IF NOT EXISTS scientific_outcome_clock(
+symbol text PRIMARY KEY,last_observed_ts_ms bigint NOT NULL,
+updated_at timestamptz NOT NULL DEFAULT now())"""
 ])
 ]
 
