@@ -30,8 +30,6 @@ $Settings=New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-T
 # Never overlap service instances during slow shutdown, restart retries, or cold boot.
 # A second coordinator/worker/archive process would duplicate sockets, leases and work.
 $Settings.MultipleInstances="IgnoreNew"
-Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
-
 $ArchiveArg='-NoProfile -ExecutionPolicy Bypass -File "'+$ArchiveLauncher+'" -Python "'+$Python+'" -InstallRoot "'+$InstallRoot+'"'
 $ArchiveAction=New-ScheduledTaskAction -Execute "powershell.exe" -Argument $ArchiveArg -WorkingDirectory $InstallRoot
 # Archive/backfill owns direct PostgreSQL work and therefore belongs on CONTROL.
@@ -52,6 +50,8 @@ if($Mode -eq "CONTROL"){
   Start-ScheduledTask $ArchiveTaskName
 }else{
   Unregister-ScheduledTask $CoordinatorTaskName -Confirm:$false -ErrorAction SilentlyContinue
+  Unregister-ScheduledTask $ArchiveTaskName -Confirm:$false -ErrorAction SilentlyContinue
+  Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
   Start-ScheduledTask $TaskName
 }
 Write-Host "Bybit Cluster Grid installed in $Mode mode."
