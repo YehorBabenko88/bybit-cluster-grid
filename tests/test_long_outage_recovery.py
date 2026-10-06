@@ -109,19 +109,13 @@ def test_recovery_budget_is_shared_across_recovering_workers():
 
 
 def test_recovery_stress_model_keeps_fleet_rps_bounded():
-    # Fair-share means adding recovering workers does not multiply CONTROL load.
-    fast_minute=60.0; fast_micro=250.0
-    slow_minute=8.0; slow_micro=30.0
-    for workers in (1,4,10):
-        minute_each=max(2.0,fast_minute/workers)
-        micro_each=max(10.0,fast_micro/workers)
-        assert minute_each*workers <= max(fast_minute,2.0*workers)
-        assert micro_each*workers <= max(fast_micro,10.0*workers)
-        slow_minute_each=max(1.0,slow_minute/workers)
-        slow_micro_each=max(5.0,slow_micro/workers)
-        assert slow_minute_each*workers <= max(slow_minute,1.0*workers)
-        assert slow_micro_each*workers <= max(slow_micro,5.0*workers)
-
+    # Fair-share means adding recovering workers never multiplies CONTROL load.
+    for budget in (60.0,250.0,8.0,30.0):
+        for workers in (1,4,10,64):
+            each=max(0.1,budget/workers)
+            assert each*workers <= max(budget,0.1*workers)
+    # Configured budgets are far above the 0.1/s safety floor for realistic fleets.
+    assert 60.0/64 > 0.1 and 8.0/64 > 0.1
 
 def test_recovery_queues_and_wal_are_hard_bounded():
     from pathlib import Path
@@ -147,5 +141,5 @@ def test_recovery_eta_formula_from_observed_records():
         eta_seconds=records/fleet_rate
         assert eta_seconds>0
         # Worker count does not make aggregate FAST budget exceed the fleet budget.
-        each=max(2.0,fleet_rate/workers)
-        assert each*workers <= max(fleet_rate,2.0*workers)
+        each=max(0.1,fleet_rate/workers)
+        assert each*workers <= max(fleet_rate,0.1*workers)
