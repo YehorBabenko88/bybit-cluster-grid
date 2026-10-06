@@ -28,6 +28,8 @@ class Storage:
         self.http=None
         self.replay_task=None
         self.replay_done=asyncio.Event(); self.replay_done.set()
+        self.replay_ids=set()
+        self._last_replay_send=0.0
         self.feature_builder=UnifiedFeatureBuilder()
         self.derived=None
         root=os.path.join(os.getenv("ProgramData",os.getcwd()),"BybitClusterGrid","spool")
@@ -55,11 +57,9 @@ class Storage:
             if jitter:
                 seed=int(hashlib.sha256(NODE_ID.encode("utf-8")).hexdigest()[:8],16)
                 await asyncio.sleep((seed%10000)/10000.0*jitter)
-            rate=max(0.1,float(settings.replay_minute_per_second))
-            interval=1.0/rate
             for record_id,row in pending:
+                self.replay_ids.add(record_id)
                 await self.write_queue.put(record_id,row)
-                await asyncio.sleep(interval)
         finally:
             self.replay_done.set()
 
@@ -90,6 +90,11 @@ class Storage:
         return m
 
     async def _save_spooled(self,record_id,row):
+        if record_id in self.replay_ids:
+            interval=1.0/max(0.1,float(settings.replay_minute_per_second))
+            wait=interval-(asyncio.get_running_loop().time()-self._last_replay_send)
+            if wait>0: await asyncio.sleep(wait)
+            self._last_replay_send=asyncio.get_running_loop().time()
         if self.remote:
             if self.http is None:
                 raise RuntimeError("remote ingest session is not started")
@@ -100,6 +105,7 @@ class Storage:
         else:
             await self._save_direct(row)
         await self.spool.ack(record_id)
+        self.replay_ids.discard(record_id)
 
     async def _save_direct(self,row):
         ts=datetime.fromtimestamp(row["start_ms"]/1000,tz=timezone.utc)
