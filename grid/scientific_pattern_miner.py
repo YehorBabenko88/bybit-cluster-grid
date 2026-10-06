@@ -59,6 +59,9 @@ def directional_stats(values,direction,cost_bps=1.0):
     p=.5*erfc(z/sqrt(2.0))
     return {"n":n,"mean_net_bps":mu,"hit_rate":hit,"z":z,"p_value":max(0.0,min(1.0,p))}
 
+def independent_bucket(event_ts_ms,horizon_ms):
+    return int(event_ts_ms)//max(int(horizon_ms),5000)
+
 def holm_adjust(p_values):
     n=len(p_values);out=[1.0]*n
     ordered=sorted(enumerate(p_values),key=lambda x:x[1]);running=0.0
@@ -88,7 +91,7 @@ class ScientificPatternMiner:
         for o in observations:
             for pat in generate_patterns(o,self.min_size,self.max_size,self.max_patterns_per_event):
                 key=(pat,int(o.direction),o.symbol,o.regime)
-                bucket=int(o.event_ts_ms)//embargo_ms
+                bucket=independent_bucket(o.event_ts_ms,embargo_ms)
                 if last_bucket.get(key)==bucket:continue
                 last_bucket[key]=bucket
                 grouped.setdefault(key,[]).append(float(o.return_bps))
