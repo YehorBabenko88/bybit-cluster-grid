@@ -70,7 +70,7 @@ def simulate_rows(rows,direction,horizon_ms,cfg:SimulationConfig,stress=1.0):
       "max_drawdown":max_dd,"final_equity":equity,"split_concentration":concentration,
       "split_pnl_bps":split_pnl}}
 
-def deterministic_bootstrap_drawdowns(net_returns,paths=200,seed="simulation"):
+def deterministic_bootstrap_drawdowns(net_returns,paths=200,seed="simulation",position_scale=1.0):
     vals=list(map(float,net_returns))
     if not vals:return [1.0]
     out=[];n=len(vals)
@@ -79,7 +79,7 @@ def deterministic_bootstrap_drawdowns(net_returns,paths=200,seed="simulation"):
         for i in range(n):
             u=deterministic_unit(f"{seed}|{p}|{i}")
             x=vals[min(n-1,int(u*n))]
-            equity=max(1e-9,equity*(1.0+x/10000.0));peak=max(peak,equity);dd=max(dd,1-equity/peak)
+            equity=max(1e-9,equity*(1.0+x/10000.0*float(position_scale)));peak=max(peak,equity);dd=max(dd,1-equity/peak)
         out.append(dd)
     return sorted(out)
 
