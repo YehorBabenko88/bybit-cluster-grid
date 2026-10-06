@@ -51,6 +51,34 @@ def control_disk_state():
         hard_free_gb=float(settings.disk_hard_free_gb),
         emergency_free_gb=float(settings.disk_emergency_free_gb)))
 
+
+async def recovery_profile():
+    """Small feedback signal for fleet WAL replay; fail conservatively."""
+    state=control_disk_state()["state"]
+    if state in ("HARD","EMERGENCY"):
+        return {"profile":"PAUSE","minute_per_second":0.0,"micro_per_second":0.0}
+    started=time.monotonic()
+    try:
+        async with db.pool.acquire() as c:
+            await c.fetchval("SELECT 1")
+            active=int(await c.fetchval("""SELECT count(*) FROM pg_stat_activity
+                WHERE datname=current_database() AND state='active'""") or 0)
+        latency=(time.monotonic()-started)*1000.0
+    except Exception:
+        return {"profile":"PAUSE","minute_per_second":0.0,"micro_per_second":0.0}
+    if state=="SOFT" or latency>=float(settings.replay_db_latency_pause_ms):
+        return {"profile":"PAUSE","minute_per_second":0.0,"micro_per_second":0.0,
+                "db_latency_ms":round(latency,1),"db_active":active}
+    if latency>=float(settings.replay_db_latency_slow_ms) or active>=settings.strategy_db_active_limit:
+        return {"profile":"SLOW",
+                "minute_per_second":float(settings.replay_minute_slow_per_second),
+                "micro_per_second":float(settings.replay_micro_slow_per_second),
+                "db_latency_ms":round(latency,1),"db_active":active}
+    return {"profile":"FAST",
+            "minute_per_second":float(settings.replay_minute_fast_per_second),
+            "micro_per_second":float(settings.replay_micro_fast_per_second),
+            "db_latency_ms":round(latency,1),"db_active":active}
+
 def constant_time_equal(left,right):
     """Compare authentication tokens without leaking early string mismatch timing."""
     return secrets.compare_digest(str(left or ""),str(right or ""))
@@ -135,9 +163,11 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     # High-rate microstructure capture remains pilot-only until the volatility
     # selector is implemented; disk SOFT pressure also disables it first.
     micro_symbols=symbols if install_mode=="PILOT" and control_disk["state"]=="NORMAL" else []
+    replay=await recovery_profile()
     return {"symbols":symbols,"micro_symbols":micro_symbols,"commands":commands,"control_replica":replica,
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
             "install_mode":install_mode,"control_disk_state":control_disk["state"],
+            "recovery_profile":replay,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
 
 @app.post("/commands/{command_id}/result")
