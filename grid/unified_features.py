@@ -13,15 +13,45 @@ class UnifiedFeatureBuilder:
         self.regime=VolatilityRegimeDetector(lookback=max(lookback,120))
         self.micro_max_age_s=int(micro_max_age_s)
         self.started=False
+        self.last_ts={}
 
     async def start(self,pool):
         if self.started:return
         await register_consumer(pool,"market_events","unified_features",required=True,active=True)
+        # Stateful online features/regimes must survive CONTROL restart logically.
+        # Hydrate bounded GOOD canonical history before accepting new ingestion.
+        limit=max(self.engine.lookback+1,self.regime.lookback+1)
+        rows=await pool.fetch("""WITH ranked AS (
+          SELECT symbol,ts,open,high,low,close,buy_volume,sell_volume,delta,trade_count,poc_price,
+                 quality_status,quality_reasons,
+                 row_number() OVER(PARTITION BY symbol ORDER BY ts DESC) AS rn
+          FROM candles_1m WHERE quality_status='GOOD')
+          SELECT * FROM ranked WHERE rn<=$1 ORDER BY symbol,ts""",limit)
+        for raw in rows:
+            row=dict(raw)
+            base=self.engine.on_candle(row)
+            self.regime.update(row["symbol"],base,eligible=bool(base["eligible"]))
+            self.last_ts[row["symbol"]]=row["ts"]
         self.started=True
 
     async def build(self,pool,row):
-        base=self.engine.on_candle(row)
         ts=row["ts"]; symbol=row["symbol"]
+        source=dict(row)
+        previous=self.last_ts.get(symbol)
+        gap=previous is not None and ts-previous!=timedelta(minutes=1)
+        if gap:
+            # Never bridge a missing minute with rolling statistics. Reset all
+            # state for this symbol and make the first post-gap minute ineligible.
+            self.engine.hist.pop(symbol,None)
+            for mapping in (self.regime.hist,self.regime.state,self.regime.pending,
+                            self.regime.pending_n,self.regime.dwell):
+                mapping.pop(symbol,None)
+            source["quality_status"]="DEGRADED"
+            reasons=list(source.get("quality_reasons") or [])
+            if "minute_gap" not in reasons: reasons.append("minute_gap")
+            source["quality_reasons"]=reasons
+        base=self.engine.on_candle(source)
+        self.last_ts[symbol]=ts
         book=await pool.fetchrow("""SELECT event_ts,payload FROM market_events
             WHERE symbol=$1 AND event_type='orderbook_snapshot'
               AND event_ts<=$2 AND event_ts>=$2-($3 * interval '1 second')
