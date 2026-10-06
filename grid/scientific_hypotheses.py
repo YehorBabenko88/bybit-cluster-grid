@@ -60,10 +60,9 @@ def lifecycle(spec,evidence,min_samples=30,min_edge_bps=.5,min_hit_rate=.52):
     if not passed:return "CANDIDATE"
     independent_splits={e.split_key for e in passed}
     symbols={e.symbol for e in passed}
-    regimes={e.regime for e in passed}
     total=sum(int(e.sample_count) for e in passed)
-    if len(passed)>=3 and len(independent_splits)>=3 and len(symbols)>=2 and len(regimes)>=2 and total>=200:
+    if len(passed)>=3 and len(independent_splits)>=3 and len(symbols)>=2 and total>=200:
         return "VALIDATED"
-    if len(passed)>=2 and len(independent_splits)>=2 and (len(symbols)>=2 or len(regimes)>=2):
+    if len(passed)>=2 and len(independent_splits)>=2 and len(symbols)>=2:
         return "REPLICATED"
     return "OBSERVED"
