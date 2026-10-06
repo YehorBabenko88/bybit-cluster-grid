@@ -385,6 +385,11 @@ UNIQUE(event_id,hypothesis_fingerprint,horizon_ms))""",
 """CREATE TABLE IF NOT EXISTS scientific_outcome_clock(
 symbol text PRIMARY KEY,last_observed_ts_ms bigint NOT NULL,
 updated_at timestamptz NOT NULL DEFAULT now())"""
+]),
+(39,"scientific_source_event_fencing",[
+"ALTER TABLE micro_agent_signals ADD COLUMN IF NOT EXISTS source_event_id bigint",
+"CREATE UNIQUE INDEX IF NOT EXISTS micro_agent_signals_source_idx ON micro_agent_signals(source_event_id,agent) WHERE source_event_id IS NOT NULL",
+"CREATE INDEX IF NOT EXISTS micro_agent_signals_recovery_idx ON micro_agent_signals(source_event_id) WHERE source_event_id IS NOT NULL"
 ])
 ]
 
