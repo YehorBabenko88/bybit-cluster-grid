@@ -16,6 +16,7 @@ async def register_hypothesis(pool,spec:HypothesisSpec):
     return dict(row)
 
 async def _load_evidence(pool,hypothesis_id):
+    hypothesis_id=uuid.UUID(str(hypothesis_id))
     rows=await pool.fetch("""SELECT experiment_key,symbol,regime,split_key,sample_count,
       mean_return_bps,hit_rate,cost_bps,dataset_cutoff,metrics
       FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1 ORDER BY created_at""",hypothesis_id)
@@ -26,6 +27,7 @@ async def _load_evidence(pool,hypothesis_id):
 
 async def record_evidence(pool,hypothesis_id,spec:HypothesisSpec,evidence:Evidence,
                           min_samples=30,min_edge_bps=.5,min_hit_rate=.52):
+    hypothesis_id=uuid.UUID(str(hypothesis_id))
     passed=evidence_passes(spec,evidence,min_samples,min_edge_bps,min_hit_rate)
     await pool.execute("""INSERT INTO scientific_hypothesis_evidence(
       id,hypothesis_id,experiment_key,symbol,regime,split_key,sample_count,
