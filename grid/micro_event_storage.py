@@ -28,6 +28,8 @@ class MicroEventStorage:
         self.http=None
         self.replay_task=None
         self.replay_done=asyncio.Event(); self.replay_done.set()
+        self.replay_pending=0
+        self.replay_recovered=0
         self.write_queue=BoundedWriteQueue(
             self._save_spooled,
             maxsize=20000,
@@ -38,6 +40,8 @@ class MicroEventStorage:
         self.http=aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20))
         await self.write_queue.start()
         pending=self.spool.iter_recover()
+        self.replay_pending=sum(1 for _ in self.spool.iter_recover())
+        self.replay_recovered=0
         self.replay_done.clear()
         self.replay_task=asyncio.create_task(self._replay(pending))
 
@@ -53,6 +57,7 @@ class MicroEventStorage:
             interval=1.0/rate
             for record_id,row in pending:
                 await self.write_queue.put(record_id,row)
+                self.replay_recovered+=1
                 await asyncio.sleep(interval)
         finally:
             self.replay_done.set()
@@ -104,4 +109,8 @@ class MicroEventStorage:
         m=self.write_queue.metrics()
         m["spool_bytes"]=self.spool.bytes_used()
         m["spool_ratio"]=self.spool.ratio()
+        remaining=max(0,self.replay_pending-self.replay_recovered)
+        m["replay_remaining"]=remaining
+        m["replay_eta_seconds"]=round(remaining/max(0.1,float(settings.replay_micro_per_second)),1)
+        m["replay_active"]=not self.replay_done.is_set()
         return m
