@@ -40,14 +40,7 @@ if(!(Test-Path (Join-Path $release "grid\archive_service.py"))){throw "No Archiv
 $WaitDb=Join-Path $release "installer\\wait-grid-postgres.ps1"
 if(Test-Path $WaitDb){ & $WaitDb -DataRoot $DataRoot -TimeoutSeconds 120 }
 Set-Location $release
-$watch=Join-Path $env:ProgramData "BybitClusterGrid\installer\release-health.ps1"
-$version=Split-Path $release -Leaf
-$started=[DateTime]::UtcNow
+# ArchivePipeline is auxiliary. It follows the selected release but never decides
+# fleet-wide rollback; coordinator health is authoritative on CONTROL.
 & $Python -m grid.archive_service
-$code=$LASTEXITCODE
-$runtime=[int]([DateTime]::UtcNow-$started).TotalSeconds
-if(Test-Path $watch){
-  & $watch -InstallRoot $InstallRoot -Phase AfterExit -Version $version -RuntimeSeconds $runtime -ExitCode $code
-  if($LASTEXITCODE -eq 75){exit 75}
-}
-exit $code
+exit $LASTEXITCODE
