@@ -161,98 +161,7 @@ if(!(Test-Path $EnvFile)){
 # CONTROL-only administrative token. Agents authenticate with their own node
 # credential and never need this secret. Generate it locally when absent.
 if($AgentMode -eq "CONTROL"){
-    $hasSharedToken=Select-String -Path $EnvFile -Pattern '^GRID_SHARED_TOKEN=.+
-# Never overwrite an existing secret with an empty value during repair.
-if($AgentMode -eq "CONTROL"){
-    if($TelegramBotToken){
-        $lines=@(Get-Content $EnvFile | Where-Object {$_ -notmatch '^TELEGRAM_BOT_TOKEN='})
-        $lines += "TELEGRAM_BOT_TOKEN=$TelegramBotToken"
-        $lines | Set-Content -Encoding UTF8 $EnvFile
-    }
-    if($TelegramAllowedChatIds){
-        $lines=@(Get-Content $EnvFile | Where-Object {$_ -notmatch '^TELEGRAM_ALLOWED_CHAT_IDS='})
-        $lines += "TELEGRAM_ALLOWED_CHAT_IDS=$TelegramAllowedChatIds"
-        $lines | Set-Content -Encoding UTF8 $EnvFile
-    }
-}
-
-# PostgreSQL is CONTROL-owned logically, but an externally installed instance remains external.
-# ExistingPostgresDsn opts into that instance without creating an ownership manifest.
-if($AgentMode -eq "CONTROL"){
-    if($ExistingPostgresDsn){
-        $probe=$ExistingPostgresDsn
-        $lines=@(Get-Content $EnvFile | Where-Object {$_ -notmatch '^POSTGRES_DSN='})
-        $lines += "POSTGRES_DSN=$probe"
-        $lines | Set-Content -Encoding UTF8 $EnvFile
-        Write-Host "Using operator-provisioned PostgreSQL; Grid will not claim ownership of the service."
-    } else {
-        & (Join-Path $PSScriptRoot "provision_postgres.ps1") -DiscoveryPath (Join-Path $DataRoot "discovery.json") -DataRoot $DataRoot
-    }
-}else{
-    Write-Host "Agent mode: PostgreSQL provisioning skipped; data ingress is CONTROL-owned."
-}
-
-# Legacy research handoff is staged only. Market/research payload import is forbidden
-# before the global runtime gate is explicitly activated with START.
-if($LegacyHandoff){
-    if(!(Test-Path $LegacyHandoff)){throw "Legacy handoff not found: $LegacyHandoff"}
-    $HandoffCopy=Join-Path $DataRoot "bootstrap-handoff.json"
-    Copy-Item $LegacyHandoff $HandoffCopy -Force
-    $hash=(Get-FileHash -Algorithm SHA256 $HandoffCopy).Hash.ToLowerInvariant()
-    [ordered]@{
-      schema=1
-      status="STAGED"
-      sha256=$hash
-      staged_at=(Get-Date).ToUniversalTime().ToString("o")
-      import_allowed=$false
-      reason="Await explicit global START"
-    } | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $DataRoot "bootstrap-handoff.staged.json")
-    Write-Host "Legacy handoff staged only; no market payload imported before START."
-}
-
-$CredentialFile=Join-Path $DataRoot "secrets\node.credential"
-if($AgentMode -ne "CONTROL"){
-    if(!(Test-Path $CredentialFile)){
-        if(!$CoordinatorUrl -or !$EnrollmentToken){
-            throw "Node is not enrolled and CoordinatorUrl/EnrollmentToken were not supplied."
-        }
-        Push-Location $Release
-        try {
-            & (Join-Path $PSScriptRoot "enroll.ps1") -CoordinatorUrl $CoordinatorUrl -EnrollmentToken $EnrollmentToken -Python $Python -DataRoot $DataRoot | Out-Null
-        } finally { Pop-Location }
-    } else {
-        Write-Host "Existing node credential found; preserving node identity."
-    }
-} else {
-    Write-Host "CONTROL node uses local coordinator identity; agent enrollment skipped."
-}
-
-    & (Join-Path $PSScriptRoot "preflight.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
-    if($LASTEXITCODE -ne 0){throw "Grid preflight failed"}
-    & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
-    if($LASTEXITCODE -ne 0){throw "Grid service installation failed"}
-    $FirewallScript=Join-Path $PSScriptRoot "configure-control-firewall.ps1"
-    if(Test-Path $FirewallScript){
-        if($AgentMode -eq "CONTROL"){ & $FirewallScript }
-        else { & $FirewallScript -Remove }
-    }
-    @{mode=$Mode;status="installed";completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
-        ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
-    $Backup=Join-Path $InstallRoot "bootstrap.previous"
-    if(Test-Path $Backup){Remove-Item -Recurse -Force $Backup}
-} catch {
-    $err=$_.Exception.Message
-    @{mode=$Mode;status="failed";error=$err;failed_at=(Get-Date).ToUniversalTime().ToString("o")} |
-        ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
-    $Backup=Join-Path $InstallRoot "bootstrap.previous"
-    if(Test-Path $Backup){
-        if(Test-Path $Release){Remove-Item -Recurse -Force $Release}
-        Move-Item $Backup $Release
-        Write-Warning "Bootstrap rolled back to previous release."
-    }
-    throw
-}
- -Quiet -ErrorAction SilentlyContinue
+    $hasSharedToken=Select-String -Path $EnvFile -Pattern '^GRID_SHARED_TOKEN=.+$' -Quiet -ErrorAction SilentlyContinue
     if(!$hasSharedToken){
         $bytes=New-Object byte[] 32
         $rng=[System.Security.Cryptography.RandomNumberGenerator]::Create()
@@ -261,7 +170,8 @@ if($AgentMode -ne "CONTROL"){
         $lines=@(Get-Content $EnvFile | Where-Object {$_ -notmatch '^GRID_SHARED_TOKEN='})
         $lines += "GRID_SHARED_TOKEN=$token"
         $lines | Set-Content -Encoding UTF8 $EnvFile
-        $token=$null; $bytes=$null
+        $token=$null
+        $bytes=$null
         Write-Host "Generated CONTROL administrative authentication secret."
     }
 }
