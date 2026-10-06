@@ -397,8 +397,13 @@ async def handle_command(db,session,chat_id,text,nodes):
         def marker(name):
             try:return (install_root/name).read_text(encoding="utf-8-sig").strip()
             except OSError:return "-"
+        current=marker("current.version");previous=marker("previous.version");pending=marker("pending.version")
+        state=str(st.get("state","idle"));version=str(st.get("version","-"))
+        if state=="staged" and version!="-":
+            if current==version and pending=="-": state="healthy"
+            elif current!=version and pending=="-": state="rolled_back"
         await tg_send(session,chat_id,
-            f"CONTROL update: {st.get('state','idle')}\nVersion: {st.get('version','-')}\nCurrent: {marker('current.version')}\nPrevious: {marker('previous.version')}\nPending: {marker('pending.version') or '-'}")
+            f"CONTROL update: {state}\nVersion: {version}\nCurrent: {current}\nPrevious: {previous}\nPending: {pending}")
     elif cmd in ("/db","/dbsize","/storage"):
         st=await database_stats(db.pool)
         lines=[f"DB: {st['database']['name']}","Size: "+str(st["database"]["pretty"]),"Largest tables:"]
