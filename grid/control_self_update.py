@@ -1,0 +1,71 @@
+"""Detached, verified self-update helper for the CONTROL node."""
+import argparse, asyncio, json, os, pathlib, subprocess, sys, time
+from .agent_commands import _download
+from .update_manager import verify_package,install_release,switch_current,current_version,mark_pending
+
+def _roots():
+    pf=pathlib.Path(os.environ.get("ProgramFiles",r"C:\Program Files"))
+    pd=pathlib.Path(os.environ.get("ProgramData",r"C:\ProgramData"))
+    return pf/"BybitClusterGrid",pd/"BybitClusterGrid"
+
+def _role_preflight(target,data_root):
+    python=data_root/"runtime"/"venv"/"Scripts"/"python.exe"
+    preflight=data_root/"installer"/"preflight.ps1"
+    p=subprocess.run(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(preflight),
+        "-ReleaseDir",str(target),"-Python",str(python),"-Mode","CONTROL"],
+        capture_output=True,text=True,timeout=300)
+    if p.returncode:
+        raise RuntimeError("CONTROL release preflight failed: "+(p.stderr or p.stdout)[-2000:])
+
+def _restart_tasks():
+    # Coordinator restart activates current.version. Archive follows the same
+    # marker but is not authoritative for rollback.
+    script=(
+      'Stop-ScheduledTask -TaskName "BybitClusterGridArchivePipeline" -ErrorAction SilentlyContinue; '
+      'Stop-ScheduledTask -TaskName "BybitClusterGridCoordinator" -ErrorAction SilentlyContinue; '
+      'Start-Sleep -Seconds 2; '
+      'Start-ScheduledTask -TaskName "BybitClusterGridCoordinator"; '
+      'Start-ScheduledTask -TaskName "BybitClusterGridArchivePipeline" -ErrorAction SilentlyContinue'
+    )
+    subprocess.Popen(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-Command",script],
+                     creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+
+async def apply(version,url,sha256):
+    if not str(url).lower().startswith("https://"):
+        raise ValueError("release URL must use HTTPS")
+    install_root,data_root=_roots()
+    downloads=data_root/"downloads";downloads.mkdir(parents=True,exist_ok=True)
+    part=downloads/(version+".control.zip.part")
+    final=downloads/(version+".control.zip")
+    await _download(url,part)
+    if not verify_package(part,sha256):
+        part.unlink(missing_ok=True)
+        raise RuntimeError("release SHA256 mismatch")
+    os.replace(part,final)
+    target=install_release(final,version,install_root)
+    _role_preflight(target,data_root)
+    previous=current_version(install_root)
+    switch_current(install_root,version)
+    mark_pending(install_root,version)
+    # Let the invoking HTTP/Telegram handler commit its response/cursor before
+    # the coordinator task is terminated.
+    await asyncio.sleep(3)
+    _restart_tasks()
+    return {"state":"control_update_staged","version":version,"previous":previous}
+
+def main(argv=None):
+    ap=argparse.ArgumentParser()
+    ap.add_argument("--version",required=True)
+    ap.add_argument("--url",required=True)
+    ap.add_argument("--sha256",required=True)
+    a=ap.parse_args(argv)
+    try:
+        result=asyncio.run(apply(a.version,a.url,a.sha256))
+        print(json.dumps(result))
+        return 0
+    except Exception as e:
+        print(json.dumps({"state":"failed","error":str(e)[:2000]}),file=sys.stderr)
+        return 1
+
+if __name__=="__main__":
+    raise SystemExit(main())
