@@ -230,7 +230,7 @@ def test_postgres_install_is_journaled_before_installer_mutation():
     process=i.index("Start-Process -FilePath $Installer")
     manifest=i.index('"postgres-owned.json"')
     assert marker < process < manifest
-    assert "Remove-Item $Installing" in i
+    assert "Keep postgres-installing.json until role/database credentials" in i
 
 
 def test_postgres_partial_repair_requires_transaction_marker():
