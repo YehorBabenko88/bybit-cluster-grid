@@ -8,6 +8,7 @@ from .control_state import set_consumer_watermarks
 from .micro_agents import MicroSignal
 from .scientific_mining_scheduler import ScientificMiningScheduler
 from .scientific_simulation_gate import ScientificSimulationGate
+from .scientific_method_registry import ScientificMethodRegistry
 
 log=logging.getLogger("scientific_service")
 
@@ -18,11 +19,13 @@ class ScientificResearchService:
         self.stop_event=asyncio.Event();self.last_id=0;self.processed=0;self.scheduled=0
         self.errors=0;self.last_event_ts=None;self.started=False
         self.mining=ScientificMiningScheduler(pool);self.simulation=ScientificSimulationGate(pool)
+        self.methods=ScientificMethodRegistry()
         self.last_mining_check=0.0;self.mining_runs=0;self.simulation_runs=0
 
     async def start(self):
         if self.started:return
         await register_consumer(self.pool,"market_events","scientific_research",required=False,active=True)
+        await self.methods.sync_db(self.pool)
         row=await self.pool.fetchrow("""SELECT state,last_ts FROM observer_checkpoints
           WHERE observer='scientific_research' AND symbol='*'""")
         if row:
@@ -109,6 +112,11 @@ class ScientificResearchService:
             split_key=_split_key(r["event_ts"])
             result=await route_market_event(
                 self.orchestrator,self.pool,r["symbol"],ts_ms,r["event_type"],payload,split_key,int(r["id"]))
+            # Optional scientific plugins are fault-isolated: their failure is
+            # journaled/quarantined and cannot block the core event checkpoint.
+            await self.methods.dispatch(self.pool,{
+                "source_event_id":int(r["id"]),"symbol":r["symbol"],"event_ts":r["event_ts"],
+                "event_type":r["event_type"],"payload":payload,"split_key":split_key})
             self.processed+=1;self.scheduled+=int(result.get("scheduled") or 0)
             self.last_id=int(r["id"]);self.last_event_ts=r["event_ts"]
             watermarks[r["symbol"]]=r["event_ts"]
