@@ -59,6 +59,9 @@ async def claim_job(pool,node_id):
               ORDER BY priority ASC,created_at ASC
               FOR UPDATE SKIP LOCKED LIMIT 1""")
             if not row: return None
+            # A previous crashed attempt may have emitted only a prefix. Never
+            # mix partial results from different attempts under one job id.
+            await c.execute("DELETE FROM strategy_results WHERE job_id=$1",row["id"])
             await c.execute("""UPDATE strategy_jobs
               SET status='running',assigned_node=$2,started_at=now(),attempts=attempts+1,error=NULL
               WHERE id=$1""",row["id"],node_id)
