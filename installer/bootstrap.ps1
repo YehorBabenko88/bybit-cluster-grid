@@ -239,6 +239,13 @@ if($LegacyHandoff){
     Write-Host "Legacy handoff staged only; no market payload imported before START."
 }
 
+# .env contains CONTROL-only PostgreSQL/Telegram/admin credentials. Restrict
+# local access after all provisioning writes and on every repair/bootstrap run.
+if(Test-Path $EnvFile){
+    & icacls $EnvFile /inheritance:r /grant:r "SYSTEM:F" "Administrators:F" | Out-Null
+    if($LASTEXITCODE -ne 0){throw "Failed to harden Grid .env ACL"}
+}
+
 $CredentialFile=Join-Path $DataRoot "secrets\node.credential"
 if($AgentMode -ne "CONTROL"){
     if(!(Test-Path $CredentialFile)){
