@@ -41,6 +41,16 @@ foreach($name in @("current.version","previous.version")){
   $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
   if(Test-Path (Join-Path $candidate "grid\coordinator.py")){$Release=$candidate;break}
 }
+if(!$Release){
+    $currentMarker=Join-Path $InstallRoot "current.version"
+    if(Test-Path $currentMarker){
+        $cv=(Get-Content $currentMarker -Raw).Trim()
+        if($cv){
+            $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
+            if(Test-Path (Join-Path $replaced "grid\coordinator.py")){$Release=$replaced}
+        }
+    }
+}
 if(!$Release){$Release=Join-Path $InstallRoot "bootstrap"}
 if(!(Test-Path (Join-Path $Release "grid\coordinator.py"))){throw "No runnable Grid CONTROL release found"}
 $WaitDb=Join-Path $Release "installer\wait-grid-postgres.ps1"
