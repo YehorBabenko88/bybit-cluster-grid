@@ -303,7 +303,11 @@ class Worker:
                                 side=x["S"],
                                 trade_id=x.get("i","")
                             )
-                            fp.add(trade)
+                            accepted=fp.add(trade)
+                            if not accepted:
+                                # Duplicate/replayed or already-finalized trade: do not
+                                # feed it into micro tape or any downstream feature path.
+                                continue
                             if symbol in self.micro_wanted:
                                 tape_row=self.micro_tape.add(trade)
                                 if tape_row is not None:
