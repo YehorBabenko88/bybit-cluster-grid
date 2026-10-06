@@ -4,6 +4,7 @@ from .db import Database
 from .ml_artifact_store import LocalArtifactStore
 from .ml_boost_backend import TabularBoostBackend
 from .ml_training_worker import TrainingWorker
+from .ml_splits import walk_forward
 from pathlib import Path
 
 
@@ -44,10 +45,18 @@ async def train_bundle(bundle_path,artifact_path,result_path):
     if not rows:raise ValueError("dataset has no samples")
     threads=max(1,min(int(payload.get("threads",1)),int(os.cpu_count() or 1)))
     backend=TabularBoostBackend(backend_name,threads=threads,seed=int(payload.get("seed",1729)))
+    folds=walk_forward(rows)
+    if not folds:raise ValueError("not enough samples for walk-forward training")
+    fold_metrics=[]
+    for train,valid in folds:
+        fold_model=backend.fit(train,hp)
+        pred=backend.predict(fold_model,valid)
+        fold_metrics.append(backend.evaluate(valid,pred,target_key=hp.get("target_key")))
+    # Validation is strictly out-of-sample. Only after evaluation do we fit the
+    # deployable artifact on the complete immutable dataset.
     model=backend.fit(rows,hp)
-    pred=backend.predict(model,rows)
-    metrics=backend.evaluate(rows,pred,target_key=hp.get("target_key"))
     artifact=await backend.serialize(model)
+    metrics={"validation":"walk_forward","folds":len(folds),"fold_metrics":fold_metrics}
     Path(artifact_path).write_bytes(artifact)
     Path(result_path).write_text(json.dumps({"metrics":metrics},separators=(",",":")),encoding="utf-8")
     return {"metrics":metrics}
