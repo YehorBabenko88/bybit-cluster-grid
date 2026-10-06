@@ -260,18 +260,15 @@ async def create_node_command(node_id:str,payload:dict,x_grid_token:str=Header(d
 async def control_update(payload:dict,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
     version=str(payload.get("version") or "").strip()
-    url=str(payload.get("package_url") or "").strip()
-    sha=str(payload.get("sha256") or "").strip().lower()
-    if not version or not url or len(sha)!=64 or any(c not in "0123456789abcdef" for c in sha):
-        raise HTTPException(400,"valid version, package_url and sha256 are required")
-    if not url.lower().startswith("https://"):
-        raise HTTPException(400,"release URL must use HTTPS")
+    if not version:
+        raise HTTPException(400,"version is required")
     rel=await db.pool.fetchrow("""SELECT r.version,r.package_url,r.sha256,r.enabled,r.channel,s.status AS rollout_status
       FROM agent_releases r LEFT JOIN rollout_state s ON s.version=r.version WHERE r.version=$1""",version)
     if not rel or not rel["enabled"] or rel["channel"]!="stable" or rel["rollout_status"]!="complete":
         raise HTTPException(409,"CONTROL may update only after the promoted stable worker rollout is complete")
-    if str(rel["package_url"])!=url or str(rel["sha256"]).lower()!=sha:
-        raise HTTPException(409,"release URL/SHA do not match the registered promoted release")
+    url=str(rel["package_url"]);sha=str(rel["sha256"]).lower()
+    if not url.lower().startswith("https://") or len(sha)!=64 or any(c not in "0123456789abcdef" for c in sha):
+        raise HTTPException(409,"registered release metadata is invalid")
     data_root=pathlib.Path(os.environ.get("ProgramData",r"C:\\ProgramData"))/"BybitClusterGrid"
     if (data_root/"control-update.lock").exists():
         raise HTTPException(409,"CONTROL update already running")
