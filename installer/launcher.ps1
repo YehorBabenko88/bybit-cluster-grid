@@ -24,6 +24,16 @@ foreach($name in @("current.version","previous.version")){
     $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
     if(Test-Path (Join-Path $candidate "run_worker.py")){$release=$candidate;break}
 }
+if(!$release){
+    $currentMarker=Join-Path $InstallRoot "current.version"
+    if(Test-Path $currentMarker){
+        $cv=(Get-Content $currentMarker -Raw).Trim()
+        if($cv){
+            $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
+            if(Test-Path (Join-Path $replaced "run_worker.py")){$release=$replaced}
+        }
+    }
+}
 if(!$release){$release=Join-Path $InstallRoot "bootstrap"}
 $run=Join-Path $release "run_worker.py"
 if(!(Test-Path $run)){throw "No runnable Grid release found"}
