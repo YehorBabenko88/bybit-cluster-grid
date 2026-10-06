@@ -1,0 +1,112 @@
+"""Background CONTROL consumer for the scientific research layer."""
+from __future__ import annotations
+import asyncio,datetime,json,logging,time
+from .scientific_orchestrator import ScientificResearchOrchestrator
+from .scientific_event_router import route_market_event
+from .retention_v2 import register_consumer
+from .control_state import set_consumer_watermarks
+
+log=logging.getLogger("scientific_service")
+
+class ScientificResearchService:
+    def __init__(self,pool,poll_seconds=.25,batch_size=500):
+        self.pool=pool;self.poll_seconds=float(poll_seconds);self.batch_size=max(10,int(batch_size))
+        self.orchestrator=ScientificResearchOrchestrator()
+        self.stop_event=asyncio.Event();self.last_id=0;self.processed=0;self.scheduled=0
+        self.errors=0;self.last_event_ts=None;self.started=False
+
+    async def start(self):
+        if self.started:return
+        await register_consumer(self.pool,"market_events","scientific_research",required=False,active=True)
+        await self._hydrate_features()
+        row=await self.pool.fetchrow("""SELECT state,last_ts FROM observer_checkpoints
+          WHERE observer='scientific_research' AND symbol='*'""")
+        if row:
+            state=_dict(row["state"]);self.last_id=int(state.get("last_id") or 0);self.last_event_ts=row["last_ts"]
+        else:
+            self.last_id=int(await self.pool.fetchval("SELECT COALESCE(max(id),0) FROM market_events") or 0)
+            self.last_event_ts=await self.pool.fetchval("SELECT max(event_ts) FROM market_events")
+            await self._checkpoint()
+        self.started=True
+
+    async def _hydrate_features(self):
+        rows=await self.pool.fetch("""WITH ranked AS (
+          SELECT symbol,ts,quality_status,features,
+                 row_number() OVER(PARTITION BY symbol ORDER BY ts DESC) rn
+          FROM market_features_1m WHERE eligible=true AND quality_status='GOOD')
+          SELECT symbol,ts,quality_status,features FROM ranked WHERE rn<=128
+          ORDER BY symbol,ts""")
+        for r in rows:
+            features=_dict(r["features"])
+            ts_ms=int(r["ts"].timestamp()*1000)
+            self.orchestrator.ingest_feature_row(r["symbol"],ts_ms,features,r["quality_status"],"market_features_1m")
+
+    async def _checkpoint(self):
+        state=json.dumps({"last_id":int(self.last_id),"processed":int(self.processed),
+                          "scheduled":int(self.scheduled),"errors":int(self.errors)},separators=(",",":"))
+        await self.pool.execute("""INSERT INTO observer_checkpoints(observer,symbol,last_ts,state)
+          VALUES('scientific_research','*',$1,$2::jsonb)
+          ON CONFLICT(observer,symbol) DO UPDATE SET last_ts=EXCLUDED.last_ts,
+          state=EXCLUDED.state,updated_at=now()""",self.last_event_ts,state)
+
+    def ingest_feature_row(self,row,built):
+        ts=built.get("ts") or row.get("ts")
+        ts_ms=int(ts.timestamp()*1000) if hasattr(ts,"timestamp") else int(ts)
+        return self.orchestrator.ingest_feature_row(
+            row["symbol"],ts_ms,built.get("features") or {},
+            built.get("quality_status") or row.get("quality_status","UNKNOWN"),"live_unified")
+
+    async def run_once(self):
+        if not self.started:await self.start()
+        rows=await self.pool.fetch("""SELECT id,symbol,event_ts,event_type,payload FROM market_events
+          WHERE id>$1 ORDER BY id LIMIT $2""",int(self.last_id),int(self.batch_size))
+        if not rows:return 0
+        watermarks={}
+        for r in rows:
+            payload=_dict(r["payload"]);ts_ms=int(r["event_ts"].timestamp()*1000)
+            split_key=_split_key(r["event_ts"])
+            result=await route_market_event(
+                self.orchestrator,self.pool,r["symbol"],ts_ms,r["event_type"],payload,split_key)
+            self.processed+=1;self.scheduled+=int(result.get("scheduled") or 0)
+            self.last_id=int(r["id"]);self.last_event_ts=r["event_ts"]
+            watermarks[r["symbol"]]=r["event_ts"]
+        await self._checkpoint()
+        await set_consumer_watermarks(self.pool,[
+            ("market_events","scientific_research",sym,ts,False) for sym,ts in watermarks.items()])
+        return len(rows)
+
+    async def run(self):
+        await self.start()
+        while not self.stop_event.is_set():
+            try:
+                n=await self.run_once()
+                if not n:await asyncio.sleep(self.poll_seconds)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.errors+=1
+                log.exception("scientific consumer failed",extra={"event":"scientific_consumer_failed"})
+                await asyncio.sleep(max(1.0,self.poll_seconds))
+
+    def stop(self):self.stop_event.set()
+
+    def status(self):
+        lag=None
+        if self.last_event_ts is not None:
+            lag=max(0.0,time.time()-self.last_event_ts.timestamp())
+        return {"started":self.started,"last_event_id":int(self.last_id),
+                "processed":int(self.processed),"scheduled_outcomes":int(self.scheduled),
+                "errors":int(self.errors),"lag_seconds":round(lag,2) if lag is not None else None}
+
+def _split_key(ts):
+    iso=ts.isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
+
+def _dict(v):
+    if isinstance(v,dict):return v
+    if isinstance(v,str):
+        try:
+            x=json.loads(v);return x if isinstance(x,dict) else {}
+        except (ValueError,TypeError):return {}
+    try:return dict(v) if v is not None else {}
+    except (TypeError,ValueError):return {}
