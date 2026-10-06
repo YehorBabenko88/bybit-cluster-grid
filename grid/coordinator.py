@@ -270,8 +270,10 @@ async def control_update(payload:dict,x_grid_token:str=Header(default="")):
     if not url.lower().startswith("https://") or len(sha)!=64 or any(c not in "0123456789abcdef" for c in sha):
         raise HTTPException(409,"registered release metadata is invalid")
     data_root=pathlib.Path(os.environ.get("ProgramData",r"C:\\ProgramData"))/"BybitClusterGrid"
-    if (data_root/"control-update.lock").exists():
-        raise HTTPException(409,"CONTROL update already running")
+    install_root=pathlib.Path(os.environ.get("ProgramFiles",r"C:\\Program Files"))/"BybitClusterGrid"
+    pending=install_root/"pending.version"
+    if (data_root/"control-update.lock").exists() or (pending.exists() and pending.read_text(encoding="utf-8-sig").strip()):
+        raise HTTPException(409,"CONTROL update or release health verification already running")
     python=data_root/"runtime"/"venv"/"Scripts"/"python.exe"
     log_path=data_root/"logs"/"control-self-update.log"
     log_path.parent.mkdir(parents=True,exist_ok=True)
