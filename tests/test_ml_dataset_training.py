@@ -44,3 +44,13 @@ def test_final_production_promotion_requires_oos_and_robustness():
     assert 'ev["dataset_id"]!=model["dataset_id"]' in section
     assert "model feature version mismatch" in section
     assert "status='PRODUCTION'" in section
+
+
+def test_robustness_gate_requires_all_execution_stress_scenarios():
+    from pathlib import Path
+    text=Path("grid/ml_evaluation_pipeline.py").read_text(encoding="utf-8")
+    section=text[text.index("async def apply_evaluation_gate"):text.index("async def promote_production")]
+    for name in ("fees_x1_5","slippage_x2","execution_delay","drop_10pct","combined"):
+        assert name in section
+    assert "min_stress_expectancy" in section
+    assert "passed=all(" in section
