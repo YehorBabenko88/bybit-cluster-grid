@@ -36,8 +36,8 @@ class ScientificResearchOrchestrator:
                 "geometry_bucket":geom,"diagnostics":d}
         return out
 
-    async def ingest_micro_signal(self,pool,signal:MicroSignal,reference_price,split_key):
-        c=self.consensus.update(signal)
+    async def ingest_micro_signal(self,pool,signal:MicroSignal,reference_price,split_key,consensus_result=None):
+        c=consensus_result if consensus_result is not None else self.consensus.update(signal)
         if not c.get("candidate") or not c.get("direction"):
             return {"candidate":False,"consensus":c,"scheduled":0}
         symbol=str(signal.symbol);ctx=self.latest_context.get(symbol,{})
