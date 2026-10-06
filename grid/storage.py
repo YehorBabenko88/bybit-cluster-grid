@@ -99,8 +99,9 @@ class Storage:
     async def _save_spooled(self,record_id,row):
         if record_id in self.replay_ids:
             rate=float(self.replay_rate)
-            if rate<=0:
-                raise RuntimeError("CONTROL paused WAL recovery")
+            while rate<=0:
+                await asyncio.sleep(1.0)
+                rate=float(self.replay_rate)
             interval=1.0/max(0.1,rate)
             wait=interval-(asyncio.get_running_loop().time()-self._last_replay_send)
             if wait>0: await asyncio.sleep(wait)
