@@ -19,6 +19,7 @@ from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_dele
 from .start_readiness import start_readiness
 from .enrollment import create_enrollment_token
 from .server_pilot import begin_server_pilot_validation
+from .system_lifecycle import get_phase,phase_capabilities
 
 log=logging.getLogger("telegram")
 _pending_confirms={}
@@ -55,9 +56,32 @@ def _nodes_keyboard(nodes):
 
 def _main_keyboard():
     return {"inline_keyboard":[
+      [{"text":"⚙ УПРАВЛЕНИЕ","callback_data":"menu:ops"}],
+      [{"text":"📈 СИМУЛЯЦИЯ","callback_data":"menu:sim"},{"text":"🔬 НАУКА","callback_data":"menu:science"}],
+      [{"text":"ℹ ОБЩЕЕ СОСТОЯНИЕ","callback_data":"fleet:system"}]
+    ]}
+
+def _ops_keyboard():
+    return {"inline_keyboard":[
       [{"text":"▶ НАЧАТЬ","callback_data":"fleet:begin"},{"text":"⏹ СТОП","callback_data":"fleet:stop"}],
       [{"text":"⏯ ПРОДОЛЖИТЬ","callback_data":"fleet:resume"},{"text":"🗑 УДАЛИТЬ","callback_data":"fleet:delete"}],
-      [{"text":"🖥 АГЕНТЫ","callback_data":"fleet:nodes"},{"text":"ℹ СОСТОЯНИЕ","callback_data":"fleet:system"}]
+      [{"text":"🖥 АГЕНТЫ","callback_data":"fleet:nodes"},{"text":"🩺 HEALTH","callback_data":"menu:health"}],
+      [{"text":"⬅ ГЛАВНОЕ МЕНЮ","callback_data":"fleet:menu"}]
+    ]}
+
+def _sim_keyboard():
+    return {"inline_keyboard":[
+      [{"text":"📊 СТАТУС","callback_data":"sim:status"},{"text":"🧪 RUNS","callback_data":"sim:runs"}],
+      [{"text":"✅ PASSED","callback_data":"sim:passed"},{"text":"⏳ WAITING OOS","callback_data":"sim:waiting"}],
+      [{"text":"⬅ ГЛАВНОЕ МЕНЮ","callback_data":"fleet:menu"}]
+    ]}
+
+def _science_keyboard():
+    return {"inline_keyboard":[
+      [{"text":"🔬 СТАТУС","callback_data":"science:status"},{"text":"💡 ОТКРЫТИЯ","callback_data":"science:discoveries"}],
+      [{"text":"⛏ MINING","callback_data":"science:mining"},{"text":"📚 HISTORY","callback_data":"science:history"}],
+      [{"text":"❌ ОТКЛОНЕНО","callback_data":"science:rejected"},{"text":"🧭 PHASE","callback_data":"science:phase"}],
+      [{"text":"⬅ ГЛАВНОЕ МЕНЮ","callback_data":"fleet:menu"}]
     ]}
 
 async def _tg_api(session,method,body=None,params=None,retries=2):
