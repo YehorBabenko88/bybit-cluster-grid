@@ -41,3 +41,34 @@ async def apply_evaluation_gate(pool,model_id,stage,requirements):
         target={"OOS":"OOS_PASSED","ROBUSTNESS":"ROBUSTNESS_PASSED"}.get(stage)
         if target:await pool.execute("UPDATE model_registry SET status=$2 WHERE id=$1",model_id,target)
     return passed
+
+
+async def promote_production(pool,model_id):
+    """Final fail-closed promotion. Training success is never sufficient."""
+    async with pool.acquire() as c:
+        async with c.transaction():
+            model=await c.fetchrow("""SELECT id,dataset_id,feature_version,status FROM model_registry
+              WHERE id=$1 FOR UPDATE""",model_id)
+            if not model:raise ValueError("model missing")
+            if model["status"]!="ROBUSTNESS_PASSED":
+                raise ValueError("model has not passed robustness gate")
+            stages=await c.fetch("""SELECT stage,dataset_id,passed FROM model_evaluations
+              WHERE model_id=$1 AND stage IN ('OOS','ROBUSTNESS')
+              ORDER BY created_at DESC""",model_id)
+            latest={}
+            for row in stages:
+                latest.setdefault(row["stage"],row)
+            for stage in ("OOS","ROBUSTNESS"):
+                ev=latest.get(stage)
+                if not ev or ev["passed"] is not True:
+                    raise ValueError(stage+" evaluation has not passed")
+                if ev["dataset_id"]!=model["dataset_id"]:
+                    raise ValueError(stage+" evaluation dataset mismatch")
+            ds=await c.fetchrow("""SELECT feature_version,status FROM dataset_snapshots
+              WHERE id=$1""",model["dataset_id"])
+            if not ds or ds["status"]!="READY":
+                raise ValueError("model dataset is not READY")
+            if ds["feature_version"]!=model["feature_version"]:
+                raise ValueError("model feature version mismatch")
+            await c.execute("UPDATE model_registry SET status='PRODUCTION' WHERE id=$1",model_id)
+    return {"model_id":str(model_id),"status":"PRODUCTION"}
