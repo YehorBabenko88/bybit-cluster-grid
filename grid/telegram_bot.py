@@ -63,7 +63,8 @@ def _main_keyboard():
 async def _tg_api(session,method,body=None,params=None,retries=2):
     url=f"https://api.telegram.org/bot{settings.telegram_bot_token}/{method}"
     for attempt in range(retries+1):
-        async with session.post(url,json=body) if body is not None else session.get(url,params=params) as r:
+        request=session.post(url,json=body) if body is not None else session.get(url,params=params)
+        async with request as r:
             try:data=await r.json()
             except Exception:data={}
             if r.status==429 and attempt<retries:
