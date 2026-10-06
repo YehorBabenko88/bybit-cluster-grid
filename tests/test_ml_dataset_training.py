@@ -25,3 +25,22 @@ def test_remote_bundle_training_uses_walk_forward_not_in_sample_evaluation():
     assert "backend.evaluate(valid,pred" in section
     assert "backend.predict(model,rows)" not in section
     assert '"validation":"walk_forward"' in section
+
+
+def test_training_success_is_not_itself_a_passed_model_gate():
+    from pathlib import Path
+    text=Path("grid/ml_transport.py").read_text(encoding="utf-8")
+    section=text[text.index("async def finalize_model"):]
+    assert "VALUES($1,$2,'TRAIN',$3,$4::jsonb,false,$5)" in section
+
+
+def test_final_production_promotion_requires_oos_and_robustness():
+    from pathlib import Path
+    text=Path("grid/ml_evaluation_pipeline.py").read_text(encoding="utf-8")
+    section=text[text.index("async def promote_production"):]
+    assert 'model["status"]!="ROBUSTNESS_PASSED"' in section
+    assert 'for stage in ("OOS","ROBUSTNESS")' in section
+    assert 'ev["passed"] is not True' in section
+    assert 'ev["dataset_id"]!=model["dataset_id"]' in section
+    assert "model feature version mismatch" in section
+    assert "status='PRODUCTION'" in section
