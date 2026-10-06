@@ -458,6 +458,13 @@ async def scientific_status(x_grid_token:str=Header(default="")):
     out=scientific_service.status()
     out["pending_outcomes"]=int(pending or 0)
     out["hypotheses"]={str(r["status"]):int(r["n"]) for r in counts}
+    mining=await db.pool.fetchrow("""SELECT COALESCE(sum(hypotheses_tested),0) tested,
+      max(last_run_at) last_run_at FROM scientific_mining_families""")
+    last=await db.pool.fetchrow("""SELECT split_key,candidate_count,accepted_count,status,completed_at
+      FROM scientific_mining_runs ORDER BY started_at DESC LIMIT 1""")
+    out["pattern_mining"]={"hypotheses_tested":int(mining["tested"] or 0),
+                           "last_run_at":mining["last_run_at"],
+                           "last":dict(last) if last else None}
     return out
 
 @app.get("/scientific/hypotheses")
