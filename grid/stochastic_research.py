@@ -39,7 +39,7 @@ def spectral_band_power(values,bands=((0.0,.1),(.1,.3),(.3,.5))):
         powers.append((k/n,(re*re+im*im)/n))
     total=sum(p for _,p in powers) or 1.0
     for lo,hi in bands:
-        p=sum(p for f,p in powers if lo<=f<hi)
+        p=sum(p for f,p in powers if lo<=f<hi or (hi==0.5 and f==0.5))
         out.append({"lo":lo,"hi":hi,"power_share":p/total})
     return out
 
