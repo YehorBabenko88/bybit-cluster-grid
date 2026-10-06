@@ -31,3 +31,17 @@ async def delete_owned_artifacts(pool,store,limit=200):
         await mark_deleted(pool,row["id"])
         deleted+=1
     return {"deleted":deleted,"skipped":skipped}
+
+
+async def drain_owned_artifacts(pool,store,batch_size=200,max_batches=5):
+    """Bounded GC drain: catch up after bursts without monopolizing maintenance."""
+    total_deleted=total_skipped=0
+    for _ in range(max(1,int(max_batches))):
+        result=await delete_owned_artifacts(pool,store,limit=max(1,int(batch_size)))
+        deleted=int(result["deleted"]);skipped=int(result["skipped"])
+        total_deleted+=deleted;total_skipped+=skipped
+        # A short batch means the local deletable backlog is drained. Skipped
+        # non-local URIs are intentionally left for their owning backend.
+        if deleted+skipped < max(1,int(batch_size)) or deleted==0:
+            break
+    return {"deleted":total_deleted,"skipped":total_skipped}
