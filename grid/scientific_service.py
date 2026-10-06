@@ -7,6 +7,7 @@ from .retention_v2 import register_consumer
 from .control_state import set_consumer_watermarks
 from .micro_agents import MicroSignal
 from .scientific_mining_scheduler import ScientificMiningScheduler
+from .scientific_simulation_gate import ScientificSimulationGate
 
 log=logging.getLogger("scientific_service")
 
@@ -16,7 +17,8 @@ class ScientificResearchService:
         self.orchestrator=ScientificResearchOrchestrator()
         self.stop_event=asyncio.Event();self.last_id=0;self.processed=0;self.scheduled=0
         self.errors=0;self.last_event_ts=None;self.started=False
-        self.mining=ScientificMiningScheduler(pool);self.last_mining_check=0.0;self.mining_runs=0
+        self.mining=ScientificMiningScheduler(pool);self.simulation=ScientificSimulationGate(pool)
+        self.last_mining_check=0.0;self.mining_runs=0;self.simulation_runs=0
 
     async def start(self):
         if self.started:return
@@ -124,6 +126,10 @@ class ScientificResearchService:
                 if now-self.last_mining_check>=3600:
                     mined=await self.mining.run_closed_split_once()
                     self.mining_runs+=len(mined.get("runs") or [])
+                    cutoff=mined["dataset_cutoff"]
+                    await self.simulation.enqueue_validated(cutoff)
+                    simulated=await self.simulation.run_queued(limit=2)
+                    self.simulation_runs+=len(simulated)
                     self.last_mining_check=now
                 if not n:await asyncio.sleep(self.poll_seconds)
             except asyncio.CancelledError:
@@ -142,6 +148,7 @@ class ScientificResearchService:
         return {"started":self.started,"last_event_id":int(self.last_id),
                 "processed":int(self.processed),"scheduled_outcomes":int(self.scheduled),
                 "errors":int(self.errors),"mining_runs":int(self.mining_runs),
+                "simulation_runs":int(self.simulation_runs),
                 "lag_seconds":round(lag,2) if lag is not None else None}
 
 def _split_key(ts):
