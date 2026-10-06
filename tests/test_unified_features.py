@@ -72,6 +72,9 @@ class RetentionPool:
     async def execute(self,sql,*args):
         self.calls.append((sql,args))
         return "INSERT 0 1"
+    async def fetch(self,sql,*args):
+        self.calls.append((sql,args))
+        return []
 
 def test_unified_feature_consumer_registers_market_events():
     async def run():
