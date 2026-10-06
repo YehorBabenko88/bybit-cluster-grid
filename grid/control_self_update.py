@@ -16,6 +16,13 @@ def _status(data_root,**payload):
         json.dump(payload,f,separators=(",",":"));f.flush();os.fsync(f.fileno())
     os.replace(tmp,path)
 
+def _unlock_own(data_root):
+    lock=pathlib.Path(data_root)/"control-update.lock"
+    try:
+        if lock.read_text(encoding="ascii").strip()==str(os.getpid()):
+            lock.unlink(missing_ok=True)
+    except OSError:pass
+
 def _role_preflight(target,data_root):
     python=data_root/"runtime"/"venv"/"Scripts"/"python.exe"
     preflight=data_root/"installer"/"preflight.ps1"
@@ -73,7 +80,7 @@ async def apply(version,url,sha256):
     # the coordinator task is terminated.
     await asyncio.sleep(3)
     _restart_tasks()
-    lock.unlink(missing_ok=True)
+    _unlock_own(data_root)
     return {"state":"control_update_staged","version":version,"previous":previous}
 
 def main(argv=None):
@@ -89,6 +96,8 @@ def main(argv=None):
     except Exception as e:
         try:
             _,data_root=_roots();_status(data_root,state="failed",version=getattr(a,"version",""),error=str(e)[:2000])
+        except Exception:pass
+        try:_unlock_own(data_root)
         except Exception:pass
         print(json.dumps({"state":"failed","error":str(e)[:2000]}),file=sys.stderr)
         return 1
