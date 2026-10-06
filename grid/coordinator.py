@@ -127,13 +127,13 @@ async def create_bootstrap_envelope(payload:dict,x_grid_token:str=Header(default
     ttl_minutes=max(5,min(60,int(payload.get("ttl_minutes",20))))
     expires=datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=ttl_minutes)
     try:
-        enrollment_token=await create_enrollment_token(db.pool,label,expires,mode)
         tag=settings.tailscale_node_tags
         tailscale_key=await create_one_time_auth_key(
             settings.tailscale_oauth_client_id,
             settings.tailscale_oauth_client_secret,
             tag,
         )
+        enrollment_token=await create_enrollment_token(db.pool,label,expires,mode)
     except (ValueError,TailscaleProvisioningError) as e:
         raise HTTPException(409,str(e))
     return {
