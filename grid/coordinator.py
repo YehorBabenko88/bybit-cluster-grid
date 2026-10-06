@@ -344,7 +344,7 @@ async def rebalance():
 
     eligible_heartbeats={nid:alive[nid] for nid in eligible}
     proposed=weighted_assign(universe,eligible,eligible_heartbeats)
-    assignments=stabilize_assignments(proposed,assignments,alive,
+    assignments=stabilize_assignments(proposed,assignments,eligible_heartbeats,
                                       getattr(settings,"assignment_max_churn_fraction",.10))
 
 @app.on_event("startup")
