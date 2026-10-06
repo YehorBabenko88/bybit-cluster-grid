@@ -128,3 +128,21 @@ def test_artifact_gc_is_bounded_multi_batch():
     assert "max_batches=5" in s
     assert "batch_size=200" in s
     assert "for _ in range(max(1,int(max_batches)))" in s
+
+
+def test_control_disk_pressure_sheds_collection_before_disk_full():
+    s=Path("grid/coordinator.py").read_text(encoding="utf-8")
+    heartbeat=s.split("async def heartbeat",1)[1].split('@app.post("/commands/',1)[0]
+    assert "control_disk=disk_state" in heartbeat
+    assert "live_collection_allowed(control_disk" in heartbeat
+    assert 'control_disk["state"]=="NORMAL"' in heartbeat
+    assert '"control_disk_state":control_disk["state"]' in heartbeat
+
+
+def test_retention_backlog_uses_planner_estimate_not_full_count():
+    s=Path("grid/retention_v2.py").read_text(encoding="utf-8")
+    block=s.split("async def retention_backlog",1)[1]
+    assert "EXPLAIN (FORMAT JSON)" in block
+    assert "SELECT count(*)" not in block
+    scheduler=Path("grid/retention.py").read_text(encoding="utf-8")
+    assert '"event":"retention_backlog"' in scheduler
