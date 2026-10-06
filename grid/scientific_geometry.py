@@ -96,8 +96,13 @@ class ScientificGeometryEngine:
         except (KeyError,TypeError,ValueError):return None
         scaler=self.scalers.setdefault(str(symbol),OnlineStandardizer(self.warmup))
         projection=self.projections.setdefault(str(symbol),StreamingProjection3D(len(self.names),self.projection_lr,self.warmup))
+        was_ready=scaler.ready and projection.ready
         z=scaler.transform_then_update(x)
         xyz=projection.project_then_update(z)
+        if was_ready:
+            q=self.surface2.setdefault(str(symbol),PolynomialSurfaceTracker(2)).score_then_update(xyz)
+            c=self.surface3.setdefault(str(symbol),PolynomialSurfaceTracker(3)).score_then_update(xyz)
+            self.surface_state[str(symbol)]={"quadratic":q,"cubic":c}
         point=ScientificPoint(str(symbol),int(event_ts_ms),tuple(z),self.names,xyz,str(source),str(quality))
         h=self.history.setdefault(str(symbol),[]);h.append(point)
         if len(h)>4096:del h[:-4096]
@@ -108,4 +113,10 @@ class ScientificGeometryEngine:
         scaler=self.scalers.get(str(symbol));projection=self.projections.get(str(symbol))
         out["projection_ready"]=bool(scaler and projection and scaler.ready and projection.ready)
         out["research_epoch_samples"]=int(scaler.n if scaler else 0)
+        surfaces=self.surface_state.get(str(symbol),{})
+        out["surface_quadratic"]=surfaces.get("quadratic",{"ready":False,"degree":2})
+        out["surface_cubic"]=surfaces.get("cubic",{"ready":False,"degree":3})
+        q=out["surface_quadratic"];c=out["surface_cubic"]
+        out["cubic_fit_gain"]=(float(q.get("rmse"))/max(float(c.get("rmse")),1e-12)
+                               if q.get("ready") and c.get("ready") else None)
         return out
