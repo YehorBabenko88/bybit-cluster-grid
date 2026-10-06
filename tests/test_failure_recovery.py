@@ -359,3 +359,25 @@ def test_one_click_worker_package_contains_full_installer_and_no_github_login():
     assert "tailscale.msi" in p
     assert "bootstrap-envelope.json" in p
     assert "gh auth" not in p.lower()
+
+
+def test_worker_install_requires_control_heartbeat_acceptance():
+    from pathlib import Path
+    b=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    v=Path("installer/verify-worker-acceptance.ps1").read_text(encoding="utf-8")
+    c=Path("grid/coordinator.py").read_text(encoding="utf-8")
+    assert "verify-worker-acceptance.ps1" in b
+    assert b.index("verify-worker-acceptance.ps1") < b.index('status="installed"')
+    assert "/nodes/{node_id}/acceptance" in c
+    assert "authenticate_agent" in c
+    assert '"X-Node-Credential"=$credential' in v
+    assert "healthy heartbeat" in v
+
+
+def test_windows_grid_tasks_ignore_battery_power_for_recovery():
+    from pathlib import Path
+    s=Path("installer/install.ps1").read_text(encoding="utf-8")
+    assert "$Settings.DisallowStartIfOnBatteries=$false" in s
+    assert "$Settings.StopIfGoingOnBatteries=$false" in s
+    assert "-RestartCount 999" in s
+    assert "-StartWhenAvailable" in s
