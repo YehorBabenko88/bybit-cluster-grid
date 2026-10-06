@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import pathlib
@@ -54,6 +55,35 @@ def cleanup_orphan_archive_files(root,older_than_seconds=86400):
     for p in root.glob("grid-archive-*"):
         try:
             if p.is_file() and not p.name.endswith(".part") and p.stat().st_mtime<cutoff:
+                p.unlink();removed+=1
+        except OSError:pass
+    return removed
+
+
+def cleanup_owned_postgres_logs(data_root,older_than_seconds=14*86400):
+    """Bound logs only for the PostgreSQL instance explicitly owned by this Grid."""
+    data_root=pathlib.Path(data_root)
+    manifest=data_root/"postgres-owned.json"
+    if not manifest.exists():return 0
+    try:
+        meta=json.loads(manifest.read_text(encoding="utf-8-sig"))
+        pg_root=pathlib.Path(meta["root"]).resolve()
+        pg_data=pathlib.Path(meta["data"]).resolve()
+        safe=data_root.resolve()
+        if (meta.get("owned_by_grid") is not True
+                or meta.get("service_name")!="BybitClusterGridPostgres"
+                or int(meta.get("port",0))!=55432
+                or safe not in pg_root.parents
+                or safe not in pg_data.parents):
+            return 0
+    except (OSError,ValueError,TypeError,KeyError,json.JSONDecodeError):
+        return 0
+    log_root=pg_data/"log"
+    if not log_root.exists():return 0
+    cutoff=time.time()-max(86400,int(older_than_seconds));removed=0
+    for p in log_root.glob("*.log"):
+        try:
+            if p.is_file() and p.stat().st_mtime<cutoff:
                 p.unlink();removed+=1
         except OSError:pass
     return removed
@@ -115,6 +145,7 @@ async def maintenance_scheduler(pool,settings):
             # Keep current + rollback target protected; bound reproducible release/update debris.
             releases=cleanup_release_storage(install_root,root,keep_recent=2,
                                              older_than_seconds=3600 if aggressive else 86400)
+            pglogs=cleanup_owned_postgres_logs(root,3*86400 if aggressive else 14*86400)
             pgstats=await maintain_postgres_statistics(pool)
             schema=await schema_type_audit(pool)
             if not schema["ok"]:
@@ -123,7 +154,7 @@ async def maintenance_scheduler(pool,settings):
             log.info("maintenance completed",extra={
                 "event":"maintenance_complete",
                 "component":str({"metadata":meta,"temp_files":temps,"strategy_cache":strategy,
-                                 "archive_orphans":archive,"release_cleanup":releases,"pg_tables":len(pgstats),
+                                 "archive_orphans":archive,"release_cleanup":releases,"postgres_logs":pglogs,"pg_tables":len(pgstats),
                                  "disk":disk["state"],"disk_free_gb":round(disk["free_gb"],2),
                                  "schema_ok":schema["ok"]}),
             })
