@@ -267,6 +267,10 @@ if($AgentMode -ne "CONTROL"){
     if($LASTEXITCODE -ne 0){throw "Grid preflight failed"}
     & (Join-Path $PSScriptRoot "install.ps1") -ReleaseDir $Release -Python $Python -Mode $AgentMode
     if($LASTEXITCODE -ne 0){throw "Grid service installation failed"}
+    if($AgentMode -ne "CONTROL"){
+        & (Join-Path $PSScriptRoot "verify-worker-acceptance.ps1") -CoordinatorUrl $CoordinatorUrl -DataRoot $DataRoot -TimeoutSeconds 120
+        if($LASTEXITCODE -ne 0){throw "Worker did not pass CONTROL acceptance after service start"}
+    }
     $FirewallScript=Join-Path $PSScriptRoot "configure-control-firewall.ps1"
     if(Test-Path $FirewallScript){
         if($AgentMode -eq "CONTROL"){ & $FirewallScript }
