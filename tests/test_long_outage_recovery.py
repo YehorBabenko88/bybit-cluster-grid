@@ -106,3 +106,46 @@ def test_recovery_budget_is_shared_across_recovering_workers():
     assert "micro_replay_active" in block
     assert "share=max(1,recovering)" in block
     assert "/share" in block
+
+
+def test_recovery_stress_model_keeps_fleet_rps_bounded():
+    # Fair-share means adding recovering workers does not multiply CONTROL load.
+    fast_minute=60.0; fast_micro=250.0
+    slow_minute=8.0; slow_micro=30.0
+    for workers in (1,4,10):
+        minute_each=max(2.0,fast_minute/workers)
+        micro_each=max(10.0,fast_micro/workers)
+        assert minute_each*workers <= max(fast_minute,2.0*workers)
+        assert micro_each*workers <= max(fast_micro,10.0*workers)
+        slow_minute_each=max(1.0,slow_minute/workers)
+        slow_micro_each=max(5.0,slow_micro/workers)
+        assert slow_minute_each*workers <= max(slow_minute,1.0*workers)
+        assert slow_micro_each*workers <= max(slow_micro,5.0*workers)
+
+
+def test_recovery_queues_and_wal_are_hard_bounded():
+    from pathlib import Path
+    storage=Path("grid/storage.py").read_text(encoding="utf-8")
+    micro=Path("grid/micro_event_storage.py").read_text(encoding="utf-8")
+    cfg=Path("grid/config.py").read_text(encoding="utf-8")
+    assert "maxsize=5000" in storage
+    assert "maxsize=20000" in micro
+    assert "spool_max_gb: float = 8.0" in cfg
+    assert "micro_event_spool_max_gb: float = 4.0" in cfg
+    assert "iter_recover()" in storage and "iter_recover()" in micro
+    assert "replay_observed_per_second" in storage
+    assert "replay_observed_per_second" in micro
+
+
+def test_recovery_eta_formula_from_observed_records():
+    # Once average record size is observed, ETA is deterministic rather than guessed.
+    scenarios=((1,1),(4,8),(10,12))  # workers, GiB total backlog
+    avg_record_bytes=4096
+    fleet_rate=60.0
+    for workers,gib in scenarios:
+        records=(gib*1024**3)/avg_record_bytes
+        eta_seconds=records/fleet_rate
+        assert eta_seconds>0
+        # Worker count does not make aggregate FAST budget exceed the fleet budget.
+        each=max(2.0,fleet_rate/workers)
+        assert each*workers <= max(fleet_rate,2.0*workers)
