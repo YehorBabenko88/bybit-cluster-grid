@@ -55,6 +55,11 @@ def control_disk_state():
 async def recovery_profile():
     """Small feedback signal for fleet WAL replay; fail conservatively."""
     state=control_disk_state()["state"]
+    cutoff=time.time()-settings.heartbeat_seconds*3
+    recovering=sum(1 for v in nodes.values()
+        if float(v.get("last_seen",0))>=cutoff and
+        (bool(v.get("db_replay_active")) or bool(v.get("micro_replay_active"))))
+    share=max(1,recovering)
     if state in ("HARD","EMERGENCY"):
         return {"profile":"PAUSE","minute_per_second":0.0,"micro_per_second":0.0}
     started=time.monotonic()
@@ -71,12 +76,12 @@ async def recovery_profile():
                 "db_latency_ms":round(latency,1),"db_active":active}
     if latency>=float(settings.replay_db_latency_slow_ms) or active>=settings.strategy_db_active_limit:
         return {"profile":"SLOW",
-                "minute_per_second":float(settings.replay_minute_slow_per_second),
-                "micro_per_second":float(settings.replay_micro_slow_per_second),
+                "minute_per_second":max(1.0,float(settings.replay_minute_slow_per_second)/share),
+                "micro_per_second":max(5.0,float(settings.replay_micro_slow_per_second)/share),
                 "db_latency_ms":round(latency,1),"db_active":active}
     return {"profile":"FAST",
-            "minute_per_second":float(settings.replay_minute_fast_per_second),
-            "micro_per_second":float(settings.replay_micro_fast_per_second),
+            "minute_per_second":max(2.0,float(settings.replay_minute_fast_per_second)/share),
+            "micro_per_second":max(10.0,float(settings.replay_micro_fast_per_second)/share),
             "db_latency_ms":round(latency,1),"db_active":active}
 
 def constant_time_equal(left,right):
