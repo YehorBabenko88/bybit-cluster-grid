@@ -404,3 +404,24 @@ def test_windows_grid_tasks_ignore_battery_power_for_recovery():
     assert "$Settings.StopIfGoingOnBatteries=$false" in s
     assert "-RestartCount 999" in s
     assert "-StartWhenAvailable" in s
+
+
+def test_update_manager_recognizes_real_control_entrypoint(tmp_path):
+    from grid.update_manager import _release_runnable
+    release=tmp_path/"control"; (release/"grid").mkdir(parents=True)
+    (release/"grid"/"coordinator.py").write_text("",encoding="utf-8")
+    assert _release_runnable(release)
+
+
+def test_manual_rollback_clears_pending_health_state(tmp_path):
+    from grid.update_manager import rollback
+    root=tmp_path/"install"; releases=root/"releases"; releases.mkdir(parents=True)
+    for v in ("bad","good"):
+        d=releases/v; d.mkdir(); (d/"run_worker.py").write_text("",encoding="utf-8")
+    (root/"current.version").write_text("bad",encoding="utf-8")
+    (root/"previous.version").write_text("good",encoding="utf-8")
+    (root/"pending.version").write_text("bad",encoding="utf-8")
+    (root/"pending-crashes.txt").write_text("2",encoding="utf-8")
+    assert rollback(root)=="good"
+    assert not (root/"pending.version").exists()
+    assert not (root/"pending-crashes.txt").exists()
