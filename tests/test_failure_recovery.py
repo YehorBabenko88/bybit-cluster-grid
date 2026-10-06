@@ -147,3 +147,38 @@ def test_wal_startup_removes_crash_staging_files(tmp_path):
     SegmentWAL(root)
     assert not (root/"checkpoint.next").exists()
     assert not (root/"checkpoint.backup.next").exists()
+
+
+def test_release_install_recovers_power_loss_replaced_window(tmp_path):
+    import zipfile
+    from grid.update_manager import install_release
+    root=tmp_path/"install"; releases=root/"releases"; releases.mkdir(parents=True)
+    old=releases/"v1"; old.mkdir(); (old/"run_worker.py").write_text("old",encoding="utf-8")
+    replaced=releases/"v1.replaced"
+    old.rename(replaced)  # power loss after target -> backup, before staging -> target
+    package=tmp_path/"v1.zip"
+    with zipfile.ZipFile(package,"w") as z:z.writestr("run_worker.py","new")
+    target=install_release(package,"v1",root)
+    assert (target/"run_worker.py").read_text(encoding="utf-8")=="new"
+    assert not replaced.exists()
+
+
+def test_launchers_fallback_current_previous_bootstrap():
+    from pathlib import Path
+    for name,entry in (
+        ("installer/launcher.ps1","run_worker.py"),
+        ("installer/coordinator-launcher.ps1","grid\\coordinator.py"),
+        ("installer/archive-launcher.ps1","grid\\archive_service.py"),
+    ):
+        s=Path(name).read_text(encoding="utf-8")
+        assert '@("current.version","previous.version")' in s
+        assert entry in s
+        assert 'Join-Path $InstallRoot "bootstrap"' in s
+
+
+def test_release_markers_are_fsynced_before_atomic_replace():
+    from pathlib import Path
+    s=Path("grid/update_manager.py").read_text(encoding="utf-8")
+    block=s.split("def _write_marker",1)[1].split("def current_version",1)[0]
+    assert "f.flush(); os.fsync(f.fileno())" in block
+    assert "os.replace(tmp,marker)" in block
