@@ -348,6 +348,28 @@ agents jsonb NOT NULL DEFAULT '[]'::jsonb,features jsonb NOT NULL DEFAULT '{}'::
 outcome jsonb NOT NULL DEFAULT '{}'::jsonb,outcome_ready boolean NOT NULL DEFAULT false,
 research_only boolean NOT NULL DEFAULT true,created_at timestamptz NOT NULL DEFAULT now())""",
 "CREATE INDEX IF NOT EXISTS micro_pattern_candidates_eval_idx ON micro_pattern_candidates(outcome_ready,pattern_key,event_ts)"
+]),
+(37,"scientific_hypothesis_memory",[
+"""CREATE TABLE IF NOT EXISTS scientific_hypotheses(
+id uuid PRIMARY KEY,fingerprint text NOT NULL UNIQUE,method text NOT NULL,pattern text NOT NULL,
+horizon_ms integer NOT NULL,direction smallint NOT NULL,feature_version text NOT NULL,
+definition jsonb NOT NULL,status text NOT NULL DEFAULT 'CANDIDATE',
+research_only boolean NOT NULL DEFAULT true,first_seen_at timestamptz NOT NULL DEFAULT now(),
+updated_at timestamptz NOT NULL DEFAULT now(),validated_at timestamptz,rejected_at timestamptz)""",
+"CREATE INDEX IF NOT EXISTS scientific_hypotheses_status_idx ON scientific_hypotheses(status,updated_at DESC)",
+"""CREATE TABLE IF NOT EXISTS scientific_hypothesis_evidence(
+id uuid PRIMARY KEY,hypothesis_id uuid NOT NULL REFERENCES scientific_hypotheses(id) ON DELETE CASCADE,
+experiment_key text NOT NULL,symbol text NOT NULL,regime text NOT NULL,split_key text NOT NULL,
+sample_count bigint NOT NULL,mean_return_bps double precision NOT NULL,
+hit_rate double precision NOT NULL,cost_bps double precision NOT NULL DEFAULT 0,
+dataset_cutoff timestamptz,passed boolean NOT NULL,metrics jsonb NOT NULL DEFAULT '{}'::jsonb,
+created_at timestamptz NOT NULL DEFAULT now(),
+UNIQUE(hypothesis_id,experiment_key))""",
+"CREATE INDEX IF NOT EXISTS scientific_evidence_lookup_idx ON scientific_hypothesis_evidence(hypothesis_id,created_at)",
+"""CREATE TABLE IF NOT EXISTS scientific_negative_memory(
+fingerprint text PRIMARY KEY,reason text NOT NULL,evidence_count bigint NOT NULL DEFAULT 0,
+cooldown_until timestamptz,details jsonb NOT NULL DEFAULT '{}'::jsonb,
+updated_at timestamptz NOT NULL DEFAULT now())"""
 ])
 ]
 
