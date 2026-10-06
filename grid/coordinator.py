@@ -124,6 +124,9 @@ async def create_bootstrap_envelope(payload:dict,x_grid_token:str=Header(default
     import datetime
     mode=str(payload.get("install_mode","NORMAL")).upper()
     label=str(payload.get("label") or "grid-node")[:128]
+    coordinator_url=str(payload.get("coordinator_url") or "").strip()
+    if not coordinator_url or "127.0.0.1" in coordinator_url or "localhost" in coordinator_url.lower():
+        raise HTTPException(400,"reachable non-loopback coordinator_url is required")
     ttl_minutes=max(5,min(60,int(payload.get("ttl_minutes",20))))
     expires=datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=ttl_minutes)
     try:
@@ -138,7 +141,7 @@ async def create_bootstrap_envelope(payload:dict,x_grid_token:str=Header(default
         raise HTTPException(409,str(e))
     return {
         "schema":1,
-        "coordinator_url":str(payload.get("coordinator_url") or settings.coordinator_url),
+        "coordinator_url":coordinator_url,
         "install_mode":"AUTO",
         "authorized_mode":mode,
         "enrollment_token":enrollment_token,
