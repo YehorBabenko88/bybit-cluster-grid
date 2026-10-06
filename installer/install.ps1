@@ -27,6 +27,10 @@ $Action=New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arg -Workin
 $Trigger=New-ScheduledTaskTrigger -AtStartup
 $Principal=New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 $Settings=New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
+# Dedicated/remote nodes must recover after mains loss even when Windows reports
+# battery/UPS power. Power source must not suppress or terminate Grid services.
+$Settings.DisallowStartIfOnBatteries=$false
+$Settings.StopIfGoingOnBatteries=$false
 # Never overlap service instances during slow shutdown, restart retries, or cold boot.
 # A second coordinator/worker/archive process would duplicate sockets, leases and work.
 $Settings.MultipleInstances="IgnoreNew"
