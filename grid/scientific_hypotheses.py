@@ -43,6 +43,9 @@ class Evidence:
 
 def evidence_passes(spec,e,min_samples=30,min_edge_bps=0.5,min_hit_rate=0.52):
     if int(e.sample_count)<int(min_samples):return False
+    details=e.details or {}
+    corrected=details.get("corrected_p_value")
+    if corrected is not None and float(corrected)>.05:return False
     signed=float(e.net_edge_bps)*(1 if spec.direction>=0 else -1)
     return signed>=float(min_edge_bps) and float(e.hit_rate)>=float(min_hit_rate)
 
