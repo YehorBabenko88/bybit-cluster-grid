@@ -338,13 +338,20 @@ outcome jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAU
 
 async def apply_migrations(pool):
     async with pool.acquire() as c:
-        await c.execute("""CREATE TABLE IF NOT EXISTS schema_migrations(
-        version bigint PRIMARY KEY,name text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())""")
-        rows=await c.fetch("SELECT version FROM schema_migrations")
-        done={r["version"] for r in rows}
-        for version,name,sqls in MIGRATIONS:
-            if version in done: continue
-            async with c.transaction():
-                for sql in sqls: await c.execute(sql)
-                await c.execute("INSERT INTO schema_migrations(version,name) VALUES($1,$2)",version,name)
-            log.info("migration applied",extra={"event":"migration","component":name})
+        # Coordinator and ArchivePipeline can cold-start together. Serialize
+        # schema upgrades at PostgreSQL itself so both processes never race the
+        # same migration/version row.
+        await c.execute("SELECT pg_advisory_lock($1)",0x42594347)
+        try:
+            await c.execute("""CREATE TABLE IF NOT EXISTS schema_migrations(
+            version bigint PRIMARY KEY,name text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())""")
+            rows=await c.fetch("SELECT version FROM schema_migrations")
+            done={r["version"] for r in rows}
+            for version,name,sqls in MIGRATIONS:
+                if version in done: continue
+                async with c.transaction():
+                    for sql in sqls: await c.execute(sql)
+                    await c.execute("INSERT INTO schema_migrations(version,name) VALUES($1,$2)",version,name)
+                log.info("migration applied",extra={"event":"migration","component":name})
+        finally:
+            await c.execute("SELECT pg_advisory_unlock($1)",0x42594347)
