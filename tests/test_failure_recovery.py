@@ -487,3 +487,12 @@ def test_pending_journal_precedes_current_switch_for_all_updaters():
         section=text[text.index("previous=current_version"):]
         assert section.index("mark_pending") < section.index("switch_current")
         assert "clear_pending(install_root)" in section
+
+
+def test_control_update_overlap_gate_covers_pending_health_window():
+    from pathlib import Path
+    for name in ("grid/coordinator.py","grid/telegram_bot.py"):
+        text=Path(name).read_text(encoding="utf-8")
+        assert "pending.version" in text
+        assert "control-update.lock" in text
+        assert "health verification already running" in text
