@@ -59,3 +59,11 @@ def test_simulation_promotion_schema_is_separate_from_hypothesis_status():
     assert '"scientific_simulation_promotion_gate"' in m
     assert "scientific_simulation_runs" in m
     assert "SIMULATION_PASSED" not in Path("grid/scientific_hypotheses.py").read_text(encoding="utf-8")
+
+
+def test_simulation_trade_table_is_created_before_alter():
+    from pathlib import Path
+    m=Path("grid/migrations.py").read_text(encoding="utf-8")
+    create=m.index("CREATE TABLE IF NOT EXISTS scientific_simulation_trades")
+    alter=m.index("ALTER TABLE scientific_simulation_trades")
+    assert create<alter
