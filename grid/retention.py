@@ -1,6 +1,6 @@
 import asyncio, logging, os
 from datetime import timedelta
-from .retention_v2 import cleanup_dataset_safe
+from .retention_v2 import cleanup_dataset_safe,retention_backlog
 log=logging.getLogger("retention")
 
 RETENTION_DEFAULTS={
@@ -71,9 +71,16 @@ async def retention_scheduler(pool,settings):
     while True:
         try:
             result=await cleanup_all(pool,overrides)
+            backlog={}
+            for dataset,days in dict(RETENTION_DEFAULTS,**overrides).items():
+                backlog[dataset]=await retention_backlog(pool,dataset,days)
+            blocked={k:v for k,v in backlog.items() if v>0}
+            if blocked:
+                log.warning("retention backlog remains past policy age",extra={
+                    "event":"retention_backlog","component":str(blocked)})
             log.info("automatic retention completed",extra={
                 "event":"retention_complete",
-                "component":str(result)
+                "component":str({"deleted":result,"backlog":backlog})
             })
         except Exception:
             log.exception("automatic retention failed",extra={"event":"retention_failed"})
