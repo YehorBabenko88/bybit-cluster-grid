@@ -6,7 +6,8 @@ Never emits orders.
 """
 from __future__ import annotations
 from dataclasses import asdict
-from .micro_agents import MicrostructureConsensus,MicroSignal
+from .micro_agents import (MicrostructureConsensus,MicroSignal,OIAgent,DeltaAgent,
+                           BookVelocityAgent,LargeOrderAgent,VolumeAgent)
 from .scientific_discovery import ScientificDiscoveryEngine
 from .scientific_hypotheses import HypothesisSpec,Evidence
 from .scientific_memory import register_hypothesis,record_evidence,negative_memory_active
@@ -18,7 +19,10 @@ class ScientificResearchOrchestrator:
         self.feature_version=str(feature_version)
         self.horizons_s=tuple(sorted({int(x) for x in horizons_s if int(x)>0}))
         self.consensus=MicrostructureConsensus(min_agents=min_agents)
+        self.oi_agent=OIAgent();self.delta_agent=DeltaAgent()
+        self.book_agent=BookVelocityAgent();self.wall_agent=LargeOrderAgent();self.volume_agent=VolumeAgent()
         self.discovery=ScientificDiscoveryEngine()
+        self.latest_trade={}
         self.latest_context={}
         self.cost_bps=float(cost_bps);self.max_context_age_ms=max(0,int(max_context_age_ms))
 
