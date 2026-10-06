@@ -24,6 +24,29 @@ $args=@(
 $p=Start-Process -FilePath $Installer -ArgumentList $args -Wait -PassThru
 if($p.ExitCode -ne 0){throw "PostgreSQL installer failed: $($p.ExitCode)"}
 
+# Bound disk growth for the Grid-owned instance only. External PostgreSQL is
+# deliberately never modified by this installer.
+$Conf=Join-Path $PgData "postgresql.conf"
+if(!(Test-Path $Conf)){throw "Grid PostgreSQL configuration not found after install"}
+Add-Content -Encoding ascii $Conf @"
+
+# BybitClusterGrid managed durability / disk bounds
+max_wal_size = '2GB'
+min_wal_size = '256MB'
+checkpoint_timeout = '10min'
+checkpoint_completion_target = 0.9
+logging_collector = on
+log_destination = 'stderr'
+log_directory = 'log'
+log_filename = 'postgresql-%Y-%m-%d.log'
+log_rotation_age = 1d
+log_rotation_size = 100MB
+log_truncate_on_rotation = on
+"@
+Restart-Service -Name $ServiceName -Force
+$svc=Get-Service -Name $ServiceName
+$svc.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Running,[TimeSpan]::FromSeconds(60))
+
 $manifest=[ordered]@{
   schema=1
   owned_by_grid=$true
