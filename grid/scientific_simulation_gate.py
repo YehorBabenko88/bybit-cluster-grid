@@ -34,6 +34,11 @@ class ScientificSimulationGate:
     async def run_one(self,run_id,hypothesis_id,dataset_cutoff):
         await self.pool.execute("""UPDATE scientific_simulation_runs SET status='RUNNING',
           started_at=now() WHERE id=$1 AND status='QUEUED'""",run_id)
+        oos_start=await self.pool.fetchval("""SELECT max(dataset_cutoff)
+          FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1 AND passed=true""",hypothesis_id)
+        if oos_start is None:
+            return await self._waiting(run_id,"validated hypothesis has no fixed evidence cutoff")
+        await self.pool.execute("UPDATE scientific_simulation_runs SET oos_start=$2 WHERE id=$1",run_id,oos_start)
         h=await self.pool.fetchrow("""SELECT method,pattern,horizon_ms,direction,definition,status
           FROM scientific_hypotheses WHERE id=$1""",hypothesis_id)
         if not h or str(h["status"])!="VALIDATED":
@@ -42,9 +47,10 @@ class ScientificSimulationGate:
         wanted=set(str(x) for x in params.get("tokens") or ())
         rows=await self.pool.fetch("""SELECT symbol,event_ts_ms,return_bps,payload
           FROM scientific_outcome_requests WHERE status='DONE' AND horizon_ms=$1
-            AND to_timestamp(observed_ts_ms/1000.0)<=$2
+            AND to_timestamp(event_ts_ms/1000.0)>$2
+            AND to_timestamp(observed_ts_ms/1000.0)<=$3
             AND event_type='micro_geometry_consensus' ORDER BY event_ts_ms""",
-            int(h["horizon_ms"]),dataset_cutoff)
+            int(h["horizon_ms"]),oos_start,dataset_cutoff)
         matched=[];seen=set();embargo=max(int(h["horizon_ms"]),5000)
         for r in rows:
             p=_dict(r["payload"]);raw=p.get("spec") or {};rp=raw.get("parameters") or {}
@@ -61,6 +67,8 @@ class ScientificSimulationGate:
             seen.add(key)
             matched.append({"symbol":o.symbol,"event_ts_ms":o.event_ts_ms,"split_key":o.split_key,
                             "return_bps":o.return_bps})
+        if len(matched)<self.config.min_trades:
+            return await self._waiting(run_id,f"insufficient OOS trades: {len(matched)}/{self.config.min_trades}")
         base=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.0)
         stress=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.75)
         mc=deterministic_bootstrap_drawdowns(
@@ -84,6 +92,11 @@ class ScientificSimulationGate:
           json.dumps(stress["metrics"],separators=(",",":")),
           None if passed else "one or more promotion checks failed")
         return {"run_id":str(run_id),"status":status,"metrics":metrics,"stress":stress["metrics"]}
+
+    async def _waiting(self,run_id,reason):
+        await self.pool.execute("""UPDATE scientific_simulation_runs SET status='WAITING_OOS',
+          reason=$2,completed_at=now() WHERE id=$1""",run_id,str(reason))
+        return {"run_id":str(run_id),"status":"WAITING_OOS","reason":str(reason)}
 
     async def _fail(self,run_id,reason):
         await self.pool.execute("""UPDATE scientific_simulation_runs SET status='SIMULATION_FAILED',
