@@ -21,7 +21,7 @@ def test_time_series_diagnostics():
     assert len(acf(difference(x),5))==6
     assert len(rolling_volatility(difference(x),20))==len(x)-1
     assert distributed_lag_correlations(x,[0]+x[:-1],3)
-    assert volatility_regime([.001]*200+ [.02]*20)["state"]=="HIGH"
+    assert volatility_regime([.001,-.001]*100+ [.02,-.02]*10)["state"]=="HIGH"
 
 def test_pair_error_correction_recovers_linear_relation():
     x=[float(i) for i in range(100)]
