@@ -36,6 +36,17 @@ async def apply_evaluation_gate(pool,model_id,stage,requirements):
       and (stability.get("positive_fraction") is not None)
       and stability.get("positive_fraction",0)>=float(requirements.get("min_positive_fraction",.6))
       and base.get("max_drawdown",float("inf"))<=float(requirements.get("max_drawdown",float("inf"))))
+    if passed and stage=="ROBUSTNESS":
+        # Base profitability is insufficient: every configured execution/cost
+        # stress scenario must retain the required minimum expectancy.
+        min_stress=float(requirements.get("min_stress_expectancy",requirements.get("min_expectancy",0)))
+        scenarios=m.get("scenarios") or {}
+        required_scenarios=("fees_x1_5","slippage_x2","execution_delay","drop_10pct","combined")
+        passed=all(
+            (scenarios.get(name) or {}).get("overall",{}).get("trades",0)>0
+            and (scenarios.get(name) or {}).get("overall",{}).get("expectancy",float("-inf"))>=min_stress
+            for name in required_scenarios
+        )
     await pool.execute("UPDATE model_evaluations SET passed=$2 WHERE id=$1",row["id"],passed)
     if passed:
         target={"OOS":"OOS_PASSED","ROBUSTNESS":"ROBUSTNESS_PASSED"}.get(stage)
