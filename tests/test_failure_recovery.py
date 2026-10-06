@@ -478,3 +478,12 @@ def test_telegram_control_update_uses_promoted_registered_release_only():
     assert "r.enabled=true" in t
     assert 'rel["rollout_status"]!="complete"' in t
     assert 'cmd=="/controlupdatestatus"' in t
+
+
+def test_pending_journal_precedes_current_switch_for_all_updaters():
+    from pathlib import Path
+    for name in ("grid/agent_commands.py","grid/control_self_update.py"):
+        text=Path(name).read_text(encoding="utf-8")
+        section=text[text.index("previous=current_version"):]
+        assert section.index("mark_pending") < section.index("switch_current")
+        assert "clear_pending(install_root)" in section
