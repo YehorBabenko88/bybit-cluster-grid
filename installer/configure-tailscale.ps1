@@ -31,6 +31,12 @@ New-Item -Path $policy -Force | Out-Null
 New-ItemProperty -Path $policy -Name "UnattendedMode" -Value "always" -PropertyType String -Force | Out-Null
 New-ItemProperty -Path $policy -Name "OnboardingFlow" -Value "hide" -PropertyType String -Force | Out-Null
 New-ItemProperty -Path $policy -Name "UpdateMenu" -Value "hide" -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $policy -Name "AdminConsole" -Value "hide" -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $policy -Name "NetworkDevices" -Value "hide" -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $policy -Name "PreferencesMenu" -Value "hide" -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $policy -Name "ExitNodesPicker" -Value "hide" -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $policy -Name "RunExitNode" -Value "hide" -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $policy -Name "TestMenu" -Value "hide" -PropertyType String -Force | Out-Null
 
 # Prevent the per-user tray executable from auto-starting where present. This
 # does not disable the Tailscale Windows service or networking.
@@ -56,6 +62,9 @@ if($backend -ne "Running"){
 }
 & $exe set --unattended=true
 if($LASTEXITCODE -ne 0){throw "Failed to enable Tailscale unattended mode"}
+# Apply local device policies immediately on modern clients and make policy
+# mistakes visible during commissioning rather than silently accepting them.
+& $exe syspolicy reload 2>$null | Out-Host
 $status=& $exe status --json | ConvertFrom-Json
 if([string]$status.BackendState -ne "Running"){throw "Tailscale is not Running"}
 Write-Host "Tailscale ready in unattended headless mode."
