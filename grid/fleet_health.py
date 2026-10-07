@@ -2,8 +2,15 @@ import time
 
 async def fleet_health(pool,nodes,heartbeat_seconds):
     now=time.time(); online=[];offline=[];integrity=[];pressure=[];queues=[]
+    online_workers=[];offline_workers=[];online_observers=[];offline_observers=[]
     for nid,n in sorted(nodes.items()):
-        (online if now-float(n.get("last_seen",0))<heartbeat_seconds*3 else offline).append(nid)
+        is_online=now-float(n.get("last_seen",0))<heartbeat_seconds*3
+        (online if is_online else offline).append(nid)
+        role=str(n.get("node_role") or "WORKER").upper()
+        if role=="DEV_OBSERVER":
+            (online_observers if is_online else offline_observers).append(nid)
+        else:
+            (online_workers if is_online else offline_workers).append(nid)
         if not n.get("integrity_ok",True):integrity.append(nid)
         if n.get("pressure_state") not in (None,"NORMAL"):pressure.append(f"{nid}:{n.get('pressure_state')}")
         qr=float(n.get("db_queue_ratio",0) or 0);sr=float(n.get("db_spool_ratio",0) or 0)
@@ -11,5 +18,9 @@ async def fleet_health(pool,nodes,heartbeat_seconds):
     leader=await pool.fetchrow("SELECT owner,lease_until FROM service_leases WHERE service_key='control-plane-leader'")
     repairs=await pool.fetch("""SELECT node_id,status,target_version,last_error FROM integrity_repairs
       WHERE status NOT IN ('healthy') ORDER BY created_at DESC LIMIT 10""")
-    return {"online":online,"offline":offline,"integrity":integrity,"pressure":pressure,"queues":queues,
+    return {"online":online,"offline":offline,
+            "online_workers":online_workers,"offline_workers":offline_workers,
+            "online_observers":online_observers,"offline_observers":offline_observers,
+            "production_degraded":bool(offline_workers),
+            "integrity":integrity,"pressure":pressure,"queues":queues,
             "leader":dict(leader) if leader else None,"repairs":[dict(x) for x in repairs]}
