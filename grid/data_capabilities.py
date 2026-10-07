@@ -1,4 +1,5 @@
-CAPS=("ohlcv_history","trade_history","live_trades","live_orderbook","footprint_history","orderbook_history")
+CAPS=("ohlcv_history","trade_history","live_trades","live_orderbook","footprint_history","orderbook_history",
+      "live_derivatives","open_interest","funding_rate")
 VALID={"UNKNOWN","QUEUED","PARTIAL","READY","LIVE","UNAVAILABLE","ERROR"}
 
 async def ensure_symbol(pool,symbol):
@@ -28,4 +29,7 @@ def feature_permissions(c):
       "live_delta":c.get("live_trades")=="LIVE",
       "live_orderbook":c.get("live_orderbook")=="LIVE",
       "historical_orderbook_microstructure":c.get("orderbook_history") in ("READY","PARTIAL"),
+      "live_derivatives":c.get("live_derivatives")=="LIVE",
+      "open_interest":c.get("open_interest") in ("READY","LIVE","PARTIAL"),
+      "funding_rate":c.get("funding_rate") in ("READY","LIVE","PARTIAL"),
     }
