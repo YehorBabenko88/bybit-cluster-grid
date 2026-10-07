@@ -89,7 +89,13 @@ jobs:
             }
           }
 
-      - name: Assert host hardening is bundled\n        shell: pwsh\n        run: |\n          $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"\n          if(!(Test-Path (Join-Path $bundle "installer\\harden-host.ps1"))){ throw "harden-host.ps1 missing from Windows bundle" }\n\n      - name: CONTROL preflight on finished bundle
+      - name: Assert host hardening is bundled
+        shell: pwsh
+        run: |
+          $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
+          if(!(Test-Path (Join-Path $bundle "installer\\harden-host.ps1"))){ throw "harden-host.ps1 missing from Windows bundle" }
+
+      - name: CONTROL preflight on finished bundle
         shell: pwsh
         env:
           GRID_SHARED_TOKEN: test-token
