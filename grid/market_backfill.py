@@ -15,7 +15,8 @@ async def claim_backfill(pool):
               COALESCE(NULLIF(i.metadata->>'launch_time','')::bigint,0) AS launch_time_ms
               FROM market_backfill_state b
               LEFT JOIN instruments i ON i.symbol=b.symbol
-              WHERE b.status IN ('queued','retry') ORDER BY b.updated_at
+              WHERE b.status IN ('queued','retry') AND COALESCE(i.status,'Retired')='Trading'
+              ORDER BY b.updated_at
               FOR UPDATE OF b SKIP LOCKED LIMIT 1""")
             if not row:return None
             await c.execute("""UPDATE market_backfill_state SET status='running',
