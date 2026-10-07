@@ -74,3 +74,15 @@ def test_observer_can_be_enabled_later_by_role_change():
     }
     out=weighted_assign(["BTC"],{"HOME":1000,"WORK":1},nodes)
     assert out["HOME"]==["BTC"]
+
+
+def test_observer_disappearance_does_not_change_worker_assignment():
+    symbols=["BTC","ETH","SOL"]
+    workers={"W1":{"accepts_work":True,"pressure_state":"NORMAL"},
+             "W2":{"accepts_work":True,"pressure_state":"NORMAL"}}
+    with_home={**workers,"HOME":{"accepts_work":False,"node_role":"DEV_OBSERVER","pressure_state":"NORMAL"}}
+    scores_with={"W1":2,"W2":1,"HOME":999}
+    scores_without={"W1":2,"W2":1}
+    a=weighted_assign(symbols,scores_with,with_home)
+    b=weighted_assign(symbols,scores_without,workers)
+    assert a==b
