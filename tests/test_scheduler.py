@@ -56,3 +56,21 @@ def test_all_pressured_still_preserves_collection():
     nodes={"A":{"pressure_state":"CRITICAL"},"B":{"pressure_state":"CRITICAL"}}
     out=weighted_assign(["BTC"],{"A":1,"B":1},nodes)
     assert len(out["A"])+len(out["B"])==1
+
+
+def test_dev_observer_never_receives_market_work():
+    nodes={
+      "HOME":{"accepts_work":False,"node_role":"DEV_OBSERVER","pressure_state":"NORMAL"},
+      "WORK":{"accepts_work":True,"node_role":"WORKER","pressure_state":"NORMAL"},
+    }
+    out=weighted_assign(["BTC","ETH"],{"HOME":1000,"WORK":1},nodes)
+    assert "HOME" not in out
+    assert sorted(out["WORK"])==["BTC","ETH"]
+
+def test_observer_can_be_enabled_later_by_role_change():
+    nodes={
+      "HOME":{"accepts_work":True,"node_role":"WORKER","pressure_state":"NORMAL"},
+      "WORK":{"accepts_work":True,"node_role":"WORKER","pressure_state":"NORMAL"},
+    }
+    out=weighted_assign(["BTC"],{"HOME":1000,"WORK":1},nodes)
+    assert out["HOME"]==["BTC"]
