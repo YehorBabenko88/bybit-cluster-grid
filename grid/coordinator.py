@@ -2,7 +2,7 @@ import asyncio,time,logging,secrets,hashlib,tempfile,os,pathlib,subprocess,json
 from fastapi import FastAPI,Header,HTTPException,Request
 from .config import settings
 from .bybit import linear_symbols
-from .resources import capacity_score
+from .resources import capacity_score,node_accepts_work
 from .service import prepare_database,bootstrap_logging
 from .instrument_lifecycle import ensure_instrument_schema,reconcile_instruments,purge_retired
 from .strategy_jobs import ensure_strategy_schema,submit_job
@@ -566,8 +566,9 @@ async def rebalance():
     """
     global assignments
     alive={k:v for k,v in nodes.items() if time.time()-v["last_seen"] < settings.heartbeat_seconds*3}
+    work_alive={k:v for k,v in alive.items() if node_accepts_work(v)}
     scores={k:capacity_score(v,settings.resource_cpu_limit,settings.resource_ram_limit,
-                             settings.resource_disk_free_gb,settings.resource_reserve_cores) for k,v in alive.items()}
+                             settings.resource_disk_free_gb,settings.resource_reserve_cores) for k,v in work_alive.items()}
     scores={k:v for k,v in scores.items() if v>0}
     if not scores:
         assignments={}
