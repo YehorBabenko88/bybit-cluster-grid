@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     role: str = "worker"
+    node_role: str = "WORKER"
     coordinator_url: str = "http://127.0.0.1:8765"
     grid_shared_token: str = ""
     enrollment_token: str = ""
