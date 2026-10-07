@@ -19,9 +19,10 @@ def guarded_live_symbols(*,market_enabled,install_mode,live_mode,node_assignment
     available=set(instrument_symbols)
 
     if install_mode=="NORMAL" and live_mode=="NORMAL":
-        # CONTROL scheduler already derives this list from the current universe.
-        # Do not second-guess synthetic/test or just-reconciled ownership here.
-        return assigned
+        # Re-check against the current authoritative universe on every heartbeat.
+        # This prevents a stale in-memory assignment from resurrecting a symbol
+        # that disappeared/delisted while CONTROL or a worker was rebooting.
+        return [symbol for symbol in assigned if symbol in available]
 
     if install_mode=="PILOT" and live_mode=="PILOT_VALIDATING":
         allowed=set(pilot_universe(instrument_symbols))
