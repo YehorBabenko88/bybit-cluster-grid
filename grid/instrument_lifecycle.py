@@ -12,12 +12,18 @@ async def ensure_instrument_schema(pool):
           first_seen timestamptz NOT NULL DEFAULT now(),
           last_seen timestamptz NOT NULL DEFAULT now(),
           retired_at timestamptz,
+          missing_since timestamptz,
+          missing_confirmations integer NOT NULL DEFAULT 0,
           metadata jsonb NOT NULL DEFAULT '{}'::jsonb
         );
         """)
 
-async def reconcile_instruments(pool,current):
-    """Returns (added, retired). Retired data is NOT immediately deleted."""
+async def reconcile_instruments(pool,current,*,retire_confirmations=3):
+    """Reconcile a successful complete discovery snapshot.
+
+    Missing once is not delisting. A symbol is retired only after repeated
+    successful snapshots omit it; historical data is retained.
+    """
     current_map={x["symbol"]:x for x in current}
     async with pool.acquire() as c:
         rows=await c.fetch("SELECT symbol,status FROM instruments")
@@ -29,12 +35,28 @@ async def reconcile_instruments(pool,current):
               VALUES($1,$2,'Trading',$3,$4::jsonb)
               ON CONFLICT(symbol) DO UPDATE SET
                 contract_type=EXCLUDED.contract_type,status='Trading',tick_size=EXCLUDED.tick_size,
-                last_seen=now(),retired_at=NULL,metadata=EXCLUDED.metadata""",
+                last_seen=now(),retired_at=NULL,missing_since=NULL,missing_confirmations=0,
+                metadata=EXCLUDED.metadata""",
                 sym,x.get("contract_type"),x.get("tick_size"),__import__("json").dumps(x))
-        retired=[sym for sym,status in known.items() if status=="Trading" and sym not in current_map]
-        if retired:
-            await c.execute("""UPDATE instruments SET status='Retired',retired_at=now()
-                               WHERE symbol=ANY($1::text[])""",retired)
+        missing=[sym for sym,status in known.items() if status=="Trading" and sym not in current_map]
+        retired=[]
+        for sym in missing:
+            row=await c.fetchrow("""UPDATE instruments SET
+              missing_since=COALESCE(missing_since,now()),
+              missing_confirmations=missing_confirmations+1
+              WHERE symbol=$1 AND status='Trading'
+              RETURNING missing_confirmations""",sym)
+            if row and int(row["missing_confirmations"])>=max(1,int(retire_confirmations)):
+                await c.execute("""UPDATE instruments SET status='Retired',retired_at=now()
+                  WHERE symbol=$1 AND status='Trading'""",sym)
+                retired.append(sym)
+                # A reboot must not resurrect endless historical retries for a delisted symbol.
+                try:
+                    await c.execute("""UPDATE market_backfill_state SET status='retired',
+                      last_error='instrument retired during discovery reconciliation',updated_at=now()
+                      WHERE symbol=$1 AND status IN ('queued','retry','running')""",sym)
+                except Exception:
+                    log.exception("failed to retire symbol backfill",extra={"event":"retired_backfill","symbol":sym})
         return added,retired
 
 async def purge_retired(pool,grace_days=30):
