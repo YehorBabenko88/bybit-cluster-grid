@@ -32,3 +32,20 @@ def requirements_met(required,capabilities):
         value=capabilities.get(name)
         if value not in usable:missing.append(name)
     return not missing,tuple(missing)
+
+
+class FeedRecoveryGate:
+    """Require consecutive fresh observations after a gap/reconnect."""
+    def __init__(self,required_fresh=3):
+        self.required=max(1,int(required_fresh));self.counts={}
+    def observe(self,symbol,feed,healthy):
+        key=(str(symbol),str(feed))
+        if not healthy:
+            self.counts[key]=0
+            return "STALE"
+        n=min(self.required,self.counts.get(key,0)+1);self.counts[key]=n
+        return "LIVE" if n>=self.required else "RECOVERING"
+    def reset_symbol(self,symbol):
+        prefix=str(symbol)
+        for key in list(self.counts):
+            if key[0]==prefix:self.counts.pop(key,None)
