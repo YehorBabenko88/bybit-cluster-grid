@@ -68,6 +68,16 @@ def agent_version():
     except OSError:
         return os.getenv("GRID_VERSION","bootstrap")
 
+def normalized_node_role(value=None):
+    role=str(value if value is not None else settings.node_role or "WORKER").strip().upper()
+    return role if role in {"WORKER","CONTROL","DEV_OBSERVER"} else "WORKER"
+
+def node_accepts_work(snapshot):
+    return normalized_node_role(snapshot.get("node_role")) in {"WORKER","CONTROL"}
+
+def node_accepts_control(snapshot):
+    return normalized_node_role(snapshot.get("node_role")) == "CONTROL"
+
 def snapshot():
     vm=psutil.virtual_memory()
     disk=psutil.disk_usage(os.getenv("GRID_DATA_PATH","."))
@@ -79,6 +89,9 @@ def snapshot():
     trend=_RESOURCE_TREND.add(proc.memory_info().rss)
     return {
         "node_id":NODE_ID,
+        "node_role":normalized_node_role(),
+        "accepts_work":normalized_node_role() in {"WORKER","CONTROL"},
+        "accepts_control":normalized_node_role()=="CONTROL",
         "hostname":socket.gethostname(),
         "platform":platform.platform(),
         "cpu_count":psutil.cpu_count(logical=True) or 1,
