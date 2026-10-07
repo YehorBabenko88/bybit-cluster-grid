@@ -22,7 +22,7 @@ def guarded(market,install,live,assignments=None,instruments=None):
 
 
 def test_normal_normal_active_receives_full_assignment():
-    result=guarded(True,"NORMAL","NORMAL")
+    result=guarded(True,"NORMAL","NORMAL",instruments=set(FULL_ASSIGNMENT))
     assert result == FULL_ASSIGNMENT
     assert len(result) == 890
 
