@@ -22,6 +22,7 @@ def node_avoids(node,symbol):
     return state=="REDUCE_LOAD" and symbol in drained
 
 def weighted_assign(symbols,node_scores,nodes):
+    node_scores={n:s for n,s in node_scores.items() if (nodes.get(n,{}) or {}).get("accepts_work",True)}
     result={n:[] for n in node_scores}
     if not node_scores:
         return result
