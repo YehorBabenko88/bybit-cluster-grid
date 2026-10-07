@@ -14,6 +14,7 @@ class ScientificMethod:
     schema_version:int
     handler:object
     capabilities:dict
+    compatible_from:tuple[int,...]=()
 
 class ScientificMethodRegistry:
     def __init__(self,quarantine_after=5):
@@ -24,6 +25,11 @@ class ScientificMethodRegistry:
         self.methods[method.key]=method
     async def sync_db(self,pool):
         for m in self.methods.values():
+            existing=await pool.fetchrow("SELECT schema_version FROM scientific_methods WHERE method_key=$1",m.key)
+            if existing is not None:
+                old=int(existing["schema_version"])
+                if old!=int(m.schema_version) and old not in set(int(x) for x in m.compatible_from):
+                    raise RuntimeError(f"scientific method {m.key} schema {old}->{m.schema_version} requires explicit compatibility")
             await pool.execute("""INSERT INTO scientific_methods(
               method_key,method_version,schema_version,capabilities)
               VALUES($1,$2,$3,$4::jsonb) ON CONFLICT(method_key) DO UPDATE SET
