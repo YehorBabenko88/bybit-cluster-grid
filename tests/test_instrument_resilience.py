@@ -1,5 +1,5 @@
 from datetime import datetime,timezone,timedelta
-from grid.instrument_resilience import feed_health,operational_state,requirements_met
+from grid.instrument_resilience import feed_health,operational_state,requirements_met,FeedRecoveryGate
 from grid.live_assignment_policy import guarded_live_symbols
 
 def test_missing_optional_feed_does_not_disable_instrument():
@@ -31,3 +31,10 @@ def test_stale_assignment_cannot_resurrect_delisted_symbol_after_reboot():
     out=guarded_live_symbols(market_enabled=True,install_mode="NORMAL",live_mode="NORMAL",
       node_assignments=["BTCUSDT","GONEUSDT"],instrument_symbols={"BTCUSDT":{}})
     assert out==["BTCUSDT"]
+
+def test_reconnected_feed_must_warm_before_live():
+    g=FeedRecoveryGate(required_fresh=3)
+    assert g.observe("BTCUSDT","orderbook",False)=="STALE"
+    assert g.observe("BTCUSDT","orderbook",True)=="RECOVERING"
+    assert g.observe("BTCUSDT","orderbook",True)=="RECOVERING"
+    assert g.observe("BTCUSDT","orderbook",True)=="LIVE"
