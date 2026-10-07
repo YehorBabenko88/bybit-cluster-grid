@@ -9,6 +9,9 @@ class FakePool:
         if "INSERT INTO scientific_method_errors" in q:return "OK"
         if "INSERT INTO scientific_method_events" in q:return "OK"
         return "OK"
+    async def fetchrow(self,q,*a):
+        if q.startswith("SELECT schema_version"):return None
+        return None
     async def fetchval(self,q,*a):
         if q.startswith("SELECT status"):return self.status.get(a[0],"ENABLED")
         if "RETURNING failure_count" in q:
@@ -36,3 +39,22 @@ def test_scientific_plugin_migration_uses_jsonb_extension_payloads():
     m=Path("grid/migrations.py").read_text(encoding="utf-8")
     assert 'scientific_method_plugins' in m
     assert "payload jsonb" in m and "config jsonb" in m and "capabilities jsonb" in m
+
+
+def test_schema_upgrade_requires_explicit_compatibility():
+    class ExistingPool(FakePool):
+        async def fetchrow(self,q,*a):
+            if q.startswith("SELECT schema_version"):return {"schema_version":1}
+            return None
+    async def scenario():
+        pool=ExistingPool();r=ScientificMethodRegistry()
+        r.register(ScientificMethod("m","2",2,lambda e:{},{}))
+        try:
+            await r.sync_db(pool)
+            assert False,"schema upgrade should fail closed"
+        except RuntimeError:
+            pass
+        ok=ScientificMethodRegistry()
+        ok.register(ScientificMethod("m","2",2,lambda e:{},{},compatible_from=(1,)))
+        await ok.sync_db(pool)
+    asyncio.run(scenario())
