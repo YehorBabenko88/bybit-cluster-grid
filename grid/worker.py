@@ -130,6 +130,13 @@ class Worker:
                         if r.status==200:
                             mark_coordinator_success()
                             reply=await r.json()
+                            # DEV/OBSERVER remains manageable and visible but is fail-closed
+                            # for market workload even if an older/misconfigured CONTROL
+                            # accidentally returns assignments.
+                            if str(settings.node_role or "WORKER").strip().upper()=="DEV_OBSERVER":
+                                reply["symbols"]=[]
+                                reply["micro_symbols"]=[]
+                                reply["live_assignments_enabled"]=False
                             replica=reply.get("control_replica")
                             if replica:
                                 try:
