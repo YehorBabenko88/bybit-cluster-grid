@@ -16,6 +16,8 @@ async def ensure_instrument_schema(pool):
           missing_confirmations integer NOT NULL DEFAULT 0,
           metadata jsonb NOT NULL DEFAULT '{}'::jsonb
         );
+        ALTER TABLE instruments ADD COLUMN IF NOT EXISTS missing_since timestamptz;
+        ALTER TABLE instruments ADD COLUMN IF NOT EXISTS missing_confirmations integer NOT NULL DEFAULT 0;
         """)
 
 async def reconcile_instruments(pool,current,*,retire_confirmations=3):
