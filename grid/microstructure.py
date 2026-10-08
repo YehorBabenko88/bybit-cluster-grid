@@ -75,6 +75,8 @@ class MicrostructureCollector:
                             if not isinstance(ack,dict):
                                 raise RuntimeError("invalid Bybit subscription response")
                             if ack.get("op")=="subscribe":
+                                if ack.get("success") is False:
+                                    raise RuntimeError("Bybit subscription rejected: "+str(ack.get("ret_msg") or ack))
                                 args=(ack.get("data") or {}).get("args") if isinstance(ack.get("data"),dict) else None
                                 if args is None:
                                     args=ack.get("args")
