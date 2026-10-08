@@ -117,6 +117,7 @@ async def health():
         raise HTTPException(503,"database unavailable")
     return {
         "ok": True,
+        "pid": __import__("os").getpid(),
         "service": "Bybit Cluster Grid Coordinator",
         "runtime_state": str(fleet_state.get("state","UNKNOWN")),
     }
