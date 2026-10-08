@@ -158,6 +158,11 @@ class MicrostructureCollector:
                             continue
 
                         if topic.startswith("tickers."):
+                            # A newly connected socket must not publish replayed
+                            # ticker data from a long-disconnected market epoch.
+                            if ts<int(time.time()*1000)-300000:
+                                log.warning("expired ticker ignored",extra={"event":"expired_ticker"})
+                                continue
                             sym=topic.split(".",1)[1]
                             if ts<last_ticker_seen.get(sym,-1):
                                 log.warning("stale ticker ignored",extra={"event":"ticker_stale","component":sym})
