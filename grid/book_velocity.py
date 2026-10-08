@@ -6,12 +6,18 @@ class BookVelocity:
     def update(self,symbol,ts_ms,bids,asks):
         cur={"b":dict(bids),"a":dict(asks)}
         prev=self.state.get(symbol)
-        self.state[symbol]=(int(ts_ms),cur)
         if prev is None:
+            self.state[symbol]=(int(ts_ms),cur)
             return {"book_update_rate":None,"book_add_rate":None,"book_cancel_rate":None,
                     "book_consume_rate":None,"depth_change_rate":None}
         pts,oldbook=prev
-        dt=max((int(ts_ms)-pts)/1000.0,1e-3)
+        if int(ts_ms)<=pts:
+            # Never fabricate extreme per-second rates from duplicate or
+            # backwards exchange timestamps. Keep the last valid baseline.
+            return {"book_update_rate":None,"book_add_rate":None,"book_cancel_rate":None,
+                    "book_consume_rate":None,"depth_change_rate":None}
+        self.state[symbol]=(int(ts_ms),cur)
+        dt=(int(ts_ms)-pts)/1000.0
         adds=cancels=0.0; updates=0
         for side in ("b","a"):
             old=oldbook[side]; new=cur[side]
