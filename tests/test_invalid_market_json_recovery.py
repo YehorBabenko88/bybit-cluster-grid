@@ -33,7 +33,7 @@ class DB:
         self.events.append(args)
 
 
-@pytest.mark.parametrize("bad_raw",["{invalid","",b"\\xff"])
+@pytest.mark.parametrize("bad_raw",["{invalid","",bytes([255])])
 def test_invalid_market_json_keeps_socket_and_next_snapshot(monkeypatch,bad_raw):
     async def scenario():
         good={"topic":"orderbook.50.BTCUSDT","type":"snapshot","ts":3000000,
