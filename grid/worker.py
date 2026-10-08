@@ -297,13 +297,23 @@ class Worker:
                     settings.bybit_ws_url,
                     ping_interval=20,ping_timeout=20,max_queue=50000,close_timeout=5
                 ) as ws:
-                    await ws.send(json.dumps({"op":"subscribe","args":[f"publicTrade.{symbol}"]}))
-                    # A TCP/WebSocket connection is not enough: fail closed unless
-                    # Bybit explicitly accepted the market subscription.
+                    subscription_topic=f"publicTrade.{symbol}"
+                    await ws.send(json.dumps({"op":"subscribe","args":[subscription_topic]}))
+                    # Only the ACK for this exact subscription confirms readiness.
+                    # An unrelated ACK must not activate this collector.
+                    ack_deadline=asyncio.get_running_loop().time()+15
                     while True:
-                        raw=await asyncio.wait_for(ws.recv(),timeout=15)
+                        remaining=ack_deadline-asyncio.get_running_loop().time()
+                        if remaining<=0:
+                            raise asyncio.TimeoutError("Bybit trade subscription ACK timeout")
+                        raw=await asyncio.wait_for(ws.recv(),timeout=remaining)
                         ack=json.loads(raw)
                         if ack.get("op")=="subscribe":
+                            args=(ack.get("data") or {}).get("args") if isinstance(ack.get("data"),dict) else None
+                            if args is None:
+                                args=ack.get("args")
+                            if args is not None and subscription_topic not in args:
+                                continue
                             if ack.get("success") is not True:
                                 raise RuntimeError("Bybit trade subscription rejected: "+str(ack.get("ret_msg") or ack))
                             break
