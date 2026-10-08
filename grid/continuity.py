@@ -48,8 +48,18 @@ class SequenceGuard:
         return True
 
 def _int(v):
-    try: return int(v)
-    except (TypeError,ValueError,OverflowError): return None
+    # Sequence/update IDs are exact integers; truncating floats or accepting
+    # booleans could silently advance the guard with fabricated metadata.
+    if isinstance(v,bool):
+        return None
+    if isinstance(v,int):
+        return v
+    if isinstance(v,str) and v.isascii() and v.isdecimal():
+        try:
+            return int(v)
+        except ValueError:
+            return None
+    return None
 
 class TradeContinuity:
     """Public trades have no guaranteed contiguous sequence; track observability, not fake completeness."""
