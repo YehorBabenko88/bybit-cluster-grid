@@ -82,7 +82,9 @@ class TradeContinuity:
 
     def observe(self,ts_ms):
         ts=_int(ts_ms) or int(time.time()*1000)
-        suspect=self.last_ts is not None and ts-self.last_ts>self.gap_ms
+        # Late/out-of-order trades are not a new observation window.
+        # Compare only advancing timestamps with the previous high-water mark.
+        suspect=self.last_ts is not None and ts>self.last_ts and ts-self.last_ts>self.gap_ms
         if suspect: self.suspect_gaps+=1
-        self.last_ts=max(ts,self.last_ts or ts)
+        self.last_ts=ts if self.last_ts is None else max(ts,self.last_ts)
         return suspect
