@@ -64,6 +64,8 @@ async def linear_symbols(base_url: str, *, max_attempts: int = 8):
                 raise RuntimeError("Bybit discovery response is missing result.list")
 
             for x in result["list"]:
+                if not isinstance(x,dict):
+                    raise RuntimeError("Bybit discovery contains malformed instrument record")
                 try:
                     if x.get("status")=="Trading" and x.get("contractType") in ("LinearPerpetual","LinearFutures"):
                         tick=float(x["priceFilter"]["tickSize"])
@@ -78,8 +80,9 @@ async def linear_symbols(base_url: str, *, max_attempts: int = 8):
                             "launch_time":x.get("launchTime"),
                             "delivery_time":x.get("deliveryTime"),
                         })
-                except (KeyError,TypeError,ValueError):
-                    log.warning("Skipping malformed Bybit instrument",extra={"event":"bybit_bad_instrument","component":str(x.get("symbol","?"))})
+                except (KeyError,TypeError,ValueError) as exc:
+                    # Skipping an active contract can falsely retire it later.
+                    raise RuntimeError("Bybit discovery malformed instrument: "+str(x.get("symbol","?"))) from exc
 
             next_cursor=result.get("nextPageCursor") or None
             if not next_cursor:
