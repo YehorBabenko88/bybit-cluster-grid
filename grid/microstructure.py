@@ -25,10 +25,12 @@ class MicrostructureCollector:
     Writes throttled analytical snapshots instead of every 20ms delta.
     Ticker/OI fields are merged because Bybit ticker deltas omit unchanged fields.
     """
-    def __init__(self, db, snapshot_ms=1000, wall_event_ratio=6.0):
+    def __init__(self, db, snapshot_ms=1000, wall_event_ratio=6.0, max_ticker_age_ms=None):
         self.db=db
         self.snapshot_ms=snapshot_ms
         self.wall_event_ratio=wall_event_ratio
+        # Opt-in until node clock synchronization is guaranteed.
+        self.max_ticker_age_ms=max_ticker_age_ms
 
     async def run_batch(self, symbols):
         delays=backoff_delays()
@@ -158,6 +160,11 @@ class MicrostructureCollector:
                             continue
 
                         if topic.startswith("tickers."):
+                            # A newly connected socket must not publish replayed
+                            # ticker data from a long-disconnected market epoch.
+                            if self.max_ticker_age_ms is not None and ts<int(time.time()*1000)-self.max_ticker_age_ms:
+                                log.warning("expired ticker ignored",extra={"event":"expired_ticker"})
+                                continue
                             sym=topic.split(".",1)[1]
                             if ts<last_ticker_seen.get(sym,-1):
                                 log.warning("stale ticker ignored",extra={"event":"ticker_stale","component":sym})
