@@ -49,10 +49,19 @@ class MicrostructureCollector:
                     for i in range(0,len(topics),20):
                         batch_topics=topics[i:i+20]
                         await ws.send(json.dumps({"op":"subscribe","args":batch_topics}))
+                        ack_deadline=asyncio.get_running_loop().time()+15
                         while True:
-                            raw=await asyncio.wait_for(ws.recv(),timeout=15)
+                            remaining=ack_deadline-asyncio.get_running_loop().time()
+                            if remaining<=0:
+                                raise asyncio.TimeoutError("Bybit microstructure subscription ACK timeout")
+                            raw=await asyncio.wait_for(ws.recv(),timeout=remaining)
                             ack=json.loads(raw)
                             if ack.get("op")=="subscribe":
+                                args=(ack.get("data") or {}).get("args") if isinstance(ack.get("data"),dict) else None
+                                if args is None:
+                                    args=ack.get("args")
+                                if args is not None and not set(batch_topics).issubset(set(args)):
+                                    continue
                                 if ack.get("success") is not True:
                                     raise RuntimeError("Bybit subscription rejected: "+str(ack.get("ret_msg") or ack))
                                 break
