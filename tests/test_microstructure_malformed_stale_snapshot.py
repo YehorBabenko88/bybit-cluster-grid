@@ -59,5 +59,5 @@ def test_malformed_stale_snapshot_does_not_clear_valid_book(monkeypatch):
         assert len(snapshots)==2
         assert snapshots[-1]["sequence"]==101
         assert snapshots[-1]["update_id"]==11
-        assert snapshots[-1]["bid_volume"]==4.0
+        assert snapshots[-1]["bid_depth"]==4.0
     asyncio.run(scenario())
