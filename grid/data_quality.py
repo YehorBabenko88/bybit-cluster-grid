@@ -47,8 +47,10 @@ def safe_float(value,default=None):
     if value is None or value=="":
         return default
     try:
-        return float(value)
-    except (TypeError,ValueError):
+        import math
+        result=float(value)
+        return result if math.isfinite(result) else default
+    except (TypeError,ValueError,OverflowError):
         return default
 
 def completeness(required,values):
