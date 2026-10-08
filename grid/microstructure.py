@@ -39,6 +39,8 @@ class MicrostructureCollector:
         self.max_ticker_age_ms=max_ticker_age_ms
 
     async def run_batch(self, symbols):
+        if not symbols:
+            return
         delays=backoff_delays()
         topics=[]
         for s in symbols:
