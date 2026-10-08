@@ -1,3 +1,4 @@
+import copy
 import asyncio, json, logging, time, math
 from collections import deque
 from collections.abc import Mapping
@@ -242,6 +243,13 @@ class MicrostructureCollector:
                             q=quality.setdefault(sym,FeedQuality(sym))
                             guard=guards.setdefault(sym,SequenceGuard())
                             is_snapshot=msg.get("type")=="snapshot" or data.get("u")==1
+                            if is_snapshot and guard.valid:
+                                # Reject stale replay before parsing its potentially corrupt
+                                # levels: a stale malformed snapshot must not erase a good book.
+                                probe=copy.copy(guard)
+                                if not probe.snapshot(data.get("seq"),data.get("u")) and probe.valid:
+                                    log.warning("stale orderbook snapshot ignored",extra={"event":"orderbook_stale_snapshot","component":sym})
+                                    continue
                             try:
                                 bids=parse_book_levels(data.get("b"),snapshot=is_snapshot)
                                 asks=parse_book_levels(data.get("a"),snapshot=is_snapshot)
