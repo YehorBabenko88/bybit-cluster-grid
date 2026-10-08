@@ -1,6 +1,10 @@
-import pytest
-from grid import microstructure
+from pathlib import Path
 
-@pytest.mark.parametrize("bad_args", ["abc", 123, [None], {"x": "y"}])
-def test_invalid_ack_args_shape_is_not_a_valid_topic_list(bad_args):
-    assert not (isinstance(bad_args, list) and all(isinstance(x, str) for x in bad_args))
+
+def test_subscription_ack_args_are_type_checked_before_set_conversion():
+    source=(Path(__file__).resolve().parents[1]/"grid"/"microstructure.py").read_text()
+    validation='not isinstance(args,list) or not all(isinstance(topic,str) for topic in args)'
+    matching='not set(batch_topics).issubset(set(args))'
+    assert validation in source
+    assert matching in source
+    assert source.index(validation)<source.index(matching)
