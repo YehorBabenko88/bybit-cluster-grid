@@ -62,6 +62,7 @@ class MicrostructureCollector:
             for symbol in symbols
         ):
             raise ValueError("symbols must be nonempty ASCII alphanumeric strings")
+        symbols=list(dict.fromkeys(symbols))
         delays=backoff_delays()
         topics=[]
         for s in symbols:
