@@ -36,9 +36,11 @@ class FeedQuality:
     def snapshot(self):
         return {
             "symbol":self.symbol,
-            "feeds":self.feeds,
-            "missing_counts":self.missing_counts,
-            "last_update":self.last_update,
+            # Snapshot payloads must not change when the next feed update
+            # mutates the live quality state while a DB write is pending.
+            "feeds":{name:dict(value) for name,value in self.feeds.items()},
+            "missing_counts":dict(self.missing_counts),
+            "last_update":dict(self.last_update),
         }
 
 def safe_float(value,default=None):
