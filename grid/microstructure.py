@@ -110,6 +110,9 @@ class MicrostructureCollector:
                         if raw is None:
                             continue
                         msg=json.loads(raw)
+                        if not isinstance(msg,dict):
+                            log.warning("non-object market frame ignored",extra={"event":"invalid_market_frame"})
+                            continue
                         topic=msg.get("topic","")
                         data=msg.get("data") or {}
                         ts=int(msg.get("ts") or time.time()*1000)
