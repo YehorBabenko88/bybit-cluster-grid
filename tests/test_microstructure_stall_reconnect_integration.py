@@ -93,7 +93,9 @@ def test_stalled_one_symbol_reconnects_and_resubscribes(monkeypatch):
         assert len(books)==2
         assert books[0][1]==1000
         assert books[1][1]==4000000
-        assert books[1][3]["mid"]==200.5
+        assert books[1][3]["best_bid"]==200.0
+        assert books[1][3]["best_ask"]==201.0
+        assert books[1][3]["spread"]==1.0
         tickers=[event for event in db.events if event[2]=="derivatives_ticker"]
         assert len(tickers)==2
         assert tickers[0][3]["mark_price"]=="100"
