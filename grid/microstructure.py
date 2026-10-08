@@ -36,6 +36,16 @@ class MicrostructureCollector:
         wall_tracker=WallTracker()
 
         while True:
+            # A new socket starts a new market-data epoch. Never reuse orderbook
+            # sequence guards, ticker deltas, or derived velocity across reconnects.
+            books.clear()
+            tickers.clear()
+            last_book_write.clear()
+            last_ticker_write.clear()
+            quality.clear()
+            guards.clear()
+            velocity=BookVelocity()
+            wall_tracker=WallTracker()
             try:
                 await wait_for_internet()
                 async with websockets.connect(
