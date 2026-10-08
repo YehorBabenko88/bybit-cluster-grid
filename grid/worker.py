@@ -247,6 +247,15 @@ class Worker:
             if sym not in self.wanted:
                 self.trade_tasks.pop(sym).cancel()
         for sym in self.wanted:
+            existing=self.trade_tasks.get(sym)
+            if existing is not None and existing.done():
+                try:
+                    existing.result()
+                except asyncio.CancelledError:
+                    log.warning('trade task cancelled; restarting',extra={'event':'trade_task_restart','symbol':sym})
+                except Exception:
+                    log.exception('trade task crashed; restarting',extra={'event':'trade_task_restart','symbol':sym})
+                self.trade_tasks.pop(sym,None)
             if sym in self.meta and sym not in self.trade_tasks:
                 self.trade_tasks[sym]=asyncio.create_task(self.trade_stream(sym))
 
