@@ -114,10 +114,12 @@ def test_websocket_collectors_require_subscription_ack_and_stall_timeout():
     worker=__import__("pathlib").Path("grid/worker.py").read_text(encoding="utf-8")
     micro=__import__("pathlib").Path("grid/microstructure.py").read_text(encoding="utf-8")
     assert 'ack.get("success") is not True' in worker
-    assert 'asyncio.wait_for(ws.recv(),timeout=15)' in worker
+    assert 'ack_deadline=asyncio.get_running_loop().time()+15' in worker
+    assert 'asyncio.wait_for(ws.recv(),timeout=remaining)' in worker
     assert 'asyncio.wait_for(ws.recv(),timeout=45)' in worker
     assert 'ack.get("success") is not True' in micro
-    assert 'asyncio.wait_for(ws.recv(),timeout=15)' in micro
+    assert 'ack_deadline=asyncio.get_running_loop().time()+15' in micro
+    assert 'asyncio.wait_for(ws.recv(),timeout=remaining)' in micro
     assert 'asyncio.wait_for(ws.recv(),timeout=45)' in micro
 
 
