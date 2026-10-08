@@ -70,6 +70,8 @@ class MicrostructureCollector:
                                 raise asyncio.TimeoutError("Bybit microstructure subscription ACK timeout")
                             raw=await asyncio.wait_for(ws.recv(),timeout=remaining)
                             ack=json.loads(raw)
+                            if not isinstance(ack,dict):
+                                raise RuntimeError("invalid Bybit subscription response")
                             if ack.get("op")=="subscribe":
                                 args=(ack.get("data") or {}).get("args") if isinstance(ack.get("data"),dict) else None
                                 if args is None:
