@@ -132,7 +132,11 @@ class MicrostructureCollector:
                                     wall_tracker.state.pop(sym,None)
                                 state["b"]={float(p):float(q) for p,q in data.get("b",[])}
                                 state["a"]={float(p):float(q) for p,q in data.get("a",[])}
-                                guard.snapshot(data.get("seq"),data.get("u"))
+                                if not guard.snapshot(data.get("seq"),data.get("u")):
+                                    state["b"].clear(); state["a"].clear()
+                                    q.mark("orderbook",MISSING,"snapshot missing sequence metadata")
+                                    log.warning("orderbook snapshot missing sequence metadata",extra={"event":"orderbook_bad_snapshot","component":sym})
+                                    continue
                                 q.mark("orderbook",AVAILABLE)
                             elif not guard.delta(data.get("seq"),data.get("u")):
                                 velocity.state.pop(sym,None)

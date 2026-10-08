@@ -34,3 +34,23 @@ def test_trade_continuity_marks_time_gap_without_claiming_missing_count():
     assert t.suspect_gaps==1
     t.reconnect()
     assert t.reconnects==1
+
+
+def test_book_snapshot_requires_sequence_and_update_id():
+    for seq,update_id in ((None,1),(1,None),("bad",1),(1,"bad"),(-1,1),(1,-1)):
+        g=SequenceGuard()
+        assert not g.snapshot(seq,update_id)
+        assert not g.valid
+        assert not g.delta(2,2)
+
+
+def test_book_delta_missing_metadata_invalidates_until_snapshot():
+    for seq,update_id in ((None,11),(101,None),("bad",11),(101,"bad")):
+        g=SequenceGuard()
+        assert g.snapshot(100,10)
+        assert not g.delta(seq,update_id)
+        assert not g.valid
+        assert g.gaps==1
+        assert not g.delta(102,12)
+        assert g.snapshot(200,20)
+        assert g.delta(201,21)
