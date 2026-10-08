@@ -90,15 +90,20 @@ class MicrostructureCollector:
                     book_stall_seconds=120.0
 
                     while True:
-                        raw=await asyncio.wait_for(ws.recv(),timeout=10)
-                        msg=json.loads(raw)
-                        topic=msg.get("topic","")
-                        data=msg.get("data") or {}
-                        ts=int(msg.get("ts") or time.time()*1000)
+                        try:
+                            raw=await asyncio.wait_for(ws.recv(),timeout=10)
+                        except asyncio.TimeoutError:
+                            raw=None
                         now=asyncio.get_running_loop().time()
                         stalled=[sym for sym,seen in last_book_seen.items() if now-seen>book_stall_seconds]
                         if stalled:
                             raise RuntimeError("stalled orderbook topics: "+",".join(stalled[:10]))
+                        if raw is None:
+                            continue
+                        msg=json.loads(raw)
+                        topic=msg.get("topic","")
+                        data=msg.get("data") or {}
+                        ts=int(msg.get("ts") or time.time()*1000)
 
                         if topic.startswith("tickers."):
                             sym=topic.split(".",1)[1]
