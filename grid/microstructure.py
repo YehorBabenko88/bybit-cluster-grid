@@ -1,3 +1,4 @@
+import copy
 import asyncio, json, logging, time, math
 from collections import deque
 from collections.abc import Mapping
