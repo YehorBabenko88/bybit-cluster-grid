@@ -64,12 +64,10 @@ def test_stalled_one_symbol_reconnects_and_resubscribes(monkeypatch):
             return None
         monkeypatch.setattr(module.asyncio,"sleep",immediate_backoff)
         clock=[0.0]
-        real_loop=asyncio.get_running_loop
         class Clock:
             def time(self):
                 return clock[0]
         monkeypatch.setattr(module.asyncio,"get_running_loop",lambda:Clock())
-        real_wait_for=asyncio.wait_for
         async def fake_wait_for(awaitable,timeout):
             # Consume actual frames, then emulate 10s poll timeouts.
             if connections.opened==1 and not first.frames:
@@ -79,7 +77,7 @@ def test_stalled_one_symbol_reconnects_and_resubscribes(monkeypatch):
             if connections.opened==2 and not second.frames:
                 awaitable.close()
                 raise asyncio.CancelledError
-            return await real_wait_for(awaitable,timeout)
+            return await awaitable
         monkeypatch.setattr(module.asyncio,"wait_for",fake_wait_for)
         with pytest.raises(asyncio.CancelledError):
             await module.MicrostructureCollector(FakeDB()).run_batch(["BTCUSDT","ETHUSDT"])
