@@ -54,3 +54,19 @@ def test_book_delta_missing_metadata_invalidates_until_snapshot():
         assert not g.delta(102,12)
         assert g.snapshot(200,20)
         assert g.delta(201,21)
+
+
+def test_replayed_snapshot_cannot_roll_back_valid_book():
+    g=SequenceGuard()
+    assert g.snapshot(200,20)
+    assert not g.snapshot(199,19)
+    assert g.valid and g.last_seq==200 and g.last_update==20
+    assert g.delta(201,21)
+
+
+def test_snapshot_restart_marker_can_reset_sequence():
+    g=SequenceGuard()
+    assert g.snapshot(200,20)
+    assert g.snapshot(10,1)
+    assert g.valid and g.last_seq==10 and g.last_update==1
+    assert g.delta(11,2)
