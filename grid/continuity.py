@@ -49,7 +49,7 @@ class SequenceGuard:
 
 def _int(v):
     try: return int(v)
-    except (TypeError,ValueError): return None
+    except (TypeError,ValueError,OverflowError): return None
 
 class TradeContinuity:
     """Public trades have no guaranteed contiguous sequence; track observability, not fake completeness."""
