@@ -59,6 +59,7 @@ class MicrostructureCollector:
                     # Small subscription batches reduce rejection risk and make reconnect gentler.
                     # Every request must be acknowledged; otherwise a transport can stay
                     # healthy while the market subscription itself was rejected.
+                    pending_market_frames=[]
                     for i in range(0,len(topics),20):
                         batch_topics=topics[i:i+20]
                         await ws.send(json.dumps({"op":"subscribe","args":batch_topics}))
@@ -78,8 +79,13 @@ class MicrostructureCollector:
                                 if ack.get("success") is not True:
                                     raise RuntimeError("Bybit subscription rejected: "+str(ack.get("ret_msg") or ack))
                                 break
-                            # Ignore connection-level control frames before ACK. Market
-                            # data is not expected before subscription acknowledgement.
+                            # Earlier subscription batches can emit snapshots before
+                            # later batches acknowledge. Preserve those frames in order.
+                            if isinstance(ack,dict) and isinstance(ack.get("topic"),str):
+                                if ack["topic"].startswith(("orderbook.","tickers.")):
+                                    if len(pending_market_frames)>=2000:
+                                        raise RuntimeError("subscription market frame buffer overflow")
+                                    pending_market_frames.append(raw)
                         await asyncio.sleep(0.05)
                     delays=backoff_delays()
                     log.info("microstructure connected",extra={"event":"ws_connected","component":"microstructure"})
@@ -88,10 +94,13 @@ class MicrostructureCollector:
                     book_watchdog=TopicWatchdog(symbols,asyncio.get_running_loop().time(),timeout_seconds=120.0)
 
                     while True:
-                        try:
-                            raw=await asyncio.wait_for(ws.recv(),timeout=10)
-                        except asyncio.TimeoutError:
-                            raw=None
+                        if pending_market_frames:
+                            raw=pending_market_frames.pop(0)
+                        else:
+                            try:
+                                raw=await asyncio.wait_for(ws.recv(),timeout=10)
+                            except asyncio.TimeoutError:
+                                raw=None
                         now=asyncio.get_running_loop().time()
                         stalled=book_watchdog.stalled(now)
                         if stalled:
