@@ -31,6 +31,7 @@ class MicrostructureCollector:
         last_book_write={}
         last_ticker_write={}
         last_ticker_seen={}
+        last_book_seen={}
         quality={}
         guards={}
         velocity=BookVelocity()
@@ -44,6 +45,7 @@ class MicrostructureCollector:
             last_book_write.clear()
             last_ticker_write.clear()
             last_ticker_seen.clear()
+            last_book_seen.clear()
             quality.clear()
             guards.clear()
             velocity=BookVelocity()
@@ -82,13 +84,21 @@ class MicrostructureCollector:
                         await asyncio.sleep(0.05)
                     delays=backoff_delays()
                     log.info("microstructure connected",extra={"event":"ws_connected","component":"microstructure"})
+                    # A live socket can still have a silently stalled book topic.
+                    # Use monotonic receipt time rather than exchange timestamps.
+                    last_book_seen={sym:asyncio.get_running_loop().time() for sym in symbols}
+                    book_stall_seconds=120.0
 
                     while True:
-                        raw=await asyncio.wait_for(ws.recv(),timeout=45)
+                        raw=await asyncio.wait_for(ws.recv(),timeout=10)
                         msg=json.loads(raw)
                         topic=msg.get("topic","")
                         data=msg.get("data") or {}
                         ts=int(msg.get("ts") or time.time()*1000)
+                        now=asyncio.get_running_loop().time()
+                        stalled=[sym for sym,seen in last_book_seen.items() if now-seen>book_stall_seconds]
+                        if stalled:
+                            raise RuntimeError("stalled orderbook topics: "+",".join(stalled[:10]))
 
                         if topic.startswith("tickers."):
                             sym=topic.split(".",1)[1]
@@ -172,6 +182,7 @@ class MicrostructureCollector:
                                 for p,qty in asks.items():
                                     if qty==0: state["a"].pop(p,None)
                                     else: state["a"][p]=qty
+                            last_book_seen[sym]=now
                             state["u"]=data.get("u",state["u"])
                             state["seq"]=data.get("seq",state["seq"])
 
