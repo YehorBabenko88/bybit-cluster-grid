@@ -28,6 +28,9 @@ def parse_book_levels(levels, *, snapshot=False):
     import math
     if not isinstance(levels,list):
         raise ValueError("orderbook levels must be a list")
+    # A depth-50 feed must not allocate arbitrarily large malformed frames.
+    if len(levels)>200:
+        raise ValueError("orderbook frame exceeds level limit")
     parsed={}
     for level in levels:
         if not isinstance(level,(list,tuple)) or len(level)!=2:
