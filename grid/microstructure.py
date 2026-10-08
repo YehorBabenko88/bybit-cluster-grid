@@ -52,6 +52,8 @@ class MicrostructureCollector:
         self.max_ticker_age_ms=max_ticker_age_ms
 
     async def run_batch(self, symbols):
+        if isinstance(symbols,(str,bytes)):
+            raise ValueError("symbols must be an iterable of instrument names, not a string")
         # Materialize once: generators would otherwise be exhausted by validation.
         symbols=list(symbols)
         if not symbols:
