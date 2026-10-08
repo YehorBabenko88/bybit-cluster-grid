@@ -5,14 +5,14 @@ Only matured future observations update statistics; no order is executed.
 """
 from __future__ import annotations
 from collections import defaultdict,deque
-from math import isfinite
-from .book_tape_research import BookTapeResearch,VERSION
+from .book_tape_research import BookTapeResearch
 
 
 class BookTapePaperLearner:
     def __init__(self,horizon_ms=60000,cost_bps=4.0,min_samples=30,
                  min_hit_rate=0.52,max_pending=1024):
-        if horizon_ms<=0 or cost_bps<0 or min_samples<1 or not 0<=min_hit_rate<=1 or max_pending<1:
+        from math import isfinite
+        if (not isinstance(horizon_ms,int) or isinstance(horizon_ms,bool) or horizon_ms<=0\n            or not isfinite(float(cost_bps)) or cost_bps<0 or min_samples<1\n            or not isfinite(float(min_hit_rate)) or not 0<=min_hit_rate<=1 or max_pending<1):
             raise ValueError("invalid paper learner configuration")
         self.signal=BookTapeResearch()
         self.horizon_ms=int(horizon_ms)
@@ -37,7 +37,7 @@ class BookTapePaperLearner:
         while queue and ts>=queue[0]["due_ms"]:
             trade=queue.popleft()
             net=(price/trade["entry_price"]-1)*10000*trade["direction"]-self.cost_bps
-            stat=self.stats[(symbol,trade["pattern"])]
+            stat=self.stats[(symbol,trade["pattern"],trade["direction"])]
             stat["count"]+=1
             stat["wins"]+=int(net>0)
             stat["net_bps_sum"]+=net
@@ -46,7 +46,7 @@ class BookTapePaperLearner:
                             "direction":trade["direction"]})
         direction=int(result["direction"])
         pattern="jbe" if result["patterns"]["jbe_proxy"] else "dbi" if result["patterns"]["dbi_proxy"] else "trend"
-        stat=self.stats[(symbol,pattern)]
+        stat=self.stats[(symbol,pattern,direction)]
         hit_rate=stat["wins"]/stat["count"] if stat["count"] else None
         mean_net=stat["net_bps_sum"]/stat["count"] if stat["count"] else None
         blocked=(stat["count"]>=self.min_samples
