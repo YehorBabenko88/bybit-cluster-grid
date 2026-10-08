@@ -22,7 +22,11 @@ class Socket:
         self.sent.append(json.loads(raw))
 
     async def recv(self):
-        return json.dumps(next(self.frames))
+        try:
+            frame=next(self.frames)
+        except StopIteration:
+            raise asyncio.CancelledError
+        return json.dumps(frame)
 
 
 class Connections:
@@ -61,13 +65,6 @@ def test_early_market_frame_buffer_overflow_reconnects(monkeypatch):
         async def no_delay(_seconds):
             return None
         monkeypatch.setattr(module.asyncio,"sleep",no_delay)
-        original_recv=second.recv
-        async def second_recv():
-            try:
-                return await original_recv()
-            except StopIteration:
-                raise asyncio.CancelledError
-        second.recv=second_recv
         db=DB()
         with pytest.raises(asyncio.CancelledError):
             await module.MicrostructureCollector(db).run_batch(["BTCUSDT"])
