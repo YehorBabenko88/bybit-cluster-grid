@@ -27,6 +27,12 @@ class MicrostructureCollector:
     """
     def __init__(self, db, snapshot_ms=1000, wall_event_ratio=6.0, max_ticker_age_ms=None):
         self.db=db
+        if (
+            isinstance(snapshot_ms,bool)
+            or not isinstance(snapshot_ms,int)
+            or snapshot_ms<=0
+        ):
+            raise ValueError("snapshot_ms must be a positive integer")
         self.snapshot_ms=snapshot_ms
         self.wall_event_ratio=wall_event_ratio
         # Opt-in until node clock synchronization is guaranteed.
