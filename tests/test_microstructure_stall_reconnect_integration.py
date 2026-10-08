@@ -54,7 +54,10 @@ def test_stalled_one_symbol_reconnects_and_resubscribes(monkeypatch):
              "data":{"seq":1,"u":1,"b":[["100","2"]],"a":[["101","2"]]}}
         ticker={"topic":"tickers.BTCUSDT","ts":1001,"data":{"markPrice":"100"}}
         first=FakeSocket([ack,btc,ticker])
-        second=FakeSocket([ack])
+        # New socket uses an earlier exchange timestamp and a partial ticker.
+        # It must not inherit old markPrice or stale-timestamp guard.
+        new_ticker={"topic":"tickers.BTCUSDT","ts":200,"data":{"lastPrice":"200"}}
+        second=FakeSocket([ack,new_ticker])
         connections=FakeConnections([first,second])
         monkeypatch.setattr(module.websockets,"connect",connections)
         async def no_network_wait():
@@ -79,10 +82,16 @@ def test_stalled_one_symbol_reconnects_and_resubscribes(monkeypatch):
                 raise asyncio.CancelledError
             return await awaitable
         monkeypatch.setattr(module.asyncio,"wait_for",fake_wait_for)
+        db=FakeDB()
         with pytest.raises(asyncio.CancelledError):
-            await module.MicrostructureCollector(FakeDB()).run_batch(["BTCUSDT","ETHUSDT"])
+            await module.MicrostructureCollector(db).run_batch(["BTCUSDT","ETHUSDT"])
         assert connections.opened==2
         assert first.closed
+        tickers=[event for event in db.events if event[2]=="derivatives_ticker"]
+        assert len(tickers)==2
+        assert tickers[0][3]["mark_price"]=="100"
+        assert tickers[1][3]["last_price"]=="200"
+        assert tickers[1][3]["mark_price"] is None
         assert second.sent[0]["args"]==[
             "orderbook.50.BTCUSDT","tickers.BTCUSDT",
             "orderbook.50.ETHUSDT","tickers.ETHUSDT",
