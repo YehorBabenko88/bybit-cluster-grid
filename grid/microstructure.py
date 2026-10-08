@@ -92,7 +92,7 @@ class MicrostructureCollector:
 
                         if topic.startswith("tickers."):
                             sym=topic.split(".",1)[1]
-                            if ts<=last_ticker_seen.get(sym,-1):
+                            if ts<last_ticker_seen.get(sym,-1):
                                 log.warning("stale ticker ignored",extra={"event":"ticker_stale","component":sym})
                                 continue
                             last_ticker_seen[sym]=ts
