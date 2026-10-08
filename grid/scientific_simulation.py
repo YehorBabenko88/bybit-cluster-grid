@@ -53,7 +53,7 @@ def simulate_rows(rows,direction,horizon_ms,cfg:SimulationConfig,stress=1.0):
     sign=int(direction)
     previous_key=None
     for i,r in enumerate(rows):
-        current_key=(int(r["event_ts_ms"]),str(r["symbol"]))
+        current_key=int(r["event_ts_ms"])
         if previous_key is not None and current_key<previous_key:
             raise ValueError("simulation rows must be chronological")
         previous_key=current_key
