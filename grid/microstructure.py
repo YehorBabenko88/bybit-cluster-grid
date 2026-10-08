@@ -55,7 +55,10 @@ class MicrostructureCollector:
         if symbols is None or isinstance(symbols,(str,bytes)):
             raise ValueError("symbols must be an iterable of instrument names, not None or a string")
         # Materialize once: generators would otherwise be exhausted by validation.
-        symbols=list(symbols)
+        try:
+            symbols=list(symbols)
+        except TypeError as exc:
+            raise ValueError("symbols must be an iterable of instrument names") from exc
         if not symbols:
             return
         if any(
