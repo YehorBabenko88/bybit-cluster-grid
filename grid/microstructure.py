@@ -250,6 +250,9 @@ class MicrostructureCollector:
                                 if not probe.snapshot(data.get("seq"),data.get("u")) and probe.valid:
                                     log.warning("stale orderbook snapshot ignored",extra={"event":"orderbook_stale_snapshot","component":sym})
                                     continue
+                            if not is_snapshot and guard.is_stale_delta(data.get("seq"),data.get("u")):
+                                log.warning("stale orderbook delta ignored",extra={"event":"orderbook_stale_delta","component":sym})
+                                continue
                             try:
                                 bids=parse_book_levels(data.get("b"),snapshot=is_snapshot)
                                 asks=parse_book_levels(data.get("a"),snapshot=is_snapshot)
