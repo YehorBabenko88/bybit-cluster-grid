@@ -14,7 +14,6 @@ def test_replayed_wall_cannot_resurrect_after_empty_epoch():
     assert tracker.state["BTCUSDT"]=={}
     added,removed=tracker.update("BTCUSDT",3000,[wall])
     assert len(added)==1 and removed==[]
-    assert added[0]["first_seen_ms"] if False else True
     assert added[0]["lifetime_ms"]==0
 
 
