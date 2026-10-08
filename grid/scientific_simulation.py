@@ -80,7 +80,26 @@ def simulate_rows(rows,direction,horizon_ms,cfg:SimulationConfig,stress=1.0):
     pf=gross_win/gross_loss if gross_loss>1e-12 else (999.0 if gross_win>0 else 0.0)
     total_abs=sum(abs(v) for v in split_pnl.values())
     concentration=max((abs(v)/total_abs for v in split_pnl.values()),default=1.0)
+    # Diagnostic uncertainty and costs: do not use these as proof of edge.
+    net_values=[t["net_return_bps"] for t in trades]
+    variance=sum((v-expectancy)**2 for v in net_values)/(n-1) if n>1 else 0.0
+    standard_error=sqrt(variance/n) if n>1 else None
+    lower_95=(expectancy-1.96*standard_error) if standard_error is not None else None
+    total_fees=sum(t["fee_bps"]*t["fill_fraction"] for t in trades)
+    total_spread=sum(t["spread_bps"]*t["fill_fraction"] for t in trades)
+    total_slippage=sum(t["slippage_bps"]*t["fill_fraction"] for t in trades)
+    total_latency=sum(t["latency_bps"]*t["fill_fraction"] for t in trades)
+    total_funding=sum(t["funding_bps"]*t["fill_fraction"] for t in trades)
+    losing_streak=0;max_losing_streak=0
+    for v in net_values:
+        losing_streak=losing_streak+1 if v<=0 else 0
+        max_losing_streak=max(max_losing_streak,losing_streak)
     return {"trades":trades,"metrics":{"trades":n,"splits":len(split_pnl),"symbols":len(symbols),
+      "expectancy_standard_error_bps":standard_error,"expectancy_lower_95_bps":lower_95,
+      "max_consecutive_nonwinning_trades":max_losing_streak,
+      "total_fee_bps":total_fees,"total_spread_bps":total_spread,
+      "total_slippage_bps":total_slippage,"total_latency_bps":total_latency,
+      "total_funding_bps":total_funding,
       "expectancy_bps":expectancy,"win_rate":wins/n if n else 0.0,"profit_factor":pf,
       "max_drawdown":max_dd,"final_equity":equity,"split_concentration":concentration,
       "split_pnl_bps":split_pnl}}
