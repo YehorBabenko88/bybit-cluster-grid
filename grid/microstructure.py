@@ -305,6 +305,16 @@ class MicrostructureCollector:
                                 q.mark("orderbook",MISSING,"accumulated level limit exceeded")
                                 log.warning("orderbook level limit exceeded",extra={"event":"orderbook_level_overflow","component":sym})
                                 continue
+                            # A crossed or locked book cannot provide a valid spread.
+                            # Drop the epoch instead of publishing misleading metrics.
+                            if state["b"] and state["a"] and max(state["b"])>=min(state["a"]):
+                                guard.valid=False
+                                velocity.state.pop(sym,None)
+                                wall_tracker.state.pop(sym,None)
+                                state["b"].clear(); state["a"].clear()
+                                q.mark("orderbook",MISSING,"crossed or locked orderbook")
+                                log.warning("crossed or locked orderbook",extra={"event":"orderbook_crossed","component":sym})
+                                continue
                             book_watchdog.observe(sym,now)
                             state["u"]=data.get("u",state["u"])
                             state["seq"]=data.get("seq",state["seq"])
