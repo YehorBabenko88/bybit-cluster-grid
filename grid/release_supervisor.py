@@ -1,5 +1,5 @@
 """Run a Grid service child and confirm a pending release after stable uptime."""
-import argparse, os, pathlib, subprocess, sys, threading, time, urllib.request
+import argparse, os, pathlib, subprocess, sys, threading, time, urllib.request, json
 
 def _read(path):
     try:return pathlib.Path(path).read_text(encoding="utf-8-sig").strip()
@@ -18,7 +18,9 @@ def _ready(mode,proc,ready_file):
     if mode=='coordinator':
         try:
             with urllib.request.urlopen('http://127.0.0.1:8765/health',timeout=2) as resp:
-                return resp.status==200
+                if resp.status!=200:return False
+                payload=json.load(resp)
+                return payload.get('ok') is True and payload.get('pid')==proc.pid
         except Exception:return False
     return False
 
