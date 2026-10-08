@@ -111,7 +111,11 @@ class MicrostructureCollector:
                             raise RuntimeError("stalled orderbook topics: "+",".join(stalled[:10]))
                         if raw is None:
                             continue
-                        msg=json.loads(raw)
+                        try:
+                            msg=json.loads(raw)
+                        except (json.JSONDecodeError,UnicodeDecodeError,TypeError):
+                            log.warning("invalid market JSON ignored",extra={"event":"invalid_market_json"})
+                            continue
                         if not isinstance(msg,dict):
                             log.warning("non-object market frame ignored",extra={"event":"invalid_market_frame"})
                             continue
