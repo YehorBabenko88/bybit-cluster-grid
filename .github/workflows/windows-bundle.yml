@@ -3,14 +3,6 @@ name: windows-bundle
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - "grid/**"
-      - "installer/**"
-      - "strategies/**"
-      - "run_worker.py"
-      - "run_coordinator.py"
-      - "requirements.txt"
-      - ".github/workflows/windows-bundle.yml"
   push:
     branches: [main]
     paths:
