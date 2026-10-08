@@ -9,7 +9,8 @@ from .micro_agents import MicroSignal
 from .scientific_mining_scheduler import ScientificMiningScheduler
 from .scientific_simulation_gate import ScientificSimulationGate
 from .scientific_method_registry import ScientificMethodRegistry,ScientificMethod
-from .book_tape_research import BookTapeResearch,VERSION as BOOK_TAPE_VERSION
+from .book_tape_research import VERSION as BOOK_TAPE_VERSION
+from .book_tape_paper import BookTapePaperLearner
 
 log=logging.getLogger("scientific_service")
 
@@ -23,7 +24,7 @@ class ScientificResearchService:
         self.methods=ScientificMethodRegistry()
         # Isolated observational plugin: writes versioned candidate evidence to
         # scientific_method_events; existing consensus/ML/simulation gates stay intact.
-        self.book_tape=BookTapeResearch()
+        self.book_tape=BookTapePaperLearner()
         self.methods.register(ScientificMethod(
             key="book_tape_research",version=BOOK_TAPE_VERSION,schema_version=1,
             handler=self.book_tape.observe,
