@@ -125,11 +125,18 @@ class MicrostructureCollector:
                             guard=guards.setdefault(sym,SequenceGuard())
                             is_snapshot=msg.get("type")=="snapshot" or data.get("u")==1
                             if is_snapshot:
+                                if not guard.valid:
+                                    # A fresh book epoch cannot inherit prior wall
+                                    # lifetimes or rate-of-change baselines.
+                                    velocity.state.pop(sym,None)
+                                    wall_tracker.state.pop(sym,None)
                                 state["b"]={float(p):float(q) for p,q in data.get("b",[])}
                                 state["a"]={float(p):float(q) for p,q in data.get("a",[])}
                                 guard.snapshot(data.get("seq"),data.get("u"))
                                 q.mark("orderbook",AVAILABLE)
                             elif not guard.delta(data.get("seq"),data.get("u")):
+                                velocity.state.pop(sym,None)
+                                wall_tracker.state.pop(sym,None)
                                 state["b"].clear(); state["a"].clear()
                                 q.mark("orderbook",MISSING,"sequence gap; waiting for fresh snapshot")
                                 log.warning("orderbook sequence gap",extra={"event":"orderbook_gap","component":sym})
