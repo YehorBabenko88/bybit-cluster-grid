@@ -191,9 +191,15 @@ class Worker:
                             requested_micro=set(reply.get("micro_symbols",[]))
                             recovering=bool(dbm.get("replay_active",False) or microm.get("replay_active",False))
                             new_micro=(requested_micro & new) if not recovering else set()
-                            if new != self.wanted or new_micro != self.micro_wanted:
+                            assignments_changed=(new != self.wanted or new_micro != self.micro_wanted)
+                            dead_trade_tasks=any(task.done() for task in self.trade_tasks.values())
+                            dead_micro_tasks=any(task.done() for task in self.micro_tasks)
+                            if assignments_changed or dead_trade_tasks or dead_micro_tasks:
                                 self.wanted=new
                                 self.micro_wanted=new_micro
+                                if dead_micro_tasks:
+                                    # Force the microstructure collector group to be rebuilt.
+                                    self.micro_signature=None
                                 await self.reconcile()
                             # Confirm this release only after an authenticated CONTROL
                             # heartbeat and successful assignment reconciliation.
