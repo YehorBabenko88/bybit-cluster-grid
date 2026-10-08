@@ -81,7 +81,11 @@ class TradeContinuity:
         self.reconnects+=1
 
     def observe(self,ts_ms):
-        ts=_int(ts_ms) or int(time.time()*1000)
+        ts=_int(ts_ms)
+        if ts is None or ts<=0:
+            # Invalid exchange timestamps must not advance the high-water mark
+            # to local wall time and fabricate a missing-trades alert.
+            return False
         # Late/out-of-order trades are not a new observation window.
         # Compare only advancing timestamps with the previous high-water mark.
         suspect=self.last_ts is not None and ts>self.last_ts and ts-self.last_ts>self.gap_ms
