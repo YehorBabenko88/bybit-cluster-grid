@@ -50,7 +50,7 @@ def test_expired_ticker_does_not_enter_new_socket_state(monkeypatch):
         monkeypatch.setattr(module,"wait_for_internet",ready)
         db=DB()
         with pytest.raises(asyncio.CancelledError):
-            await module.MicrostructureCollector(db).run_batch(["BTCUSDT"])
+            await module.MicrostructureCollector(db,max_ticker_age_ms=300000).run_batch(["BTCUSDT"])
         events=[e for e in db.events if e[2]=="derivatives_ticker"]
         assert len(events)==1
         assert events[0][3]["last_price"]=="100"
