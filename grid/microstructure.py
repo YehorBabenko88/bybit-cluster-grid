@@ -208,10 +208,16 @@ class MicrostructureCollector:
                             if ts<last_ticker_seen.get(sym,-1):
                                 log.warning("stale ticker ignored",extra={"event":"ticker_stale","component":sym})
                                 continue
+                            # Empty/unknown-only ticker deltas must not advance
+                            # the high-water timestamp or fabricate healthy data.
+                            updates={k:v for k,v in data.items() if k in TICKER_FIELDS and v is not None}
+                            if not updates:
+                                log.warning("empty ticker delta ignored",extra={"event":"ticker_empty","component":sym})
+                                continue
                             last_ticker_seen[sym]=ts
                             state=tickers.setdefault(sym,{})
                             quality.setdefault(sym,FeedQuality(sym)).mark("ticker",AVAILABLE)
-                            state.update({k:v for k,v in data.items() if k in TICKER_FIELDS and v is not None})
+                            state.update(updates)
                             if ts-last_ticker_write.get(sym,0) >= self.snapshot_ms:
                                 payload={
                                     "open_interest":state.get("openInterest"),
