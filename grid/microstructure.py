@@ -12,6 +12,13 @@ from .topic_watchdog import TopicWatchdog
 
 log=logging.getLogger("microstructure")
 
+# Only fields persisted in derivatives_ticker belong in the merged delta state.
+TICKER_FIELDS=frozenset({
+    "openInterest", "openInterestValue", "fundingRate", "fundingIntervalHour",
+    "nextFundingTime", "markPrice", "indexPrice", "lastPrice", "basisRate",
+    "bid1Price", "bid1Size", "ask1Price", "ask1Size", "volume24h", "turnover24h",
+})
+
 class MicrostructureCollector:
     """
     Maintains order books in memory from snapshot+delta messages.
@@ -147,7 +154,7 @@ class MicrostructureCollector:
                             last_ticker_seen[sym]=ts
                             state=tickers.setdefault(sym,{})
                             quality.setdefault(sym,FeedQuality(sym)).mark("ticker",AVAILABLE)
-                            state.update({k:v for k,v in data.items() if v is not None})
+                            state.update({k:v for k,v in data.items() if k in TICKER_FIELDS and v is not None})
                             if ts-last_ticker_write.get(sym,0) >= self.snapshot_ms:
                                 payload={
                                     "open_interest":state.get("openInterest"),
