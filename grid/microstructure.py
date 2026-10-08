@@ -147,6 +147,12 @@ class MicrostructureCollector:
                             log.warning("invalid market timestamp ignored",extra={"event":"invalid_market_timestamp"})
                             continue
 
+                        # A corrupt future timestamp can poison ticker monotonic state
+                        # and prevent valid updates from being accepted afterwards.
+                        if ts>int(time.time()*1000)+300000:
+                            log.warning("future market timestamp ignored",extra={"event":"future_market_timestamp"})
+                            continue
+
                         if topic.startswith(("tickers.","orderbook.")) and topic not in subscribed_topics:
                             log.warning("unsubscribed market topic ignored",extra={"event":"unknown_market_topic"})
                             continue
