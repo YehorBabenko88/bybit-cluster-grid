@@ -1,5 +1,6 @@
 import asyncio, json, logging, time, math
 from collections import deque
+from collections.abc import Mapping
 import websockets
 from .config import settings
 from .resilience import backoff_delays, wait_for_internet
@@ -52,8 +53,8 @@ class MicrostructureCollector:
         self.max_ticker_age_ms=max_ticker_age_ms
 
     async def run_batch(self, symbols):
-        if symbols is None or isinstance(symbols,(str,bytes)):
-            raise ValueError("symbols must be an iterable of instrument names, not None or a string")
+        if symbols is None or isinstance(symbols,(str,bytes,Mapping)):
+            raise ValueError("symbols must be an iterable of instrument names, not None, a string, or a mapping")
         # Materialize once: generators would otherwise be exhausted by validation.
         try:
             symbols=list(symbols)
