@@ -39,5 +39,5 @@ $run=Join-Path $release "run_worker.py"
 if(!(Test-Path $run)){throw "No runnable Grid release found"}
 Set-Location $release
 $version=Split-Path $release -Leaf
-& $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $release -- $Python $run
+& $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $release --readiness worker -- $Python $run
 exit $LASTEXITCODE
