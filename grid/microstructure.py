@@ -30,6 +30,12 @@ class MicrostructureCollector:
         self.snapshot_ms=snapshot_ms
         self.wall_event_ratio=wall_event_ratio
         # Opt-in until node clock synchronization is guaranteed.
+        if max_ticker_age_ms is not None and (
+            isinstance(max_ticker_age_ms,bool)
+            or not isinstance(max_ticker_age_ms,int)
+            or max_ticker_age_ms<=0
+        ):
+            raise ValueError("max_ticker_age_ms must be a positive integer or None")
         self.max_ticker_age_ms=max_ticker_age_ms
 
     async def run_batch(self, symbols):
