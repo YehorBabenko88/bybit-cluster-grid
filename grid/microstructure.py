@@ -7,6 +7,7 @@ from .data_quality import FeedQuality, safe_float, AVAILABLE, MISSING
 from .continuity import SequenceGuard
 from .book_velocity import BookVelocity
 from .wall_tracker import WallTracker
+from .topic_watchdog import TopicWatchdog
 
 log=logging.getLogger("microstructure")
 
@@ -31,7 +32,6 @@ class MicrostructureCollector:
         last_book_write={}
         last_ticker_write={}
         last_ticker_seen={}
-        last_book_seen={}
         quality={}
         guards={}
         velocity=BookVelocity()
@@ -45,7 +45,6 @@ class MicrostructureCollector:
             last_book_write.clear()
             last_ticker_write.clear()
             last_ticker_seen.clear()
-            last_book_seen.clear()
             quality.clear()
             guards.clear()
             velocity=BookVelocity()
@@ -86,8 +85,7 @@ class MicrostructureCollector:
                     log.info("microstructure connected",extra={"event":"ws_connected","component":"microstructure"})
                     # A live socket can still have a silently stalled book topic.
                     # Use monotonic receipt time rather than exchange timestamps.
-                    last_book_seen={sym:asyncio.get_running_loop().time() for sym in symbols}
-                    book_stall_seconds=120.0
+                    book_watchdog=TopicWatchdog(symbols,asyncio.get_running_loop().time(),timeout_seconds=120.0)
 
                     while True:
                         try:
@@ -95,7 +93,7 @@ class MicrostructureCollector:
                         except asyncio.TimeoutError:
                             raw=None
                         now=asyncio.get_running_loop().time()
-                        stalled=[sym for sym,seen in last_book_seen.items() if now-seen>book_stall_seconds]
+                        stalled=book_watchdog.stalled(now)
                         if stalled:
                             raise RuntimeError("stalled orderbook topics: "+",".join(stalled[:10]))
                         if raw is None:
@@ -187,8 +185,7 @@ class MicrostructureCollector:
                                 for p,qty in asks.items():
                                     if qty==0: state["a"].pop(p,None)
                                     else: state["a"][p]=qty
-                            if sym in last_book_seen:
-                                last_book_seen[sym]=now
+                            book_watchdog.observe(sym,now)
                             state["u"]=data.get("u",state["u"])
                             state["seq"]=data.get("seq",state["seq"])
 
