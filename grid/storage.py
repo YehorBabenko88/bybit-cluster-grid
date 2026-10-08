@@ -29,6 +29,8 @@ class Storage:
         self.replay_task=None
         self.replay_done=asyncio.Event(); self.replay_done.set()
         self.replay_ids=set()
+        # Preserve WAL ID order across concurrent producers until queue admission.
+        self._enqueue_lock=asyncio.Lock()
         self._last_replay_send=0.0
         self.replay_started_at=0.0
         self.replay_sent=0
@@ -82,8 +84,9 @@ class Storage:
         await self.replay_done.wait()
         if self.spool.ratio()>=settings.spool_critical_ratio:
             raise BufferError("Grid WAL critical threshold reached; load shedding required")
-        record_id=await self.spool.append(row)
-        await self.write_queue.put(record_id,row)
+        async with self._enqueue_lock:
+            record_id=await self.spool.append(row)
+            await self.write_queue.put(record_id,row)
 
     async def close(self,drain_timeout=5):
         if self.replay_task is not None and not self.replay_task.done():
