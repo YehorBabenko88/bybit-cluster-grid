@@ -93,4 +93,8 @@ async def linear_symbols(base_url: str, *, max_attempts: int = 8):
     unique={}
     for item in out:
         unique[item["symbol"]]=item
+    if not unique:
+        # An empty successful snapshot is not proof that every contract delisted.
+        # Preserve the last known universe instead of mass-retiring instruments.
+        raise RuntimeError("Bybit discovery returned an empty active linear universe")
     return list(unique.values())
