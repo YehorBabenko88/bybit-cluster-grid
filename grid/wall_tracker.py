@@ -7,14 +7,16 @@ class WallTracker:
 
     def __init__(self):
         self.state={}
+        self.last_seen_ms={}
 
     def update(self,symbol,ts_ms,walls):
         now=int(ts_ms)
         previous=self.state.get(symbol,{})
-        # Do not roll back wall history or double-count liquidity changes when
-        # the exchange replays an older analytics timestamp.
-        if previous and now<=max(item["last_seen_ms"] for item in previous.values()):
+        # Remember the timestamp even when all walls disappear. Otherwise
+        # replayed older events can resurrect removed liquidity walls.
+        if now<=self.last_seen_ms.get(symbol,-1):
             return [],[]
+        self.last_seen_ms[symbol]=now
         current={}
         enriched=[]
 
