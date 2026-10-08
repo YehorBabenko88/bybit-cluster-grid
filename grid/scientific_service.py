@@ -8,7 +8,9 @@ from .control_state import set_consumer_watermarks
 from .micro_agents import MicroSignal
 from .scientific_mining_scheduler import ScientificMiningScheduler
 from .scientific_simulation_gate import ScientificSimulationGate
-from .scientific_method_registry import ScientificMethodRegistry
+from .scientific_method_registry import ScientificMethodRegistry,ScientificMethod
+from .book_tape_research import VERSION as BOOK_TAPE_VERSION
+from .book_tape_paper import BookTapePaperLearner
 
 log=logging.getLogger("scientific_service")
 
@@ -20,6 +22,15 @@ class ScientificResearchService:
         self.errors=0;self.last_event_ts=None;self.started=False
         self.mining=ScientificMiningScheduler(pool);self.simulation=ScientificSimulationGate(pool)
         self.methods=ScientificMethodRegistry()
+        # Isolated observational plugin: writes versioned candidate evidence to
+        # scientific_method_events; existing consensus/ML/simulation gates stay intact.
+        self.book_tape=BookTapePaperLearner()
+        self.methods.register(ScientificMethod(
+            key="book_tape_research",version=BOOK_TAPE_VERSION,schema_version=1,
+            handler=self.book_tape.observe,
+            capabilities={"research_only":True,"live_orders":False,
+                          "input_events":["trade_tape_250ms"],
+                          "profile_kind":"bucket_close_proxy"}))
         self.last_mining_check=0.0;self.mining_runs=0;self.simulation_runs=0
 
     async def start(self):
