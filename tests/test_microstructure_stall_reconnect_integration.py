@@ -60,7 +60,7 @@ def test_stalled_one_symbol_reconnects_and_resubscribes(monkeypatch):
         async def no_network_wait():
             return None
         monkeypatch.setattr(module,"wait_for_internet",no_network_wait)
-        async def immediate_backoff():
+        async def immediate_backoff(_delay):
             return None
         monkeypatch.setattr(module.asyncio,"sleep",immediate_backoff)
         clock=[0.0]
