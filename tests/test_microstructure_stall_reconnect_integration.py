@@ -57,7 +57,9 @@ def test_stalled_one_symbol_reconnects_and_resubscribes(monkeypatch):
         # New socket uses an earlier exchange timestamp and a partial ticker.
         # It must not inherit old markPrice or stale-timestamp guard.
         new_ticker={"topic":"tickers.BTCUSDT","ts":2000000,"data":{"lastPrice":"200"}}
-        second=FakeSocket([ack,new_ticker])
+        fresh_book={"topic":"orderbook.50.BTCUSDT","type":"snapshot","ts":4000000,
+                    "data":{"seq":1,"u":1,"b":[["200","3"]],"a":[["201","4"]]}}
+        second=FakeSocket([ack,fresh_book,new_ticker])
         connections=FakeConnections([first,second])
         monkeypatch.setattr(module.websockets,"connect",connections)
         async def no_network_wait():
@@ -87,6 +89,13 @@ def test_stalled_one_symbol_reconnects_and_resubscribes(monkeypatch):
             await module.MicrostructureCollector(db).run_batch(["BTCUSDT","ETHUSDT"])
         assert connections.opened==2
         assert first.closed
+        books=[event for event in db.events if event[2]=="orderbook_snapshot"]
+        assert len(books)==2
+        assert books[0][1]==1000
+        assert books[1][1]==4000000
+        assert books[1][3]["best_bid"]==200.0
+        assert books[1][3]["best_ask"]==201.0
+        assert books[1][3]["spread"]==1.0
         tickers=[event for event in db.events if event[2]=="derivatives_ticker"]
         assert len(tickers)==2
         assert tickers[0][3]["mark_price"]=="100"
