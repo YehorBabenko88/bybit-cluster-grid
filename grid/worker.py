@@ -1,4 +1,4 @@
-import asyncio, json, time, logging, os
+import asyncio, json, time, logging, os, pathlib
 import aiohttp, websockets
 from .config import settings
 from .resources import snapshot,NODE_ID,ml_runtime_ready
@@ -195,6 +195,11 @@ class Worker:
                                 self.wanted=new
                                 self.micro_wanted=new_micro
                                 await self.reconcile()
+                            # Confirm this release only after an authenticated CONTROL
+                            # heartbeat and successful assignment reconciliation.
+                            ready_file=os.getenv('GRID_RELEASE_READY_FILE')
+                            if ready_file:
+                                pathlib.Path(ready_file).write_text(str(os.getpid()),encoding='ascii')
                         else:
                             log.warning("coordinator heartbeat rejected",extra={"event":"heartbeat_rejected"})
                 except Exception:
