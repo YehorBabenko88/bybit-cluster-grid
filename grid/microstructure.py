@@ -27,6 +27,7 @@ class MicrostructureCollector:
         topics=[]
         for s in symbols:
             topics += [f"orderbook.50.{s}", f"tickers.{s}"]
+        subscribed_topics=set(topics)
         books={}
         tickers={}
         last_book_write={}
@@ -122,6 +123,10 @@ class MicrostructureCollector:
                             ts=int(msg.get("ts") or time.time()*1000)
                         except (ValueError,TypeError,OverflowError):
                             log.warning("invalid market timestamp ignored",extra={"event":"invalid_market_timestamp"})
+                            continue
+
+                        if topic.startswith(("tickers.","orderbook.")) and topic not in subscribed_topics:
+                            log.warning("unsubscribed market topic ignored",extra={"event":"unknown_market_topic"})
                             continue
 
                         if topic.startswith("tickers."):
