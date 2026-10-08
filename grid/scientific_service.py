@@ -11,9 +11,6 @@ from .scientific_simulation_gate import ScientificSimulationGate
 from .scientific_method_registry import ScientificMethodRegistry,ScientificMethod
 from .book_tape_research import VERSION as BOOK_TAPE_VERSION
 from .book_tape_paper import BookTapePaperLearner
-        self.book_tape=BookTapePaperLearner()
-            key="book_tape_research",version=BOOK_TAPE_VERSION,schema_version=1,
-            handler=self.book_tape.observe,
 
 log=logging.getLogger("scientific_service")
 
