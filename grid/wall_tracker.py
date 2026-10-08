@@ -13,7 +13,7 @@ class WallTracker:
         previous=self.state.get(symbol,{})
         # Do not roll back wall history or double-count liquidity changes when
         # the exchange replays an older analytics timestamp.
-        if previous and now<max(item["last_seen_ms"] for item in previous.values()):
+        if previous and now<=max(item["last_seen_ms"] for item in previous.values()):
             return [],[]
         current={}
         enriched=[]
