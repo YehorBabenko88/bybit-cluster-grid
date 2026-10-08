@@ -87,6 +87,10 @@ def simulate_rows(rows,direction,horizon_ms,cfg:SimulationConfig,stress=1.0):
 
 def deterministic_bootstrap_drawdowns(net_returns,paths=200,seed="simulation",position_scale=1.0):
     vals=list(map(float,net_returns))
+    if any(not isfinite(v) for v in vals):
+        raise ValueError("bootstrap returns must be finite")
+    if not isfinite(float(position_scale)) or position_scale<0:
+        raise ValueError("bootstrap position scale must be finite and nonnegative")
     if not vals:return [1.0]
     out=[];n=len(vals)
     for p in range(max(1,int(paths))):
