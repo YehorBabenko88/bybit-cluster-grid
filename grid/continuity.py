@@ -18,9 +18,10 @@ class SequenceGuard:
         seq=_int(seq); update_id=_int(update_id)
         if not self.valid:
             return False
-        # Bybit cross-sequence should move forward. Equal/backward means stale/out-of-order;
-        # a jump >1 is treated as a gap and requires a fresh snapshot.
-        if seq is not None and self.last_seq is not None and seq != self.last_seq+1:
+        # Bybit cross-sequence is global across orderbook levels and symbols:
+        # it must increase, but consecutive values are not guaranteed here.
+        # A jump alone does not prove a missing per-symbol delta.
+        if seq is not None and self.last_seq is not None and seq<=self.last_seq:
             self.valid=False; self.gaps+=1
             return False
         if update_id is not None and self.last_update is not None and update_id<=self.last_update:
