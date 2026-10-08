@@ -30,6 +30,7 @@ class MicrostructureCollector:
         tickers={}
         last_book_write={}
         last_ticker_write={}
+        last_ticker_seen={}
         quality={}
         guards={}
         velocity=BookVelocity()
@@ -42,6 +43,7 @@ class MicrostructureCollector:
             tickers.clear()
             last_book_write.clear()
             last_ticker_write.clear()
+            last_ticker_seen.clear()
             quality.clear()
             guards.clear()
             velocity=BookVelocity()
@@ -90,6 +92,10 @@ class MicrostructureCollector:
 
                         if topic.startswith("tickers."):
                             sym=topic.split(".",1)[1]
+                            if ts<last_ticker_seen.get(sym,-1):
+                                log.warning("stale ticker ignored",extra={"event":"ticker_stale","component":sym})
+                                continue
+                            last_ticker_seen[sym]=ts
                             state=tickers.setdefault(sym,{})
                             quality.setdefault(sym,FeedQuality(sym)).mark("ticker",AVAILABLE)
                             state.update({k:v for k,v in data.items() if v is not None})
