@@ -1,4 +1,4 @@
-import asyncio, json, logging, time
+import asyncio, json, logging, time, math
 from collections import deque
 import websockets
 from .config import settings
@@ -34,6 +34,13 @@ class MicrostructureCollector:
         ):
             raise ValueError("snapshot_ms must be a positive integer")
         self.snapshot_ms=snapshot_ms
+        if (
+            isinstance(wall_event_ratio,bool)
+            or not isinstance(wall_event_ratio,(int,float))
+            or not math.isfinite(wall_event_ratio)
+            or wall_event_ratio<=0
+        ):
+            raise ValueError("wall_event_ratio must be a finite positive number")
         self.wall_event_ratio=wall_event_ratio
         # Opt-in until node clock synchronization is guaranteed.
         if max_ticker_age_ms is not None and (
