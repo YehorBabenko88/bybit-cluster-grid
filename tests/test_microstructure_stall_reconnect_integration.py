@@ -52,11 +52,11 @@ def test_stalled_one_symbol_reconnects_and_resubscribes(monkeypatch):
         ack={"op":"subscribe","success":True}
         btc={"topic":"orderbook.50.BTCUSDT","type":"snapshot","ts":1000,
              "data":{"seq":1,"u":1,"b":[["100","2"]],"a":[["101","2"]]}}
-        ticker={"topic":"tickers.BTCUSDT","ts":1001,"data":{"markPrice":"100"}}
+        ticker={"topic":"tickers.BTCUSDT","ts":3000000,"data":{"markPrice":"100"}}
         first=FakeSocket([ack,btc,ticker])
         # New socket uses an earlier exchange timestamp and a partial ticker.
         # It must not inherit old markPrice or stale-timestamp guard.
-        new_ticker={"topic":"tickers.BTCUSDT","ts":200,"data":{"lastPrice":"200"}}
+        new_ticker={"topic":"tickers.BTCUSDT","ts":2000000,"data":{"lastPrice":"200"}}
         second=FakeSocket([ack,new_ticker])
         connections=FakeConnections([first,second])
         monkeypatch.setattr(module.websockets,"connect",connections)
