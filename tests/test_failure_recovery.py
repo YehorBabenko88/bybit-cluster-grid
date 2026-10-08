@@ -120,7 +120,10 @@ def test_websocket_collectors_require_subscription_ack_and_stall_timeout():
     assert 'ack.get("success") is not True' in micro
     assert 'ack_deadline=asyncio.get_running_loop().time()+15' in micro
     assert 'asyncio.wait_for(ws.recv(),timeout=remaining)' in micro
-    assert 'asyncio.wait_for(ws.recv(),timeout=45)' in micro
+    assert 'asyncio.wait_for(ws.recv(),timeout=10)' in micro
+    assert 'except asyncio.TimeoutError:' in micro
+    assert 'now-seen>book_stall_seconds' in micro
+    assert 'stalled orderbook topics:' in micro
 
 
 def test_power_loss_partial_wal_tail_is_truncated_before_next_append(tmp_path):
