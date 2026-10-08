@@ -5,7 +5,7 @@ This module has no exchange/order API. It consumes completed research outcomes o
 from __future__ import annotations
 from dataclasses import dataclass,asdict
 from hashlib import sha256
-from math import sqrt
+from math import sqrt,isfinite
 import json
 
 @dataclass(frozen=True)
@@ -46,12 +46,25 @@ def execution_costs(key,horizon_ms,cfg:SimulationConfig,stress=1.0):
 def simulate_rows(rows,direction,horizon_ms,cfg:SimulationConfig,stress=1.0):
     equity=1.0;peak=1.0;max_dd=0.0;trades=[];split_pnl={};symbols=set()
     wins=0;gross_win=0.0;gross_loss=0.0
-    sign=1 if int(direction)>=0 else -1
+    if isinstance(direction,bool) or int(direction) not in (-1,1):
+        raise ValueError("simulation direction must be +1 or -1")
+    if not isfinite(float(stress)) or stress<=0:
+        raise ValueError("simulation stress must be finite and positive")
+    sign=int(direction)
+    previous_key=None
     for i,r in enumerate(rows):
+        current_key=(int(r["event_ts_ms"]),str(r["symbol"]))
+        if previous_key is not None and current_key<previous_key:
+            raise ValueError("simulation rows must be chronological")
+        previous_key=current_key
         key=f"{r['symbol']}|{r['event_ts_ms']}|{horizon_ms}"
         fill,fee,spread,slip,latency,funding=execution_costs(key,horizon_ms,cfg,stress)
         raw=float(r["return_bps"])
+        if not isfinite(raw):
+            raise ValueError("simulation return must be finite")
         net=(raw*sign-fee-spread-slip-latency-funding)*fill
+        if not isfinite(net):
+            raise ValueError("simulation net return must be finite")
         ret=net/10000.0*float(cfg.position_risk_fraction)/.005
         equity=max(1e-9,equity*(1.0+ret));peak=max(peak,equity)
         max_dd=max(max_dd,1.0-equity/peak)
