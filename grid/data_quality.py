@@ -29,7 +29,8 @@ class FeedQuality:
     def stale_check(self,feed,max_age_s):
         last=self.last_update.get(feed)
         if last is not None and time()-last>max_age_s:
-            self.mark(feed,STALE,f"no update for {int(time()-last)}s")
+            if self.get(feed)["status"]!=STALE:
+                self.mark(feed,STALE,f"no update for {int(time()-last)}s")
             return True
         return False
 
