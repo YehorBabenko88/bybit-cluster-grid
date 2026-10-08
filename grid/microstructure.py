@@ -1,4 +1,5 @@
 import asyncio, json, logging, time
+from collections import deque
 import websockets
 from .config import settings
 from .resilience import backoff_delays, wait_for_internet
@@ -60,7 +61,7 @@ class MicrostructureCollector:
                     # Small subscription batches reduce rejection risk and make reconnect gentler.
                     # Every request must be acknowledged; otherwise a transport can stay
                     # healthy while the market subscription itself was rejected.
-                    pending_market_frames=[]
+                    pending_market_frames=deque()
                     for i in range(0,len(topics),20):
                         batch_topics=topics[i:i+20]
                         await ws.send(json.dumps({"op":"subscribe","args":batch_topics}))
@@ -98,7 +99,7 @@ class MicrostructureCollector:
 
                     while True:
                         if pending_market_frames:
-                            raw=pending_market_frames.pop(0)
+                            raw=pending_market_frames.popleft()
                         else:
                             try:
                                 raw=await asyncio.wait_for(ws.recv(),timeout=10)
