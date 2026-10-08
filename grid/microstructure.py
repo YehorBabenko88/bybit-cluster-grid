@@ -2,7 +2,7 @@ import asyncio, json, logging, time
 import websockets
 from .config import settings
 from .resilience import backoff_delays, wait_for_internet
-from .orderbook import analyze_book
+from .orderbook import analyze_book, parse_book_levels
 from .data_quality import FeedQuality, safe_float, AVAILABLE, MISSING
 from .continuity import SequenceGuard
 from .book_velocity import BookVelocity
@@ -124,14 +124,23 @@ class MicrostructureCollector:
                             q=quality.setdefault(sym,FeedQuality(sym))
                             guard=guards.setdefault(sym,SequenceGuard())
                             is_snapshot=msg.get("type")=="snapshot" or data.get("u")==1
+                            try:
+                                bids=parse_book_levels(data.get("b"),snapshot=is_snapshot)
+                                asks=parse_book_levels(data.get("a"),snapshot=is_snapshot)
+                            except (ValueError,TypeError):
+                                guard.valid=False
+                                velocity.state.pop(sym,None)
+                                wall_tracker.state.pop(sym,None)
+                                state["b"].clear(); state["a"].clear()
+                                q.mark("orderbook",MISSING,"malformed orderbook levels")
+                                log.warning("malformed orderbook levels",extra={"event":"orderbook_bad_levels","component":sym})
+                                continue
                             if is_snapshot:
                                 if not guard.valid:
-                                    # A fresh book epoch cannot inherit prior wall
-                                    # lifetimes or rate-of-change baselines.
                                     velocity.state.pop(sym,None)
                                     wall_tracker.state.pop(sym,None)
-                                state["b"]={float(p):float(q) for p,q in data.get("b",[])}
-                                state["a"]={float(p):float(q) for p,q in data.get("a",[])}
+                                state["b"]=bids
+                                state["a"]=asks
                                 if not guard.snapshot(data.get("seq"),data.get("u")):
                                     state["b"].clear(); state["a"].clear()
                                     q.mark("orderbook",MISSING,"snapshot missing sequence metadata")
@@ -146,14 +155,12 @@ class MicrostructureCollector:
                                 log.warning("orderbook sequence gap",extra={"event":"orderbook_gap","component":sym})
                                 continue
                             else:
-                                for p,qv in data.get("b",[]):
-                                    p=float(p); qv=float(qv)
-                                    if qv==0: state["b"].pop(p,None)
-                                    else: state["b"][p]=qv
-                                for p,qv in data.get("a",[]):
-                                    p=float(p); qv=float(qv)
-                                    if qv==0: state["a"].pop(p,None)
-                                    else: state["a"][p]=qv
+                                for p,qty in bids.items():
+                                    if qty==0: state["b"].pop(p,None)
+                                    else: state["b"][p]=qty
+                                for p,qty in asks.items():
+                                    if qty==0: state["a"].pop(p,None)
+                                    else: state["a"][p]=qty
                             state["u"]=data.get("u",state["u"])
                             state["seq"]=data.get("seq",state["seq"])
 

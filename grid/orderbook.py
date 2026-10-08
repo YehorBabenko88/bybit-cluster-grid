@@ -22,3 +22,23 @@ def analyze_book(bids, asks, top_n=50, wall_mult=4.0):
     return {"best_bid":best_bid,"best_ask":best_ask,"spread":spread,
             "bid_depth":bid_depth,"ask_depth":ask_depth,"imbalance":imbalance,"walls":walls,
             "book":{"bids":bids,"asks":asks}}
+
+def parse_book_levels(levels, *, snapshot=False):
+    """Validate exchange price/size before allowing an orderbook mutation."""
+    import math
+    if not isinstance(levels,list):
+        raise ValueError("orderbook levels must be a list")
+    parsed={}
+    for level in levels:
+        if not isinstance(level,(list,tuple)) or len(level)!=2:
+            raise ValueError("invalid orderbook level shape")
+        try:
+            price=float(level[0]); qty=float(level[1])
+        except (TypeError,ValueError,OverflowError) as exc:
+            raise ValueError("invalid orderbook price or size") from exc
+        if not math.isfinite(price) or price<=0 or not math.isfinite(qty) or qty<0:
+            raise ValueError("nonfinite or negative orderbook price/size")
+        if snapshot and qty==0:
+            raise ValueError("zero-sized level in orderbook snapshot")
+        parsed[price]=qty
+    return parsed
