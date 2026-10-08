@@ -29,6 +29,8 @@ class MicroEventStorage:
         self.replay_task=None
         self.replay_done=asyncio.Event(); self.replay_done.set()
         self.replay_ids=set()
+        # Preserve WAL ID order across concurrent producers until queue admission.
+        self._enqueue_lock=asyncio.Lock()
         self._last_replay_send=0.0
         self.replay_started_at=0.0
         self.replay_sent=0
@@ -81,8 +83,9 @@ class MicroEventStorage:
             "event_type":event_type,
             "payload":payload,
         }
-        record_id=await self.spool.append(row)
-        await self.write_queue.put(record_id,row)
+        async with self._enqueue_lock:
+            record_id=await self.spool.append(row)
+            await self.write_queue.put(record_id,row)
 
 
     def set_replay_rate(self,rate):
