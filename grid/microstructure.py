@@ -115,7 +115,14 @@ class MicrostructureCollector:
                             continue
                         topic=msg.get("topic","")
                         data=msg.get("data") or {}
-                        ts=int(msg.get("ts") or time.time()*1000)
+                        if not isinstance(topic,str) or not isinstance(data,dict):
+                            log.warning("invalid market envelope ignored",extra={"event":"invalid_market_envelope"})
+                            continue
+                        try:
+                            ts=int(msg.get("ts") or time.time()*1000)
+                        except (ValueError,TypeError,OverflowError):
+                            log.warning("invalid market timestamp ignored",extra={"event":"invalid_market_timestamp"})
+                            continue
 
                         if topic.startswith("tickers."):
                             sym=topic.split(".",1)[1]
