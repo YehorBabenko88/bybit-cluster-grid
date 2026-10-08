@@ -6,9 +6,16 @@ def test_book_sequence_accepts_contiguous_updates():
     assert g.delta(102,12)
     assert g.valid and g.gaps==0
 
-def test_book_sequence_gap_invalidates_until_snapshot():
+def test_book_cross_sequence_can_jump_forward_without_false_gap():
     g=SequenceGuard(); g.snapshot(100,10)
-    assert not g.delta(103,11)
+    assert g.delta(103,11)
+    assert g.delta(1000,12)
+    assert g.valid and g.gaps==0
+
+
+def test_book_backward_sequence_invalidates_until_snapshot():
+    g=SequenceGuard(); g.snapshot(100,10)
+    assert not g.delta(99,11)
     assert not g.valid and g.gaps==1
     assert not g.delta(104,12)
     g.snapshot(200,20)
