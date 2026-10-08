@@ -187,7 +187,8 @@ class MicrostructureCollector:
                                 for p,qty in asks.items():
                                     if qty==0: state["a"].pop(p,None)
                                     else: state["a"][p]=qty
-                            last_book_seen[sym]=now
+                            if sym in last_book_seen:
+                                last_book_seen[sym]=now
                             state["u"]=data.get("u",state["u"])
                             state["seq"]=data.get("seq",state["seq"])
 
