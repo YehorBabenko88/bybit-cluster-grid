@@ -52,6 +52,8 @@ class MicrostructureCollector:
         self.max_ticker_age_ms=max_ticker_age_ms
 
     async def run_batch(self, symbols):
+        # Materialize once: generators would otherwise be exhausted by validation.
+        symbols=list(symbols)
         if not symbols:
             return
         if any(
