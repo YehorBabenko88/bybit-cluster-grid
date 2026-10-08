@@ -54,6 +54,14 @@ class MicrostructureCollector:
     async def run_batch(self, symbols):
         if not symbols:
             return
+        if any(
+            not isinstance(symbol,str)
+            or not symbol
+            or not symbol.isascii()
+            or not symbol.isalnum()
+            for symbol in symbols
+        ):
+            raise ValueError("symbols must be nonempty ASCII alphanumeric strings")
         delays=backoff_delays()
         topics=[]
         for s in symbols:
