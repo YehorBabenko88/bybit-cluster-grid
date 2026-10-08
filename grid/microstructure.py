@@ -78,8 +78,11 @@ class MicrostructureCollector:
                                 args=(ack.get("data") or {}).get("args") if isinstance(ack.get("data"),dict) else None
                                 if args is None:
                                     args=ack.get("args")
-                                if args is not None and not set(batch_topics).issubset(set(args)):
-                                    continue
+                                if args is not None:
+                                    if not isinstance(args,list) or not all(isinstance(topic,str) for topic in args):
+                                        raise RuntimeError("invalid Bybit subscription ACK args")
+                                    if not set(batch_topics).issubset(set(args)):
+                                        continue
                                 if ack.get("success") is not True:
                                     raise RuntimeError("Bybit subscription rejected: "+str(ack.get("ret_msg") or ack))
                                 break
