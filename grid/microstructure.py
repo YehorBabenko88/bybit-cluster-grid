@@ -212,6 +212,16 @@ class MicrostructureCollector:
                                 for p,qty in asks.items():
                                     if qty==0: state["a"].pop(p,None)
                                     else: state["a"][p]=qty
+                            # Depth-50 streams should never accumulate unbounded levels.
+                            # A malformed sequence must recover from a fresh snapshot.
+                            if len(state["b"])>200 or len(state["a"])>200:
+                                guard.valid=False
+                                velocity.state.pop(sym,None)
+                                wall_tracker.state.pop(sym,None)
+                                state["b"].clear(); state["a"].clear()
+                                q.mark("orderbook",MISSING,"accumulated level limit exceeded")
+                                log.warning("orderbook level limit exceeded",extra={"event":"orderbook_level_overflow","component":sym})
+                                continue
                             book_watchdog.observe(sym,now)
                             state["u"]=data.get("u",state["u"])
                             state["seq"]=data.get("seq",state["seq"])
