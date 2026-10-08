@@ -9,14 +9,23 @@ class SequenceGuard:
         self.gaps=0
 
     def snapshot(self,seq=None,update_id=None):
-        self.last_seq=_int(seq)
-        self.last_update=_int(update_id)
+        seq=_int(seq); update_id=_int(update_id)
+        if seq is None or update_id is None or seq<0 or update_id<0:
+            self.valid=False
+            self.last_seq=None
+            self.last_update=None
+            return False
+        self.last_seq=seq
+        self.last_update=update_id
         self.valid=True
         return True
 
     def delta(self,seq=None,update_id=None):
         seq=_int(seq); update_id=_int(update_id)
         if not self.valid:
+            return False
+        if seq is None or update_id is None or seq<0 or update_id<0:
+            self.valid=False; self.gaps+=1
             return False
         # Bybit cross-sequence is global across orderbook levels and symbols:
         # it must increase, but consecutive values are not guaranteed here.
