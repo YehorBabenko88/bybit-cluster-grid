@@ -141,7 +141,7 @@ class MicrostructureCollector:
                             ts=int(time.time()*1000)
                         elif isinstance(raw_ts,int) and not isinstance(raw_ts,bool) and raw_ts>0:
                             ts=raw_ts
-                        elif isinstance(raw_ts,str) and raw_ts.isascii() and raw_ts.isdecimal() and int(raw_ts)>0:
+                        elif isinstance(raw_ts,str) and 0<len(raw_ts)<=20 and raw_ts.isascii() and raw_ts.isdecimal() and int(raw_ts)>0:
                             ts=int(raw_ts)
                         else:
                             log.warning("invalid market timestamp ignored",extra={"event":"invalid_market_timestamp"})
