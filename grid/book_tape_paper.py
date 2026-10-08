@@ -12,7 +12,9 @@ class BookTapePaperLearner:
     def __init__(self,horizon_ms=60000,cost_bps=4.0,min_samples=30,
                  min_hit_rate=0.52,max_pending=1024):
         from math import isfinite
-        if (not isinstance(horizon_ms,int) or isinstance(horizon_ms,bool) or horizon_ms<=0\n            or not isfinite(float(cost_bps)) or cost_bps<0 or min_samples<1\n            or not isfinite(float(min_hit_rate)) or not 0<=min_hit_rate<=1 or max_pending<1):
+        if (not isinstance(horizon_ms,int) or isinstance(horizon_ms,bool) or horizon_ms<=0
+            or not isfinite(float(cost_bps)) or cost_bps<0 or min_samples<1
+            or not isfinite(float(min_hit_rate)) or not 0<=min_hit_rate<=1 or max_pending<1):
             raise ValueError("invalid paper learner configuration")
         self.signal=BookTapeResearch()
         self.horizon_ms=int(horizon_ms)
