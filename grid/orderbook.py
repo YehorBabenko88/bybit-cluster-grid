@@ -43,5 +43,7 @@ def parse_book_levels(levels, *, snapshot=False):
             raise ValueError("nonfinite or negative orderbook price/size")
         if snapshot and qty==0:
             raise ValueError("zero-sized level in orderbook snapshot")
+        if price in parsed:
+            raise ValueError("duplicate orderbook price level")
         parsed[price]=qty
     return parsed
