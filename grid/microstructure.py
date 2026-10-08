@@ -139,13 +139,18 @@ class MicrostructureCollector:
                                 if not guard.valid:
                                     velocity.state.pop(sym,None)
                                     wall_tracker.state.pop(sym,None)
-                                state["b"]=bids
-                                state["a"]=asks
+                                was_valid=guard.valid
                                 if not guard.snapshot(data.get("seq"),data.get("u")):
+                                    if was_valid and guard.valid:
+                                        # Stale replay: retain the newer, valid book.
+                                        log.warning("stale orderbook snapshot ignored",extra={"event":"orderbook_stale_snapshot","component":sym})
+                                        continue
                                     state["b"].clear(); state["a"].clear()
                                     q.mark("orderbook",MISSING,"snapshot missing sequence metadata")
                                     log.warning("orderbook snapshot missing sequence metadata",extra={"event":"orderbook_bad_snapshot","component":sym})
                                     continue
+                                state["b"]=bids
+                                state["a"]=asks
                                 q.mark("orderbook",AVAILABLE)
                             elif not guard.delta(data.get("seq"),data.get("u")):
                                 velocity.state.pop(sym,None)

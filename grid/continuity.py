@@ -15,6 +15,13 @@ class SequenceGuard:
             self.last_seq=None
             self.last_update=None
             return False
+        # Replayed snapshots must not roll back an already valid book.
+        # Bybit update_id=1 explicitly signals a book/service restart.
+        if self.valid and update_id!=1 and (
+            (self.last_seq is not None and seq<=self.last_seq)
+            or (self.last_update is not None and update_id<=self.last_update)
+        ):
+            return False
         self.last_seq=seq
         self.last_update=update_id
         self.valid=True
