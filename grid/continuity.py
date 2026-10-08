@@ -27,6 +27,17 @@ class SequenceGuard:
         self.valid=True
         return True
 
+    def is_stale_delta(self,seq=None,update_id=None):
+        """True only when a complete, valid delta is an older replay."""
+        seq=_int(seq); update_id=_int(update_id)
+        return (
+            self.valid
+            and seq is not None and update_id is not None
+            and seq>=0 and update_id>=0
+            and self.last_seq is not None and self.last_update is not None
+            and seq<=self.last_seq and update_id<=self.last_update
+        )
+
     def delta(self,seq=None,update_id=None):
         seq=_int(seq); update_id=_int(update_id)
         if not self.valid:
