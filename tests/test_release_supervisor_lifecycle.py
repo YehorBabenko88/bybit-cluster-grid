@@ -254,6 +254,19 @@ class ReleaseSupervisorTests(unittest.TestCase):
             self.assertEqual((root / "failed.version").read_text(), new)
             self.assertFalse((root / "pending.version").exists())
 
+    def test_invalid_previous_release_marker_blocks_rollback(self):
+        for invalid in ("../outside", "..\\outside", "", "bootstrap", "A" * 40, "a" * 39, "g" * 40):
+            with self.subTest(previous=invalid), tempfile.TemporaryDirectory() as tmp:
+                root = pathlib.Path(tmp)
+                version = "b" * 40
+                (root / "previous.version").write_text(invalid)
+                (root / "current.version").write_text(version)
+                (root / "pending.version").write_text(version)
+                for _ in range(3):
+                    self.assertFalse(supervisor._after_exit(root, version, 1, exit_code=1, mode="worker"))
+                self.assertEqual((root / "current.version").read_text(), version)
+                self.assertFalse((root / "failed.version").exists())
+
     def test_worker_cannot_roll_back_to_coordinator_only_release(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
