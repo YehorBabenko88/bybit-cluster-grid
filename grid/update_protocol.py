@@ -81,7 +81,17 @@ def release_health_ok(heartbeat):
     # already recovered. Only reject failures observed in the latest interval.
     # Older workers omit this field; their cumulative counter is not a
     # reliable signal of current health.
-    if int(heartbeat.get("db_write_failures_recent",0) or 0)>0:
+    # Legacy workers cannot prove that their cumulative failures are historical.
+    # Fail closed for rollout promotion until a worker reports interval metrics.
+    if "db_write_failures_recent" not in heartbeat:
+        return False,"db_write_failures_recent_missing"
+    try:
+        recent=int(heartbeat["db_write_failures_recent"])
+        if recent < 0:
+            return False,"db_write_failures_recent_invalid"
+    except (TypeError,ValueError,OverflowError):
+        return False,"db_write_failures_recent_invalid"
+    if recent>0:
         return False,"db_write_failures_recent"
     if float(heartbeat.get("db_queue_ratio",0) or 0)>=0.8:
         return False,"db_queue_pressure"
