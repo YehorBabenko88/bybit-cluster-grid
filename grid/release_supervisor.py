@@ -129,7 +129,7 @@ def _confirm(root,version,proc,delay,mode=None,ready_file=None):
     pending.unlink(missing_ok=True)
     (root/"pending-crashes.txt").unlink(missing_ok=True)
 
-def _after_exit(root,version,runtime,exit_code=1):
+def _after_exit(root,version,runtime,exit_code=1,mode=None):
     # An intentional clean stop must not count as a release crash.
     if exit_code == 0:return False
     root=pathlib.Path(root); pending=root/"pending.version"
@@ -146,7 +146,9 @@ def _after_exit(root,version,runtime,exit_code=1):
     if count<3:return False
     prev=_read(root/"previous.version")
     candidate=root/"releases"/prev
-    runnable=(candidate/"run_worker.py").exists() or (candidate/"grid"/"coordinator.py").exists()
+    worker_ready=(candidate/"run_worker.py").is_file()
+    coordinator_ready=(candidate/"grid"/"coordinator.py").is_file()
+    runnable=(worker_ready if mode=="worker" else coordinator_ready if mode=="coordinator" else worker_ready or coordinator_ready)
     if not prev or prev==version or not runnable:return False
     _atomic(root/"current.version",prev)
     _atomic(root/"failed.version",version)
@@ -178,7 +180,7 @@ def main(argv=None):
             t.start()
             code=proc.wait()
             runtime=time.monotonic()-started
-            rolled=_after_exit(a.install_root,a.version,runtime,code)
+            rolled=_after_exit(a.install_root,a.version,runtime,code,a.readiness)
             return 75 if rolled else int(code)
     
 if __name__=="__main__":
