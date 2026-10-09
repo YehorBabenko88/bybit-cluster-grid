@@ -19,6 +19,6 @@ def test_release_health_rejects_critical_pressure():
     assert release_health_ok(good(pressure_state="CRITICAL"))[0] is False
 
 def test_release_health_rejects_db_failures_and_backpressure():
-    assert release_health_ok(good(db_write_failures=1))[0] is False
+    assert release_health_ok(good(db_write_failures_recent=1))[0] is False
     assert release_health_ok(good(db_queue_ratio=.8))[0] is False
     assert release_health_ok(good(db_spool_ratio=.9))[0] is False
