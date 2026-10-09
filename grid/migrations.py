@@ -473,18 +473,18 @@ created_at timestamptz NOT NULL DEFAULT now())""",
 ,
 (45,"protect_production_model_evaluations",[
 """CREATE OR REPLACE FUNCTION guard_production_model_evaluations()
-RETURNS trigger LANGUAGE plpgsql AS $
+RETURNS trigger LANGUAGE plpgsql AS '
 DECLARE model_status text;
 BEGIN
   SELECT status INTO model_status FROM model_registry
     WHERE id=COALESCE(NEW.model_id,OLD.model_id) FOR UPDATE;
-  IF model_status='PRODUCTION' THEN
-    RAISE EXCEPTION 'production model evaluations are immutable';
+  IF model_status=''PRODUCTION'' THEN
+    RAISE EXCEPTION ''production model evaluations are immutable'';
   END IF;
-  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  IF TG_OP=''DELETE'' THEN RETURN OLD; END IF;
   RETURN NEW;
 END
-$""",
+'""",
 """DROP TRIGGER IF EXISTS protect_production_model_evaluations ON model_evaluations""",
 """CREATE TRIGGER protect_production_model_evaluations
 BEFORE INSERT OR UPDATE OR DELETE ON model_evaluations
