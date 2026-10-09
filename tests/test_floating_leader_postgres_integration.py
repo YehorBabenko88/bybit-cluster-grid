@@ -52,6 +52,30 @@ def test_simultaneous_initial_campaign_has_single_winner():
                 metadata = json.loads(metadata)
             assert int(metadata["epoch"]) == 1
             assert (a.is_leader, b.is_leader) == tuple(results)
+            # Expire the winner's lease and force a takeover. The previous
+            # owner must not be able to renew with its stale fencing epoch.
+            winner = a if a.is_leader else b
+            challenger = b if a.is_leader else a
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    "UPDATE service_leases SET lease_until=now()-interval '1 second' "
+                    "WHERE service_key='control-plane-leader'"
+                )
+            assert await challenger.campaign() is True
+            assert challenger.epoch == 2
+            assert await winner.renew() is False
+            assert winner.is_leader is False
+            assert await challenger.renew() is True
+            async with pool.acquire() as conn:
+                final = await conn.fetchrow(
+                    "SELECT owner, metadata FROM service_leases "
+                    "WHERE service_key='control-plane-leader'"
+                )
+            assert final["owner"] == challenger.node_id
+            final_metadata = final["metadata"]
+            if isinstance(final_metadata, str):
+                final_metadata = json.loads(final_metadata)
+            assert int(final_metadata["epoch"]) == 2
         finally:
             if pool is not None:
                 await pool.close()
