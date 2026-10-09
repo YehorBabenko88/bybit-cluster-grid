@@ -46,13 +46,15 @@ class SegmentWAL:
                     return
                 # Preserve the damaged bytes for forensic recovery. Only the
                 # incomplete final record may be truncated, never earlier rows.
-                damaged=self.root/(p.name+".torn-tail")
+                damaged=self.root/(p.name+"."+str(time.time_ns())+".torn-tail")
                 with open(damaged,"wb") as copy:
                     copy.write(tail);copy.flush();os.fsync(copy.fileno())
                 f.truncate(0 if cut<0 else cut+1)
                 f.flush();os.fsync(f.fileno())
         except OSError:
-            pass
+            # Never silently continue after a failed recovery/forensic copy:
+            # a later append could merge torn bytes with a valid WAL record.
+            raise
 
     def _cleanup_staging_files(self):
         for name in ("checkpoint.next","checkpoint.backup.next"):
