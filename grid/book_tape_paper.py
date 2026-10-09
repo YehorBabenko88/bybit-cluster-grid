@@ -42,7 +42,7 @@ class BookTapePaperLearner:
                            for sym,items in self.pending.items()},
                 "stats":[{"symbol":sym,"pattern":pattern,"direction":direction,
                           **dict(value)}
-                         for (sym,pattern,direction),value in self.stats.items()]}
+                         for (sym,pattern,direction),value in self.stats.items() if direction in (-1,1)]}
 
     def restore(self,snapshot):
         """Restore only a compatible, validated snapshot, without partial mutation."""
