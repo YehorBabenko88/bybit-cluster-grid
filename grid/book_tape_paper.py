@@ -28,6 +28,81 @@ class BookTapePaperLearner:
         self.pending=defaultdict(deque)
         self.stats=defaultdict(lambda:{"count":0,"wins":0,"net_bps_sum":0.0})
 
+    def snapshot(self):
+        """Versioned JSON-compatible bounded state for durable checkpoints."""
+        return {"schema_version":1,"horizon_ms":self.horizon_ms,
+                "cost_bps":self.cost_bps,"max_exit_delay_ms":self.max_exit_delay_ms,
+                "history":{sym:[list(item) for item in items]
+                           for sym,items in self.signal.history.items()},
+                "last_ts":dict(self.signal.last_ts),
+                "pending":{sym:[dict(item) for item in items]
+                           for sym,items in self.pending.items()},
+                "stats":[{"symbol":sym,"pattern":pattern,"direction":direction,
+                          **dict(value)}
+                         for (sym,pattern,direction),value in self.stats.items()]}
+
+    def restore(self,snapshot):
+        """Restore only a compatible, validated snapshot, without partial mutation."""
+        from collections import deque
+        from math import isfinite
+        if not isinstance(snapshot,dict) or snapshot.get("schema_version")!=1:
+            raise ValueError("unsupported paper checkpoint")
+        if (snapshot.get("horizon_ms")!=self.horizon_ms
+            or snapshot.get("cost_bps")!=self.cost_bps
+            or snapshot.get("max_exit_delay_ms")!=self.max_exit_delay_ms):
+            raise ValueError("paper checkpoint configuration mismatch")
+        history=defaultdict(lambda:deque(maxlen=self.signal.window))
+        last_ts={}
+        pending=defaultdict(deque)
+        stats=defaultdict(lambda:{"count":0,"wins":0,"net_bps_sum":0.0})
+        for sym,items in snapshot["history"].items():
+            if not isinstance(sym,str) or not sym or not isinstance(items,list) or len(items)>self.signal.window:
+                raise ValueError("invalid paper history")
+            for item in items:
+                if (not isinstance(item,list) or len(item)!=4
+                    or not all(isinstance(v,(int,float)) and isfinite(v) for v in item)
+                    or item[0]<=0 or item[1]<=0 or item[2]<=0):
+                    raise ValueError("invalid paper history item")
+                history[sym].append(tuple(item))
+        for sym,ts in snapshot["last_ts"].items():
+            if not isinstance(sym,str) or not isinstance(ts,int) or ts<=0:
+                raise ValueError("invalid paper timestamp")
+            last_ts[sym]=ts
+        for sym,items in snapshot["pending"].items():
+            if not isinstance(sym,str) or not isinstance(items,list) or len(items)>self.max_pending:
+                raise ValueError("invalid paper pending queue")
+            previous_due=0
+            for item in items:
+                if (not isinstance(item,dict) or item.get("direction") not in (-1,1)
+                    or not isinstance(item.get("pattern"),str)
+                    or not isinstance(item.get("due_ms"),int)
+                    or item["due_ms"]<previous_due
+                    or not isinstance(item.get("entry_ts_ms"),int)
+                    or item["due_ms"]-item["entry_ts_ms"]!=self.horizon_ms
+                    or not isinstance(item.get("entry_price"),(int,float))
+                    or not isfinite(item["entry_price"]) or item["entry_price"]<=0):
+                    raise ValueError("invalid paper pending trade")
+                pending[sym].append(dict(item))
+                previous_due=item["due_ms"]
+        for item in snapshot["stats"]:
+            if (not isinstance(item,dict) or not isinstance(item.get("symbol"),str)
+                or not isinstance(item.get("pattern"),str)
+                or item.get("direction") not in (-1,1)
+                or not isinstance(item.get("count"),int) or item["count"]<0
+                or not isinstance(item.get("wins"),int) or not 0<=item["wins"]<=item["count"]
+                or not isinstance(item.get("net_bps_sum"),(int,float))
+                or not isfinite(item["net_bps_sum"])):
+                raise ValueError("invalid paper stats")
+            key=(item["symbol"],item["pattern"],item["direction"])
+            if key in stats:
+                raise ValueError("duplicate paper stats")
+            stats[key]={"count":item["count"],"wins":item["wins"],
+                        "net_bps_sum":item["net_bps_sum"]}
+        self.signal.history=history
+        self.signal.last_ts=last_ts
+        self.pending=pending
+        self.stats=stats
+
     def observe(self,event):
         symbol=str(event.get("symbol") or "")
         payload=event.get("payload") or {}
