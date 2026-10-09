@@ -7,6 +7,8 @@ param(
 $ErrorActionPreference="Stop"
 $Req=Join-Path $ReleaseDir "requirements-ml.txt"
 if(!(Test-Path $Req)){throw "Missing ML requirements: $Req"}
+if(!(Test-Path -LiteralPath $Python)){throw "Missing ML Python runtime: $Python"}
+New-Item -ItemType Directory -Force -Path $RuntimeRoot | Out-Null
 $State=Join-Path $RuntimeRoot "ml-requirements.sha256"
 $Journal=Join-Path $RuntimeRoot "ml-bootstrap.json"
 $Hash=(Get-FileHash -Algorithm SHA256 $Req).Hash.ToLowerInvariant()
@@ -28,6 +30,10 @@ if(!$Need){
   if($LASTEXITCODE -ne 0){$Need=$true}
 }
 if(!$Need){
+  # A previous interrupted repair may leave a valid fingerprint but no journal.
+  # Restore the durable ready record without reinstalling healthy packages.
+  [ordered]@{status="ready";mode=$Mode;hash=$Hash;verified_at=(Get-Date).ToUniversalTime().ToString("o")} |
+    ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
   Write-Host "ML runtime already healthy and matches fingerprint."
   exit 0
 }
