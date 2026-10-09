@@ -79,3 +79,10 @@ def test_scientific_atomic_finalization_requires_single_connection():
     assert "async with self.pool.acquire() as conn:" in source
     assert "async with conn.transaction():" in source
     assert "raise RuntimeError(\"simulation lease lost during atomic finalization\")" in source
+
+
+def test_scientific_queue_recovery_handles_null_lease_and_zero_limit():
+    import pathlib
+    source=pathlib.Path("grid/scientific_simulation_gate.py").read_text(encoding="utf-8")
+    assert "lease_expires_at IS NULL" in source
+    assert "range(max(0,int(limit)))" in source
