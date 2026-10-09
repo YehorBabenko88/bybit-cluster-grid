@@ -52,11 +52,16 @@ def simulate_rows(rows,direction,horizon_ms,cfg:SimulationConfig,stress=1.0):
         raise ValueError("simulation stress must be finite and positive")
     sign=int(direction)
     previous_key=None
+    seen_events=set()
     for i,r in enumerate(rows):
         current_key=int(r["event_ts_ms"])
         if previous_key is not None and current_key<previous_key:
             raise ValueError("simulation rows must be chronological")
         previous_key=current_key
+        event_key=(str(r["symbol"]),current_key)
+        if event_key in seen_events:
+            raise ValueError("duplicate simulated event for symbol and timestamp")
+        seen_events.add(event_key)
         key=f"{r['symbol']}|{r['event_ts_ms']}|{horizon_ms}"
         fill,fee,spread,slip,latency,funding=execution_costs(key,horizon_ms,cfg,stress)
         raw=float(r["return_bps"])
