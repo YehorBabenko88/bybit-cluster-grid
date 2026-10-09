@@ -21,7 +21,7 @@ class FakePool:
 
     async def fetchrow(self, query, *args):
         if "FOR UPDATE" in query:
-            return {"id": "model", "dataset_id": "dataset", "feature_version": "v1"}
+            return {"id": "model", "dataset_id": "dataset", "feature_version": "v1", "status": "CANDIDATE"}
         if "FROM dataset_snapshots" in query:
             return {"status": "READY", "feature_version": "v1"}
         if "stage='OOS'" in query:
@@ -144,3 +144,22 @@ def test_robustness_gate_rejects_missing_persisted_oos_pass():
         assert "passing OOS" in str(exc)
     else:
         raise AssertionError("robustness must require persisted OOS evidence")
+
+
+def test_production_model_gate_cannot_modify_evaluations():
+    class ProductionPool(FakePool):
+        async def fetchrow(self, query, *args):
+            if "FOR UPDATE" in query:
+                return {"id": "model", "dataset_id": "dataset",
+                        "feature_version": "v1", "status": "PRODUCTION"}
+            return await super().fetchrow(query, *args)
+
+    for stage in ("OOS", "ROBUSTNESS"):
+        pool = ProductionPool(_metrics(1))
+        try:
+            asyncio.run(apply_evaluation_gate(pool, "model", stage, {}))
+        except ValueError as exc:
+            assert "immutable" in str(exc)
+        else:
+            raise AssertionError("production evaluation must not be mutated")
+        assert not pool.commands
