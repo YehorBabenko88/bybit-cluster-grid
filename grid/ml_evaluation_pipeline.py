@@ -18,7 +18,9 @@ async def record_oos_evaluation(pool,model_id,dataset_id,trades,evaluator_versio
     eid=uuid.uuid4()
     async with pool.acquire() as c:
         async with c.transaction():
-            await c.fetchrow("SELECT id FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
+            model=await c.fetchrow("SELECT id,dataset_id FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
+            if not model or model["dataset_id"]!=dataset_id:
+                raise ValueError("model dataset mismatch")
             await c.execute("""INSERT INTO model_evaluations
       (id,model_id,stage,dataset_id,metrics,passed,evaluator_version)
       VALUES($1,$2,'OOS',$3,$4::jsonb,false,$5)
@@ -33,7 +35,9 @@ async def record_robustness_evaluation(pool,model_id,dataset_id,trades,evaluator
     metrics=robustness_suite(trades);eid=uuid.uuid4()
     async with pool.acquire() as c:
         async with c.transaction():
-            await c.fetchrow("SELECT id FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
+            model=await c.fetchrow("SELECT id,dataset_id FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
+            if not model or model["dataset_id"]!=dataset_id:
+                raise ValueError("model dataset mismatch")
             await c.execute("""INSERT INTO model_evaluations
       (id,model_id,stage,dataset_id,metrics,passed,evaluator_version)
       VALUES($1,$2,'ROBUSTNESS',$3,$4::jsonb,false,$5)
