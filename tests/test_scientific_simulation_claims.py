@@ -61,3 +61,12 @@ def test_scientific_lease_recovery_is_bounded_and_migrated():
         assert "lease_token=gen_random_uuid()" in claim
         assert "attempts=target.attempts+1" in claim
     asyncio.run(scenario())
+
+
+def test_scientific_trade_and_cutoff_writes_are_lease_fenced():
+    import pathlib
+    source=pathlib.Path("grid/scientific_simulation_gate.py").read_text(encoding="utf-8")
+    assert "FOR UPDATE) AS owner" in source
+    assert "lease_token=$15" in source
+    assert "lease_token=$3 AND lease_expires_at>now()" in source
+    assert "if not updated:return" in source
