@@ -1,5 +1,6 @@
 """Real PostgreSQL election race: only one node may win an empty lease."""
 import asyncio
+import json
 import os
 import uuid
 
@@ -46,7 +47,10 @@ def test_simultaneous_initial_campaign_has_single_winner():
                     "WHERE service_key='control-plane-leader'"
                 )
             assert row["owner"] in {"node-a", "node-b"}
-            assert int(row["metadata"]["epoch"]) == 1
+            metadata = row["metadata"]
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata)
+            assert int(metadata["epoch"]) == 1
             assert (a.is_leader, b.is_leader) == tuple(results)
         finally:
             if pool is not None:
