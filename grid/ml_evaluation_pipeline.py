@@ -62,8 +62,14 @@ async def apply_evaluation_gate(pool,model_id,stage,requirements):
     await pool.execute("UPDATE model_evaluations SET passed=$2 WHERE id=$1",row["id"],passed)
     if passed:
         target={"OOS":"OOS_PASSED","ROBUSTNESS":"ROBUSTNESS_PASSED"}[stage]
-        await pool.execute("""UPDATE model_registry SET status=$2
-          WHERE id=$1 AND status IN ('CANDIDATE','OOS_PASSED','ROBUSTNESS_PASSED')""",model_id,target)
+        # Never downgrade a robustness-approved model on an OOS recheck.
+        # Robustness may advance only a model that already passed OOS.
+        if stage=="OOS":
+            await pool.execute("""UPDATE model_registry SET status=$2
+              WHERE id=$1 AND status IN ('CANDIDATE','REJECTED','OOS_PASSED')""",model_id,target)
+        else:
+            await pool.execute("""UPDATE model_registry SET status=$2
+              WHERE id=$1 AND status IN ('OOS_PASSED','ROBUSTNESS_PASSED')""",model_id,target)
     else:
         # A failed re-evaluation must invalidate any prior pre-production pass.
         # Production models require an explicit separate rollback decision.
