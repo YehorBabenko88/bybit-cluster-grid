@@ -36,7 +36,7 @@ try {
     catch { $blocked = $true }
     Assert $blocked 'Previously failed release must be blocked'
         Remove-Item -LiteralPath (Join-Path $root 'failed.version') -Force
-    $mutex = New-Object System.Threading.Mutex($false, 'Global\BybitClusterGridReleaseSwitch')
+    $mutex = [System.Threading.Mutex]::new($false, 'Global\BybitClusterGridReleaseSwitch')
     $held = $mutex.WaitOne(0)
     Assert $held 'Could not acquire test mutex'
     try {
