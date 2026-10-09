@@ -90,3 +90,11 @@ def test_leader_db_failure_fails_closed_and_calls_loss_once():
         assert lost==["lost"]
 
     asyncio.run(run())
+
+
+def test_floating_leader_epochs_are_database_serialized():
+    from pathlib import Path
+    source=Path("grid/floating_leader.py").read_text(encoding="utf-8")
+    assert "FOR UPDATE" in source
+    assert "get('epoch',0))+1" in source
+    assert "int(time.time()*1000)" not in source
