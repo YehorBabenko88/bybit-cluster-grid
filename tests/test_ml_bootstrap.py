@@ -49,3 +49,10 @@ def test_ml_bootstrap_recreates_missing_ready_journal_without_pip():
     assert 'status="ready"' in healthy
     assert 'Set-Content -Encoding UTF8 $Journal' in healthy
     assert '-m pip install' not in healthy
+
+
+def test_windows_bundle_contains_ml_requirements_and_checks_presence():
+    workflow = Path(".github/workflows/windows-bundle.yml").read_text(encoding="utf-8")
+    assert "run_worker.py,run_coordinator.py,requirements.txt,requirements-ml.txt" in workflow
+    assert 'if(!(Test-Path (Join-Path $bundle "requirements-ml.txt")))' in workflow
+    assert '      - "requirements-ml.txt"' in workflow
