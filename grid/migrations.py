@@ -490,6 +490,38 @@ END
 BEFORE INSERT OR UPDATE OR DELETE ON model_evaluations
 FOR EACH ROW EXECUTE FUNCTION guard_production_model_evaluations()"""
 ])
+,
+(46,"protect_evaluation_identity",[
+"""CREATE OR REPLACE FUNCTION guard_production_model_evaluations()
+RETURNS trigger LANGUAGE plpgsql AS '
+DECLARE model_status text;
+BEGIN
+  IF TG_OP=''UPDATE'' THEN
+    IF NEW.model_id IS DISTINCT FROM OLD.model_id
+       OR NEW.dataset_id IS DISTINCT FROM OLD.dataset_id
+       OR NEW.stage IS DISTINCT FROM OLD.stage THEN
+      RAISE EXCEPTION ''evaluation identity is immutable'';
+    END IF;
+  END IF;
+  IF TG_OP=''DELETE'' THEN
+    SELECT status INTO model_status FROM model_registry
+      WHERE id=OLD.model_id FOR UPDATE;
+  ELSIF TG_OP=''UPDATE'' THEN
+    SELECT status INTO model_status FROM model_registry
+      WHERE id=OLD.model_id FOR UPDATE;
+  ELSE
+    SELECT status INTO model_status FROM model_registry
+      WHERE id=NEW.model_id FOR UPDATE;
+  END IF;
+  IF model_status=''PRODUCTION'' THEN
+    RAISE EXCEPTION ''production model evaluations are immutable'';
+  END IF;
+  IF TG_OP=''DELETE'' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END
+'"""
+])
+
 ]
 
 async def apply_migrations(pool):
