@@ -58,3 +58,31 @@ def test_schema_upgrade_requires_explicit_compatibility():
         ok.register(ScientificMethod("m","2",2,lambda e:{},{},compatible_from=(1,)))
         await ok.sync_db(pool)
     asyncio.run(scenario())
+
+
+def test_nonfinite_scientific_observation_is_quarantined_without_stopping_other_methods():
+    async def scenario():
+        pool=FakePool();registry=ScientificMethodRegistry(quarantine_after=1)
+        registry.register(ScientificMethod("nan_method","1",1,lambda event:{"score":float("nan")},{}))
+        registry.register(ScientificMethod("healthy","1",1,lambda event:{"score":0.25},{}))
+        await registry.sync_db(pool)
+        result=await registry.dispatch(pool,{"event_type":"observation"})
+        assert result["nan_method"]["ok"] is False
+        assert pool.status["nan_method"]=="QUARANTINED"
+        assert result["healthy"]["ok"] is True
+    asyncio.run(scenario())
+
+
+def test_scientific_method_registration_rejects_invalid_handler_and_capabilities():
+    registry=ScientificMethodRegistry()
+    for method in (
+        ScientificMethod("invalid","1",1,None,{}),
+        ScientificMethod("bad_json","1",1,lambda event:{},{"x":float("inf")}),
+        ScientificMethod("","1",1,lambda event:{},{}),
+    ):
+        try:
+            registry.register(method)
+        except (ValueError,TypeError):
+            pass
+        else:
+            raise AssertionError("invalid method registration was accepted")
