@@ -57,8 +57,9 @@ async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
         raise ValueError("unsupported evaluation stage")
     model=await c.fetchrow("SELECT id FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
     if not model: raise ValueError("model missing")
-    row=await c.fetchrow("""SELECT id,metrics FROM model_evaluations
-      WHERE model_id=$1 AND stage=$2 ORDER BY created_at DESC LIMIT 1""",model_id,stage)
+    row=await c.fetchrow("""SELECT e.id,e.metrics FROM model_evaluations e
+      JOIN model_registry m ON m.id=e.model_id AND m.dataset_id=e.dataset_id
+      WHERE e.model_id=$1 AND e.stage=$2 ORDER BY e.created_at DESC LIMIT 1""",model_id,stage)
     if not row:raise ValueError("evaluation missing")
     m=dict(row["metrics"]);base=(m.get("segments") or m.get("scenarios",{}).get("base") or {}).get("overall",{})
     stability=m.get("stability",{})
