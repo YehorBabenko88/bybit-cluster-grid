@@ -113,14 +113,19 @@ class ScientificSimulationGate:
             AND lease_expires_at>now() RETURNING true""",run_id,lease_token)
         if not owned:return {"run_id":str(run_id),"status":"LEASE_LOST"}
         for t in base["trades"]:
+            # The INSERT takes a row lock on the parent via SELECT FOR UPDATE.
+            # Expired/reclaimed workers cannot persist trades for a new lease.
             await self.pool.execute("""INSERT INTO scientific_simulation_trades(
               run_id,ordinal,symbol,event_ts_ms,split_key,raw_return_bps,net_return_bps,
               fill_fraction,fee_bps,spread_bps,slippage_bps,latency_bps,funding_bps,equity_after)
-              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+              SELECT owner.id,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
+              FROM (SELECT id FROM scientific_simulation_runs
+                    WHERE id=$1 AND status='RUNNING' AND lease_token=$15
+                      AND lease_expires_at>now() FOR UPDATE) AS owner
               ON CONFLICT(run_id,ordinal) DO NOTHING""",run_id,t["ordinal"],t["symbol"],
               t["event_ts_ms"],t["split_key"],t["raw_return_bps"],t["net_return_bps"],
               t["fill_fraction"],t["fee_bps"],t["spread_bps"],t["slippage_bps"],t["latency_bps"],
-              t["funding_bps"],t["equity_after"])
+              t["funding_bps"],t["equity_after"],lease_token)
         owned=await self.pool.fetchval("""UPDATE scientific_simulation_runs
           SET lease_expires_at=now()+interval '30 minutes'
           WHERE id=$1 AND lease_token=$2 AND status='RUNNING'
