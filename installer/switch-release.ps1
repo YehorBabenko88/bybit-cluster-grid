@@ -27,6 +27,13 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
 }
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($manifest.version -ne $Version) { throw 'Candidate release manifest version mismatch' }
+$failedMarker = Join-Path $InstallRoot 'failed.version'
+if (Test-Path -LiteralPath $failedMarker -PathType Leaf) {
+    $failedVersion = (Get-Content -LiteralPath $failedMarker -Raw).Trim()
+    if ($failedVersion -eq $Version) {
+        throw 'Candidate was previously rolled back as failed; manual review required'
+    }
+}
 $marker = Join-Path $InstallRoot 'current.version'
 if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) { throw 'current.version missing' }
 $current = (Get-Content -LiteralPath $marker -Raw).Trim()
