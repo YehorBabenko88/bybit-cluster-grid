@@ -129,7 +129,9 @@ def _confirm(root,version,proc,delay,mode=None,ready_file=None):
     pending.unlink(missing_ok=True)
     (root/"pending-crashes.txt").unlink(missing_ok=True)
 
-def _after_exit(root,version,runtime):
+def _after_exit(root,version,runtime,exit_code=1):
+    # An intentional clean stop must not count as a release crash.
+    if exit_code == 0:return False
     root=pathlib.Path(root); pending=root/"pending.version"
     if _read(pending)!=version:return False
     if (root/"switch-journal.json").exists():return False
@@ -173,7 +175,7 @@ def main(argv=None):
             t.start()
             code=proc.wait()
             runtime=time.monotonic()-started
-            rolled=_after_exit(a.install_root,a.version,runtime)
+            rolled=_after_exit(a.install_root,a.version,runtime,code)
             return 75 if rolled else int(code)
     
 if __name__=="__main__":
