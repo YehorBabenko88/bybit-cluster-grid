@@ -22,7 +22,7 @@ class TransactionPool:
 
     async def fetchrow(self, query, *args):
         self.statements.append(query)
-        return {"id": "model"}
+        return {"id": "model", "dataset_id": "dataset"}
 
     async def execute(self, query, *args):
         self.statements.append(query)
@@ -45,3 +45,14 @@ def test_fresh_robustness_requires_new_robustness_gate_but_keeps_oos():
     assert any("FOR UPDATE" in query for query in pool.statements)
     assert any("SET status='OOS_PASSED'" in query for query in pool.statements)
     assert not any("SET status='REJECTED'" in query for query in pool.statements)
+
+
+def test_dataset_mismatch_rejected_before_insert():
+    pool = TransactionPool()
+    try:
+        asyncio.run(record_robustness_evaluation(pool, "model", "other-dataset", []))
+    except ValueError as exc:
+        assert "dataset mismatch" in str(exc)
+    else:
+        raise AssertionError("mismatched dataset must be rejected")
+    assert not any("INSERT INTO model_evaluations" in query for query in pool.statements)
