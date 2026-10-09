@@ -88,8 +88,9 @@ async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
             for name in required_scenarios
         )
     await c.execute("UPDATE model_evaluations SET passed=$2 WHERE id=$1",row["id"],passed)
-    if stage=="OOS" and not passed:
-        # A failed OOS recheck invalidates dependent robustness evidence.
+    if stage=="OOS":
+        # Any OOS re-evaluation changes the evidence underpinning robustness.
+        # Require a fresh robustness gate even if the new OOS result passes.
         await c.execute("""UPDATE model_evaluations SET passed=false
           WHERE model_id=$1 AND stage='ROBUSTNESS'""",model_id)
     if passed:
