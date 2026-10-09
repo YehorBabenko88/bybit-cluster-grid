@@ -14,7 +14,7 @@ def test_failed_replay_wakes_producers_instead_of_hanging():
         storage.replay_started_at=0.0
         storage.replay_sent=0
         storage.replay_ids=set()
-        async def broken_pending():
+        def broken_pending():
             yield 1, {"n":1}
             raise RuntimeError("corrupt WAL segment")
         class Queue:
