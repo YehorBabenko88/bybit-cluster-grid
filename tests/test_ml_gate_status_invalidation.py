@@ -24,6 +24,9 @@ class FakePool:
             return {"id": "model"}
         return {"id": "evaluation", "metrics": self.metrics}
 
+    async def fetchval(self, query, *args):
+        return "ROBUSTNESS_PASSED"
+
     async def execute(self, query, *args):
         self.commands.append((query, args))
 
@@ -82,3 +85,19 @@ def test_status_write_failure_propagates_through_transaction():
     else:
         raise AssertionError("database failure must propagate")
     assert pool.transaction_exited_with_error
+
+
+def test_robustness_gate_rejects_missing_oos_transition():
+    class UnadvancedPool(FakePool):
+        async def fetchval(self, query, *args):
+            return "CANDIDATE"
+
+    pool = UnadvancedPool(_metrics(1))
+    pool.metrics["scenarios"] = {name: {"overall": {"trades": 150, "expectancy": 1}}
+        for name in ("fees_x1_5", "slippage_x2", "execution_delay", "drop_10pct", "combined")}
+    try:
+        asyncio.run(apply_evaluation_gate(pool, "model", "ROBUSTNESS", {}))
+    except ValueError as exc:
+        assert "before OOS" in str(exc)
+    else:
+        raise AssertionError("missing OOS transition must fail closed")
