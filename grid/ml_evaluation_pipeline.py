@@ -16,22 +16,32 @@ async def record_oos_evaluation(pool,model_id,dataset_id,trades,evaluator_versio
     report=evaluate_trades(trades); stability=stability_summary(report)
     metrics={"segments":report,"stability":stability}
     eid=uuid.uuid4()
-    await pool.execute("""INSERT INTO model_evaluations
+    async with pool.acquire() as c:
+        async with c.transaction():
+            await c.fetchrow("SELECT id FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
+            await c.execute("""INSERT INTO model_evaluations
       (id,model_id,stage,dataset_id,metrics,passed,evaluator_version)
       VALUES($1,$2,'OOS',$3,$4::jsonb,false,$5)
       ON CONFLICT(model_id,stage,dataset_id) DO UPDATE SET metrics=EXCLUDED.metrics,
       passed=false,evaluator_version=EXCLUDED.evaluator_version,created_at=now()""",
-      eid,model_id,dataset_id,json.dumps(metrics),evaluator_version)
+              eid,model_id,dataset_id,json.dumps(metrics),evaluator_version)
+            await c.execute("""UPDATE model_registry SET status='REJECTED'
+              WHERE id=$1 AND status IN ('OOS_PASSED','ROBUSTNESS_PASSED')""",model_id)
     return metrics
 
 async def record_robustness_evaluation(pool,model_id,dataset_id,trades,evaluator_version="1"):
     metrics=robustness_suite(trades);eid=uuid.uuid4()
-    await pool.execute("""INSERT INTO model_evaluations
+    async with pool.acquire() as c:
+        async with c.transaction():
+            await c.fetchrow("SELECT id FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
+            await c.execute("""INSERT INTO model_evaluations
       (id,model_id,stage,dataset_id,metrics,passed,evaluator_version)
       VALUES($1,$2,'ROBUSTNESS',$3,$4::jsonb,false,$5)
       ON CONFLICT(model_id,stage,dataset_id) DO UPDATE SET metrics=EXCLUDED.metrics,
       passed=false,evaluator_version=EXCLUDED.evaluator_version,created_at=now()""",
-      eid,model_id,dataset_id,json.dumps(metrics),evaluator_version)
+              eid,model_id,dataset_id,json.dumps(metrics),evaluator_version)
+            await c.execute("""UPDATE model_registry SET status='REJECTED'
+              WHERE id=$1 AND status IN ('OOS_PASSED','ROBUSTNESS_PASSED')""",model_id)
     return metrics
 
 async def apply_evaluation_gate(pool,model_id,stage,requirements):
