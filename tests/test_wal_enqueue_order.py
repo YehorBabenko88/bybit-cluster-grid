@@ -36,6 +36,8 @@ async def check_order(storage, submit):
     storage._enqueue_lock = asyncio.Lock()
     storage.replay_done = asyncio.Event()
     storage.replay_done.set()
+    if isinstance(storage, Storage):
+        storage.replay_error = None
 
     first = asyncio.create_task(submit(storage, 1))
     await asyncio.wait_for(storage.write_queue.entered.wait(), 2)
