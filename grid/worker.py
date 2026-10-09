@@ -19,7 +19,7 @@ from .strategy_runner import strategy_worker
 from .agent_commands import execute_command
 from .credential_store import node_credential
 from .decommission import mark_coordinator_success,mark_internet_success,internet_available,decommission_due
-from .pressure import PressureController, NORMAL, SOFT_PRESSURE
+from .pressure import PressureController, NORMAL, SOFT_PRESSURE, desired_drained_symbols
 from .continuity import TradeContinuity
 from .local_control_journal import LocalControlJournal
 from .control_snapshot_ring import ControlSnapshotRing,replica_meta
@@ -101,11 +101,14 @@ class Worker:
                 # producers keep running. Drain expensive live streams locally; a
                 # later healthy CONTROL heartbeat will restore assignments once
                 # pressure has recovered.
-                if state not in (NORMAL,SOFT_PRESSURE) and self.wanted:
-                    victims=set(self.pressure.symbols_to_drain(self.wanted-self.pressure_drained))
-                    if victims:
-                        self.pressure_drained.update(victims)
-                        self.wanted.difference_update(victims)
+                if self.wanted:
+                    # Include previously drained symbols: they are still assigned
+                    # even though their live streams are currently stopped.
+                    local_assigned=self.wanted | self.pressure_drained
+                    local_drained=desired_drained_symbols(self.pressure,local_assigned)
+                    if local_drained != self.pressure_drained:
+                        self.pressure_drained=local_drained
+                        self.wanted=local_assigned-local_drained
                         self.micro_wanted.intersection_update(self.wanted)
                         await self.reconcile()
                 snap['bootstrap_paused']=self.bootstrap_paused
@@ -183,10 +186,7 @@ class Worker:
                             self.db.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
                             self.micro_storage.set_replay_rate(recovery.get("micro_per_second",settings.replay_micro_per_second))
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
-                            if state in (NORMAL,SOFT_PRESSURE):
-                                self.pressure_drained.clear()
-                            else:
-                                self.pressure_drained.update(self.pressure.symbols_to_drain(assigned-self.pressure_drained))
+                            self.pressure_drained=desired_drained_symbols(self.pressure,assigned)
                             new=assigned-self.pressure_drained
                             requested_micro=set(reply.get("micro_symbols",[]))
                             recovering=bool(dbm.get("replay_active",False) or microm.get("replay_active",False))
