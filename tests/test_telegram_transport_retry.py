@@ -16,3 +16,12 @@ def test_telegram_failed_update_does_not_advance_cursor():
     assert 'if previous!="DONE":' in source
     assert 'raise RuntimeError("Telegram update not completed; cursor preserved")' in source
     assert '"event":"telegram_update_unresolved"' in source
+
+
+def test_telegram_failed_command_is_quarantined_not_replayed():
+    source=pathlib.Path("grid/telegram_bot.py").read_text(encoding="utf-8")
+    assert 'if previous=="FAILED":' in source
+    assert '"event":"telegram_update_quarantined"' in source
+    assert 'offset=await commit_telegram_cursor(db.pool,node_id,next_offset)' in source
+    assert 'elif cmd=="/telegramfailed":' in source
+    assert "WHERE status='FAILED'" in source
