@@ -35,9 +35,19 @@ async def record_robustness_evaluation(pool,model_id,dataset_id,trades,evaluator
     return metrics
 
 async def apply_evaluation_gate(pool,model_id,stage,requirements):
+    """Atomically persist evaluation and model status under a model row lock."""
     if stage not in ("OOS","ROBUSTNESS"):
         raise ValueError("unsupported evaluation stage")
-    row=await pool.fetchrow("""SELECT id,metrics FROM model_evaluations
+    async with pool.acquire() as c:
+        async with c.transaction():
+            return await _apply_evaluation_gate_locked(c,model_id,stage,requirements)
+
+async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
+    if stage not in ("OOS","ROBUSTNESS"):
+        raise ValueError("unsupported evaluation stage")
+    model=await c.fetchrow("SELECT id FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
+    if not model: raise ValueError("model missing")
+    row=await c.fetchrow("""SELECT id,metrics FROM model_evaluations
       WHERE model_id=$1 AND stage=$2 ORDER BY created_at DESC LIMIT 1""",model_id,stage)
     if not row:raise ValueError("evaluation missing")
     m=dict(row["metrics"]);base=(m.get("segments") or m.get("scenarios",{}).get("base") or {}).get("overall",{})
@@ -59,21 +69,21 @@ async def apply_evaluation_gate(pool,model_id,stage,requirements):
             and _finite_number((scenarios.get(name) or {}).get("overall",{}).get("expectancy"))>=min_stress
             for name in required_scenarios
         )
-    await pool.execute("UPDATE model_evaluations SET passed=$2 WHERE id=$1",row["id"],passed)
+    await c.execute("UPDATE model_evaluations SET passed=$2 WHERE id=$1",row["id"],passed)
     if passed:
         target={"OOS":"OOS_PASSED","ROBUSTNESS":"ROBUSTNESS_PASSED"}[stage]
         # Never downgrade a robustness-approved model on an OOS recheck.
         # Robustness may advance only a model that already passed OOS.
         if stage=="OOS":
-            await pool.execute("""UPDATE model_registry SET status=$2
+            await c.execute("""UPDATE model_registry SET status=$2
               WHERE id=$1 AND status IN ('CANDIDATE','REJECTED','OOS_PASSED')""",model_id,target)
         else:
-            await pool.execute("""UPDATE model_registry SET status=$2
+            await c.execute("""UPDATE model_registry SET status=$2
               WHERE id=$1 AND status IN ('OOS_PASSED','ROBUSTNESS_PASSED')""",model_id,target)
     else:
         # A failed re-evaluation must invalidate any prior pre-production pass.
         # Production models require an explicit separate rollback decision.
-        await pool.execute("""UPDATE model_registry SET status='REJECTED'
+        await c.execute("""UPDATE model_registry SET status='REJECTED'
           WHERE id=$1 AND status IN ('OOS_PASSED','ROBUSTNESS_PASSED')""",model_id)
     return passed
 
