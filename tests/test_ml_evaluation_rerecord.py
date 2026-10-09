@@ -36,6 +36,8 @@ def test_fresh_oos_invalidates_all_preproduction_gates():
         asyncio.run(record_oos_evaluation(pool, "model", "dataset", []))
     assert any("FOR UPDATE" in query for query in pool.statements)
     assert any("SET status='REJECTED'" in query for query in pool.statements)
+    assert any("UPDATE model_evaluations SET passed=false" in query and "ROBUSTNESS" in query
+               for query in pool.statements)
 
 
 def test_fresh_robustness_requires_new_robustness_gate_but_keeps_oos():
