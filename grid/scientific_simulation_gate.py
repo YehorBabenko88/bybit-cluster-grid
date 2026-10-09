@@ -25,15 +25,29 @@ class ScientificSimulationGate:
         return made
 
     async def run_queued(self,limit=4):
-        rows=await self.pool.fetch("""SELECT id,hypothesis_id,dataset_cutoff FROM scientific_simulation_runs
-          WHERE status='QUEUED' ORDER BY created_at LIMIT $1""",max(1,int(limit)))
         out=[]
-        for r in rows:out.append(await self.run_one(r["id"],r["hypothesis_id"],r["dataset_cutoff"]))
+        for _ in range(max(1,int(limit))):
+            # A single atomic UPDATE claims the oldest available job across workers.
+            # SKIP LOCKED prevents another worker from selecting the same row.
+            r=await self.pool.fetchrow("""UPDATE scientific_simulation_runs AS target
+              SET status='RUNNING',started_at=now()
+              WHERE target.id=(
+                SELECT id FROM scientific_simulation_runs
+                WHERE status='QUEUED' ORDER BY created_at,id
+                FOR UPDATE SKIP LOCKED LIMIT 1
+              )
+              RETURNING target.id,target.hypothesis_id,target.dataset_cutoff""")
+            if r is None:break
+            out.append(await self.run_one(r["id"],r["hypothesis_id"],r["dataset_cutoff"],claimed=True))
         return out
 
-    async def run_one(self,run_id,hypothesis_id,dataset_cutoff):
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status='RUNNING',
-          started_at=now() WHERE id=$1 AND status='QUEUED'""",run_id)
+    async def run_one(self,run_id,hypothesis_id,dataset_cutoff,claimed=False):
+        if not claimed:
+            row=await self.pool.fetchrow("""UPDATE scientific_simulation_runs
+              SET status='RUNNING',started_at=now()
+              WHERE id=$1 AND status='QUEUED' RETURNING id""",run_id)
+            if row is None:
+                return {"run_id":str(run_id),"status":"NOT_CLAIMED"}
         oos_start=await self.pool.fetchval("""SELECT max(dataset_cutoff)
           FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1 AND passed=true""",hypothesis_id)
         if oos_start is None:
