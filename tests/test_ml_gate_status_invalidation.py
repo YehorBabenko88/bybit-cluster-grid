@@ -30,5 +30,5 @@ def test_failed_recheck_revokes_stale_preproduction_status():
 def test_successful_recheck_preserves_nonproduction_transition():
     pool = FakePool(_metrics(1))
     assert asyncio.run(apply_evaluation_gate(pool, "model", "OOS", {})) is True
-    assert any("status<>'PRODUCTION'" in query for query, _ in pool.commands)
+    assert any("status IN ('CANDIDATE','OOS_PASSED','ROBUSTNESS_PASSED')" in query for query, _ in pool.commands)
     assert not any("REJECTED" in query for query, _ in pool.commands)
