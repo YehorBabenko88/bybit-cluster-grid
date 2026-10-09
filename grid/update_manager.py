@@ -21,27 +21,35 @@ def _safe_extract(zip_path,destination):
 def install_release(package_path,version,install_root):
     root=pathlib.Path(install_root)
     releases=root/"releases"; releases.mkdir(parents=True,exist_ok=True)
+    # Release names must not escape the releases directory or collide with
+    # internal staging/recovery suffixes.
+    if not isinstance(version,str) or not version or version in (".","..") or pathlib.Path(version).name!=version or "/" in version or "\\" in version or version.endswith((".staging",".replaced")):
+        raise ValueError("invalid release version")
     target=releases/version
     staging=releases/(version+".staging")
     replaced=releases/(version+".replaced")
-    # Recover a power loss that happened after old target -> .replaced but
-    # before staging -> target. Never discard the last runnable copy.
+    # Recover an interrupted legacy replacement before examining the target.
+    # Never delete the last known runnable copy.
     if not target.exists() and replaced.exists():
         os.replace(replaced,target)
-    if staging.exists(): shutil.rmtree(staging)
-    if replaced.exists(): shutil.rmtree(replaced)
+    if target.exists():
+        if not _release_runnable(target):
+            raise ValueError("existing release is not runnable; refusing overwrite")
+        return target
+    # A .replaced directory alongside an existing target may contain the only
+    # previous copy; preserve it rather than silently deleting it.
+    if replaced.exists():
+        raise ValueError("unresolved replaced release directory")
+    if staging.exists():
+        shutil.rmtree(staging)
     staging.mkdir(parents=True)
     try:
         _safe_extract(package_path,staging)
+        if not _release_runnable(staging):
+            raise ValueError("release package is not runnable")
         if target.exists():
-            os.replace(target,replaced)
-        try:
-            os.replace(staging,target)
-        except Exception:
-            if not target.exists() and replaced.exists():
-                os.replace(replaced,target)
-            raise
-        shutil.rmtree(replaced,ignore_errors=True)
+            raise FileExistsError("release appeared during staging")
+        os.replace(staging,target)
     except Exception:
         shutil.rmtree(staging,ignore_errors=True)
         raise
