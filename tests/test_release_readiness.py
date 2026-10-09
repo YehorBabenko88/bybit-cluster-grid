@@ -22,6 +22,7 @@ def test_worker_readiness_requires_matching_process(tmp_path):
 
 def test_unready_release_is_not_confirmed_after_stable_uptime(tmp_path,monkeypatch):
     root=tmp_path
+    (root/"current.version").write_text("new",encoding="utf-8")
     (root/"pending.version").write_text("new",encoding="utf-8")
     proc=FakeProcess()
     monkeypatch.setattr("grid.release_supervisor.time.sleep",lambda _:None)
