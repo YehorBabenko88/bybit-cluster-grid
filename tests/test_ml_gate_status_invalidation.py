@@ -55,3 +55,28 @@ def test_robustness_requires_prior_oos_status():
     assert asyncio.run(apply_evaluation_gate(pool, "model", "ROBUSTNESS", {})) is True
     assert any("status IN ('OOS_PASSED','ROBUSTNESS_PASSED')" in query
                for query, _ in pool.commands)
+
+
+def test_status_write_failure_propagates_through_transaction():
+    class FailingPool(FakePool):
+        def __init__(self, metrics):
+            super().__init__(metrics)
+            self.transaction_exited_with_error = False
+
+        async def execute(self, query, *args):
+            await super().execute(query, *args)
+            if "UPDATE model_registry" in query:
+                raise ConnectionError("simulated database failure")
+
+        async def __aexit__(self, exc_type, exc, tb):
+            self.transaction_exited_with_error = exc_type is ConnectionError
+            return False
+
+    pool = FailingPool(_metrics(1))
+    try:
+        asyncio.run(apply_evaluation_gate(pool, "model", "OOS", {}))
+    except ConnectionError:
+        pass
+    else:
+        raise AssertionError("database failure must propagate")
+    assert pool.transaction_exited_with_error
