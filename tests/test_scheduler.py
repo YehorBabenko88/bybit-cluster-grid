@@ -86,3 +86,25 @@ def test_observer_disappearance_does_not_change_worker_assignment():
     a=weighted_assign(symbols,scores_with,with_home)
     b=weighted_assign(symbols,scores_without,workers)
     assert a==b
+
+
+def test_nonfinite_symbol_costs_do_not_poison_load_balancing():
+    nodes={"A":{"symbol_cost":{"BTC":float("nan"),"ETH":float("inf")}},
+           "B":{"symbol_cost":{"BTC":12,"ETH":4}}}
+    costs,fallback=learned_symbol_cost(nodes)
+    assert costs=={"BTC":12,"ETH":4}
+    assert fallback>0
+    out=weighted_assign(["BTC","ETH"],{"A":1,"B":1},nodes)
+    assert sorted(out["A"]+out["B"])==["BTC","ETH"]
+
+
+def test_zero_negative_nan_and_infinite_capacity_never_receive_work():
+    nodes={n:{"accepts_work":True} for n in ["good","zero","negative","nan","inf"]}
+    scores={"good":2,"zero":0,"negative":-2,"nan":float("nan"),"inf":float("inf")}
+    out=weighted_assign(["BTC","ETH"],scores,nodes)
+    assert out=={"good":["BTC","ETH"]}
+
+
+def test_all_unusable_nodes_produce_no_assignments():
+    nodes={"A":{"accepts_work":True},"B":{"accepts_work":True}}
+    assert weighted_assign(["BTC"],{"A":0,"B":float("nan")},nodes)=={}
