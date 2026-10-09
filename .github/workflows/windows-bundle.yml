@@ -81,6 +81,11 @@ jobs:
             }
           }
 
+      - name: Test guarded release switch
+        shell: pwsh
+        run: |
+          & ./tests/test_release_switch.ps1
+
       - name: Assert host hardening is bundled
         shell: pwsh
         run: |
