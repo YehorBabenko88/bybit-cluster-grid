@@ -81,6 +81,20 @@ def _validated_requirements(requirements):
     return values
 
 
+def _valid_stress_scenario(scenario,min_expectancy):
+    if not isinstance(scenario,dict):
+        return False
+    overall=scenario.get("overall")
+    if not isinstance(overall,dict):
+        return False
+    trades=_finite_number(overall.get("trades"))
+    expectancy=_finite_number(overall.get("expectancy"))
+    drawdown=_finite_number(overall.get("max_drawdown"))
+    return (isfinite(trades) and trades>0 and trades.is_integer()
+        and isfinite(expectancy) and expectancy>=min_expectancy
+        and isfinite(drawdown) and drawdown>=0)
+
+
 async def apply_evaluation_gate(pool,model_id,stage,requirements):
     """Atomically persist evaluation and model status under a model row lock."""
     if stage not in ("OOS","ROBUSTNESS"):
@@ -130,8 +144,7 @@ async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
         scenarios=m.get("scenarios") or {}
         required_scenarios=("fees_x1_5","slippage_x2","execution_delay","drop_10pct","combined")
         passed=all(
-            _finite_number((scenarios.get(name) or {}).get("overall",{}).get("trades"))>0
-            and _finite_number((scenarios.get(name) or {}).get("overall",{}).get("expectancy"))>=min_stress
+            _valid_stress_scenario(scenarios.get(name),min_stress)
             for name in required_scenarios
         )
     await c.execute("UPDATE model_evaluations SET passed=$2 WHERE id=$1",row["id"],passed)
