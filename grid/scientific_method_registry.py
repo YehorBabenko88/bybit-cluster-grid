@@ -20,7 +20,10 @@ class ScientificMethodRegistry:
     def __init__(self,quarantine_after=5):
         self.methods={};self.quarantine_after=max(1,int(quarantine_after))
     def register(self,method:ScientificMethod):
-        if not method.key or int(method.schema_version)<1:raise ValueError("invalid scientific method")
+        if (not isinstance(method.key,str) or not method.key.strip() or not isinstance(method.version,str)
+            or not method.version.strip() or int(method.schema_version)<1 or not callable(method.handler)):
+            raise ValueError("invalid scientific method")
+        json.dumps(method.capabilities or {},allow_nan=False)
         if method.key in self.methods:raise ValueError("duplicate scientific method")
         self.methods[method.key]=method
     async def sync_db(self,pool):
@@ -35,7 +38,7 @@ class ScientificMethodRegistry:
               VALUES($1,$2,$3,$4::jsonb) ON CONFLICT(method_key) DO UPDATE SET
               method_version=EXCLUDED.method_version,schema_version=EXCLUDED.schema_version,
               capabilities=EXCLUDED.capabilities,updated_at=now()""",
-              m.key,m.version,int(m.schema_version),json.dumps(m.capabilities or {},separators=(",",":")))
+              m.key,m.version,int(m.schema_version),json.dumps(m.capabilities or {},separators=(",",":"),allow_nan=False))
     async def dispatch(self,pool,event):
         results={}
         for key,m in tuple(self.methods.items()):
@@ -45,12 +48,12 @@ class ScientificMethodRegistry:
                 value=m.handler(dict(event))
                 if hasattr(value,"__await__"):value=await value
                 payload=value if isinstance(value,dict) else {"result":value}
-                json.dumps(payload,default=str)  # fail before DB if plugin emits unserialisable output
+                encoded=json.dumps(payload,allow_nan=False,separators=(",",":"))  # strict JSON, no NaN/Infinity
                 await pool.execute("""INSERT INTO scientific_method_events(
                   method_key,event_ts,event_type,payload,schema_version)
                   VALUES($1,COALESCE($2,now()),$3,$4::jsonb,$5)""",
                   key,event.get("event_ts"),str(event.get("event_type") or "observation"),
-                  json.dumps(payload,default=str,separators=(",",":")),int(m.schema_version))
+                  encoded,int(m.schema_version))
                 await pool.execute("""UPDATE scientific_methods SET failure_count=0,last_error=NULL,
                   updated_at=now() WHERE method_key=$1""",key)
                 results[key]={"ok":True,"payload":payload}
