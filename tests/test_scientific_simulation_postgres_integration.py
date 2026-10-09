@@ -25,10 +25,8 @@ def test_scientific_atomic_claim_and_expired_recovery():
             async with pool.acquire() as conn:
                 await conn.execute(f'CREATE SCHEMA "{schema}"')
             try:
-                async def prepare(conn):
-                    await conn.execute(f'SET search_path TO "{schema}",public')
                 async with pool.acquire() as conn:
-                    await prepare(conn)
+                    await conn.execute(f'SET search_path TO "{schema}",public')
                     await conn.execute("""CREATE TABLE scientific_simulation_runs(
                         id uuid PRIMARY KEY, hypothesis_id uuid NOT NULL,
                         dataset_cutoff timestamptz NOT NULL, status text NOT NULL DEFAULT 'QUEUED',
