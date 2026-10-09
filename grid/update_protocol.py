@@ -73,8 +73,12 @@ def release_health_ok(heartbeat):
         return False,"integrity"
     if str(heartbeat.get("pressure_state","CRITICAL"))=="CRITICAL":
         return False,"critical_pressure"
-    if int(heartbeat.get("db_write_failures",0) or 0)>0:
-        return False,"db_write_failures"
+    # db_write_failures is cumulative and may include failures that have
+    # already recovered. Only reject failures observed in the latest interval.
+    # Older workers omit this field; their cumulative counter is not a
+    # reliable signal of current health.
+    if int(heartbeat.get("db_write_failures_recent",0) or 0)>0:
+        return False,"db_write_failures_recent"
     if float(heartbeat.get("db_queue_ratio",0) or 0)>=0.8:
         return False,"db_queue_pressure"
     if float(heartbeat.get("db_spool_ratio",0) or 0)>=0.8:
