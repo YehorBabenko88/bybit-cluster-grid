@@ -47,6 +47,66 @@ class ReleaseSupervisorTests(unittest.TestCase):
             with supervisor._single_instance(tmp, "worker"):
                 pass
 
+    @unittest.skipUnless(os.name == "nt", "Windows supervisor crash test")
+    def test_killed_supervisor_releases_mutex_and_child(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            marker = root / "child-pid.txt"
+            child = root / "child.py"
+            child.write_text(
+                "import os, pathlib, time\n"
+                "pathlib.Path(os.environ['GRID_TEST_CHILD_PID']).write_text(str(os.getpid()))\n"
+                "time.sleep(30)\n",
+                encoding="utf-8",
+            )
+            launcher = root / "supervisor.py"
+            launcher.write_text(
+                "import os, subprocess, sys, time\n"
+                "from grid.release_supervisor import _single_instance, _child_job\n"
+                "with _single_instance(sys.argv[1], 'worker'):\n"
+                "    p = subprocess.Popen([sys.executable, sys.argv[2]], env=os.environ.copy())\n"
+                "    with _child_job(p):\n"
+                "        p.wait()\n",
+                encoding="utf-8",
+            )
+            env = os.environ.copy()
+            env["GRID_TEST_CHILD_PID"] = str(marker)
+            env["PYTHONPATH"] = str(pathlib.Path(supervisor.__file__).resolve().parent.parent) + os.pathsep + env.get("PYTHONPATH", "")
+            parent = subprocess.Popen([sys.executable, str(launcher), str(root), str(child)], env=env)
+            try:
+                for _ in range(100):
+                    if marker.exists():
+                        break
+                    if parent.poll() is not None:
+                        self.fail("supervisor exited before child started")
+                    import time
+                    time.sleep(0.05)
+                self.assertTrue(marker.exists(), "child did not start")
+                child_pid = int(marker.read_text())
+                parent.kill()
+                parent.wait(timeout=10)
+                import ctypes
+                from ctypes import wintypes
+                kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+                kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+                kernel.OpenProcess.restype = wintypes.HANDLE
+                kernel.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+                kernel.WaitForSingleObject.restype = wintypes.DWORD
+                kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+                kernel.CloseHandle.restype = wintypes.BOOL
+                handle = kernel.OpenProcess(0x00100000, False, child_pid)
+                if handle:
+                    try:
+                        self.assertEqual(kernel.WaitForSingleObject(handle, 10000), 0)
+                    finally:
+                        kernel.CloseHandle(handle)
+                with supervisor._single_instance(root, "worker"):
+                    pass
+            finally:
+                if parent.poll() is None:
+                    parent.kill()
+                    parent.wait()
+
     @unittest.skipUnless(os.name == "nt", "Windows named mutex test")
     def test_second_supervisor_cannot_launch_child(self):
         with tempfile.TemporaryDirectory() as tmp:
