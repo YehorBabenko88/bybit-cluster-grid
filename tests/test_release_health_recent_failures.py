@@ -37,10 +37,15 @@ class ReleaseHealthTests(unittest.TestCase):
             (False, "db_spool_pressure"),
         )
 
-    def test_legacy_heartbeat_not_blocked_by_historical_failures(self):
+    def test_legacy_heartbeat_cannot_promote_canary_without_interval_metric(self):
         heartbeat = self.heartbeat()
         del heartbeat["db_write_failures_recent"]
-        self.assertEqual(release_health_ok(heartbeat), (True, None))
+        self.assertEqual(release_health_ok(heartbeat), (False, "db_write_failures_recent_missing"))
+
+    def test_malformed_interval_metric_rejected(self):
+        for value in ("oops", -1, None, float("inf")):
+            with self.subTest(value=value):
+                self.assertEqual(release_health_ok(self.heartbeat(db_write_failures_recent=value))[0], False)
 
 
 if __name__ == "__main__":
