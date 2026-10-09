@@ -22,7 +22,7 @@ class TransactionPool:
 
     async def fetchrow(self, query, *args):
         self.statements.append(query)
-        return {"id": "model", "dataset_id": "dataset"}
+        return {"id": "model", "dataset_id": "dataset", "status": "CANDIDATE"}
 
     async def execute(self, query, *args):
         self.statements.append(query)
@@ -57,4 +57,21 @@ def test_dataset_mismatch_rejected_before_insert():
         assert "dataset mismatch" in str(exc)
     else:
         raise AssertionError("mismatched dataset must be rejected")
+    assert not any("INSERT INTO model_evaluations" in query for query in pool.statements)
+
+
+def test_production_model_evaluation_cannot_be_overwritten():
+    class ProductionPool(TransactionPool):
+        async def fetchrow(self, query, *args):
+            self.statements.append(query)
+            return {"id": "model", "dataset_id": "dataset", "status": "PRODUCTION"}
+
+    pool = ProductionPool()
+    with patch("grid.ml_evaluation_pipeline.robustness_suite", return_value={}):
+        try:
+            asyncio.run(record_robustness_evaluation(pool, "model", "dataset", []))
+        except ValueError as exc:
+            assert "immutable" in str(exc)
+        else:
+            raise AssertionError("production evaluations must be immutable")
     assert not any("INSERT INTO model_evaluations" in query for query in pool.statements)
