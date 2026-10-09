@@ -254,6 +254,34 @@ class ReleaseSupervisorTests(unittest.TestCase):
             self.assertEqual((root / "failed.version").read_text(), new)
             self.assertFalse((root / "pending.version").exists())
 
+    def test_worker_cannot_roll_back_to_coordinator_only_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            old, new = "a" * 40, "b" * 40
+            for name, value in (("previous.version", old), ("current.version", new), ("pending.version", new)):
+                (root / name).write_text(value)
+            previous = root / "releases" / old / "grid"
+            previous.mkdir(parents=True)
+            (previous / "coordinator.py").write_text("# coordinator only")
+            for _ in range(3):
+                self.assertFalse(supervisor._after_exit(root, new, 1, exit_code=1, mode="worker"))
+            self.assertEqual((root / "current.version").read_text(), new)
+            self.assertTrue((root / "pending.version").exists())
+
+    def test_coordinator_cannot_roll_back_to_worker_only_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            old, new = "a" * 40, "b" * 40
+            for name, value in (("previous.version", old), ("current.version", new), ("pending.version", new)):
+                (root / name).write_text(value)
+            previous = root / "releases" / old
+            previous.mkdir(parents=True)
+            (previous / "run_worker.py").write_text("# worker only")
+            for _ in range(3):
+                self.assertFalse(supervisor._after_exit(root, new, 1, exit_code=1, mode="coordinator"))
+            self.assertEqual((root / "current.version").read_text(), new)
+            self.assertTrue((root / "pending.version").exists())
+
     def test_no_rollback_to_missing_previous(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
