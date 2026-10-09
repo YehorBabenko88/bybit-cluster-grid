@@ -42,6 +42,21 @@ class FloatingLeader:
     async def run(self,on_gain=None,on_loss=None):
         previous=False
         while not self.stop_event.is_set():
+            # Finish a previously failed shutdown before attempting a new lease.
+            if previous and not self.is_leader:
+                try:
+                    if on_loss:
+                        await on_loss()
+                    previous=False
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    log.exception("leader shutdown retry failed")
+                    try:
+                        await asyncio.wait_for(self.stop_event.wait(),timeout=self.renew_seconds)
+                    except asyncio.TimeoutError:
+                        pass
+                    continue
             try:
                 current=await (self.renew() if self.is_leader else self.campaign())
             except asyncio.CancelledError:
