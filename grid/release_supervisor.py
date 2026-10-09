@@ -138,7 +138,8 @@ def _after_exit(root,version,runtime,exit_code=1,mode=None):
     if _read(root/"current.version")!=version:return False
     crash=root/"pending-crashes.txt"
     raw_count=_read(crash)
-    try:count=int(raw_count or "0")
+    # Bound parsing before int(): Python limits enormous decimal strings.
+    try:count=int(raw_count) if raw_count and len(raw_count)<=32 else 0
     except ValueError:count=0
     # Reject corrupt, negative or implausibly large counters instead of rolling back.
     if count < 0 or count > 1000000:count=0
