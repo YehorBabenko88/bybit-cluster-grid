@@ -35,7 +35,27 @@ try {
     try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null }
     catch { $blocked = $true }
     Assert $blocked 'Previously failed release must be blocked'
-        Write-Output 'PASS: release switch plan, missing release, manifest mismatch, failed-release quarantine'
+        Remove-Item -LiteralPath (Join-Path $root 'failed.version') -Force
+    $mutex = New-Object System.Threading.Mutex($false, 'Global\BybitClusterGridReleaseSwitch')
+    $held = $mutex.WaitOne(0)
+    Assert $held 'Could not acquire test mutex'
+    try {
+        $blocked = $false
+        $job = Start-Job -ScriptBlock {
+            param($Script,$Version,$Root)
+            & $Script -Version $Version -InstallRoot $Root -Role WORKER
+        } -ArgumentList $script,$b,$root
+        try {
+            Wait-Job $job -Timeout 30 | Out-Null
+            Assert ($job.State -eq 'Failed') 'Concurrent switch must fail'
+            $blocked = $true
+        } finally { Remove-Job $job -Force -ErrorAction SilentlyContinue }
+        Assert $blocked 'Mutex did not block concurrent switch'
+    } finally {
+        $mutex.ReleaseMutex()
+        $mutex.Dispose()
+    }
+    Write-Output 'PASS: release switch plan, missing release, manifest mismatch, failed-release quarantine, concurrent-switch lock'
 } finally {
     if (Test-Path $root) { Remove-Item -LiteralPath $root -Recurse -Force }
 }
