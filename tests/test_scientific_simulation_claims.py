@@ -4,7 +4,7 @@ from grid.scientific_simulation_gate import ScientificSimulationGate
 
 class ClaimPool:
     def __init__(self):
-        self.remaining=[{"id":"one","hypothesis_id":"hyp","dataset_cutoff":"cutoff"}]
+        self.remaining=[{"id":"one","hypothesis_id":"hyp","dataset_cutoff":"cutoff","lease_token":"token"}]
         self.queries=[]
 
     async def fetchval(self,query,*args):
