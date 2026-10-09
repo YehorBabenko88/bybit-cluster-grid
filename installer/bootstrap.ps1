@@ -276,7 +276,7 @@ if($AgentMode -ne "CONTROL"){
         if($AgentMode -eq "CONTROL"){ & $FirewallScript }
         else { & $FirewallScript -Remove }
     }
-    @{mode=$Mode;status="installed";completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
+    @{mode=$Mode;status="installed";authorized_agent_mode=$AgentMode;completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
         ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
     $Backup=Join-Path $InstallRoot "bootstrap.previous"
     if(Test-Path $Backup){Remove-Item -Recurse -Force $Backup}
