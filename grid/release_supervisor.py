@@ -37,6 +37,62 @@ def _single_instance(install_root, mode):
         kernel.CloseHandle(handle)
 
 
+@contextlib.contextmanager
+def _child_job(proc):
+    """Keep Windows child processes bound to the supervisor lifetime."""
+    if os.name != "nt":
+        yield
+        return
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    class BasicLimit(ctypes.Structure):
+        _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64),
+                    ("PerJobUserTimeLimit", ctypes.c_int64),
+                    ("LimitFlags", wintypes.DWORD),
+                    ("MinimumWorkingSetSize", ctypes.c_size_t),
+                    ("MaximumWorkingSetSize", ctypes.c_size_t),
+                    ("ActiveProcessLimit", wintypes.DWORD),
+                    ("Affinity", ctypes.c_size_t),
+                    ("PriorityClass", wintypes.DWORD),
+                    ("SchedulingClass", wintypes.DWORD)]
+    class IoCounters(ctypes.Structure):
+        _fields_ = [(n, ctypes.c_uint64) for n in
+                    ("ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
+                     "ReadTransferCount", "WriteTransferCount", "OtherTransferCount")]
+    class ExtendedLimit(ctypes.Structure):
+        _fields_ = [("BasicLimitInformation", BasicLimit), ("IoInfo", IoCounters),
+                    ("ProcessMemoryLimit", ctypes.c_size_t), ("JobMemoryLimit", ctypes.c_size_t),
+                    ("PeakProcessMemoryUsed", ctypes.c_size_t), ("PeakJobMemoryUsed", ctypes.c_size_t)]
+    kernel.CreateJobObjectW.argtypes = (ctypes.c_void_p, wintypes.LPCWSTR)
+    kernel.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel.SetInformationJobObject.argtypes = (wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD)
+    kernel.SetInformationJobObject.restype = wintypes.BOOL
+    kernel.AssignProcessToJobObject.argtypes = (wintypes.HANDLE, wintypes.HANDLE)
+    kernel.AssignProcessToJobObject.restype = wintypes.BOOL
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel.CloseHandle.restype = wintypes.BOOL
+    job = kernel.CreateJobObjectW(None, None)
+    if not job:
+        proc.terminate()
+        proc.wait()
+        raise OSError(ctypes.get_last_error(), "CreateJobObjectW failed")
+    try:
+        limits = ExtendedLimit()
+        limits.BasicLimitInformation.LimitFlags = 0x2000
+        if not kernel.SetInformationJobObject(job, 9, ctypes.byref(limits), ctypes.sizeof(limits)):
+            raise OSError(ctypes.get_last_error(), "SetInformationJobObject failed")
+        if not kernel.AssignProcessToJobObject(job, wintypes.HANDLE(int(proc._handle))):
+            raise OSError(ctypes.get_last_error(), "AssignProcessToJobObject failed")
+        yield
+    except BaseException:
+        if proc.poll() is None:
+            proc.terminate()
+            proc.wait()
+        raise
+    finally:
+        kernel.CloseHandle(job)
+
+
 def _read(path):
     try:return pathlib.Path(path).read_text(encoding="utf-8-sig").strip()
     except OSError:return ""
@@ -111,12 +167,13 @@ def main(argv=None):
             pathlib.Path(ready_file).unlink(missing_ok=True)
             env["GRID_RELEASE_READY_FILE"]=ready_file
         proc=subprocess.Popen(cmd,cwd=a.cwd,env=env)
-        t=threading.Thread(target=_confirm,args=(a.install_root,a.version,proc,max(1,a.stable_seconds),a.readiness,ready_file),daemon=True)
-        t.start()
-        code=proc.wait()
-        runtime=time.monotonic()-started
-        rolled=_after_exit(a.install_root,a.version,runtime)
-        return 75 if rolled else int(code)
+        with _child_job(proc):
+            t=threading.Thread(target=_confirm,args=(a.install_root,a.version,proc,max(1,a.stable_seconds),a.readiness,ready_file),daemon=True)
+            t.start()
+            code=proc.wait()
+            runtime=time.monotonic()-started
+            rolled=_after_exit(a.install_root,a.version,runtime)
+            return 75 if rolled else int(code)
     
 if __name__=="__main__":
     raise SystemExit(main())
