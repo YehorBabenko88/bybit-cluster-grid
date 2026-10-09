@@ -11,6 +11,19 @@ from grid import release_supervisor as supervisor
 
 
 class ReleaseSupervisorTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Windows job object test")
+    def test_job_close_terminates_running_child(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"], cwd=tmp)
+            try:
+                with supervisor._child_job(proc):
+                    self.assertIsNone(proc.poll())
+                self.assertIsNotNone(proc.wait(timeout=10))
+            finally:
+                if proc.poll() is None:
+                    proc.kill()
+                    proc.wait()
+
     @unittest.skipUnless(os.name == "nt", "Windows named mutex test")
     def test_second_supervisor_cannot_launch_child(self):
         with tempfile.TemporaryDirectory() as tmp:
