@@ -66,8 +66,10 @@ async def apply_evaluation_gate(pool,model_id,stage,requirements):
 async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
     if stage not in ("OOS","ROBUSTNESS"):
         raise ValueError("unsupported evaluation stage")
-    model=await c.fetchrow("SELECT id,dataset_id,feature_version FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
+    model=await c.fetchrow("SELECT id,dataset_id,feature_version,status FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
     if not model: raise ValueError("model missing")
+    if model["status"]=="PRODUCTION":
+        raise ValueError("production model evaluations are immutable; create a new candidate")
     ds=await c.fetchrow("""SELECT status,feature_version FROM dataset_snapshots
       WHERE id=$1""",model["dataset_id"])
     if not ds or ds["status"]!="READY" or ds["feature_version"]!=model["feature_version"]:
