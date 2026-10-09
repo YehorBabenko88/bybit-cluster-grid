@@ -40,3 +40,12 @@ def test_install_state_persists_authorized_mode_separately_from_repair_kind():
     assert 'authorized_agent_mode=$AgentMode' in script
     assert 'mode=$Mode;status="installed"' in script
     assert 'if($Enrollment.install_mode -notin @("PILOT","NORMAL"))' in script
+
+
+def test_ml_bootstrap_recreates_missing_ready_journal_without_pip():
+    script = Path("installer/bootstrap-ml.ps1").read_text(encoding="utf-8")
+    assert 'if(!(Test-Path -LiteralPath $Python))' in script
+    healthy = script.split('if(!$Need){', 1)[1].split('exit 0', 1)[0]
+    assert 'status="ready"' in healthy
+    assert 'Set-Content -Encoding UTF8 $Journal' in healthy
+    assert '-m pip install' not in healthy
