@@ -25,3 +25,11 @@ def test_telegram_failed_command_is_quarantined_not_replayed():
     assert 'offset=await commit_telegram_cursor(db.pool,node_id,next_offset)' in source
     assert 'elif cmd=="/telegramfailed":' in source
     assert "WHERE status='FAILED'" in source
+
+
+def test_telegram_stale_claim_is_quarantined_without_reexecution():
+    source=pathlib.Path("grid/telegram_bot.py").read_text(encoding="utf-8")
+    assert "status='CLAIMED'" in source
+    assert "claimed_at<now()-interval '30 minutes'" in source
+    assert "stale CLAIMED update; manual reconciliation required" in source
+    assert 'if previous=="FAILED":' in source
