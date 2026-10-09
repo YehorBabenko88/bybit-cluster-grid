@@ -29,6 +29,9 @@ async def record_oos_evaluation(pool,model_id,dataset_id,trades,evaluator_versio
               eid,model_id,dataset_id,json.dumps(metrics),evaluator_version)
             await c.execute("""UPDATE model_registry SET status='REJECTED'
               WHERE id=$1 AND status IN ('OOS_PASSED','ROBUSTNESS_PASSED')""",model_id)
+            # A new OOS result invalidates any earlier robustness pass too.
+            await c.execute("""UPDATE model_evaluations SET passed=false
+              WHERE model_id=$1 AND stage='ROBUSTNESS'""",model_id)
     return metrics
 
 async def record_robustness_evaluation(pool,model_id,dataset_id,trades,evaluator_version="1"):
