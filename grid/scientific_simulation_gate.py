@@ -25,12 +25,19 @@ class ScientificSimulationGate:
         return made
 
     async def run_queued(self,limit=4):
+        # Expired jobs are recoverable; repeated crashes are terminal.
+        await self.pool.execute("""UPDATE scientific_simulation_runs
+          SET status=CASE WHEN attempts>=3 THEN 'SIMULATION_FAILED' ELSE 'QUEUED' END,
+              reason='simulation lease expired',
+              lease_token=NULL,lease_expires_at=NULL
+          WHERE status='RUNNING' AND lease_expires_at<now()""")
         out=[]
         for _ in range(max(1,int(limit))):
             # A single atomic UPDATE claims the oldest available job across workers.
             # SKIP LOCKED prevents another worker from selecting the same row.
             r=await self.pool.fetchrow("""UPDATE scientific_simulation_runs AS target
-              SET status='RUNNING',started_at=now()
+              SET status='RUNNING',started_at=now(),attempts=target.attempts+1,
+                  lease_token=gen_random_uuid(),lease_expires_at=now()+interval '30 minutes'
               WHERE target.id=(
                 SELECT id FROM scientific_simulation_runs
                 WHERE status='QUEUED' ORDER BY created_at,id
@@ -44,7 +51,8 @@ class ScientificSimulationGate:
     async def run_one(self,run_id,hypothesis_id,dataset_cutoff,claimed=False):
         if not claimed:
             row=await self.pool.fetchrow("""UPDATE scientific_simulation_runs
-              SET status='RUNNING',started_at=now()
+              SET status='RUNNING',started_at=now(),attempts=attempts+1,
+                  lease_token=gen_random_uuid(),lease_expires_at=now()+interval '30 minutes'
               WHERE id=$1 AND status='QUEUED' RETURNING id""",run_id)
             if row is None:
                 return {"run_id":str(run_id),"status":"NOT_CLAIMED"}
