@@ -24,6 +24,29 @@ class ReleaseSupervisorTests(unittest.TestCase):
                     proc.kill()
                     proc.wait()
 
+    @unittest.skipUnless(os.name == "nt", "Windows job object test")
+    def test_job_context_exception_terminates_child(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"], cwd=tmp)
+            try:
+                with self.assertRaisesRegex(RuntimeError, "test interruption"):
+                    with supervisor._child_job(proc):
+                        self.assertIsNone(proc.poll())
+                        raise RuntimeError("test interruption")
+                self.assertIsNotNone(proc.wait(timeout=10))
+            finally:
+                if proc.poll() is None:
+                    proc.kill()
+                    proc.wait()
+
+    @unittest.skipUnless(os.name == "nt", "Windows named mutex test")
+    def test_supervisor_mutex_can_be_reacquired_after_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with supervisor._single_instance(tmp, "worker"):
+                pass
+            with supervisor._single_instance(tmp, "worker"):
+                pass
+
     @unittest.skipUnless(os.name == "nt", "Windows named mutex test")
     def test_second_supervisor_cannot_launch_child(self):
         with tempfile.TemporaryDirectory() as tmp:
