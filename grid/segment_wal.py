@@ -117,10 +117,16 @@ class SegmentWAL:
                         try:
                             obj=json.loads(raw)
                             body=json.dumps(obj["payload"],separators=(",",":"),ensure_ascii=False).encode("utf-8")
-                            if (zlib.crc32(body)&0xffffffff)!=int(obj["crc32"]): continue
-                            yield p,int(obj["id"]),obj["payload"]
-                        except (ValueError,KeyError,TypeError,json.JSONDecodeError):
-                            continue
+                            if (zlib.crc32(body)&0xffffffff)!=int(obj["crc32"]):
+                                raise ValueError("WAL CRC mismatch")
+                            rid=int(obj["id"])
+                            if rid<0:
+                                raise ValueError("negative WAL record id")
+                            yield p,rid,obj["payload"]
+                        except (ValueError,KeyError,TypeError,UnicodeError,json.JSONDecodeError) as exc:
+                            # Silent skipping plus a later checkpoint can permanently
+                            # discard a corrupt but unacknowledged record. Fail closed.
+                            raise ValueError(f"Corrupt WAL record in {p.name}") from exc
             except OSError:
                 continue
 
