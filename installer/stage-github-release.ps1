@@ -24,10 +24,10 @@ function GitHubJson([string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { throw "GitHub CLI failed (exit $LASTEXITCODE)" }
     return ($raw | Out-String | ConvertFrom-Json)
 }
-$branch = GitHubJson @('api',"repos/$Repository/branches/main")
+$branch = GitHubJson -Arguments @('api',"repos/$Repository/branches/main")
 $sha = [string]$branch.commit.sha
 if ($sha -notmatch '^[0-9a-f]{40}$') { throw 'Invalid main SHA' }
-$runs = GitHubJson @('api',"repos/$Repository/actions/runs?head_sha=$sha&per_page=100")
+$runs = GitHubJson -Arguments @('api',"repos/$Repository/actions/runs?head_sha=$sha&per_page=100")
 $required = @('preflight','windows-bundle')
 foreach ($name in $required) {
     $match = @($runs.workflow_runs | Where-Object {
