@@ -76,7 +76,7 @@ async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
         raise ValueError("model dataset is not READY or feature version mismatches")
     row=await c.fetchrow("""SELECT e.id,e.metrics FROM model_evaluations e
       JOIN model_registry m ON m.id=e.model_id AND m.dataset_id=e.dataset_id
-      WHERE e.model_id=$1 AND e.stage=$2 ORDER BY e.created_at DESC LIMIT 1""",model_id,stage)
+      WHERE e.model_id=$1 AND e.stage=$2 ORDER BY e.created_at DESC,e.id DESC LIMIT 1""",model_id,stage)
     if not row:raise ValueError("evaluation missing")
     m=dict(row["metrics"]);base=(m.get("segments") or m.get("scenarios",{}).get("base") or {}).get("overall",{})
     stability=m.get("stability",{})
@@ -123,7 +123,7 @@ async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
     if passed and stage=="ROBUSTNESS":
         oos=await c.fetchrow("""SELECT passed FROM model_evaluations
           WHERE model_id=$1 AND stage='OOS' AND dataset_id=$2
-          ORDER BY created_at DESC LIMIT 1""",model_id,model["dataset_id"])
+          ORDER BY created_at DESC,id DESC LIMIT 1""",model_id,model["dataset_id"])
         if not oos or oos["passed"] is not True:
             raise ValueError("robustness requires a passing OOS evaluation")
         # A gate is successful only if the model actually reached the target state.
@@ -144,7 +144,7 @@ async def promote_production(pool,model_id):
                 raise ValueError("model has not passed robustness gate")
             stages=await c.fetch("""SELECT stage,dataset_id,passed FROM model_evaluations
               WHERE model_id=$1 AND stage IN ('OOS','ROBUSTNESS')
-              ORDER BY created_at DESC""",model_id)
+              ORDER BY created_at DESC,id DESC""",model_id)
             latest={}
             for row in stages:
                 latest.setdefault(row["stage"],row)
