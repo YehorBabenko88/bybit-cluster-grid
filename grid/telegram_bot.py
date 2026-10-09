@@ -612,6 +612,16 @@ async def telegram_loop(db,nodes):
                         try:
                             await session.post(f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery",json={"callback_query_id":cb.get("id")})
                         except Exception: pass
+                    # Chat allowlisting alone is insufficient in group chats:
+                    # a different group member could otherwise press privileged buttons.
+                    actor=(cb.get("from") if cb else (upd.get("message") or {}).get("from")) or {}
+                    actor_id=actor.get("id")
+                    chat_type=(msg.get("chat") or {}).get("type")
+                    if chat_type != "private" or actor_id is None or str(actor_id)!=str(chat):
+                        log.warning("telegram non-private or mismatched sender denied",
+                                    extra={"event":"telegram_denied_sender"})
+                        offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
+                        continue
                     if not chat or not txt.startswith("/"):
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     if not allowed(chat):
