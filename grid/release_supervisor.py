@@ -139,7 +139,8 @@ def _after_exit(root,version,runtime,exit_code=1):
     crash=root/"pending-crashes.txt"
     try:count=int(_read(crash) or "0")
     except ValueError:count=0
-    count+=1; _atomic(crash,count)
+    # A corrupt or negative counter must not force premature rollback.
+    count=max(0,count)+1; _atomic(crash,count)
     if count<3:return False
     prev=_read(root/"previous.version")
     candidate=root/"releases"/prev
