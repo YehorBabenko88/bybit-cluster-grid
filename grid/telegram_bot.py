@@ -638,8 +638,17 @@ async def telegram_loop(db,nodes):
                         previous=await db.pool.fetchval(
                             "SELECT status FROM telegram_updates WHERE update_id=$1",
                             int(upd["update_id"]))
+                        if previous=="FAILED":
+                            # A failed command may have partially applied side effects.
+                            # Do not replay it automatically. Preserve the audit row and
+                            # allow later unrelated commands to be processed.
+                            log.error("telegram failed update quarantined for manual reconciliation",
+                                      extra={"event":"telegram_update_quarantined",
+                                             "component":str(upd["update_id"])})
+                            offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
+                            continue
                         if previous!="DONE":
-                            log.error("telegram update needs reconciliation",
+                            log.error("telegram in-flight update needs reconciliation",
                                       extra={"event":"telegram_update_unresolved"})
                             raise RuntimeError("Telegram update not completed; cursor preserved")
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
