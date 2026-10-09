@@ -36,7 +36,7 @@ def test_scientific_atomic_claim_and_expired_recovery():
                     await conn.execute("""INSERT INTO scientific_simulation_runs
                         (id,hypothesis_id,dataset_cutoff) VALUES($1,$2,$3)""",
                         run_id,hypothesis_id,datetime.now(timezone.utc))
-                # Keep each connection search_path bound for the whole pool.
+                # New pool connections each receive the dedicated test schema.
                 await pool.close()
                 pool2 = await asyncpg.create_pool(
                     DSN, min_size=2, max_size=5,
