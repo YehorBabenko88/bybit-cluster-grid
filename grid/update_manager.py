@@ -147,11 +147,13 @@ def cleanup_release_storage(install_root,data_root,keep_recent=2,older_than_seco
             except OSError:
                 pass
 
-    # Manual/local upgrade workspaces are reproducible from verified immutable artifacts.
+    # Only managed, disposable upgrade staging directories may be removed.
+    # Never delete manual upgrade-audit workspaces: they may contain the only
+    # verified release bundle, integrity reports, and recovery evidence.
     if data_root.exists():
-        for p in data_root.glob("upgrade-*"):
+        for p in data_root.glob("upgrade-staging-*"):
             try:
-                if p.is_dir() and p.stat().st_mtime<cutoff:
+                if p.is_dir() and not p.is_symlink() and p.stat().st_mtime<cutoff:
                     shutil.rmtree(p); removed_upgrades.append(p.name)
             except OSError:
                 pass
