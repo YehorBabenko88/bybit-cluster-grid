@@ -15,6 +15,14 @@ param(
     [switch]$Apply
 )
 $ErrorActionPreference = 'Stop'
+# An exclusive cross-process lock prevents concurrent promotions on this host.
+$lockName = 'Global\\BybitClusterGridReleaseSwitch'
+$mutex = New-Object System.Threading.Mutex($false, $lockName)
+$lockHeld = $false
+try {
+    try { $lockHeld = $mutex.WaitOne(0) }
+    catch [System.Threading.AbandonedMutexException] { $lockHeld = $true }
+    if (-not $lockHeld) { throw 'Another Grid release switch is already running' }
 $releaseRoot = Join-Path $InstallRoot 'releases'
 $release = Join-Path $releaseRoot $Version
 $required = if ($Role -eq 'CONTROL') { 'grid\coordinator.py' } else { 'run_worker.py' }
@@ -79,3 +87,8 @@ Write-Atomic (Join-Path $InstallRoot 'pending.version') $Version
 Write-Atomic $marker $Version
 Write-Output "PENDING_SWITCH=$Version"
 Write-Output 'No service was started. An orchestrator must start and verify the release.'
+
+} finally {
+    if ($lockHeld) { $mutex.ReleaseMutex() }
+    $mutex.Dispose()
+}
