@@ -73,9 +73,10 @@ def _child_job(proc):
     kernel.CloseHandle.restype = wintypes.BOOL
     job = kernel.CreateJobObjectW(None, None)
     if not job:
+        error = ctypes.get_last_error()
         proc.terminate()
         proc.wait()
-        raise OSError(ctypes.get_last_error(), "CreateJobObjectW failed")
+        raise OSError(error, "CreateJobObjectW failed")
     try:
         limits = ExtendedLimit()
         limits.BasicLimitInformation.LimitFlags = 0x2000
