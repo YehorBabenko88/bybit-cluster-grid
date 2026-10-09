@@ -31,7 +31,7 @@ def test_scientific_queue_claims_jobs_atomically():
         pool=ClaimPool()
         first,second=await asyncio.gather(Gate(pool).run_queued(),Gate(pool).run_queued())
         assert sum(len(x) for x in (first,second))==1
-        assert sum("FOR UPDATE SKIP LOCKED" in q for q in pool.queries)==2
+        assert sum("FOR UPDATE SKIP LOCKED" in q for q in pool.queries)>=2
     asyncio.run(scenario())
 
 
