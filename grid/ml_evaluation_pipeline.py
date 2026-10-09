@@ -93,6 +93,8 @@ async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
         # Require a fresh robustness gate even if the new OOS result passes.
         await c.execute("""UPDATE model_evaluations SET passed=false
           WHERE model_id=$1 AND stage='ROBUSTNESS'""",model_id)
+        await c.execute("""UPDATE model_registry SET status='OOS_PASSED'
+          WHERE id=$1 AND status='ROBUSTNESS_PASSED' AND $2=true""",model_id,passed)
     if passed:
         target={"OOS":"OOS_PASSED","ROBUSTNESS":"ROBUSTNESS_PASSED"}[stage]
         # Never downgrade a robustness-approved model on an OOS recheck.
