@@ -47,19 +47,50 @@ class FloatingLeader:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                # Loss of the shared lease store must fail closed immediately.
-                # Do not let a transient PostgreSQL outage kill the election loop:
-                # clear local leadership and keep campaigning after the normal
-                # renewal interval so recovery is automatic when DB returns.
+                # A disconnected lease store must never authorize mutations.
                 log.exception("leader election database operation failed",
                               extra={"event":"leader_db_error","node_id":self.node_id})
                 current=False
                 self.is_leader=False
                 self.epoch=None
-            if current and not previous and on_gain: await on_gain(self.epoch)
-            if previous and not current and on_loss: await on_loss()
+
+            if current and not previous:
+                try:
+                    if on_gain:
+                        await on_gain(self.epoch)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    # Startup did not complete: stop campaigning as leader
+                    # locally and let the next iteration reacquire a new epoch.
+                    log.exception("leader gain callback failed",
+                                  extra={"event":"leader_gain_error","node_id":self.node_id})
+                    current=False
+                    self.is_leader=False
+                    self.epoch=None
+            if previous and not current:
+                try:
+                    if on_loss:
+                        await on_loss()
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    # Do not claim the singleton was stopped. Retry on_loss
+                    # before allowing another gain callback on this process.
+                    log.exception("leader loss callback failed",
+                                  extra={"event":"leader_loss_error","node_id":self.node_id})
+                    previous=True
+                    self.is_leader=False
+                    self.epoch=None
+                    try:
+                        await asyncio.wait_for(self.stop_event.wait(),timeout=self.renew_seconds)
+                    except asyncio.TimeoutError:
+                        pass
+                    continue
             previous=current
-            try: await asyncio.wait_for(self.stop_event.wait(),timeout=self.renew_seconds)
-            except asyncio.TimeoutError: pass
+            try:
+                await asyncio.wait_for(self.stop_event.wait(),timeout=self.renew_seconds)
+            except asyncio.TimeoutError:
+                pass
 
     def stop(self):self.stop_event.set()
