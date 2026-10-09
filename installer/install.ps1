@@ -26,6 +26,9 @@ $Action=New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arg -Workin
 $Trigger=New-ScheduledTaskTrigger -AtStartup
 $Principal=New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 $Settings=New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
+# Grid services are long-running. Task Scheduler defaults to a 72-hour limit;
+# explicitly disable it so healthy workers/coordinators are not terminated.
+$Settings.ExecutionTimeLimit = [TimeSpan]::Zero
 # Dedicated/remote nodes must recover after mains loss even when Windows reports
 # battery/UPS power. Power source must not suppress or terminate Grid services.
 $Settings.DisallowStartIfOnBatteries=$false
