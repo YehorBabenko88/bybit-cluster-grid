@@ -101,3 +101,18 @@ def test_torn_tail_is_preserved_before_truncation(tmp_path):
         second=await restarted.append({"n":2})
         assert restarted.recover()==[(first,{"n":1}),(second,{"n":2})]
     asyncio.run(run())
+
+
+def test_wal_rejects_out_of_order_ack_without_losing_earlier_record(tmp_path):
+    async def run():
+        wal=SegmentWAL(tmp_path,max_bytes=10000)
+        first=await wal.append({"n":1})
+        second=await wal.append({"n":2})
+        with pytest.raises(ValueError,match="out of order"):
+            await wal.ack(second)
+        assert wal.recover()==[(first,{"n":1}),(second,{"n":2})]
+        await wal.ack(first)
+        assert wal.recover()==[(second,{"n":2})]
+        await wal.ack(second)
+        assert wal.recover()==[]
+    asyncio.run(run())
