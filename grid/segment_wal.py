@@ -44,6 +44,11 @@ class SegmentWAL:
                     f.write(bytes((10,)))
                     f.flush();os.fsync(f.fileno())
                     return
+                # Preserve the damaged bytes for forensic recovery. Only the
+                # incomplete final record may be truncated, never earlier rows.
+                damaged=self.root/(p.name+".torn-tail")
+                with open(damaged,"wb") as copy:
+                    copy.write(tail);copy.flush();os.fsync(copy.fileno())
                 f.truncate(0 if cut<0 else cut+1)
                 f.flush();os.fsync(f.fileno())
         except OSError:
@@ -78,7 +83,7 @@ class SegmentWAL:
 
     def bytes_used(self):
         total=0
-        for p in self._segments():
+        for p in list(self._segments())+list(self.root.glob("*.torn-tail")):
             try: total+=p.stat().st_size
             except OSError: pass
         return total
@@ -127,8 +132,8 @@ class SegmentWAL:
                             # Silent skipping plus a later checkpoint can permanently
                             # discard a corrupt but unacknowledged record. Fail closed.
                             raise ValueError(f"Corrupt WAL record in {p.name}") from exc
-            except OSError:
-                continue
+            except OSError as exc:
+                raise OSError(f"Unable to read WAL segment {p.name}") from exc
 
     def iter_recover(self):
         """Stream pending records so a large outage backlog is never materialized in RAM."""
