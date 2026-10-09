@@ -113,10 +113,21 @@ function Write-Atomic([string]$Path,[string]$Value) {
         if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
     }
 }
+# A journal is written before the first marker mutation. If power fails,
+# launchers can distinguish prepared vs committed promotions on next boot.
+$journalPath = Join-Path $InstallRoot 'switch-journal.json'
+if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
+    throw 'Unresolved switch journal exists; recovery required before promotion'
+}
+$journal = [ordered]@{ schema=1; previous=$current; candidate=$Version; phase='prepared' } | ConvertTo-Json -Compress
+Write-Atomic $journalPath $journal
 # Preserve rollback before promoting the new current pointer.
 Write-Atomic (Join-Path $InstallRoot 'previous.version') $current
 Write-Atomic (Join-Path $InstallRoot 'pending.version') $Version
 Write-Atomic $marker $Version
+# Mark the transaction committed only after the current pointer was persisted.
+$journal = [ordered]@{ schema=1; previous=$current; candidate=$Version; phase='committed' } | ConvertTo-Json -Compress
+Write-Atomic $journalPath $journal
 Write-Output "PENDING_SWITCH=$Version"
 Write-Output 'No service was started. An orchestrator must start and verify the release.'
 
