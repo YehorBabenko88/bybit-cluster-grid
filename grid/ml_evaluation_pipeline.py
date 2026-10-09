@@ -41,7 +41,7 @@ async def record_robustness_evaluation(pool,model_id,dataset_id,trades,evaluator
       passed=false,evaluator_version=EXCLUDED.evaluator_version,created_at=now()""",
               eid,model_id,dataset_id,json.dumps(metrics),evaluator_version)
             await c.execute("""UPDATE model_registry SET status='REJECTED'
-              WHERE id=$1 AND status IN ('OOS_PASSED','ROBUSTNESS_PASSED')""",model_id)
+              WHERE id=$1 AND status='ROBUSTNESS_PASSED'""",model_id)
     return metrics
 
 async def apply_evaluation_gate(pool,model_id,stage,requirements):
