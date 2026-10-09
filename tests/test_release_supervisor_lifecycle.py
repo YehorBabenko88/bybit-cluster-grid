@@ -1,5 +1,8 @@
 """Regression tests for release supervisor rollback and confirmation guards."""
 import pathlib
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -7,6 +10,24 @@ from grid import release_supervisor as supervisor
 
 
 class ReleaseSupervisorTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Windows named mutex test")
+    def test_second_supervisor_cannot_launch_child(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            child = root / "child.py"
+            child.write_text("import time; time.sleep(30)", encoding="utf-8")
+            cmd = [
+                sys.executable, "-m", "grid.release_supervisor",
+                "--install-root", str(root), "--version", "a" * 40,
+                "--cwd", str(root), "--readiness", "worker",
+                "--", sys.executable, str(child),
+            ]
+            with supervisor._single_instance(root, "worker"):
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("already running", result.stderr)
+            self.assertFalse((root / "release-ready.txt").exists())
+
     def test_three_crashes_roll_back_and_quarantine(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
