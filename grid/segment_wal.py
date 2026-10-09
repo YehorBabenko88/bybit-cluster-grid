@@ -86,8 +86,8 @@ class SegmentWAL:
     def bytes_used(self):
         total=0
         for p in list(self._segments())+list(self.root.glob("*.torn-tail")):
-            try: total+=p.stat().st_size
-            except OSError: pass
+            # A failed stat must not undercount the quota and allow more writes.
+            total+=p.stat().st_size
         return total
 
     def ratio(self):
@@ -99,7 +99,8 @@ class SegmentWAL:
             p=segs[-1]
             try:
                 if p.stat().st_size<self.segment_bytes: return p
-            except OSError: pass
+            except OSError:
+                raise
         return self.root/f"wal-{time.time_ns():020d}.seg"
 
     async def append(self,payload):
