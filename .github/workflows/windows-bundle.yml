@@ -81,6 +81,17 @@ jobs:
             }
           }
 
+      - name: Parse service launchers
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          foreach($file in @('installer/launcher.ps1','installer/coordinator-launcher.ps1','installer/recover-release.ps1')){
+            $tokens=$null
+            $errors=$null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)
+            if($errors.Count -gt 0){ throw ("PowerShell parse failed for "+$file+": "+(($errors | ForEach-Object {$_.Message}) -join '; ')) }
+          }
+
       - name: Test guarded release switch
         shell: pwsh
         run: |
