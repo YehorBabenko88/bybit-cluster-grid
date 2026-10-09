@@ -150,6 +150,10 @@ class SegmentWAL:
         async with self._lock:
             current=self._checkpoint_id()
             if record_id<=current: return
+            # Checkpoints represent a contiguous committed prefix, never the
+            # highest successful write. A gap would discard earlier WAL data.
+            if record_id!=current+1:
+                raise ValueError("WAL acknowledgement out of order")
             tmp=self.root/"checkpoint.next"
             with open(tmp,"w",encoding="ascii") as f:
                 f.write(str(record_id)); f.flush(); os.fsync(f.fileno())
