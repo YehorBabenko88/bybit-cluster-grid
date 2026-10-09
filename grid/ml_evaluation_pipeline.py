@@ -115,6 +115,11 @@ async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
         await c.execute("""UPDATE model_registry SET status='REJECTED'
           WHERE id=$1 AND status IN ('OOS_PASSED','ROBUSTNESS_PASSED')""",model_id)
     if passed and stage=="ROBUSTNESS":
+        oos=await c.fetchrow("""SELECT passed FROM model_evaluations
+          WHERE model_id=$1 AND stage='OOS' AND dataset_id=$2
+          ORDER BY created_at DESC LIMIT 1""",model_id,model["dataset_id"])
+        if not oos or oos["passed"] is not True:
+            raise ValueError("robustness requires a passing OOS evaluation")
         # A gate is successful only if the model actually reached the target state.
         current=await c.fetchval("SELECT status FROM model_registry WHERE id=$1",model_id)
         if current not in ("ROBUSTNESS_PASSED","PRODUCTION"):
