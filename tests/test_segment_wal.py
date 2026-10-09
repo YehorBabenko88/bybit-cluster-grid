@@ -43,3 +43,22 @@ def test_wal_hard_capacity(tmp_path):
         assert failed
         assert w.ratio()<=1.0
     asyncio.run(run())
+
+
+def test_restart_repairs_valid_tail_without_newline_before_append(tmp_path):
+    async def run():
+        first=SegmentWAL(tmp_path,max_bytes=10000)
+        rid1=await first.append({"symbol":"BTC","n":1})
+        segment=first._segments()[0]
+        raw=segment.read_bytes()
+        assert raw.endswith(bytes((10,)))
+        segment.write_bytes(raw[:-1])
+        restarted=SegmentWAL(tmp_path,max_bytes=10000)
+        rid2=await restarted.append({"symbol":"ETH","n":2})
+        assert rid2>rid1
+        assert restarted.recover()==[
+            (rid1,{"symbol":"BTC","n":1}),
+            (rid2,{"symbol":"ETH","n":2}),
+        ]
+        assert len(segment.read_bytes().splitlines())==2
+    asyncio.run(run())
