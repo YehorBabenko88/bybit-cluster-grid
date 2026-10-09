@@ -33,7 +33,7 @@ class ScientificSimulationGate:
           WHERE status='RUNNING'
             AND (lease_expires_at<now() OR lease_expires_at IS NULL)""")
         out=[]
-        for _ in range(max(1,int(limit))):
+        for _ in range(max(0,int(limit))):
             # A single atomic UPDATE claims the oldest available job across workers.
             # SKIP LOCKED prevents another worker from selecting the same row.
             r=await self.pool.fetchrow("""UPDATE scientific_simulation_runs AS target
