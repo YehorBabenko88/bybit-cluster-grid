@@ -481,7 +481,8 @@ BEGIN
   IF model_status='PRODUCTION' THEN
     RAISE EXCEPTION 'production model evaluations are immutable';
   END IF;
-  RETURN COALESCE(NEW,OLD);
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
 END
 $""",
 """DROP TRIGGER IF EXISTS protect_production_model_evaluations ON model_evaluations""",
