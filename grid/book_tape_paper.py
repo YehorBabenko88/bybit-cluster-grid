@@ -32,6 +32,9 @@ class BookTapePaperLearner:
         """Versioned JSON-compatible bounded state for durable checkpoints."""
         return {"schema_version":1,"horizon_ms":self.horizon_ms,
                 "cost_bps":self.cost_bps,"max_exit_delay_ms":self.max_exit_delay_ms,
+                "min_samples":self.min_samples,"min_hit_rate":self.min_hit_rate,
+                "max_pending":self.max_pending,"window":self.signal.window,
+                "min_history":self.signal.min_history,
                 "history":{sym:[list(item) for item in items]
                            for sym,items in self.signal.history.items()},
                 "last_ts":dict(self.signal.last_ts),
@@ -49,7 +52,12 @@ class BookTapePaperLearner:
             raise ValueError("unsupported paper checkpoint")
         if (snapshot.get("horizon_ms")!=self.horizon_ms
             or snapshot.get("cost_bps")!=self.cost_bps
-            or snapshot.get("max_exit_delay_ms")!=self.max_exit_delay_ms):
+            or snapshot.get("max_exit_delay_ms")!=self.max_exit_delay_ms
+            or snapshot.get("min_samples")!=self.min_samples
+            or snapshot.get("min_hit_rate")!=self.min_hit_rate
+            or snapshot.get("max_pending")!=self.max_pending
+            or snapshot.get("window")!=self.signal.window
+            or snapshot.get("min_history")!=self.signal.min_history):
             raise ValueError("paper checkpoint configuration mismatch")
         history=defaultdict(lambda:deque(maxlen=self.signal.window))
         last_ts={}
