@@ -39,7 +39,7 @@ class BookTapePaperLearner:
                            for sym,items in self.signal.history.items()},
                 "last_ts":dict(self.signal.last_ts),
                 "pending":{sym:[dict(item) for item in items]
-                           for sym,items in self.pending.items()},
+                           for sym,items in self.pending.items() if items},
                 "stats":[{"symbol":sym,"pattern":pattern,"direction":direction,
                           **dict(value)}
                          for (sym,pattern,direction),value in self.stats.items() if direction in (-1,1)]}
