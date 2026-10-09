@@ -44,6 +44,12 @@ try {
     catch { $blocked = $true }
     Assert $blocked 'Previously failed release must be blocked'
     Remove-Item -LiteralPath (Join-Path $root 'failed.version') -Force
+    Set-Content -LiteralPath (Join-Path $root 'pending.version') -Value $b
+    $blocked = $false
+    try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null }
+    catch { $blocked = $true }
+    Assert $blocked 'Existing pending switch must block another promotion'
+    Remove-Item -LiteralPath (Join-Path $root 'pending.version') -Force
     $mutex = [System.Threading.Mutex]::new($false, 'Global\BybitClusterGridReleaseSwitch')
     $held = $mutex.WaitOne(0)
     Assert $held 'Could not acquire test mutex'
