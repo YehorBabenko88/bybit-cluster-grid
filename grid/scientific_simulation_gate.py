@@ -59,6 +59,11 @@ class ScientificSimulationGate:
             lease_token=row["lease_token"]
         if lease_token is None:
             return {"run_id":str(run_id),"status":"NOT_CLAIMED"}
+        owned=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET lease_expires_at=now()+interval '30 minutes'
+          WHERE id=$1 AND lease_token=$2 AND status='RUNNING'
+            AND lease_expires_at>now() RETURNING true""",run_id,lease_token)
+        if not owned:return {"run_id":str(run_id),"status":"LEASE_LOST"}
         oos_start=await self.pool.fetchval("""SELECT max(dataset_cutoff)
           FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1 AND passed=true""",hypothesis_id)
         if oos_start is None:
@@ -102,6 +107,11 @@ class ScientificSimulationGate:
             [x["net_return_bps"] for x in base["trades"]],self.config.monte_carlo_paths,str(run_id),
             float(self.config.position_risk_fraction)/.005)
         passed,checks,p95=promotion_decision(base["metrics"],stress["metrics"],mc,self.config)
+        owned=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET lease_expires_at=now()+interval '30 minutes'
+          WHERE id=$1 AND lease_token=$2 AND status='RUNNING'
+            AND lease_expires_at>now() RETURNING true""",run_id,lease_token)
+        if not owned:return {"run_id":str(run_id),"status":"LEASE_LOST"}
         for t in base["trades"]:
             await self.pool.execute("""INSERT INTO scientific_simulation_trades(
               run_id,ordinal,symbol,event_ts_ms,split_key,raw_return_bps,net_return_bps,
@@ -111,6 +121,11 @@ class ScientificSimulationGate:
               t["event_ts_ms"],t["split_key"],t["raw_return_bps"],t["net_return_bps"],
               t["fill_fraction"],t["fee_bps"],t["spread_bps"],t["slippage_bps"],t["latency_bps"],
               t["funding_bps"],t["equity_after"])
+        owned=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET lease_expires_at=now()+interval '30 minutes'
+          WHERE id=$1 AND lease_token=$2 AND status='RUNNING'
+            AND lease_expires_at>now() RETURNING true""",run_id,lease_token)
+        if not owned:return {"run_id":str(run_id),"status":"LEASE_LOST"}
         metrics={**base["metrics"],"checks":checks,"monte_carlo_max_dd_p95":p95}
         status="SIMULATION_PASSED" if passed else "SIMULATION_FAILED"
         await self.pool.execute("""UPDATE scientific_simulation_runs SET status=$2,
