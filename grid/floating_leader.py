@@ -11,6 +11,10 @@ class FloatingLeader:
     async def campaign(self):
         async with self.pool.acquire() as c:
             async with c.transaction():
+                # SELECT FOR UPDATE locks existing rows only. On first boot the
+                # lease row is absent, so two candidates could both win.
+                # Serialize even the initial campaign with a transaction lock.
+                await c.execute("SELECT pg_advisory_xact_lock(1729, 4511)")
                 row=await c.fetchrow("""SELECT owner,lease_until,metadata FROM service_leases
                   WHERE service_key='control-plane-leader' FOR UPDATE""")
                 if row and row["owner"]!=self.node_id and row["lease_until"] and row["lease_until"]>await c.fetchval("SELECT now()"):
