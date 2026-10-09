@@ -107,6 +107,11 @@ async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
         # Production models require an explicit separate rollback decision.
         await c.execute("""UPDATE model_registry SET status='REJECTED'
           WHERE id=$1 AND status IN ('OOS_PASSED','ROBUSTNESS_PASSED')""",model_id)
+    if passed and stage=="ROBUSTNESS":
+        # A gate is successful only if the model actually reached the target state.
+        current=await c.fetchval("SELECT status FROM model_registry WHERE id=$1",model_id)
+        if current not in ("ROBUSTNESS_PASSED","PRODUCTION"):
+            raise ValueError("robustness evaluation cannot advance model before OOS")
     return passed
 
 
