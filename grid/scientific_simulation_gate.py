@@ -30,7 +30,8 @@ class ScientificSimulationGate:
           SET status=CASE WHEN attempts>=3 THEN 'SIMULATION_FAILED' ELSE 'QUEUED' END,
               reason='simulation lease expired',
               lease_token=NULL,lease_expires_at=NULL
-          WHERE status='RUNNING' AND lease_expires_at<now()""")
+          WHERE status='RUNNING'
+            AND (lease_expires_at<now() OR lease_expires_at IS NULL)""")
         out=[]
         for _ in range(max(1,int(limit))):
             # A single atomic UPDATE claims the oldest available job across workers.
