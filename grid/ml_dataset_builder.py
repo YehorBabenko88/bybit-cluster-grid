@@ -19,7 +19,7 @@ class DatasetBuilder:
                       instrument_features,target,quality_status,split_group,label_end_ts
                       FROM ml_event_samples
                       WHERE target_ready=true AND quality_status='GOOD' AND event_ts<=$1
-                        AND COALESCE(label_end_ts,event_ts)<=$1
+                        AND label_end_ts IS NOT NULL AND label_end_ts<=$1
                         AND feature_ts<event_ts ORDER BY event_ts,sample_id""",cutoff_ts,
                       prefetch=self.batch_size)
                     members=[];payloads=[]
