@@ -12,6 +12,7 @@ on:
       - "run_worker.py"
       - "run_coordinator.py"
       - "requirements.txt"
+      - "requirements-ml.txt"
       - ".github/workflows/windows-bundle.yml"
 
 permissions:
@@ -41,7 +42,7 @@ jobs:
           $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
           New-Item -ItemType Directory -Force $bundle | Out-Null
           Copy-Item grid,installer,strategies -Destination $bundle -Recurse
-          Copy-Item run_worker.py,run_coordinator.py,requirements.txt -Destination $bundle
+          Copy-Item run_worker.py,run_coordinator.py,requirements.txt,requirements-ml.txt -Destination $bundle
           $py=(Get-Command python).Source
           $pyRoot=Split-Path $py -Parent
           $runtime=Join-Path $bundle "runtime"
@@ -112,6 +113,7 @@ jobs:
         run: |
           $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
           if(!(Test-Path (Join-Path $bundle "installer\\harden-host.ps1"))){ throw "harden-host.ps1 missing from Windows bundle" }
+          if(!(Test-Path (Join-Path $bundle "requirements-ml.txt"))){ throw "requirements-ml.txt missing from Windows bundle" }
 
       - name: CONTROL preflight on finished bundle
         shell: pwsh
