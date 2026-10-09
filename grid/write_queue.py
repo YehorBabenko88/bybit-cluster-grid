@@ -10,6 +10,7 @@ class BoundedWriteQueue:
         self.tasks=[]
         self.writes=0
         self.failures=0
+        self.last_failure_at=None
         self.total_latency=0.0
         self.started=time.monotonic()
         self.retry_base_seconds=float(retry_base_seconds)
@@ -45,6 +46,8 @@ class BoundedWriteQueue:
             "queue_ratio":self.q.qsize()/max(1,self.q.maxsize),
             "writes_per_sec":self.writes/elapsed,
             "write_failures":self.failures,
+            "seconds_since_last_failure":(max(0.0,time.monotonic()-self.last_failure_at)
+                                          if self.last_failure_at is not None else None),
             "avg_write_latency_ms":(self.total_latency/max(1,self.writes))*1000,
         }
 
@@ -65,6 +68,7 @@ class BoundedWriteQueue:
                         raise
                     except Exception:
                         self.failures+=1
+                        self.last_failure_at=time.monotonic()
                         log.exception("database write failed; retrying",extra={"event":"db_retry","delay":delay})
                         await asyncio.sleep(delay)
                         delay=min(self.retry_max_seconds,delay*2)
