@@ -7,6 +7,9 @@ class ClaimPool:
         self.remaining=[{"id":"one","hypothesis_id":"hyp","dataset_cutoff":"cutoff"}]
         self.queries=[]
 
+    async def fetchval(self,query,*args):
+        return None
+
     async def execute(self,query,*args):
         self.queries.append(query)
         return "UPDATE 0"
@@ -20,7 +23,7 @@ class ClaimPool:
 
 def test_scientific_queue_claims_jobs_atomically():
     class Gate(ScientificSimulationGate):
-        async def run_one(self,run_id,hypothesis_id,dataset_cutoff,claimed=False):
+        async def run_one(self,run_id,hypothesis_id,dataset_cutoff,claimed=False,lease_token=None):
             assert claimed is True
             return {"run_id":run_id,"status":"SIMULATION_FAILED"}
 
@@ -28,7 +31,7 @@ def test_scientific_queue_claims_jobs_atomically():
         pool=ClaimPool()
         first,second=await asyncio.gather(Gate(pool).run_queued(),Gate(pool).run_queued())
         assert sum(len(x) for x in (first,second))==1
-        assert all("FOR UPDATE SKIP LOCKED" in q for q in pool.queries)
+        assert sum("FOR UPDATE SKIP LOCKED" in q for q in pool.queries)==2
     asyncio.run(scenario())
 
 
