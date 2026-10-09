@@ -118,6 +118,7 @@ class ReleaseSupervisorTests(unittest.TestCase):
             root = pathlib.Path(tmp)
             new = "b" * 40
             (root / "pending.version").write_text(new)
+            (root / "current.version").write_text(new)
             (root / "previous.version").write_text("a" * 40)
             for _ in range(3):
                 self.assertFalse(supervisor._after_exit(root, new, 1))
