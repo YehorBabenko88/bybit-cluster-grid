@@ -1,4 +1,5 @@
 import asyncio,json
+import pytest
 from grid.segment_wal import SegmentWAL
 
 def test_wal_append_recover_checkpoint(tmp_path):
@@ -21,7 +22,8 @@ def test_wal_crc_rejects_corrupt_record(tmp_path):
         obj=json.loads(seg.read_text().splitlines()[0])
         obj["payload"]={"ok":999}
         seg.write_text(json.dumps(obj)+"\n",encoding="utf-8")
-        assert w.recover()==[]
+        with pytest.raises(ValueError,match="Corrupt WAL record"):
+            w.recover()
     asyncio.run(run())
 
 def test_wal_rotates_segments(tmp_path):
@@ -61,4 +63,24 @@ def test_restart_repairs_valid_tail_without_newline_before_append(tmp_path):
             (rid2,{"symbol":"ETH","n":2}),
         ]
         assert len(segment.read_bytes().splitlines())==2
+    asyncio.run(run())
+
+
+def test_corrupt_middle_record_blocks_replay_and_prevents_checkpoint_skip(tmp_path):
+    async def run():
+        w=SegmentWAL(tmp_path,max_bytes=10000)
+        a=await w.append({"n":1})
+        b=await w.append({"n":2})
+        c=await w.append({"n":3})
+        segment=w._segments()[0]
+        rows=segment.read_text(encoding="utf-8").splitlines()
+        tampered=json.loads(rows[1])
+        tampered["payload"]={"n":999}
+        rows[1]=json.dumps(tampered)
+        segment.write_text(chr(10).join(rows)+chr(10),encoding="utf-8")
+        with pytest.raises(ValueError,match="Corrupt WAL record"):
+            list(w.iter_recover())
+        with pytest.raises(ValueError,match="Corrupt WAL record"):
+            SegmentWAL(tmp_path,max_bytes=10000)
+        assert (a,b,c)==(1,2,3)
     asyncio.run(run())
