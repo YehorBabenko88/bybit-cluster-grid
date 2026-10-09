@@ -154,6 +154,14 @@ async def handle_command(db,session,chat_id,text,nodes):
         await tg_send(session,chat_id,
             "Lifecycle: "+p["phase"]+"\nCompleted: "+(", ".join(p["completed"]) or "-")+
             "\nCapabilities: "+", ".join(f"{k}={'ON' if v else 'OFF'}" for k,v in caps.items()))
+    elif cmd=="/telegramfailed":
+        rows=await db.pool.fetch("""SELECT update_id,command,error,completed_at
+          FROM telegram_updates WHERE status='FAILED'
+          ORDER BY completed_at DESC NULLS LAST LIMIT 10""")
+        lines=["Telegram failed commands (manual review required):"]
+        for item in rows:
+            lines.append(f"#{item['update_id']} {str(item['command'] or '')[:80]} | {str(item['error'] or '')[:100]}")
+        await tg_send(session,chat_id,"\n".join(lines) if rows else "No failed Telegram commands.")
     elif cmd=="/simstatus":
         rows=await db.pool.fetch("""SELECT status,count(*) n FROM scientific_simulation_runs GROUP BY status""")
         recent=await db.pool.fetchrow("""SELECT r.status,r.reason,r.completed_at,h.pattern,h.horizon_ms
