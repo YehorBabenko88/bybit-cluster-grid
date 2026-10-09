@@ -102,7 +102,8 @@ def test_zero_negative_nan_and_infinite_capacity_never_receive_work():
     nodes={n:{"accepts_work":True} for n in ["good","zero","negative","nan","inf"]}
     scores={"good":2,"zero":0,"negative":-2,"nan":float("nan"),"inf":float("inf")}
     out=weighted_assign(["BTC","ETH"],scores,nodes)
-    assert out=={"good":["BTC","ETH"]}
+    assert set(out)=={"good"}
+    assert sorted(out["good"])==["BTC","ETH"]
 
 
 def test_all_unusable_nodes_produce_no_assignments():
