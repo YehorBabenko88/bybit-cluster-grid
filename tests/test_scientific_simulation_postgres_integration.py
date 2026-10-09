@@ -66,6 +66,51 @@ def test_scientific_atomic_claim_and_expired_recovery():
                         "SELECT status,lease_token FROM scientific_simulation_runs WHERE id=$1",
                         run_id)
                     assert row["status"]=="QUEUED" and row["lease_token"] is None
+                    # A stale worker cannot renew or finalize a reclaimed job.
+                    stale_token = uuid.uuid4()
+                    changed = await pool2.fetchval(
+                        """UPDATE scientific_simulation_runs
+                           SET status='SIMULATION_PASSED'
+                           WHERE id=$1 AND status='RUNNING'
+                             AND lease_token=$2 AND lease_expires_at>now()
+                           RETURNING true""", run_id, stale_token)
+                    assert changed is None
+                    assert await pool2.fetchval(
+                        "SELECT status FROM scientific_simulation_runs WHERE id=$1",
+                        run_id) == "QUEUED"
+
+                    # Simulate a crash after inserting a trade but before
+                    # completing the run: neither write may survive rollback.
+                    await pool2.execute("""CREATE TABLE scientific_simulation_trades(
+                        run_id uuid NOT NULL, ordinal integer NOT NULL,
+                        PRIMARY KEY(run_id,ordinal))""")
+                    await pool2.execute("""UPDATE scientific_simulation_runs
+                        SET status='RUNNING',lease_token=$2,
+                            lease_expires_at=now()+interval '30 minutes'
+                        WHERE id=$1""",run_id,stale_token)
+                    with pytest.raises(RuntimeError,match="simulated crash"):
+                        async with pool2.acquire() as conn:
+                            async with conn.transaction():
+                                owner=await conn.fetchval(
+                                    """SELECT true FROM scientific_simulation_runs
+                                       WHERE id=$1 AND status='RUNNING'
+                                         AND lease_token=$2 AND lease_expires_at>now()
+                                       FOR UPDATE""",run_id,stale_token)
+                                assert owner is True
+                                await conn.execute(
+                                    """INSERT INTO scientific_simulation_trades(run_id,ordinal)
+                                       VALUES($1,1)""",run_id)
+                                await conn.execute(
+                                    """UPDATE scientific_simulation_runs
+                                       SET status='SIMULATION_PASSED' WHERE id=$1""",run_id)
+                                raise RuntimeError("simulated crash")
+                    assert await pool2.fetchval(
+                        "SELECT count(*) FROM scientific_simulation_trades WHERE run_id=$1",
+                        run_id)==0
+                    assert await pool2.fetchval(
+                        "SELECT status FROM scientific_simulation_runs WHERE id=$1",
+                        run_id)=="RUNNING"
+
                 finally:
                     await pool2.close()
             finally:
