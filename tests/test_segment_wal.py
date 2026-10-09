@@ -95,7 +95,9 @@ def test_torn_tail_is_preserved_before_truncation(tmp_path):
             stream.write(b'{"id":2,"payload":')
         restarted=SegmentWAL(tmp_path,max_bytes=10000)
         assert restarted.recover()==[(first,{"n":1})]
-        evidence=tmp_path/(seg.name+".torn-tail")
+        evidence_files=list(tmp_path.glob("*.torn-tail"))
+        assert len(evidence_files)==1
+        evidence=evidence_files[0]
         assert evidence.read_bytes()==b'{"id":2,"payload":'
         assert restarted.bytes_used()>=seg.stat().st_size+evidence.stat().st_size
         second=await restarted.append({"n":2})
@@ -115,4 +117,22 @@ def test_wal_rejects_out_of_order_ack_without_losing_earlier_record(tmp_path):
         assert wal.recover()==[(second,{"n":2})]
         await wal.ack(second)
         assert wal.recover()==[]
+    asyncio.run(run())
+
+
+def test_repeated_torn_tails_preserve_separate_evidence(tmp_path):
+    async def run():
+        wal=SegmentWAL(tmp_path,max_bytes=10000)
+        await wal.append({"n":1})
+        seg=wal._segments()[0]
+        with open(seg,"ab") as stream:
+            stream.write(b"first-torn-tail")
+        SegmentWAL(tmp_path,max_bytes=10000)
+        with open(seg,"ab") as stream:
+            stream.write(b"second-torn-tail")
+        again=SegmentWAL(tmp_path,max_bytes=10000)
+        evidence=sorted(p.read_bytes() for p in tmp_path.glob("*.torn-tail"))
+        assert evidence==[b"first-torn-tail",b"second-torn-tail"]
+        assert again.recover()==[(1,{"n":1})]
+        assert again.bytes_used()>=sum(len(x) for x in evidence)
     asyncio.run(run())
