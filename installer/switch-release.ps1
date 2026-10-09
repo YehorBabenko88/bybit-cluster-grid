@@ -35,16 +35,31 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
 }
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($manifest.version -ne $Version) { throw 'Candidate release manifest version mismatch' }
-# Validate every manifest entry before allowing a pointer change.
+# Validate manifest paths and hashes before any pointer changes.
 if ($null -eq $manifest.files -or @($manifest.files.PSObject.Properties).Count -eq 0) {
     throw 'Release manifest has no file checksums'
 }
-$releaseFull = [IO.Path]::GetFullPath($release).TrimEnd([char]'\\') + [IO.Path]::DirectorySeparatorChar
+$releaseFull = [IO.Path]::GetFullPath($release).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
 foreach ($entry in $manifest.files.PSObject.Properties) {
     $relative = [string]$entry.Name
     $expectedHash = [string]$entry.Value
     if ([IO.Path]::IsPathRooted($relative) -or $relative -match '(^|[\\/])\.\.([\\/]|$)' -or
-        $relative -match '^[a-zA-Z]:' -or $expectedHash -notmatch '^[0-9a-fA-F]{64}
+        $relative -match '^[a-zA-Z]:' -or $expectedHash -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "Invalid manifest entry: $relative"
+    }
+    $target = [IO.Path]::GetFullPath((Join-Path $release ($relative.Replace('/', [IO.Path]::DirectorySeparatorChar))))
+    if (-not $target.StartsWith($releaseFull, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Manifest path escapes release directory: $relative"
+    }
+    if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
+        throw "Manifest file missing: $relative"
+    }
+    $actualHash = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
+    if ($actualHash -ne $expectedHash) {
+        throw "Manifest checksum mismatch: $relative"
+    }
+}
+$failedMarker = Join-Path $InstallRoot 'failed.version'
 if (Test-Path -LiteralPath $failedMarker -PathType Leaf) {
     $failedVersion = (Get-Content -LiteralPath $failedMarker -Raw).Trim()
     if ($failedVersion -eq $Version) {
