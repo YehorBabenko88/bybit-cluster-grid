@@ -22,3 +22,14 @@ def test_canary_prefers_lower_pressure_deterministically():
 
 def test_no_healthy_canary():
     assert _healthy_canary({"x":node(cpu=99)}) is None
+
+
+def test_telegram_authorization_requires_private_chat_and_same_sender(monkeypatch):
+    from grid.telegram_bot import authorized_sender
+    monkeypatch.setattr(settings,"telegram_allowed_chat_ids","123")
+    assert authorized_sender(123,"private",123)
+    assert not authorized_sender(123,"group",123)
+    assert not authorized_sender(123,"supergroup",123)
+    assert not authorized_sender(123,"private",456)
+    assert not authorized_sender(456,"private",456)
+    assert not authorized_sender(123,"private",None)
