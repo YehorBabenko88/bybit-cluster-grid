@@ -137,10 +137,12 @@ def _after_exit(root,version,runtime,exit_code=1):
     if (root/"switch-journal.json").exists():return False
     if _read(root/"current.version")!=version:return False
     crash=root/"pending-crashes.txt"
-    try:count=int(_read(crash) or "0")
+    raw_count=_read(crash)
+    try:count=int(raw_count or "0")
     except ValueError:count=0
-    # A corrupt or negative counter must not force premature rollback.
-    count=max(0,count)+1; _atomic(crash,count)
+    # Reject corrupt, negative or implausibly large counters instead of rolling back.
+    if count < 0 or count > 1000000:count=0
+    count+=1; _atomic(crash,count)
     if count<3:return False
     prev=_read(root/"previous.version")
     candidate=root/"releases"/prev
