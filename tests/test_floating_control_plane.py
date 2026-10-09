@@ -97,4 +97,5 @@ def test_floating_leader_epochs_are_database_serialized():
     source=Path("grid/floating_leader.py").read_text(encoding="utf-8")
     assert "FOR UPDATE" in source
     assert "get('epoch',0))+1" in source
+    assert "json.loads(metadata)" in source
     assert "int(time.time()*1000)" not in source
