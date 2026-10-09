@@ -128,11 +128,15 @@ class ScientificSimulationGate:
         if not owned:return {"run_id":str(run_id),"status":"LEASE_LOST"}
         metrics={**base["metrics"],"checks":checks,"monte_carlo_max_dd_p95":p95}
         status="SIMULATION_PASSED" if passed else "SIMULATION_FAILED"
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status=$2,
-          metrics=$3::jsonb,stress_metrics=$4::jsonb,reason=$5,completed_at=now() WHERE id=$1""",
+        result=await self.pool.fetchval("""UPDATE scientific_simulation_runs SET status=$2,
+          metrics=$3::jsonb,stress_metrics=$4::jsonb,reason=$5,completed_at=now(),
+          lease_token=NULL,lease_expires_at=NULL
+          WHERE id=$1 AND status='RUNNING' AND lease_token=$6
+            AND lease_expires_at>now() RETURNING true""",
           run_id,status,json.dumps(metrics,separators=(",",":")),
           json.dumps(stress["metrics"],separators=(",",":")),
-          None if passed else "one or more promotion checks failed")
+          None if passed else "one or more promotion checks failed",lease_token)
+        if not result:return {"run_id":str(run_id),"status":"LEASE_LOST"}
         return {"run_id":str(run_id),"status":status,"metrics":metrics,"stress":stress["metrics"]}
 
     async def _waiting(self,run_id,reason):
