@@ -63,7 +63,7 @@ def test_successful_recheck_preserves_nonproduction_transition():
 
 def test_robustness_requires_prior_oos_status():
     pool = FakePool(_metrics(1))
-    pool.metrics["scenarios"] = {name: {"overall": {"trades": 150, "expectancy": 1}}
+    pool.metrics["scenarios"] = {name: {"overall": {"trades": 150, "expectancy": 1, "max_drawdown": 0.1}}
         for name in ("fees_x1_5", "slippage_x2", "execution_delay", "drop_10pct", "combined")}
     assert asyncio.run(apply_evaluation_gate(pool, "model", "ROBUSTNESS", {})) is True
     assert any("status IN ('OOS_PASSED','ROBUSTNESS_PASSED')" in query
@@ -101,7 +101,7 @@ def test_robustness_gate_rejects_missing_oos_transition():
             return "CANDIDATE"
 
     pool = UnadvancedPool(_metrics(1))
-    pool.metrics["scenarios"] = {name: {"overall": {"trades": 150, "expectancy": 1}}
+    pool.metrics["scenarios"] = {name: {"overall": {"trades": 150, "expectancy": 1, "max_drawdown": 0.1}}
         for name in ("fees_x1_5", "slippage_x2", "execution_delay", "drop_10pct", "combined")}
     try:
         asyncio.run(apply_evaluation_gate(pool, "model", "ROBUSTNESS", {}))
@@ -136,7 +136,7 @@ def test_robustness_gate_rejects_missing_persisted_oos_pass():
             return await super().fetchrow(query, *args)
 
     pool = MissingOOSPool(_metrics(1))
-    pool.metrics["scenarios"] = {name: {"overall": {"trades": 150, "expectancy": 1}}
+    pool.metrics["scenarios"] = {name: {"overall": {"trades": 150, "expectancy": 1, "max_drawdown": 0.1}}
         for name in ("fees_x1_5", "slippage_x2", "execution_delay", "drop_10pct", "combined")}
     try:
         asyncio.run(apply_evaluation_gate(pool, "model", "ROBUSTNESS", {}))
@@ -207,3 +207,20 @@ def test_corrupted_statistics_cannot_pass_oos_gate():
         metrics["stability"]["positive_fraction"] = fraction
         pool = FakePool(metrics)
         assert asyncio.run(apply_evaluation_gate(pool, "model", "OOS", {})) is False, fraction
+
+
+def test_robustness_rejects_corrupted_stress_scenario():
+    names=("fees_x1_5","slippage_x2","execution_delay","drop_10pct","combined")
+    for bad_overall in (
+        {"trades": 150.5, "expectancy": 1, "max_drawdown": 0.1},
+        {"trades": 150, "expectancy": 1, "max_drawdown": -0.1},
+        {"trades": 150, "expectancy": 1, "max_drawdown": float("nan")},
+        {"trades": 150, "expectancy": float("inf"), "max_drawdown": 0.1},
+        {"trades": 150, "expectancy": 1},
+    ):
+        metrics=_metrics(1)
+        metrics["scenarios"]={name: {"overall": {"trades": 150, "expectancy": 1, "max_drawdown": 0.1}}
+                              for name in names}
+        metrics["scenarios"]["combined"]={"overall": bad_overall}
+        pool=FakePool(metrics)
+        assert asyncio.run(apply_evaluation_gate(pool, "model", "ROBUSTNESS", {})) is False
