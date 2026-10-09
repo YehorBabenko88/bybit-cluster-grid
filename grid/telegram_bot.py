@@ -639,6 +639,14 @@ async def telegram_loop(db,nodes):
                     if not allowed(chat):
                         log.warning("telegram unauthorized",extra={"event":"telegram_denied"})
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
+                    # Stale CLAIMED updates may have applied effects before a crash.
+                    # Quarantine only after a conservative timeout; never replay.
+                    await db.pool.execute("""UPDATE telegram_updates
+                      SET status='FAILED',completed_at=now(),
+                          error='stale CLAIMED update; manual reconciliation required'
+                      WHERE update_id=$1 AND status='CLAIMED'
+                        AND claimed_at<now()-interval '30 minutes'""",
+                        int(upd["update_id"]))
                     claimed=await claim_update(db.pool,upd["update_id"],chat,txt,node_id)
                     if not claimed:
                         # A prior handler may have failed. Never silently mark that
