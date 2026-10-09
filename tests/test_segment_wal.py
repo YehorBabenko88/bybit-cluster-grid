@@ -84,3 +84,20 @@ def test_corrupt_middle_record_blocks_replay_and_prevents_checkpoint_skip(tmp_pa
             SegmentWAL(tmp_path,max_bytes=10000)
         assert (a,b,c)==(1,2,3)
     asyncio.run(run())
+
+
+def test_torn_tail_is_preserved_before_truncation(tmp_path):
+    async def run():
+        wal=SegmentWAL(tmp_path,max_bytes=10000)
+        first=await wal.append({"n":1})
+        seg=wal._segments()[0]
+        with open(seg,"ab") as stream:
+            stream.write(b'{"id":2,"payload":')
+        restarted=SegmentWAL(tmp_path,max_bytes=10000)
+        assert restarted.recover()==[(first,{"n":1})]
+        evidence=tmp_path/(seg.name+".torn-tail")
+        assert evidence.read_bytes()==b'{"id":2,"payload":'
+        assert restarted.bytes_used()>=seg.stat().st_size+evidence.stat().st_size
+        second=await restarted.append({"n":2})
+        assert restarted.recover()==[(first,{"n":1}),(second,{"n":2})]
+    asyncio.run(run())
