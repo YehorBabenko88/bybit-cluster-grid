@@ -86,6 +86,11 @@ jobs:
         run: |
           & ./tests/test_release_switch.ps1
 
+      - name: Test interrupted release recovery
+        shell: pwsh
+        run: |
+          & ./tests/test_release_recovery.ps1
+
       - name: Test supervisor crash recovery
         shell: pwsh
         run: |
