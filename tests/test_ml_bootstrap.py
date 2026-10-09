@@ -33,3 +33,10 @@ def test_nodes_advertise_ml_runtime_and_dispatcher_requires_it():
     assert '"ml_runtime_ready":ml_runtime_ready()' in resources
     assert 'if candidate["job_type"] in ("train","evaluate")' in dispatcher
     assert 'v.get("ml_runtime_ready") is True' in dispatcher
+
+
+def test_install_state_persists_authorized_mode_separately_from_repair_kind():
+    script = Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    assert 'authorized_agent_mode=$AgentMode' in script
+    assert 'mode=$Mode;status="installed"' in script
+    assert 'if($Enrollment.install_mode -notin @("PILOT","NORMAL"))' in script
