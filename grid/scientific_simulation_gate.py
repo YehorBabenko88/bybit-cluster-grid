@@ -67,14 +67,14 @@ class ScientificSimulationGate:
         oos_start=await self.pool.fetchval("""SELECT max(dataset_cutoff)
           FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1 AND passed=true""",hypothesis_id)
         if oos_start is None:
-            return await self._waiting(run_id,"validated hypothesis has no fixed evidence cutoff")
+            return await self._waiting(run_id,"validated hypothesis has no fixed evidence cutoff",lease_token)
         await self.pool.execute("UPDATE scientific_simulation_runs SET oos_start=$2 WHERE id=$1",run_id,oos_start)
         h=await self.pool.fetchrow("""SELECT method,pattern,horizon_ms,direction,definition,status
           FROM scientific_hypotheses WHERE id=$1""",hypothesis_id)
         if not h or str(h["status"])!="VALIDATED":
-            return await self._fail(run_id,"hypothesis is no longer VALIDATED")
+            return await self._fail(run_id,"hypothesis is no longer VALIDATED",lease_token)
         if str(h["method"])!="combinatorial-v1":
-            return await self._waiting(run_id,f"exact simulation matcher unavailable for method {h['method']}")
+            return await self._waiting(run_id,f"exact simulation matcher unavailable for method {h['method']}",lease_token)
         definition=_dict(h["definition"]);params=definition.get("parameters") or {}
         wanted=set(str(x) for x in params.get("tokens") or ())
         rows=await self.pool.fetch("""SELECT symbol,event_ts_ms,return_bps,payload
@@ -100,7 +100,7 @@ class ScientificSimulationGate:
             matched.append({"symbol":o.symbol,"event_ts_ms":o.event_ts_ms,"split_key":o.split_key,
                             "return_bps":o.return_bps})
         if len(matched)<self.config.min_trades:
-            return await self._waiting(run_id,f"insufficient OOS trades: {len(matched)}/{self.config.min_trades}")
+            return await self._waiting(run_id,f"insufficient OOS trades: {len(matched)}/{self.config.min_trades}",lease_token)
         base=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.0)
         stress=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.75)
         mc=deterministic_bootstrap_drawdowns(
@@ -139,15 +139,21 @@ class ScientificSimulationGate:
         if not result:return {"run_id":str(run_id),"status":"LEASE_LOST"}
         return {"run_id":str(run_id),"status":status,"metrics":metrics,"stress":stress["metrics"]}
 
-    async def _waiting(self,run_id,reason):
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status='WAITING_OOS',
-          reason=$2,completed_at=now() WHERE id=$1""",run_id,str(reason))
-        return {"run_id":str(run_id),"status":"WAITING_OOS","reason":str(reason)}
+    async def _waiting(self,run_id,reason,lease_token):
+        owned=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET status='WAITING_OOS',reason=$2,completed_at=now(),
+              lease_token=NULL,lease_expires_at=NULL
+          WHERE id=$1 AND status='RUNNING' AND lease_token=$3
+            AND lease_expires_at>now() RETURNING true""",run_id,str(reason),lease_token)
+        return {"run_id":str(run_id),"status":"WAITING_OOS" if owned else "LEASE_LOST","reason":str(reason)}
 
-    async def _fail(self,run_id,reason):
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status='SIMULATION_FAILED',
-          reason=$2,completed_at=now() WHERE id=$1""",run_id,str(reason))
-        return {"run_id":str(run_id),"status":"SIMULATION_FAILED","reason":str(reason)}
+    async def _fail(self,run_id,reason,lease_token):
+        owned=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET status='SIMULATION_FAILED',reason=$2,completed_at=now(),
+              lease_token=NULL,lease_expires_at=NULL
+          WHERE id=$1 AND status='RUNNING' AND lease_token=$3
+            AND lease_expires_at>now() RETURNING true""",run_id,str(reason),lease_token)
+        return {"run_id":str(run_id),"status":"SIMULATION_FAILED" if owned else "LEASE_LOST","reason":str(reason)}
 
 def _dict(v):
     if isinstance(v,dict):return v
