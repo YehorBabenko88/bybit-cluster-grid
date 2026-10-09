@@ -189,6 +189,26 @@ class ReleaseSupervisorTests(unittest.TestCase):
             self.assertTrue((root / "pending.version").exists())
             self.assertEqual((root / "pending-crashes.txt").read_text(), "2")
 
+    def test_negative_crash_counter_is_normalized(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            version = "b" * 40
+            (root / "current.version").write_text(version)
+            (root / "pending.version").write_text(version)
+            (root / "pending-crashes.txt").write_text("-100")
+            self.assertFalse(supervisor._after_exit(root, version, 1, exit_code=1))
+            self.assertEqual((root / "pending-crashes.txt").read_text(), "1")
+
+    def test_non_numeric_crash_counter_is_normalized(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            version = "b" * 40
+            (root / "current.version").write_text(version)
+            (root / "pending.version").write_text(version)
+            (root / "pending-crashes.txt").write_text("corrupted")
+            self.assertFalse(supervisor._after_exit(root, version, 1, exit_code=1))
+            self.assertEqual((root / "pending-crashes.txt").read_text(), "1")
+
     def test_clean_shutdown_does_not_increment_crash_counter(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
