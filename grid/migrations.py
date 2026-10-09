@@ -470,7 +470,25 @@ error_type text NOT NULL,error_message text NOT NULL,context jsonb NOT NULL DEFA
 created_at timestamptz NOT NULL DEFAULT now())""",
 "CREATE INDEX IF NOT EXISTS scientific_method_errors_lookup_idx ON scientific_method_errors(method_key,created_at DESC)"
 ])
-
+,
+(45,"protect_production_model_evaluations",[
+"""CREATE OR REPLACE FUNCTION guard_production_model_evaluations()
+RETURNS trigger LANGUAGE plpgsql AS $
+DECLARE model_status text;
+BEGIN
+  SELECT status INTO model_status FROM model_registry
+    WHERE id=COALESCE(NEW.model_id,OLD.model_id) FOR UPDATE;
+  IF model_status='PRODUCTION' THEN
+    RAISE EXCEPTION 'production model evaluations are immutable';
+  END IF;
+  RETURN COALESCE(NEW,OLD);
+END
+$""",
+"""DROP TRIGGER IF EXISTS protect_production_model_evaluations ON model_evaluations""",
+"""CREATE TRIGGER protect_production_model_evaluations
+BEFORE INSERT OR UPDATE OR DELETE ON model_evaluations
+FOR EACH ROW EXECUTE FUNCTION guard_production_model_evaluations()"""
+])
 ]
 
 async def apply_migrations(pool):
