@@ -32,8 +32,8 @@ def test_production_evaluation_trigger_postgres_integration():
                     ("DELETE FROM model_evaluations WHERE id=$1", (evaluation_id,)),
                     ("INSERT INTO model_evaluations VALUES ($1,$2,true)", (uuid.uuid4(), model_id)),
                 ):
-                    async with conn.transaction():
-                        with pytest.raises(asyncpg.PostgresError, match="immutable"):
+                    with pytest.raises(asyncpg.PostgresError, match="immutable"):
+                        async with conn.transaction():
                             await conn.execute(statement, *args)
                 assert await conn.fetchval("SELECT passed FROM model_evaluations WHERE id=$1", evaluation_id) is False
                 # Roll back deliberately at the outer transaction boundary.
