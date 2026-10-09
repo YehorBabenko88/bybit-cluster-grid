@@ -254,6 +254,27 @@ class ReleaseSupervisorTests(unittest.TestCase):
             self.assertEqual((root / "failed.version").read_text(), new)
             self.assertFalse((root / "pending.version").exists())
 
+    def test_symlinked_previous_release_cannot_escape_release_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            old, new = "a" * 40, "b" * 40
+            external = root / "external"
+            external.mkdir()
+            (external / "run_worker.py").write_text("# not an installed release")
+            releases = root / "releases"
+            releases.mkdir()
+            try:
+                (releases / old).symlink_to(external, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("directory symlinks unavailable")
+            (root / "previous.version").write_text(old)
+            (root / "current.version").write_text(new)
+            (root / "pending.version").write_text(new)
+            for _ in range(3):
+                self.assertFalse(supervisor._after_exit(root, new, 1, exit_code=1, mode="worker"))
+            self.assertEqual((root / "current.version").read_text(), new)
+            self.assertTrue((root / "pending.version").exists())
+
     def test_invalid_previous_release_marker_blocks_rollback(self):
         for invalid in ("../outside", "..\\outside", "", "bootstrap", "A" * 40, "a" * 39, "g" * 40):
             with self.subTest(previous=invalid), tempfile.TemporaryDirectory() as tmp:
