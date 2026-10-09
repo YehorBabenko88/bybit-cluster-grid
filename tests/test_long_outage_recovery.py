@@ -39,9 +39,9 @@ def test_worker_can_shed_load_without_successful_control_heartbeat():
     from pathlib import Path
     s=Path("grid/worker.py").read_text(encoding="utf-8")
     pressure=s.index("# Pressure control must remain autonomous")
-    post=s.index("async with s.post(",pressure)
-    assert pressure < post
-    block=s[pressure:post]
+    heartbeat=s.index('settings.coordinator_url+"/heartbeat"', pressure)
+    assert pressure < heartbeat
+    block=s[pressure:heartbeat]
     assert "symbols_to_drain" in block
     assert "await self.reconcile()" in block
 
