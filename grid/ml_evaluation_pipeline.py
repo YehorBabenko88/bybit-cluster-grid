@@ -109,7 +109,16 @@ async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
     m=dict(row["metrics"]);base=(m.get("segments") or m.get("scenarios",{}).get("base") or {}).get("overall",{})
     stability=m.get("stability",{})
     if stage=="ROBUSTNESS" and "base" in stability: stability=stability["base"]
-    passed=(_finite_number(base.get("trades"))>=int(requirements.get("min_trades",100))
+    # A fraction and a drawdown are bounded statistics; impossible values
+    # indicate corrupted or incompatible evaluation evidence.
+    trades=_finite_number(base.get("trades"))
+    expectancy=_finite_number(base.get("expectancy"))
+    drawdown=_finite_number(base.get("max_drawdown"))
+    positive_fraction=_finite_number(stability.get("positive_fraction"))
+    metrics_valid=(isfinite(trades) and trades>=0 and trades.is_integer()
+      and isfinite(expectancy) and isfinite(drawdown) and drawdown>=0
+      and isfinite(positive_fraction) and 0<=positive_fraction<=1)
+    passed=metrics_valid and (_finite_number(base.get("trades"))>=int(requirements.get("min_trades",100))
       and _finite_number(base.get("expectancy"))>=float(requirements.get("min_expectancy",0))
       and (stability.get("positive_fraction") is not None)
       and _finite_number(stability.get("positive_fraction"))>=float(requirements.get("min_positive_fraction",.6))
