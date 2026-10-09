@@ -40,7 +40,7 @@ def test_scientific_atomic_claim_and_expired_recovery():
                 await pool.close()
                 pool2 = await asyncpg.create_pool(
                     DSN, min_size=2, max_size=5,
-                    init=lambda conn: conn.execute(f'SET search_path TO "{schema}",public'))
+                    server_settings={"search_path": f'"{schema}",public'})
                 try:
                     class Gate(ScientificSimulationGate):
                         async def run_one(self,run_id,hypothesis_id,dataset_cutoff,
