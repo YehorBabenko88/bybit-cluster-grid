@@ -37,6 +37,10 @@ def _decode_command_result(value):
         return decoded if isinstance(decoded,dict) else {"message":value}
     return {"message":str(value)}
 
+def authorized_sender(chat_id,chat_type,actor_id):
+    return (chat_type=="private" and actor_id is not None
+            and str(actor_id)==str(chat_id) and allowed(chat_id))
+
 def allowed(chat_id):
     raw={x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()}
     return bool(raw) and str(chat_id) in raw
@@ -617,7 +621,7 @@ async def telegram_loop(db,nodes):
                     actor=(cb.get("from") if cb else (upd.get("message") or {}).get("from")) or {}
                     actor_id=actor.get("id")
                     chat_type=(msg.get("chat") or {}).get("type")
-                    if chat_type != "private" or actor_id is None or str(actor_id)!=str(chat):
+                    if not authorized_sender(chat,chat_type,actor_id):
                         log.warning("telegram non-private or mismatched sender denied",
                                     extra={"event":"telegram_denied_sender"})
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
