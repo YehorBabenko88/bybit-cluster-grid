@@ -66,7 +66,16 @@ def test_scientific_lease_recovery_is_bounded_and_migrated():
 def test_scientific_trade_and_cutoff_writes_are_lease_fenced():
     import pathlib
     source=pathlib.Path("grid/scientific_simulation_gate.py").read_text(encoding="utf-8")
-    assert "FOR UPDATE) AS owner" in source
-    assert "lease_token=$15" in source
+    assert "FOR UPDATE" in source
+    assert "async with conn.transaction():" in source
+    assert "DELETE FROM scientific_simulation_trades WHERE run_id=$1" in source
     assert "lease_token=$3 AND lease_expires_at>now()" in source
     assert "if not updated:return" in source
+
+
+def test_scientific_atomic_finalization_requires_single_connection():
+    import pathlib
+    source=pathlib.Path("grid/scientific_simulation_gate.py").read_text(encoding="utf-8")
+    assert "async with self.pool.acquire() as conn:" in source
+    assert "async with conn.transaction():" in source
+    assert "raise RuntimeError(\"simulation lease lost during atomic finalization\")" in source
