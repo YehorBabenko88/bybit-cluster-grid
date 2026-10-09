@@ -521,7 +521,13 @@ BEGIN
 END
 '"""
 ])
-
+,
+(47,"scientific_simulation_lease_fencing",[
+"ALTER TABLE scientific_simulation_runs ADD COLUMN IF NOT EXISTS lease_token uuid",
+"ALTER TABLE scientific_simulation_runs ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz",
+"ALTER TABLE scientific_simulation_runs ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0",
+"CREATE INDEX IF NOT EXISTS scientific_simulation_lease_idx ON scientific_simulation_runs(status,lease_expires_at) WHERE status='RUNNING'"
+])
 ]
 
 async def apply_migrations(pool):
