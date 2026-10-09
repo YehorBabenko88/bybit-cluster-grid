@@ -1,0 +1,47 @@
+"""Regression tests for release supervisor rollback and confirmation guards."""
+import pathlib
+import tempfile
+import unittest
+
+from grid import release_supervisor as supervisor
+
+
+class ReleaseSupervisorTests(unittest.TestCase):
+    def test_three_crashes_roll_back_and_quarantine(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            old, new = "a" * 40, "b" * 40
+            (root / "previous.version").write_text(old)
+            (root / "current.version").write_text(new)
+            (root / "pending.version").write_text(new)
+            old_release = root / "releases" / old
+            old_release.mkdir(parents=True)
+            (old_release / "run_worker.py").write_text("# fixture")
+            self.assertFalse(supervisor._after_exit(root, new, 1))
+            self.assertFalse(supervisor._after_exit(root, new, 1))
+            self.assertTrue(supervisor._after_exit(root, new, 1))
+            self.assertEqual((root / "current.version").read_text(), old)
+            self.assertEqual((root / "failed.version").read_text(), new)
+            self.assertFalse((root / "pending.version").exists())
+
+    def test_no_rollback_to_missing_previous(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            new = "b" * 40
+            (root / "pending.version").write_text(new)
+            (root / "previous.version").write_text("a" * 40)
+            for _ in range(3):
+                self.assertFalse(supervisor._after_exit(root, new, 1))
+            self.assertTrue((root / "pending.version").exists())
+            self.assertFalse((root / "failed.version").exists())
+
+    def test_other_version_exit_does_not_change_pending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "pending.version").write_text("b" * 40)
+            self.assertFalse(supervisor._after_exit(root, "a" * 40, 1))
+            self.assertFalse((root / "pending-crashes.txt").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()
