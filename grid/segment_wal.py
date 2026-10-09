@@ -41,7 +41,7 @@ class SegmentWAL:
                     # be delimited before the next append, or both records
                     # become one invalid JSON line after restart.
                     f.seek(0,os.SEEK_END)
-                    f.write(b'\\n')
+                    f.write(bytes((10,)))
                     f.flush();os.fsync(f.fileno())
                     return
                 f.truncate(0 if cut<0 else cut+1)
