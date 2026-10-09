@@ -61,8 +61,13 @@ async def apply_evaluation_gate(pool,model_id,stage,requirements):
         )
     await pool.execute("UPDATE model_evaluations SET passed=$2 WHERE id=$1",row["id"],passed)
     if passed:
-        target={"OOS":"OOS_PASSED","ROBUSTNESS":"ROBUSTNESS_PASSED"}.get(stage)
-        if target:await pool.execute("UPDATE model_registry SET status=$2 WHERE id=$1",model_id,target)
+        target={"OOS":"OOS_PASSED","ROBUSTNESS":"ROBUSTNESS_PASSED"}[stage]
+        await pool.execute("UPDATE model_registry SET status=$2 WHERE id=$1 AND status<>'PRODUCTION'",model_id,target)
+    else:
+        # A failed re-evaluation must invalidate any prior pre-production pass.
+        # Production models require an explicit separate rollback decision.
+        await pool.execute("""UPDATE model_registry SET status='EVALUATION_FAILED'
+          WHERE id=$1 AND status IN ('OOS_PASSED','ROBUSTNESS_PASSED')""",model_id)
     return passed
 
 
