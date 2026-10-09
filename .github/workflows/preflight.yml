@@ -61,6 +61,8 @@ jobs:
         run: python -m pytest -q
       - name: Production evaluation PostgreSQL integration test
         run: python -m pytest -q tests/test_production_evaluation_postgres_integration.py
+      - name: Scientific simulation PostgreSQL concurrency integration
+        run: python -m pytest -q tests/test_scientific_simulation_postgres_integration.py
       - name: Enrollment lifecycle integration tests
         run: python -m pytest -q tests/test_enrollment_postgres_integration.py
       - name: Failure-recovery stress gates
