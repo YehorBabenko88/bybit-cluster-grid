@@ -21,11 +21,11 @@ def test_checkpoint_roundtrip_preserves_warmup_and_timestamps():
 
 
 def test_checkpoint_preserves_pending_and_directional_stats():
-    original=BookTapePaperLearner()
+    original=BookTapePaperLearner(horizon_ms=1000)
     original.pending["BTCUSDT"].append({"due_ms":2000,"entry_ts_ms":1000,
         "entry_price":100.0,"direction":1,"pattern":"jbe"})
     original.stats[("BTCUSDT","jbe",1)]={"count":3,"wins":2,"net_bps_sum":8.5}
-    restored=BookTapePaperLearner()
+    restored=BookTapePaperLearner(horizon_ms=1000)
     restored.restore(json.loads(json.dumps(original.snapshot())))
     assert restored.pending["BTCUSDT"][0]["entry_price"]==100
     assert restored.stats[("BTCUSDT","jbe",1)]["wins"]==2
