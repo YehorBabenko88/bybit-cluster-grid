@@ -163,3 +163,25 @@ def test_production_model_gate_cannot_modify_evaluations():
         else:
             raise AssertionError("production evaluation must not be mutated")
         assert not pool.commands
+
+
+def test_invalid_gate_requirements_fail_before_sql():
+    bad = (
+        {"min_trades": 0},
+        {"min_trades": "1.5"},
+        {"min_expectancy": float("nan")},
+        {"min_stress_expectancy": float("inf")},
+        {"min_positive_fraction": -0.1},
+        {"min_positive_fraction": 1.1},
+        {"max_drawdown": -1},
+        {"max_drawdown": float("nan")},
+    )
+    for requirements in bad:
+        pool = FakePool(_metrics(1))
+        try:
+            asyncio.run(apply_evaluation_gate(pool, "model", "OOS", requirements))
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("invalid gate requirement accepted: "+repr(requirements))
+        assert not pool.commands
