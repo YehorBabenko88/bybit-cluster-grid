@@ -11,7 +11,8 @@ try {
         $dir = Join-Path $root "releases\$version"
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         Set-Content -LiteralPath (Join-Path $dir 'run_worker.py') -Value '# test'
-        [IO.File]::WriteAllText((Join-Path $dir 'release-manifest.json'), ('{"version":"' + $version + '","files":{}}'))
+        $hash = (Get-FileHash -LiteralPath (Join-Path $dir 'run_worker.py') -Algorithm SHA256).Hash.ToLowerInvariant()
+        [IO.File]::WriteAllText((Join-Path $dir 'release-manifest.json'), ('{"version":"' + $version + '","files":{"run_worker.py":"' + $hash + '"}}'))
     }
     Set-Content -LiteralPath (Join-Path $root 'current.version') -Value $a
     $output = & $script -Version $b -InstallRoot $root -Role WORKER
@@ -23,19 +24,26 @@ try {
     catch { $invalid = $true }
     Assert $invalid 'Missing release must fail'
     $manifestPath = Join-Path $root "releases\$b\release-manifest.json"
-    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $a + '","files":{}}')
+    $hash = (Get-FileHash -LiteralPath (Join-Path $root "releases\$b\run_worker.py") -Algorithm SHA256).Hash.ToLowerInvariant()
+    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $a + '","files":{"run_worker.py":"' + $hash + '"}}')
     $invalid = $false
     try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null }
     catch { $invalid = $true }
     Assert $invalid 'Mismatched manifest must fail'
     Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $a) 'Failed plan changed current'
-    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{}}')
+    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
+    Set-Content -LiteralPath (Join-Path $root "releases\$b\run_worker.py") -Value '# tampered'
+    $blocked = $false
+    try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null }
+    catch { $blocked = $true }
+    Assert $blocked 'Tampered release must be blocked'
+    Set-Content -LiteralPath (Join-Path $root "releases\$b\run_worker.py") -Value '# test'
     Set-Content -LiteralPath (Join-Path $root 'failed.version') -Value $b
     $blocked = $false
     try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null }
     catch { $blocked = $true }
     Assert $blocked 'Previously failed release must be blocked'
-        Remove-Item -LiteralPath (Join-Path $root 'failed.version') -Force
+    Remove-Item -LiteralPath (Join-Path $root 'failed.version') -Force
     $mutex = [System.Threading.Mutex]::new($false, 'Global\BybitClusterGridReleaseSwitch')
     $held = $mutex.WaitOne(0)
     Assert $held 'Could not acquire test mutex'
