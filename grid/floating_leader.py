@@ -1,4 +1,4 @@
-import asyncio,hashlib,logging,socket,time
+import asyncio,hashlib,logging,socket
 log=logging.getLogger("leader_election")
 
 class FloatingLeader:
@@ -15,7 +15,9 @@ class FloatingLeader:
                   WHERE service_key='control-plane-leader' FOR UPDATE""")
                 if row and row["owner"]!=self.node_id and row["lease_until"] and row["lease_until"]>await c.fetchval("SELECT now()"):
                     self.is_leader=False; return False
-                epoch=int(time.time()*1000)
+                # A DB-serialized generation prevents same-millisecond leader epochs.
+                # Keep it monotonic across rapid takeovers and process restarts.
+                epoch=int((row['metadata'] or {}).get('epoch',0))+1 if row else 1
                 await c.execute("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
                   VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3))
                   ON CONFLICT(service_key) DO UPDATE SET owner=EXCLUDED.owner,lease_until=EXCLUDED.lease_until,
