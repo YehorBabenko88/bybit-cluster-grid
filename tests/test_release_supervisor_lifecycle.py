@@ -52,6 +52,7 @@ class ReleaseSupervisorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             marker = root / "child-pid.txt"
+            assigned = root / "job-assigned.txt"
             child = root / "child.py"
             child.write_text(
                 "import os, pathlib, time\n"
@@ -66,22 +67,25 @@ class ReleaseSupervisorTests(unittest.TestCase):
                 "with _single_instance(sys.argv[1], 'worker'):\n"
                 "    p = subprocess.Popen([sys.executable, sys.argv[2]], env=os.environ.copy())\n"
                 "    with _child_job(p):\n"
+                "        from pathlib import Path\n"
+                "        Path(sys.argv[3]).write_text('assigned')\n"
                 "        p.wait()\n",
                 encoding="utf-8",
             )
             env = os.environ.copy()
             env["GRID_TEST_CHILD_PID"] = str(marker)
             env["PYTHONPATH"] = str(pathlib.Path(supervisor.__file__).resolve().parent.parent) + os.pathsep + env.get("PYTHONPATH", "")
-            parent = subprocess.Popen([sys.executable, str(launcher), str(root), str(child)], env=env)
+            parent = subprocess.Popen([sys.executable, str(launcher), str(root), str(child), str(assigned)], env=env)
             try:
                 for _ in range(100):
-                    if marker.exists():
+                    if marker.exists() and assigned.exists():
                         break
                     if parent.poll() is not None:
                         self.fail("supervisor exited before child started")
                     import time
                     time.sleep(0.05)
                 self.assertTrue(marker.exists(), "child did not start")
+                self.assertTrue(assigned.exists(), "child was not assigned to Windows Job Object")
                 child_pid = int(marker.read_text())
                 parent.kill()
                 parent.wait(timeout=10)
