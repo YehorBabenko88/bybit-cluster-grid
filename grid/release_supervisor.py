@@ -30,12 +30,16 @@ def _confirm(root,version,proc,delay,mode=None,ready_file=None):
     pending=root/"pending.version"
     if _read(pending)!=version or proc.poll() is not None:return
     if mode and not _ready(mode,proc,ready_file):return
+    # Do not confirm a release while pointer recovery is still unresolved.
+    if (root/"switch-journal.json").exists():return
     pending.unlink(missing_ok=True)
     (root/"pending-crashes.txt").unlink(missing_ok=True)
 
 def _after_exit(root,version,runtime):
     root=pathlib.Path(root); pending=root/"pending.version"
     if _read(pending)!=version:return False
+    if (root/"switch-journal.json").exists():return False
+    if _read(root/"current.version")!=version:return False
     crash=root/"pending-crashes.txt"
     try:count=int(_read(crash) or "0")
     except ValueError:count=0
