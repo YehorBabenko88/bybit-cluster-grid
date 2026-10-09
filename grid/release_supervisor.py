@@ -68,6 +68,7 @@ def _confirm(root,version,proc,delay,mode=None,ready_file=None):
     if mode and not _ready(mode,proc,ready_file):return
     # Do not confirm a release while pointer recovery is still unresolved.
     if (root/"switch-journal.json").exists():return
+    if _read(root/"current.version")!=version:return
     pending.unlink(missing_ok=True)
     (root/"pending-crashes.txt").unlink(missing_ok=True)
 
