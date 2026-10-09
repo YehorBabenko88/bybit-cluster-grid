@@ -41,6 +41,9 @@ try {
     if ($current -and $current -notin @($j.previous,$j.candidate)) {
         throw 'Current pointer conflicts with journal; manual recovery required'
     }
+    # A prepared transaction may already have written the candidate pointer
+    # before the power loss. A committed transaction must retain the candidate.
+    # The journal is authoritative; no new promotion is attempted here.
     $target = if ($j.phase -eq 'prepared') { $j.previous } else { $j.candidate }
     if ($j.phase -eq 'committed') {
         $candidateDir = Join-Path (Join-Path $InstallRoot 'releases') $j.candidate
