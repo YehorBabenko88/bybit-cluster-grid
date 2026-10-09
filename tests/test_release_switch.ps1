@@ -29,7 +29,13 @@ try {
     catch { $invalid = $true }
     Assert $invalid 'Mismatched manifest must fail'
     Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $a) 'Failed plan changed current'
-    Write-Output 'PASS: release switch plan, missing release, manifest mismatch'
+    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{}}')
+    Set-Content -LiteralPath (Join-Path $root 'failed.version') -Value $b
+    $blocked = $false
+    try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null }
+    catch { $blocked = $true }
+    Assert $blocked 'Previously failed release must be blocked'
+        Write-Output 'PASS: release switch plan, missing release, manifest mismatch, failed-release quarantine'
 } finally {
     if (Test-Path $root) { Remove-Item -LiteralPath $root -Recurse -Force }
 }
