@@ -109,3 +109,68 @@ def test_initial_leader_campaign_is_serialized_before_row_lock():
     select=source.index('row=await c.fetchrow')
     assert advisory<select
     assert "pg_advisory_xact_lock(1729, 4511)" in source
+
+
+def test_failed_loss_callback_retries_before_new_campaign():
+    import asyncio
+    from grid.floating_leader import FloatingLeader
+
+    class Candidate(FloatingLeader):
+        def __init__(self):
+            super().__init__(None,node_id="node-a",renew_seconds=.001)
+            self.campaigns=0
+            self.renewals=0
+        async def campaign(self):
+            self.campaigns+=1
+            self.is_leader=True
+            self.epoch=self.campaigns
+            self.stop() if self.campaigns==2 else None
+            return True
+        async def renew(self):
+            self.renewals+=1
+            self.is_leader=False
+            return False
+
+    async def scenario():
+        leader=Candidate()
+        events=[]
+        async def gain(epoch):
+            events.append(("gain",epoch))
+        async def loss():
+            events.append(("loss",leader.campaigns))
+            if events.count(("loss",1))==1:
+                raise RuntimeError("stop failed")
+        await asyncio.wait_for(leader.run(on_gain=gain,on_loss=loss),timeout=2)
+        assert events==[("gain",1),("loss",1),("loss",1),("gain",2)]
+        assert leader.campaigns==2
+    asyncio.run(scenario())
+
+
+def test_failed_gain_callback_does_not_terminate_election_loop():
+    import asyncio
+    from grid.floating_leader import FloatingLeader
+
+    class Candidate(FloatingLeader):
+        def __init__(self):
+            super().__init__(None,node_id="node-a",renew_seconds=.001)
+            self.campaigns=0
+        async def campaign(self):
+            self.campaigns+=1
+            self.is_leader=True
+            self.epoch=self.campaigns
+            return True
+        async def renew(self):
+            self.stop()
+            return True
+
+    async def scenario():
+        leader=Candidate()
+        gains=[]
+        async def gain(epoch):
+            gains.append(epoch)
+            if epoch==1:
+                raise RuntimeError("startup failed")
+        await asyncio.wait_for(leader.run(on_gain=gain),timeout=2)
+        assert gains==[1,2]
+        assert leader.campaigns==2
+    asyncio.run(scenario())
