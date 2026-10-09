@@ -1,4 +1,14 @@
 import json,uuid
+from math import isfinite
+
+
+def _finite_number(value,default=float('nan')):
+    try:
+        number=float(value)
+        return number if isfinite(number) else default
+    except (TypeError,ValueError,OverflowError):
+        return default
+
 from .trading_evaluation import evaluate_trades,stability_summary
 from .ml_robustness import robustness_suite
 
@@ -25,17 +35,19 @@ async def record_robustness_evaluation(pool,model_id,dataset_id,trades,evaluator
     return metrics
 
 async def apply_evaluation_gate(pool,model_id,stage,requirements):
+    if stage not in ("OOS","ROBUSTNESS"):
+        raise ValueError("unsupported evaluation stage")
     row=await pool.fetchrow("""SELECT id,metrics FROM model_evaluations
       WHERE model_id=$1 AND stage=$2 ORDER BY created_at DESC LIMIT 1""",model_id,stage)
     if not row:raise ValueError("evaluation missing")
     m=dict(row["metrics"]);base=(m.get("segments") or m.get("scenarios",{}).get("base") or {}).get("overall",{})
     stability=m.get("stability",{})
     if stage=="ROBUSTNESS" and "base" in stability: stability=stability["base"]
-    passed=(base.get("trades",0)>=int(requirements.get("min_trades",100))
-      and base.get("expectancy",0)>=float(requirements.get("min_expectancy",0))
+    passed=(_finite_number(base.get("trades"))>=int(requirements.get("min_trades",100))
+      and _finite_number(base.get("expectancy"))>=float(requirements.get("min_expectancy",0))
       and (stability.get("positive_fraction") is not None)
-      and stability.get("positive_fraction",0)>=float(requirements.get("min_positive_fraction",.6))
-      and base.get("max_drawdown",float("inf"))<=float(requirements.get("max_drawdown",float("inf"))))
+      and _finite_number(stability.get("positive_fraction"))>=float(requirements.get("min_positive_fraction",.6))
+      and _finite_number(base.get("max_drawdown"))<=float(requirements.get("max_drawdown",float("inf"))))
     if passed and stage=="ROBUSTNESS":
         # Base profitability is insufficient: every configured execution/cost
         # stress scenario must retain the required minimum expectancy.
@@ -43,8 +55,8 @@ async def apply_evaluation_gate(pool,model_id,stage,requirements):
         scenarios=m.get("scenarios") or {}
         required_scenarios=("fees_x1_5","slippage_x2","execution_delay","drop_10pct","combined")
         passed=all(
-            (scenarios.get(name) or {}).get("overall",{}).get("trades",0)>0
-            and (scenarios.get(name) or {}).get("overall",{}).get("expectancy",float("-inf"))>=min_stress
+            _finite_number((scenarios.get(name) or {}).get("overall",{}).get("trades"))>0
+            and _finite_number((scenarios.get(name) or {}).get("overall",{}).get("expectancy"))>=min_stress
             for name in required_scenarios
         )
     await pool.execute("UPDATE model_evaluations SET passed=$2 WHERE id=$1",row["id"],passed)
