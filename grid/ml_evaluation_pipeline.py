@@ -55,10 +55,37 @@ async def record_robustness_evaluation(pool,model_id,dataset_id,trades,evaluator
               WHERE id=$1 AND status='ROBUSTNESS_PASSED'""",model_id)
     return metrics
 
+def _validated_requirements(requirements):
+    """Reject malformed or permissive gate configuration before database writes."""
+    if not isinstance(requirements,dict):
+        raise ValueError("evaluation requirements must be a dictionary")
+    values=dict(requirements)
+    for key in ("min_expectancy","min_positive_fraction","max_drawdown","min_stress_expectancy"):
+        if key in values:
+            value=_finite_number(values[key])
+            if not isfinite(value):
+                raise ValueError("invalid evaluation requirement: "+key)
+            values[key]=value
+    if "min_trades" in values:
+        try:
+            count=int(values["min_trades"])
+        except (TypeError,ValueError,OverflowError):
+            raise ValueError("invalid evaluation requirement: min_trades") from None
+        if count<1 or str(values["min_trades"]).strip() not in (str(count),):
+            raise ValueError("invalid evaluation requirement: min_trades")
+        values["min_trades"]=count
+    if not 0<=values.get("min_positive_fraction",0.6)<=1:
+        raise ValueError("invalid min_positive_fraction")
+    if values.get("max_drawdown",float("inf"))<0:
+        raise ValueError("invalid max_drawdown")
+    return values
+
+
 async def apply_evaluation_gate(pool,model_id,stage,requirements):
     """Atomically persist evaluation and model status under a model row lock."""
     if stage not in ("OOS","ROBUSTNESS"):
         raise ValueError("unsupported evaluation stage")
+    requirements=_validated_requirements(requirements)
     async with pool.acquire() as c:
         async with c.transaction():
             return await _apply_evaluation_gate_locked(c,model_id,stage,requirements)
@@ -66,6 +93,7 @@ async def apply_evaluation_gate(pool,model_id,stage,requirements):
 async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
     if stage not in ("OOS","ROBUSTNESS"):
         raise ValueError("unsupported evaluation stage")
+    requirements=_validated_requirements(requirements)
     model=await c.fetchrow("SELECT id,dataset_id,feature_version,status FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
     if not model: raise ValueError("model missing")
     if model["status"]=="PRODUCTION":
