@@ -1,5 +1,41 @@
 """Run a Grid service child and confirm a pending release after stable uptime."""
-import argparse, os, pathlib, subprocess, sys, threading, time, urllib.request, json
+import argparse, contextlib, ctypes, hashlib, json, os, pathlib, subprocess, sys, threading, time, urllib.request
+
+@contextlib.contextmanager
+def _single_instance(install_root, mode):
+    """Hold a Windows named mutex for the complete lifetime of the child."""
+    if os.name != "nt":
+        yield
+        return
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateMutexW.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR)
+    kernel.CreateMutexW.restype = wintypes.HANDLE
+    kernel.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    kernel.WaitForSingleObject.restype = wintypes.DWORD
+    kernel.ReleaseMutex.argtypes = (wintypes.HANDLE,)
+    kernel.ReleaseMutex.restype = wintypes.BOOL
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel.CloseHandle.restype = wintypes.BOOL
+    identity = str(pathlib.Path(install_root).resolve()).casefold() + ":" + str(mode)
+    name = "Global\\BybitGridSupervisor_" + hashlib.sha256(identity.encode("utf-8")).hexdigest()
+    handle = kernel.CreateMutexW(None, False, name)
+    if not handle:
+        raise OSError(ctypes.get_last_error(), "CreateMutexW failed")
+    acquired = False
+    try:
+        status = kernel.WaitForSingleObject(handle, 0)
+        if status not in (0, 0x80):
+            if status == 0x102:
+                raise RuntimeError("Grid release supervisor already running")
+            raise OSError(ctypes.get_last_error(), "WaitForSingleObject failed")
+        acquired = True
+        yield
+    finally:
+        if acquired:
+            kernel.ReleaseMutex(handle)
+        kernel.CloseHandle(handle)
+
 
 def _read(path):
     try:return pathlib.Path(path).read_text(encoding="utf-8-sig").strip()
@@ -66,19 +102,20 @@ def main(argv=None):
     cmd=list(a.command)
     if cmd and cmd[0]=="--":cmd=cmd[1:]
     if not cmd:raise SystemExit("missing child command")
-    started=time.monotonic()
-    env=os.environ.copy()
-    ready_file=str(pathlib.Path(a.install_root)/"release-ready.txt")
-    if a.readiness=="worker":
-        pathlib.Path(ready_file).unlink(missing_ok=True)
-        env["GRID_RELEASE_READY_FILE"]=ready_file
-    proc=subprocess.Popen(cmd,cwd=a.cwd,env=env)
-    t=threading.Thread(target=_confirm,args=(a.install_root,a.version,proc,max(1,a.stable_seconds),a.readiness,ready_file),daemon=True)
-    t.start()
-    code=proc.wait()
-    runtime=time.monotonic()-started
-    rolled=_after_exit(a.install_root,a.version,runtime)
-    return 75 if rolled else int(code)
-
+    with _single_instance(a.install_root, a.readiness):
+        started=time.monotonic()
+        env=os.environ.copy()
+        ready_file=str(pathlib.Path(a.install_root)/"release-ready.txt")
+        if a.readiness=="worker":
+            pathlib.Path(ready_file).unlink(missing_ok=True)
+            env["GRID_RELEASE_READY_FILE"]=ready_file
+        proc=subprocess.Popen(cmd,cwd=a.cwd,env=env)
+        t=threading.Thread(target=_confirm,args=(a.install_root,a.version,proc,max(1,a.stable_seconds),a.readiness,ready_file),daemon=True)
+        t.start()
+        code=proc.wait()
+        runtime=time.monotonic()-started
+        rolled=_after_exit(a.install_root,a.version,runtime)
+        return 75 if rolled else int(code)
+    
 if __name__=="__main__":
     raise SystemExit(main())
