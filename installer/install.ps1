@@ -28,7 +28,27 @@ $Principal=New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount
 $Settings=New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
 # Grid services are long-running. Task Scheduler defaults to a 72-hour limit;
 # explicitly disable it so healthy workers/coordinators are not terminated.
-$Settings.ExecutionTimeLimit = [TimeSpan]::Zero
+# Windows Task Scheduler requires the ISO-8601 duration PT0S, not 00:00:00.
+# Apply this via task XML after registration, before starting the service.
+function Disable-TaskExecutionLimit([string]$Name) {
+  [xml]$xml = Export-ScheduledTask -TaskName $Name -ErrorAction Stop
+  $ns = New-Object System.Xml.XmlNamespaceManager($xml.NameTable)
+  $ns.AddNamespace("t", "http://schemas.microsoft.com/windows/2004/02/mit/task")
+  $node = $xml.SelectSingleNode("/t:Task/t:Settings/t:ExecutionTimeLimit", $ns)
+  if($null -eq $node) {
+    $settings = $xml.SelectSingleNode("/t:Task/t:Settings", $ns)
+    if($null -eq $settings) { throw "Task settings missing: $Name" }
+    $node = $xml.CreateElement("ExecutionTimeLimit", $ns.LookupNamespace("t"))
+    [void]$settings.AppendChild($node)
+  }
+  $node.InnerText = "PT0S"
+  Register-ScheduledTask -TaskName $Name -Xml $xml.OuterXml -Force -ErrorAction Stop | Out-Null
+  [xml]$verify = Export-ScheduledTask -TaskName $Name -ErrorAction Stop
+  $actual = $verify.SelectSingleNode("/t:Task/t:Settings/t:ExecutionTimeLimit", $ns)
+  if($null -eq $actual -or $actual.InnerText -ne "PT0S") {
+    throw "Task execution limit verification failed for $Name"
+  }
+}
 # Dedicated/remote nodes must recover after mains loss even when Windows reports
 # battery/UPS power. Power source must not suppress or terminate Grid services.
 $Settings.DisallowStartIfOnBatteries=$false
@@ -52,12 +72,15 @@ if($Mode -eq "CONTROL"){
   $CoordAction=New-ScheduledTaskAction -Execute "powershell.exe" -Argument $CoordArg -WorkingDirectory $InstallRoot
   Register-ScheduledTask -TaskName $CoordinatorTaskName -Action $CoordAction -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
   Unregister-ScheduledTask $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+  Disable-TaskExecutionLimit $CoordinatorTaskName
+  Disable-TaskExecutionLimit $ArchiveTaskName
   Start-ScheduledTask $CoordinatorTaskName
   Start-ScheduledTask $ArchiveTaskName
 }else{
   Unregister-ScheduledTask $CoordinatorTaskName -Confirm:$false -ErrorAction SilentlyContinue
   Unregister-ScheduledTask $ArchiveTaskName -Confirm:$false -ErrorAction SilentlyContinue
   Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
+  Disable-TaskExecutionLimit $TaskName
   Start-ScheduledTask $TaskName
 }
 Write-Host "Bybit Cluster Grid installed in $Mode mode."
