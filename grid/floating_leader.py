@@ -1,4 +1,4 @@
-import asyncio,hashlib,logging,socket
+import asyncio,logging,socket
 log=logging.getLogger("leader_election")
 
 class FloatingLeader:
