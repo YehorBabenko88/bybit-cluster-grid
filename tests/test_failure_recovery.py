@@ -526,7 +526,7 @@ def test_archive_does_not_mutate_consumed_feature_source():
 def test_dataset_cutoff_includes_label_horizon():
     from pathlib import Path
     text=Path("grid/ml_dataset_builder.py").read_text(encoding="utf-8")
-    assert "COALESCE(label_end_ts,event_ts)<=$1" in text
+    assert "label_end_ts IS NOT NULL AND label_end_ts<=$1" in text
 
 
 def test_control_firewall_is_tailnet_only():
