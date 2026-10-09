@@ -93,7 +93,15 @@ class Storage:
             raise BufferError("Grid WAL critical threshold reached; load shedding required")
         async with self._enqueue_lock:
             record_id=await self.spool.append(row)
-            await self.write_queue.put(record_id,row)
+            # A cancellation after durable append but before queue admission
+            # would strand a WAL ID until the next process restart. Finish
+            # admission before propagating cancellation to the producer.
+            admission=asyncio.create_task(self.write_queue.put(record_id,row))
+            try:
+                await asyncio.shield(admission)
+            except asyncio.CancelledError:
+                await asyncio.shield(admission)
+                raise
 
     async def close(self,drain_timeout=5):
         if self.replay_task is not None and not self.replay_task.done():
