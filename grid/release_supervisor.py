@@ -147,6 +147,9 @@ def _after_exit(root,version,runtime,exit_code=1,mode=None):
     prev=_read(root/"previous.version")
     if not re.fullmatch(r"[0-9a-f]{40}",prev) or prev==version:return False
     candidate=root/"releases"/prev
+    # A release directory symlink/junction must not redirect rollback outside releases.
+    release_root=(root/"releases").resolve()
+    if candidate.resolve().parent != release_root:return False
     worker_ready=(candidate/"run_worker.py").is_file()
     coordinator_ready=(candidate/"grid"/"coordinator.py").is_file()
     runnable=(worker_ready if mode=="worker" else coordinator_ready if mode=="coordinator" else worker_ready or coordinator_ready)
