@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from grid import release_supervisor as supervisor
 
@@ -27,6 +28,31 @@ class ReleaseSupervisorTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("already running", result.stderr)
             self.assertFalse((root / "release-ready.txt").exists())
+
+    def test_stale_supervisor_does_not_confirm_pending_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            old, new = "a" * 40, "b" * 40
+            (root / "current.version").write_text(old)
+            (root / "pending.version").write_text(new)
+            proc = mock.Mock()
+            proc.poll.return_value = None
+            with mock.patch.object(supervisor.time, "sleep", return_value=None):
+                supervisor._confirm(root, new, proc, 1)
+            self.assertEqual((root / "pending.version").read_text(), new)
+
+    def test_unresolved_journal_does_not_confirm_pending_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            new = "b" * 40
+            (root / "current.version").write_text(new)
+            (root / "pending.version").write_text(new)
+            (root / "switch-journal.json").write_text('{"phase":"prepared"}')
+            proc = mock.Mock()
+            proc.poll.return_value = None
+            with mock.patch.object(supervisor.time, "sleep", return_value=None):
+                supervisor._confirm(root, new, proc, 1)
+            self.assertTrue((root / "pending.version").exists())
 
     def test_three_crashes_roll_back_and_quarantine(self):
         with tempfile.TemporaryDirectory() as tmp:
