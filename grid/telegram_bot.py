@@ -633,6 +633,15 @@ async def telegram_loop(db,nodes):
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     claimed=await claim_update(db.pool,upd["update_id"],chat,txt,node_id)
                     if not claimed:
+                        # A prior handler may have failed. Never silently mark that
+                        # update consumed: operator reconciliation is required.
+                        previous=await db.pool.fetchval(
+                            "SELECT status FROM telegram_updates WHERE update_id=$1",
+                            int(upd["update_id"]))
+                        if previous!="DONE":
+                            log.error("telegram update needs reconciliation",
+                                      extra={"event":"telegram_update_unresolved"})
+                            raise RuntimeError("Telegram update not completed; cursor preserved")
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     try:
                         await handle_command(db,session,chat,txt,nodes)
