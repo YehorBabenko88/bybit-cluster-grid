@@ -24,6 +24,8 @@ class FakePool:
             return {"id": "model", "dataset_id": "dataset", "feature_version": "v1"}
         if "FROM dataset_snapshots" in query:
             return {"status": "READY", "feature_version": "v1"}
+        if "stage='OOS'" in query:
+            return {"passed": True}
         return {"id": "evaluation", "metrics": self.metrics}
 
     async def fetchval(self, query, *args):
@@ -124,3 +126,21 @@ def test_ml_gate_rejects_dataset_that_is_not_ready():
     else:
         raise AssertionError("unready dataset must block ML approval")
     assert not pool.commands
+
+
+def test_robustness_gate_rejects_missing_persisted_oos_pass():
+    class MissingOOSPool(FakePool):
+        async def fetchrow(self, query, *args):
+            if "stage='OOS'" in query:
+                return None
+            return await super().fetchrow(query, *args)
+
+    pool = MissingOOSPool(_metrics(1))
+    pool.metrics["scenarios"] = {name: {"overall": {"trades": 150, "expectancy": 1}}
+        for name in ("fees_x1_5", "slippage_x2", "execution_delay", "drop_10pct", "combined")}
+    try:
+        asyncio.run(apply_evaluation_gate(pool, "model", "ROBUSTNESS", {}))
+    except ValueError as exc:
+        assert "passing OOS" in str(exc)
+    else:
+        raise AssertionError("robustness must require persisted OOS evidence")
