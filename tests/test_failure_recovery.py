@@ -218,6 +218,7 @@ def test_release_supervisor_confirms_same_live_process(tmp_path):
     import subprocess,sys,threading
     from grid.release_supervisor import _confirm
     root=tmp_path/"install";root.mkdir()
+    (root/"current.version").write_text("v2",encoding="utf-8")
     (root/"pending.version").write_text("v2",encoding="utf-8")
     p=subprocess.Popen([sys.executable,"-c","import time;time.sleep(.5)"])
     _confirm(root,"v2",p,.05)
