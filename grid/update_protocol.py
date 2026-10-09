@@ -35,9 +35,13 @@ async def register_release(pool,version,channel,package_url,sha256,metadata=None
     async with pool.acquire() as c:
         await c.execute("""INSERT INTO agent_releases(version,channel,package_url,sha256,enabled,metadata)
           VALUES($1,$2,$3,$4,false,$5::jsonb)
-          ON CONFLICT(version) DO UPDATE SET channel=EXCLUDED.channel,package_url=EXCLUDED.package_url,
-          sha256=EXCLUDED.sha256,metadata=EXCLUDED.metadata""",
+          ON CONFLICT(version) DO NOTHING""",
           version,channel,package_url,sha256,json.dumps(metadata or {}))
+        existing=await c.fetchrow(
+          "SELECT package_url,sha256 FROM agent_releases WHERE version=$1",version)
+        if (not existing or existing["package_url"]!=package_url or
+                existing["sha256"].lower()!=sha256.lower()):
+            raise ValueError("release version already registered with different artifact")
 
 async def start_canary(pool,version,node_id,required_acks=3):
     async with pool.acquire() as c:
