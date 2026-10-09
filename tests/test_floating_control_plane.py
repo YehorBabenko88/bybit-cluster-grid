@@ -99,3 +99,13 @@ def test_floating_leader_epochs_are_database_serialized():
     assert "get('epoch',0))+1" in source
     assert "json.loads(metadata)" in source
     assert "int(time.time()*1000)" not in source
+
+
+def test_initial_leader_campaign_is_serialized_before_row_lock():
+    from pathlib import Path
+    source=Path("grid/floating_leader.py").read_text(encoding="utf-8")
+    advisory=source.index("pg_advisory_xact_lock")
+    # The comment mentions FOR UPDATE before the SQL; compare executable SQL.
+    select=source.index('row=await c.fetchrow')
+    assert advisory<select
+    assert "pg_advisory_xact_lock(1729, 4511)" in source
