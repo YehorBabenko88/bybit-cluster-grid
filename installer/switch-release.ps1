@@ -16,8 +16,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 # An exclusive cross-process lock prevents concurrent promotions on this host.
-$lockName = 'Global\\BybitClusterGridReleaseSwitch'
-$mutex = New-Object System.Threading.Mutex($false, $lockName)
+$lockName = 'Global\BybitClusterGridReleaseSwitch'
+$mutex = [System.Threading.Mutex]::new($false, $lockName)
 $lockHeld = $false
 try {
     try { $lockHeld = $mutex.WaitOne(0) }
