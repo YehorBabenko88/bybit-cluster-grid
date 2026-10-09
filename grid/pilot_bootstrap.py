@@ -37,5 +37,17 @@ class PilotBootstrap:
 
     async def complete_live_canary(self,health):
         state=await self.pool.fetchrow("SELECT details FROM pilot_bootstrap_state WHERE node_id=$1",self.node_id)
-        details=dict(state["details"] or {});details["live_canary_healthy"]=True;details["live_canary"]=health
+        raw_details = state["details"] if state else None
+        if isinstance(raw_details, str):
+            details = json.loads(raw_details)
+        elif isinstance(raw_details, dict):
+            details = dict(raw_details)
+        elif raw_details is None:
+            details = {}
+        else:
+            raise TypeError("Unexpected pilot details type")
+        if not isinstance(details, dict):
+            raise TypeError("Pilot details must be a JSON object")
+        details["live_canary_healthy"] = True
+        details["live_canary"] = health
         return await evaluate_pilot(self.pool,self.node_id,details)
