@@ -26,12 +26,15 @@ def test_scientific_atomic_claim_and_expired_recovery():
                 await conn.execute(f'CREATE SCHEMA "{schema}"')
             try:
                 async with pool.acquire() as conn:
-                    await conn.execute(f'CREATE TABLE "{schema}".scientific_simulation_runs('
-                        id uuid PRIMARY KEY, hypothesis_id uuid NOT NULL,
-                        dataset_cutoff timestamptz NOT NULL, status text NOT NULL DEFAULT 'QUEUED',
-                        created_at timestamptz NOT NULL DEFAULT now(), started_at timestamptz,
-                        attempts integer NOT NULL DEFAULT 0, lease_token uuid,
-                        lease_expires_at timestamptz, reason text)')
+                    await conn.execute(
+                        f'CREATE TABLE "{schema}".scientific_simulation_runs('
+                        'id uuid PRIMARY KEY, hypothesis_id uuid NOT NULL, '
+                        'dataset_cutoff timestamptz NOT NULL, '
+                        "status text NOT NULL DEFAULT 'QUEUED', "
+                        'created_at timestamptz NOT NULL DEFAULT now(), '
+                        'started_at timestamptz, attempts integer NOT NULL DEFAULT 0, '
+                        'lease_token uuid, lease_expires_at timestamptz, reason text)'
+                    )
                     await conn.execute(f'INSERT INTO "{schema}".scientific_simulation_runs '
                         '(id,hypothesis_id,dataset_cutoff) VALUES($1,$2,$3)',
                         run_id,hypothesis_id,datetime.now(timezone.utc))
