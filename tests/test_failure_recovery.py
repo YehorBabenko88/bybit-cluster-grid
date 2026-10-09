@@ -202,15 +202,16 @@ def test_update_marks_release_pending_for_boot_health():
 def test_release_supervisor_rolls_back_after_three_fast_crashes(tmp_path):
     from grid.release_supervisor import _after_exit
     root=tmp_path/"install"; releases=root/"releases"; releases.mkdir(parents=True)
-    (releases/"bad").mkdir(); (releases/"bad"/"run_worker.py").write_text("",encoding="utf-8")
-    (releases/"good").mkdir(); (releases/"good"/"run_worker.py").write_text("",encoding="utf-8")
-    (root/"current.version").write_text("bad",encoding="utf-8")
-    (root/"previous.version").write_text("good",encoding="utf-8")
-    (root/"pending.version").write_text("bad",encoding="utf-8")
-    assert _after_exit(root,"bad",2) is False
-    assert _after_exit(root,"bad",3) is False
-    assert _after_exit(root,"bad",4) is True
-    assert (root/"current.version").read_text(encoding="utf-8")=="good"
+    bad, good = "b" * 40, "a" * 40
+    (releases/bad).mkdir(); (releases/bad/"run_worker.py").write_text("",encoding="utf-8")
+    (releases/good).mkdir(); (releases/good/"run_worker.py").write_text("",encoding="utf-8")
+    (root/"current.version").write_text(bad,encoding="utf-8")
+    (root/"previous.version").write_text(good,encoding="utf-8")
+    (root/"pending.version").write_text(bad,encoding="utf-8")
+    assert _after_exit(root,bad,2) is False
+    assert _after_exit(root,bad,3) is False
+    assert _after_exit(root,bad,4) is True
+    assert (root/"current.version").read_text(encoding="utf-8")==good
     assert not (root/"pending.version").exists()
 
 
