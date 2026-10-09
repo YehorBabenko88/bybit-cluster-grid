@@ -38,7 +38,9 @@ def _metrics(expectancy):
 def test_failed_recheck_revokes_stale_preproduction_status():
     pool = FakePool(_metrics(-1))
     assert asyncio.run(apply_evaluation_gate(pool, "model", "OOS", {})) is False
-    assert any("REJECTED" in query for query, _ in pool.commands)
+    assert any("SET status='REJECTED'" in query for query, _ in pool.commands)
+    assert any("UPDATE model_evaluations SET passed=false" in query and "ROBUSTNESS" in query
+               for query, _ in pool.commands)
 
 
 def test_successful_recheck_preserves_nonproduction_transition():
