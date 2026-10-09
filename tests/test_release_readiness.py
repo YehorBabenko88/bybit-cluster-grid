@@ -10,6 +10,36 @@ class FakeProcess:
         return None if self.alive else 1
 
 
+def test_coordinator_readiness_rejects_stale_health_process(monkeypatch):
+    import io
+    import json
+
+    class HealthResponse(io.BytesIO):
+        status = 200
+
+    proc = FakeProcess(pid=4242)
+    def health_response(pid):
+        return HealthResponse(json.dumps({"ok": True, "pid": pid}).encode("utf-8"))
+
+    monkeypatch.setattr(
+        "grid.release_supervisor.urllib.request.urlopen",
+        lambda *args, **kwargs: health_response(9999),
+    )
+    assert not _ready("coordinator", proc, None)
+
+    monkeypatch.setattr(
+        "grid.release_supervisor.urllib.request.urlopen",
+        lambda *args, **kwargs: health_response(None),
+    )
+    assert not _ready("coordinator", proc, None)
+
+    monkeypatch.setattr(
+        "grid.release_supervisor.urllib.request.urlopen",
+        lambda *args, **kwargs: health_response(4242),
+    )
+    assert _ready("coordinator", proc, None)
+
+
 def test_worker_readiness_requires_matching_process(tmp_path):
     marker=tmp_path/"ready"
     proc=FakeProcess()
