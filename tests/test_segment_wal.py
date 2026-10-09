@@ -136,3 +136,21 @@ def test_repeated_torn_tails_preserve_separate_evidence(tmp_path):
         assert again.recover()==[(1,{"n":1})]
         assert again.bytes_used()>=sum(len(x) for x in evidence)
     asyncio.run(run())
+
+
+def test_wal_quota_does_not_ignore_unreadable_segment_metadata(tmp_path,monkeypatch):
+    from pathlib import Path
+    wal=SegmentWAL(tmp_path,max_bytes=10000)
+    original=Path.stat
+    def failing_stat(path,*args,**kwargs):
+        if str(path).endswith(".seg"):
+            raise PermissionError("segment metadata denied")
+        return original(path,*args,**kwargs)
+    async def run():
+        await wal.append({"n":1})
+        monkeypatch.setattr(Path,"stat",failing_stat)
+        with pytest.raises(PermissionError,match="metadata denied"):
+            wal.bytes_used()
+        with pytest.raises(PermissionError,match="metadata denied"):
+            await wal.append({"n":2})
+    asyncio.run(run())
