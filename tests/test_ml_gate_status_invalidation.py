@@ -7,7 +7,21 @@ class FakePool:
         self.metrics = metrics
         self.commands = []
 
-    async def fetchrow(self, *args):
+    def acquire(self):
+        return self
+
+    def transaction(self):
+        return self
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    async def fetchrow(self, query, *args):
+        if "FOR UPDATE" in query:
+            return {"id": "model"}
         return {"id": "evaluation", "metrics": self.metrics}
 
     async def execute(self, query, *args):
