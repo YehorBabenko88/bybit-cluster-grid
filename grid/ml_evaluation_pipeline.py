@@ -62,8 +62,12 @@ async def apply_evaluation_gate(pool,model_id,stage,requirements):
 async def _apply_evaluation_gate_locked(c,model_id,stage,requirements):
     if stage not in ("OOS","ROBUSTNESS"):
         raise ValueError("unsupported evaluation stage")
-    model=await c.fetchrow("SELECT id FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
+    model=await c.fetchrow("SELECT id,dataset_id,feature_version FROM model_registry WHERE id=$1 FOR UPDATE",model_id)
     if not model: raise ValueError("model missing")
+    ds=await c.fetchrow("""SELECT status,feature_version FROM dataset_snapshots
+      WHERE id=$1""",model["dataset_id"])
+    if not ds or ds["status"]!="READY" or ds["feature_version"]!=model["feature_version"]:
+        raise ValueError("model dataset is not READY or feature version mismatches")
     row=await c.fetchrow("""SELECT e.id,e.metrics FROM model_evaluations e
       JOIN model_registry m ON m.id=e.model_id AND m.dataset_id=e.dataset_id
       WHERE e.model_id=$1 AND e.stage=$2 ORDER BY e.created_at DESC LIMIT 1""",model_id,stage)
