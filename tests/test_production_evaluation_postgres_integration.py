@@ -47,3 +47,42 @@ def test_production_evaluation_trigger_postgres_integration():
 
 class _Rollback(Exception):
     pass
+
+
+
+def test_concurrent_production_promotion_blocks_evaluation_write():
+    async def scenario():
+        a = await asyncpg.connect(DSN)
+        b = await asyncpg.connect(DSN)
+        model_id, evaluation_id = uuid.uuid4(), uuid.uuid4()
+        try:
+            await a.execute("CREATE TABLE IF NOT EXISTS model_registry (id uuid PRIMARY KEY, status text NOT NULL)")
+            await a.execute("CREATE TABLE IF NOT EXISTS model_evaluations (id uuid PRIMARY KEY, model_id uuid NOT NULL, passed boolean NOT NULL)")
+            for sql in next(sqls for version, _, sqls in MIGRATIONS if version == 45):
+                await a.execute(sql)
+            await a.execute("INSERT INTO model_registry VALUES ($1,'CANDIDATE')", model_id)
+            await a.execute("INSERT INTO model_evaluations VALUES ($1,$2,false)", evaluation_id, model_id)
+            started = asyncio.Event()
+
+            async def competing_update():
+                async with b.transaction():
+                    started.set()
+                    await b.execute("UPDATE model_evaluations SET passed=true WHERE id=$1", evaluation_id)
+
+            async with a.transaction():
+                await a.execute("UPDATE model_registry SET status='PRODUCTION' WHERE id=$1", model_id)
+                task = asyncio.create_task(competing_update())
+                await asyncio.wait_for(started.wait(), 5)
+                await asyncio.sleep(0.2)
+                assert not task.done(), "write should wait for the promotion row lock"
+            with pytest.raises(asyncpg.PostgresError, match="immutable"):
+                await asyncio.wait_for(task, 5)
+            assert await a.fetchval("SELECT passed FROM model_evaluations WHERE id=$1", evaluation_id) is False
+        finally:
+            await a.execute("UPDATE model_registry SET status='CANDIDATE' WHERE id=$1", model_id)
+            await a.execute("DELETE FROM model_evaluations WHERE model_id=$1", model_id)
+            await a.execute("DELETE FROM model_registry WHERE id=$1", model_id)
+            await a.close()
+            await b.close()
+
+    asyncio.run(scenario())
