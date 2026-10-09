@@ -1,5 +1,5 @@
 """Run a Grid service child and confirm a pending release after stable uptime."""
-import argparse, contextlib, ctypes, hashlib, json, os, pathlib, subprocess, sys, threading, time, urllib.request
+import argparse, contextlib, ctypes, hashlib, json, os, pathlib, re, subprocess, sys, threading, time, urllib.request
 
 @contextlib.contextmanager
 def _single_instance(install_root, mode):
@@ -145,6 +145,7 @@ def _after_exit(root,version,runtime,exit_code=1,mode=None):
     count+=1; _atomic(crash,count)
     if count<3:return False
     prev=_read(root/"previous.version")
+    if not re.fullmatch(r"[0-9a-f]{40}",prev) or prev==version:return False
     candidate=root/"releases"/prev
     worker_ready=(candidate/"run_worker.py").is_file()
     coordinator_ready=(candidate/"grid"/"coordinator.py").is_file()
