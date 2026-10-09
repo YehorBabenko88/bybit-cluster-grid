@@ -161,6 +161,34 @@ class ReleaseSupervisorTests(unittest.TestCase):
                 supervisor._confirm(root, new, proc, 1)
             self.assertTrue((root / "pending.version").exists())
 
+    def test_successful_confirmation_clears_previous_crash_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            version = "b" * 40
+            (root / "current.version").write_text(version)
+            (root / "pending.version").write_text(version)
+            (root / "pending-crashes.txt").write_text("2")
+            proc = mock.Mock()
+            proc.poll.return_value = None
+            with mock.patch.object(supervisor.time, "sleep", return_value=None):
+                supervisor._confirm(root, version, proc, 1)
+            self.assertFalse((root / "pending.version").exists())
+            self.assertFalse((root / "pending-crashes.txt").exists())
+
+    def test_failed_confirmation_preserves_previous_crash_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            version = "b" * 40
+            (root / "current.version").write_text(version)
+            (root / "pending.version").write_text(version)
+            (root / "pending-crashes.txt").write_text("2")
+            proc = mock.Mock()
+            proc.poll.return_value = 1
+            with mock.patch.object(supervisor.time, "sleep", return_value=None):
+                supervisor._confirm(root, version, proc, 1)
+            self.assertTrue((root / "pending.version").exists())
+            self.assertEqual((root / "pending-crashes.txt").read_text(), "2")
+
     def test_clean_shutdown_does_not_increment_crash_counter(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
