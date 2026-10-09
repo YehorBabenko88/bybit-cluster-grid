@@ -21,7 +21,9 @@ class FakePool:
 
     async def fetchrow(self, query, *args):
         if "FOR UPDATE" in query:
-            return {"id": "model"}
+            return {"id": "model", "dataset_id": "dataset", "feature_version": "v1"}
+        if "FROM dataset_snapshots" in query:
+            return {"status": "READY", "feature_version": "v1"}
         return {"id": "evaluation", "metrics": self.metrics}
 
     async def fetchval(self, query, *args):
@@ -105,3 +107,20 @@ def test_robustness_gate_rejects_missing_oos_transition():
         assert "before OOS" in str(exc)
     else:
         raise AssertionError("missing OOS transition must fail closed")
+
+
+def test_ml_gate_rejects_dataset_that_is_not_ready():
+    class NotReadyPool(FakePool):
+        async def fetchrow(self, query, *args):
+            if "FROM dataset_snapshots" in query:
+                return {"status": "BUILDING", "feature_version": "v1"}
+            return await super().fetchrow(query, *args)
+
+    pool = NotReadyPool(_metrics(1))
+    try:
+        asyncio.run(apply_evaluation_gate(pool, "model", "OOS", {}))
+    except ValueError as exc:
+        assert "not READY" in str(exc)
+    else:
+        raise AssertionError("unready dataset must block ML approval")
+    assert not pool.commands
