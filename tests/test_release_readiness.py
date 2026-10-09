@@ -35,13 +35,14 @@ def test_unready_release_is_not_confirmed_after_stable_uptime(tmp_path,monkeypat
 
 def test_unready_long_lived_release_still_rolls_back(tmp_path):
     root=tmp_path
+    old, new = "a" * 40, "b" * 40
     releases=root/"releases"
-    (releases/"old").mkdir(parents=True)
-    (releases/"old"/"run_worker.py").write_text("",encoding="utf-8")
-    (root/"current.version").write_text("new",encoding="utf-8")
-    (root/"previous.version").write_text("old",encoding="utf-8")
-    (root/"pending.version").write_text("new",encoding="utf-8")
-    assert not _after_exit(root,"new",3600)
-    assert not _after_exit(root,"new",3600)
-    assert _after_exit(root,"new",3600)
-    assert (root/"current.version").read_text(encoding="utf-8")=="old"
+    (releases/old).mkdir(parents=True)
+    (releases/old/"run_worker.py").write_text("",encoding="utf-8")
+    (root/"current.version").write_text(new,encoding="utf-8")
+    (root/"previous.version").write_text(old,encoding="utf-8")
+    (root/"pending.version").write_text(new,encoding="utf-8")
+    assert not _after_exit(root,new,3600)
+    assert not _after_exit(root,new,3600)
+    assert _after_exit(root,new,3600)
+    assert (root/"current.version").read_text(encoding="utf-8")==old
