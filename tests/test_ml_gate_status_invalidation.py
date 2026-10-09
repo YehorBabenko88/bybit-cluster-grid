@@ -185,3 +185,25 @@ def test_invalid_gate_requirements_fail_before_sql():
         else:
             raise AssertionError("invalid gate requirement accepted: "+repr(requirements))
         assert not pool.commands
+
+
+def test_corrupted_statistics_cannot_pass_oos_gate():
+    invalid = (
+        ("trades", -1),
+        ("trades", 150.5),
+        ("trades", float("inf")),
+        ("expectancy", float("nan")),
+        ("expectancy", float("inf")),
+        ("max_drawdown", -0.1),
+        ("max_drawdown", float("nan")),
+    )
+    for field, value in invalid:
+        metrics = _metrics(1)
+        metrics["segments"]["overall"][field] = value
+        pool = FakePool(metrics)
+        assert asyncio.run(apply_evaluation_gate(pool, "model", "OOS", {})) is False, (field, value)
+    for fraction in (-0.01, 1.01, float("nan"), float("inf")):
+        metrics = _metrics(1)
+        metrics["stability"]["positive_fraction"] = fraction
+        pool = FakePool(metrics)
+        assert asyncio.run(apply_evaluation_gate(pool, "model", "OOS", {})) is False, fraction
