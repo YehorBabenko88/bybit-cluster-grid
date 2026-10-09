@@ -46,6 +46,7 @@ def _after_exit(root,version,runtime):
     runnable=(candidate/"run_worker.py").exists() or (candidate/"grid"/"coordinator.py").exists()
     if not prev or prev==version or not runnable:return False
     _atomic(root/"current.version",prev)
+    _atomic(root/"failed.version",version)
     pending.unlink(missing_ok=True); crash.unlink(missing_ok=True)
     return True
 
