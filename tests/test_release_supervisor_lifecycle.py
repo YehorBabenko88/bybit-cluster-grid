@@ -78,6 +78,24 @@ class ReleaseSupervisorTests(unittest.TestCase):
                 supervisor._confirm(root, new, proc, 1)
             self.assertTrue((root / "pending.version").exists())
 
+    def test_clean_shutdown_does_not_increment_crash_counter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            old, new = "a" * 40, "b" * 40
+            (root / "previous.version").write_text(old)
+            (root / "current.version").write_text(new)
+            (root / "pending.version").write_text(new)
+            previous = root / "releases" / old
+            previous.mkdir(parents=True)
+            (previous / "run_worker.py").write_text("# fixture")
+            for _ in range(5):
+                self.assertFalse(supervisor._after_exit(root, new, 30, exit_code=0))
+            self.assertFalse((root / "pending-crashes.txt").exists())
+            self.assertEqual((root / "current.version").read_text(), new)
+            self.assertTrue((root / "pending.version").exists())
+            self.assertFalse(supervisor._after_exit(root, new, 1, exit_code=1))
+            self.assertEqual((root / "pending-crashes.txt").read_text(), "1")
+
     def test_three_crashes_roll_back_and_quarantine(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
