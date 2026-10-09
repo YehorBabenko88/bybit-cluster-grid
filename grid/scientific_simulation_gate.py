@@ -68,7 +68,11 @@ class ScientificSimulationGate:
           FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1 AND passed=true""",hypothesis_id)
         if oos_start is None:
             return await self._waiting(run_id,"validated hypothesis has no fixed evidence cutoff",lease_token)
-        await self.pool.execute("UPDATE scientific_simulation_runs SET oos_start=$2 WHERE id=$1",run_id,oos_start)
+        updated=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET oos_start=$2 WHERE id=$1 AND status='RUNNING'
+            AND lease_token=$3 AND lease_expires_at>now()
+          RETURNING true""",run_id,oos_start,lease_token)
+        if not updated:return {"run_id":str(run_id),"status":"LEASE_LOST"}
         h=await self.pool.fetchrow("""SELECT method,pattern,horizon_ms,direction,definition,status
           FROM scientific_hypotheses WHERE id=$1""",hypothesis_id)
         if not h or str(h["status"])!="VALIDATED":
