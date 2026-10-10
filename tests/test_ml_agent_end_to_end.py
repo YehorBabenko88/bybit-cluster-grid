@@ -69,3 +69,26 @@ def test_ml_agent_recovers_after_transient_claim_error(monkeypatch):
 
     monkeypatch.setattr(agent, "cleanup_stale_workspaces", lambda: 0)
     asyncio.run(run())
+
+
+def test_remote_dataset_rejects_page_exceeding_declared_count(tmp_path, monkeypatch):
+    import asyncio
+    import pytest
+    import grid.ml_agent_worker as agent
+
+    monkeypatch.setenv("ProgramData", str(tmp_path))
+
+    class Client:
+        async def dataset_page(self, job, offset, limit):
+            return {"sample_count": 1, "dataset_hash": "unused",
+                    "dataset_id": "ds", "samples": [
+                        {"payload": {"x": 1}, "payload_hash": "unused"},
+                        {"payload": {"x": 2}, "payload_hash": "unused"}]}
+        async def renew(self, job):
+            return {"ok": True}
+
+    async def run():
+        with pytest.raises(ValueError, match="page exceeds remaining"):
+            await agent._write_paged_bundle(Client(), {"id": "j"}, tmp_path / "bundle.json")
+
+    asyncio.run(run())
