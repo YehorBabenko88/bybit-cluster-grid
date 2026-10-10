@@ -153,18 +153,10 @@ class ScientificResearchService:
         try:
             await self._checkpoint()
         except BaseException:
-            # Force a fresh startup even if PostgreSQL is still unavailable
-            # and the durable checkpoint cannot be read immediately.
+            # The database may still be unavailable: avoid a second query
+            # that could mask the original checkpoint failure. start() will
+            # reload the durable cursor and rebuild volatile agents on retry.
             self.started=False
-            # A failed checkpoint must never leave the in-memory cursor ahead
-            # of the durable cursor. Re-read the persisted state before retry.
-            saved=await self.pool.fetchrow("""SELECT state,last_ts FROM observer_checkpoints
-              WHERE observer='scientific_research' AND symbol='*'""")
-            if saved:
-                self.last_id=int(_dict(saved["state"]).get("last_id") or 0)
-                self.last_event_ts=saved["last_ts"]
-            else:
-                self.started=False
             raise
         await set_consumer_watermarks(self.pool,[
             ("market_events","scientific_research",sym,ts,False) for sym,ts in watermarks.items()])
