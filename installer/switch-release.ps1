@@ -87,7 +87,10 @@ if (Test-Path -LiteralPath $failedMarker -PathType Leaf) {
 }
 # Refuse another promotion while a previous switch is awaiting confirmation.
 $pendingMarker = Join-Path $InstallRoot 'pending.version'
-if (Test-Path -LiteralPath $pendingMarker -PathType Leaf) {
+if (Test-Path -LiteralPath $pendingMarker) {
+    if (-not (Test-Path -LiteralPath $pendingMarker -PathType Leaf)) {
+        throw 'Invalid pending.version type; manual recovery required'
+    }
     $pendingVersion = (Get-Content -LiteralPath $pendingMarker -Raw).Trim()
     throw 'Pending release marker exists; resolve or remove it through the recovery procedure before switching again'
 }
