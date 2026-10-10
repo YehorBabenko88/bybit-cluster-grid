@@ -65,6 +65,18 @@ foreach ($entry in $manifest.files.PSObject.Properties) {
         throw "Manifest checksum mismatch: $relative"
     }
 }
+# Refuse to promote a release containing unverified Python source files.
+# Runtime-generated caches and virtual environments are outside this source check.
+$manifestKeys = @{}
+foreach ($entry in $manifest.files.PSObject.Properties) {
+    $manifestKeys[[string]$entry.Name.Replace([char]92, '/')] = $true
+}
+Get-ChildItem -LiteralPath $release -Recurse -File -Filter '*.py' | ForEach-Object {
+    $relativePath = $_.FullName.Substring($releaseFull.Length).Replace([char]92, '/')
+    if (-not $manifestKeys.ContainsKey($relativePath)) {
+        throw "Release manifest omits Python source: $relativePath"
+    }
+}
 $failedMarker = Join-Path $InstallRoot 'failed.version'
 if (Test-Path -LiteralPath $failedMarker -PathType Leaf) {
     $failedVersion = (Get-Content -LiteralPath $failedMarker -Raw).Trim()
