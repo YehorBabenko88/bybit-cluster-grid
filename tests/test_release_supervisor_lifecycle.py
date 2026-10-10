@@ -394,6 +394,49 @@ class ReleaseSupervisorTests(unittest.TestCase):
             self.assertEqual((root / "failed.version").read_text(), new)
             self.assertFalse((root / "pending.version").exists())
 
+    def test_three_coordinator_crashes_roll_back_to_coordinator_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            old, new = "a" * 40, "b" * 40
+            for name, value in (("previous.version", old), ("current.version", new),
+                                ("pending.version", new)):
+                (root / name).write_text(value)
+            previous = root / "releases" / old / "grid"
+            previous.mkdir(parents=True)
+            (previous / "coordinator.py").write_text("# fixture")
+            for count in (1, 2):
+                self.assertFalse(supervisor._after_exit(root, new, 1, exit_code=1,
+                                                        mode="coordinator"))
+                self.assertEqual((root / "pending-crashes.txt").read_text(), str(count))
+                self.assertEqual((root / "current.version").read_text(), new)
+            self.assertTrue(supervisor._after_exit(root, new, 1, exit_code=1,
+                                                   mode="coordinator"))
+            self.assertEqual((root / "current.version").read_text(), old)
+            self.assertEqual((root / "failed.version").read_text(), new)
+            self.assertFalse((root / "pending.version").exists())
+            self.assertFalse((root / "pending-crashes.txt").exists())
+            self.assertFalse(supervisor._after_exit(root, new, 1, exit_code=1,
+                                                    mode="coordinator"))
+            self.assertEqual((root / "current.version").read_text(), old)
+
+    def test_unresolved_switch_journal_blocks_crash_rollback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            old, new = "a" * 40, "b" * 40
+            for name, value in (("previous.version", old), ("current.version", new),
+                                ("pending.version", new)):
+                (root / name).write_text(value)
+            (root / "switch-journal.json").write_text('{"phase":"prepared"}')
+            previous = root / "releases" / old / "grid"
+            previous.mkdir(parents=True)
+            (previous / "coordinator.py").write_text("# fixture")
+            for _ in range(3):
+                self.assertFalse(supervisor._after_exit(root, new, 1, exit_code=1,
+                                                        mode="coordinator"))
+            self.assertEqual((root / "current.version").read_text(), new)
+            self.assertTrue((root / "pending.version").exists())
+            self.assertFalse((root / "pending-crashes.txt").exists())
+
     def test_symlinked_previous_release_cannot_escape_release_root(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
