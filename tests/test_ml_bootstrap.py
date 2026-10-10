@@ -111,4 +111,15 @@ def test_cached_ml_environment_validates_protocol_dependencies():
 
 def test_missing_ml_runtime_readiness_is_cached():
     script = Path("grid/resources.py").read_text(encoding="utf-8")
-    assert 'if not os.path.isfile(python) or not os.path.isfile(journal):\n        _ML_READY_CACHE.update(at=now,value=False)' in script
+    assert 'if os.path.isfile(python) and os.path.isfile(journal):' in script
+    assert '_ML_READY_CACHE.update(at=time.monotonic(),value=ready,running=False)' in script
+    assert 'threading.Thread(target=_probe_ml_runtime' in script
+    assert 'if _ML_READY_CACHE["running"]:' in script
+
+
+def test_ml_bootstrap_repairs_corrupted_interpreter_and_fails_closed():
+    script=Path("installer/bootstrap-ml.ps1").read_text(encoding="utf-8")
+    assert 'assert sys.prefix != sys.base_prefix' in script
+    assert 'Remove-Item -LiteralPath $MLVenv -Recurse -Force' in script
+    assert 'status="installing"' in script
+    assert 'status="failed"' in script
