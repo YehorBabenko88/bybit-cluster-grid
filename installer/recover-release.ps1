@@ -62,6 +62,12 @@ try {
     if ($current -and ($current -cne $j.previous) -and ($current -cne $j.candidate)) {
         throw 'Current pointer conflicts with journal; manual recovery required'
     }
+    # previous.version is rewritten during recovery; refuse to overwrite a directory.
+    $previousMarkerPath = Join-Path $InstallRoot 'previous.version'
+    if ((Test-Path -LiteralPath $previousMarkerPath) -and
+        -not (Test-Path -LiteralPath $previousMarkerPath -PathType Leaf)) {
+        throw 'Invalid previous release pointer type; manual recovery required'
+    }
     # Never erase a pending marker belonging to another transaction.
     $pendingPath = Join-Path $InstallRoot 'pending.version'
     if (Test-Path -LiteralPath $pendingPath) {
