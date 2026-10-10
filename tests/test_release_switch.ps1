@@ -19,6 +19,16 @@ try {
     Assert ($output -contains 'PLAN_ONLY=true; no files changed') 'Default mode must be plan-only'
     Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $a) 'Plan changed current'
     Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Plan created pending marker'
+    # A directory at pending.version must not be mistaken for no pending release.
+    $pendingDir = Join-Path $root 'pending.version'
+    New-Item -ItemType Directory -Path $pendingDir | Out-Null
+    $pendingDirectoryRejected = $false
+    try { & $script -Version $b -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $pendingDirectoryRejected = $true }
+    Assert $pendingDirectoryRejected 'Pending directory must block release switch'
+    Assert (Test-Path -LiteralPath $pendingDir -PathType Container) 'Switch removed pending directory'
+    Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -ceq $a) 'Pending directory changed current'
+    Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Pending directory created journal'
+    Remove-Item -LiteralPath $pendingDir -Force
     # CONTROL manifests use forward slashes while its required path uses Windows separators.
     $previousControl = Join-Path $root "releases\$a\grid\coordinator.py"
     New-Item -ItemType Directory -Force -Path (Split-Path $previousControl -Parent) | Out-Null
