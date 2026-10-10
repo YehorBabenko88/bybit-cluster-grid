@@ -63,8 +63,10 @@ class SegmentWAL:
                     return
                 f.truncate(0 if cut<0 else cut+1)
                 f.flush();os.fsync(f.fileno())
-        except OSError:
-            pass
+        except OSError as exc:
+            # Startup must not continue if a damaged active segment cannot
+            # be inspected or repaired: appending would risk losing WAL data.
+            raise RuntimeError(f"cannot inspect or repair WAL tail in {p}") from exc
 
     def _cleanup_staging_files(self):
         for name in ("checkpoint.next","checkpoint.backup.next"):
