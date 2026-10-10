@@ -83,6 +83,16 @@ try {
     try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null }
     catch { $blocked = $true }
     Assert $blocked 'Previously failed release must be blocked'
+    # Corrupted quarantine metadata must not silently allow a new promotion.
+    foreach ($badFailed in @('', 'not-a-sha', ('B' * 40), '../../bad')) {
+        Set-Content -LiteralPath (Join-Path $root 'failed.version') -Value $badFailed
+        $rejectedFailed = $false
+        try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null } catch { $rejectedFailed = $true }
+        Assert $rejectedFailed 'Malformed failed.version must block promotion'
+        Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -ceq $a) 'Bad failed marker changed current'
+        Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Bad failed marker created pending'
+        Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Bad failed marker created journal'
+    }
     Remove-Item -LiteralPath (Join-Path $root 'failed.version') -Force
     Set-Content -LiteralPath (Join-Path $root 'pending.version') -Value $b
     $blocked = $false
