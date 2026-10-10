@@ -27,7 +27,9 @@ def rank_nodes(nodes,workload:Workload):
         cpu_free=max(0.0,100-float(n.get("cpu_pct",100)))
         ram_free=float(n.get("ram_available",0))/1024**3
         disk_free=float(n.get("disk_free",0))/1024**3
-        if cpu_free<15 or ram_free<workload.ram_gb*1.25 or disk_free<workload.scratch_gb*1.25: continue
+        cores=max(1,int(n.get("cpu_count",1)))
+        required_cpu_pct=100.0*workload.cpu/cores
+        if cpu_free<max(15.0,required_cpu_pct) or ram_free<workload.ram_gb*1.25 or disk_free<workload.scratch_gb*1.25: continue
         if workload.gpu and not n.get("gpu_available",False): continue
         locality=1.0 if workload.data_locality and n.get("data_location")==workload.data_locality else 0.0
         lan_mbps=max(1.0,float(n.get("lan_mbps",100)))
