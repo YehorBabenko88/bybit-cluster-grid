@@ -28,7 +28,7 @@ try {
     $j = Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json
     if ($j.schema -ne 1 -or $j.previous -cnotmatch '^[0-9a-f]{40}$' -or
         $j.candidate -cnotmatch '^[0-9a-f]{40}$' -or
-        $j.phase -notin @('prepared','committed') -or $j.previous -eq $j.candidate) {
+        $j.phase -cnotin @('prepared','committed') -or $j.previous -eq $j.candidate) {
         throw 'Invalid release switch journal; manual recovery required'
     }
     $required = if ($Role -eq 'CONTROL') { 'grid\coordinator.py' } else { 'run_worker.py' }
