@@ -4,8 +4,8 @@ async def claim_ml_job(pool,owner,lease_seconds=120):
     async with pool.acquire() as c:
         async with c.transaction():
             row=await c.fetchrow("""SELECT * FROM ml_jobs
-              WHERE (status='queued' OR (status='running' AND lease_until<now()))
-                AND attempts<max_attempts AND (not_before IS NULL OR not_before<=now())
+              WHERE (status='queued' OR (status='running' AND lease_until<clock_timestamp()))
+                AND attempts<max_attempts AND (not_before IS NULL OR not_before<=clock_timestamp())
               ORDER BY priority,created_at FOR UPDATE SKIP LOCKED LIMIT 1""")
             if not row: return None
             updated=await c.fetchrow("""UPDATE ml_jobs SET status='running',lease_owner=$2,
