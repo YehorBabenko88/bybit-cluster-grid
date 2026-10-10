@@ -41,7 +41,7 @@ def test_ml_reservations_renew_finish_and_recovery_postgres():
             await admin.execute(f"""CREATE TABLE "{schema}".ml_resource_reservations (
               job_id uuid PRIMARY KEY,node_id text,cpu double precision,ram_gb double precision,
               scratch_gb double precision,gpu boolean,expires_at timestamptz)""")
-            pool=await asyncpg.create_pool(os.environ["POSTGRES_DSN"],min_size=1,max_size=3,init=init)
+            pool=await asyncpg.create_pool(os.environ["POSTGRES_DSN"],min_size=1,max_size=3,setup=init)
             live=await add_job("running","worker-a",3,60,15)
             old_expiry=await reservation(live)
             assert not await renew_ml_job(pool,live,"stale-worker",2,120)
