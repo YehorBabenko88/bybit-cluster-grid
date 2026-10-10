@@ -126,6 +126,18 @@ jobs:
           & $mlpy -c "import sys; print(sys.executable)"
           & ./installer/bootstrap-ml.ps1 -Python $base -BasePython $base -ReleaseDir $bundle -RuntimeRoot $root -Mode PILOT
           if($LASTEXITCODE -ne 0){ throw "Idempotent ML bootstrap failed" }
+          # Simulate a truncated/partially installed virtual environment.
+          Remove-Item -LiteralPath $mlpy -Force
+          & ./installer/bootstrap-ml.ps1 -Python $base -BasePython $base -ReleaseDir $bundle -RuntimeRoot $root -Mode PILOT
+          if($LASTEXITCODE -ne 0){ throw "Corrupted ML venv repair failed" }
+          if(!(Test-Path $mlpy)){ throw "ML interpreter not restored" }
+          & $mlpy -c "import numpy,xgboost,lightgbm,asyncpg,psutil"
+          if($LASTEXITCODE -ne 0){ throw "Repaired ML venv cannot import dependencies" }
+          $journal=Get-Content (Join-Path $root "ml-bootstrap.json") -Raw | ConvertFrom-Json
+          if($journal.status -ne "ready"){ throw "Repaired ML environment not ready" }
+          # Ensure the host Python was not replaced by the ML interpreter.
+          & $base -c "import sys; assert 'ml-venv' not in sys.executable.lower()"
+          if($LASTEXITCODE -ne 0){ throw "Base interpreter was modified" }
 
       - name: Test supervisor crash recovery
         shell: pwsh
