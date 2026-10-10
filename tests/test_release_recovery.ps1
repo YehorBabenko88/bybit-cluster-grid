@@ -177,8 +177,10 @@ try {
     Set-Content -LiteralPath $pending -Value $b
     $previousEntry = Join-Path $root "releases\$a\run_worker.py"
     $previousHash = (Get-FileHash -LiteralPath $previousEntry -Algorithm SHA256).Hash.ToLowerInvariant()
+    $previousControl = Join-Path $root "releases\$a\grid\coordinator.py"
+    $previousControlHash = (Get-FileHash -LiteralPath $previousControl -Algorithm SHA256).Hash.ToLowerInvariant()
     $previousManifest = Join-Path $root "releases\$a\release-manifest.json"
-    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + '"}}'))
+    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + '","grid/coordinator.py":"' + $previousControlHash + '"}}'))
     $previousOriginal = Get-Content -LiteralPath $previousEntry -Raw
     [IO.File]::WriteAllText($previousEntry, '# corrupted rollback target')
     $previousRejected = $false
@@ -190,9 +192,6 @@ try {
     [IO.File]::WriteAllText($previousEntry, $previousOriginal)
     Remove-Item -LiteralPath $previousManifest -Force
 
-    # CONTROL fixture remains in the previous release; include it in valid rollback manifests.
-    $previousControl = Join-Path $root "releases\$a\grid\coordinator.py"
-    $previousControlHash = (Get-FileHash -LiteralPath $previousControl -Algorithm SHA256).Hash.ToLowerInvariant()
     # Committed recovery must not retain a corrupted rollback entry point.
     Journal 'committed'
     Set-Content -LiteralPath $current -Value $a
