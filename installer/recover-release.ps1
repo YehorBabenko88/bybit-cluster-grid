@@ -92,6 +92,12 @@ try {
             throw 'Committed candidate missing; manual recovery required'
         }
     }
+    # Committed recovery writes pending.version; reject a directory before touching previous.version.
+    $pendingMarkerPath = Join-Path $InstallRoot 'pending.version'
+    if ((Test-Path -LiteralPath $pendingMarkerPath) -and
+        -not (Test-Path -LiteralPath $pendingMarkerPath -PathType Leaf)) {
+        throw 'Invalid pending release pointer type; manual recovery required'
+    }
     Write-Output "RECOVERY_PHASE=$($j.phase)"
     Write-Output "RECOVERY_TARGET=$target"
     if (-not $Apply) { Write-Output 'PLAN_ONLY=true'; return }
