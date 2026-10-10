@@ -74,7 +74,7 @@ def test_two_dispatchers_respect_global_slots_and_node_capacity():
             )''')
             for _ in range(4):
                 await admin.execute(f'INSERT INTO "{schema}".ml_jobs(id,status,job_type,payload) VALUES($1,\'queued\',\'train\',$2::jsonb)',uuid.uuid4(),'{"cpu":4,"ram_gb":4,"scratch_gb":5}')
-            pool=await asyncpg.create_pool(os.environ["POSTGRES_DSN"],min_size=2,max_size=4,init=setup)
+            pool=await asyncpg.create_pool(os.environ["POSTGRES_DSN"],min_size=2,max_size=4,setup=setup)
             async def nodes():
                 return {"pilot":{"cpu_pct":0,"cpu_count":8,
                                  "ram_available":12*1024**3,"disk_free":40*1024**3,
