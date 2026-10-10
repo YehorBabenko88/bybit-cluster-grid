@@ -1,4 +1,5 @@
 import asyncio
+import os
 from collections import deque
 
 import psutil
@@ -84,6 +85,14 @@ async def run_supervised_process(argv,*,timeout_seconds,ram_limit_mb=None,
         stderr=asyncio.subprocess.PIPE,
         env=env,cwd=cwd,
     )
+    job_object=None
+    if os.name=="nt":
+        try:
+            from .ml_windows_job import WindowsJob
+            job_object=WindowsJob(proc.pid)
+        except BaseException:
+            await terminate_process_tree(proc,grace_seconds)
+            raise
     stdout_tail=deque();stderr_tail=deque()
     drains=[
         asyncio.create_task(_drain_stream(proc.stdout,stdout_tail)),
@@ -121,6 +130,8 @@ async def run_supervised_process(argv,*,timeout_seconds,ram_limit_mb=None,
         await terminate_process_tree(proc,grace_seconds)
         raise
     finally:
+        if job_object is not None:
+            job_object.close()
         for task in drains:
             if not task.done():task.cancel()
         await asyncio.gather(*drains,return_exceptions=True)
