@@ -194,3 +194,38 @@ def test_windows_parent_crash_kills_ml_process_tree(tmp_path):
                 if psutil.pid_exists(pid):psutil.Process(pid).kill()
             except (ValueError,psutil.Error):
                 pass
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows Job Object integration")
+def test_windows_descendant_inherits_pipes_after_root_exit(tmp_path):
+    import time
+    import subprocess
+
+    pid_file=tmp_path/"descendant.pid"
+    code=(
+        "import subprocess,sys,pathlib;"
+        "p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(90)']);"
+        "pathlib.Path(sys.argv[1]).write_text(str(p.pid));"
+        "print('root-finished',flush=True)"
+    )
+    try:
+        started=time.monotonic()
+        out=asyncio.run(run_supervised_process(
+            [sys.executable,"-c",code,str(pid_file)],
+            timeout_seconds=15,poll_seconds=.05,grace_seconds=3,
+        ))
+        assert b"root-finished" in out
+        assert time.monotonic()-started<12
+        assert pid_file.exists()
+        descendant=int(pid_file.read_text())
+        deadline=time.monotonic()+5
+        while psutil.pid_exists(descendant) and time.monotonic()<deadline:
+            time.sleep(.05)
+        assert not psutil.pid_exists(descendant)
+    finally:
+        if pid_file.exists():
+            try:
+                pid=int(pid_file.read_text())
+                if psutil.pid_exists(pid):psutil.Process(pid).kill()
+            except (ValueError,psutil.Error):
+                pass
