@@ -13,9 +13,9 @@ async def accept_assigned_job(pool,node_id,lease_seconds=120):
               started_at=COALESCE(started_at,now()),lease_until=clock_timestamp()+($3*interval '1 second'),
               attempts=attempts+1,lease_generation=lease_generation+1 WHERE id=$1 AND lease_owner=$2 RETURNING *""",
               row["id"],node_id,int(lease_seconds)))
-            await c.execute("""UPDATE ml_resource_reservations SET lease_generation=$2,
-              expires_at=clock_timestamp()+($3*interval '1 second') WHERE job_id=$1""",
-              row["id"],job["lease_generation"],int(lease_seconds))
+            await c.execute("""UPDATE ml_resource_reservations SET
+              expires_at=(SELECT lease_until FROM ml_jobs WHERE id=$1)
+              WHERE job_id=$1""",row["id"])
             return job
 
 async def renew_running_job(pool,job_id,node_id,lease_generation,lease_seconds=120):
