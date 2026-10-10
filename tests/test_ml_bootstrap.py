@@ -144,3 +144,10 @@ def test_ml_bootstrap_recreates_venv_if_pip_is_broken():
     assert 'if($LASTEXITCODE -ne 0){$Recreate=$true}' in script
     workflow=Path(".github/workflows/windows-bundle.yml").read_text(encoding="utf-8")
     assert 'Repair ML venv with missing pip on Windows' in workflow
+
+
+def test_interrupted_ml_bootstrap_forces_dependency_repair():
+    script=Path("installer/bootstrap-ml.ps1").read_text(encoding="utf-8")
+    assert '$PreviousReady=($PreviousJournal.status -eq "ready")' in script
+    assert '$Need=($Hash -ne $Old) -or $Recreate -or !$PreviousReady' in script
+    assert 'Write-MLJournal' in script
