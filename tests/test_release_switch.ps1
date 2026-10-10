@@ -34,6 +34,7 @@ try {
     Assert ($controlPlan -contains 'PLAN_ONLY=true; no files changed') 'Valid CONTROL manifest must be accepted'
     Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'CONTROL plan created pending'
     [IO.File]::WriteAllText($controlManifest, $workerManifest)
+    Remove-Item -LiteralPath $controlFile -Force
     $invalid = $false
     try { & $script -Version ('c' * 40) -InstallRoot $root -Role WORKER | Out-Null }
     catch { $invalid = $true }
