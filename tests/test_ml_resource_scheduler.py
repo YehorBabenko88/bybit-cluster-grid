@@ -108,3 +108,12 @@ def test_dispatch_payload_decodes_asyncpg_jsonb_text():
     for invalid in ('[]','null','"text"','{invalid',[]):
         with pytest.raises((ValueError,TypeError)):
             _job_payload(invalid)
+
+
+def test_dispatch_uses_wall_clock_after_waiting_for_postgres_lock():
+    from pathlib import Path
+    dispatcher=Path("grid/ml_dispatcher.py").read_text(encoding="utf-8")
+    reservations=Path("grid/ml_reservations.py").read_text(encoding="utf-8")
+    assert "lease_until>=clock_timestamp()" in dispatcher
+    assert "not_before<=clock_timestamp()" in dispatcher
+    assert "expires_at>=clock_timestamp()" in reservations
