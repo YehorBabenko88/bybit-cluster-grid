@@ -91,6 +91,13 @@ try {
     Assert ($secondRecovery -contains 'NO_JOURNAL=true') 'Repeated recovery was not idempotent'
     Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $b) 'Repeated recovery changed current release'
     Assert (@(Get-ChildItem -LiteralPath $root -File -Filter '*.bak').Count -eq 0) 'Recovery leaked backup files'
+    # A committed but unconfirmed release must not be promoted again.
+    $blockedUnconfirmed = $false
+    try { & $script -Version $a -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $blockedUnconfirmed = $true }
+    Assert $blockedUnconfirmed 'Unconfirmed committed release allowed another switch'
+    Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $b) 'Blocked switch changed current release'
+    Assert (((Get-Content (Join-Path $root 'pending.version') -Raw).Trim()) -eq $b) 'Blocked switch changed pending release'
+    Assert (((Get-Content (Join-Path $root 'previous.version') -Raw).Trim()) -eq $a) 'Blocked switch changed rollback release'
     Write-Output 'PASS: release switch plan, missing release, manifest mismatch, failed-release quarantine, concurrent-switch lock'
 } finally {
     if (Test-Path $root) { Remove-Item -LiteralPath $root -Recurse -Force }
