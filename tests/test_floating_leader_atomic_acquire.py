@@ -180,3 +180,39 @@ def test_leader_run_recovers_after_temporary_database_outage():
     gained = []
     asyncio.run(scenario())
     assert gained == [123]
+
+
+def test_leader_run_calls_on_loss_after_renew_database_failure():
+    async def scenario():
+        events = []
+
+        class FailingRenewLeader(FloatingLeader):
+            def __init__(self):
+                super().__init__(pool=None, node_id="failover", renew_seconds=0.001)
+                self.attempts = 0
+
+            async def campaign(self):
+                self.attempts += 1
+                if self.attempts == 1:
+                    self.is_leader = True
+                    self.epoch = 456
+                    return True
+                self.stop()
+                return False
+
+            async def renew(self):
+                raise ConnectionError("PostgreSQL disconnected during renewal")
+
+        async def on_gain(epoch):
+            events.append(("gain", epoch))
+
+        async def on_loss():
+            events.append(("loss", None))
+
+        leader = FailingRenewLeader()
+        await asyncio.wait_for(leader.run(on_gain=on_gain, on_loss=on_loss), 2)
+        assert events == [("gain", 456), ("loss", None)]
+        assert leader.is_leader is False
+        assert leader.epoch is None
+
+    asyncio.run(scenario())
