@@ -117,6 +117,21 @@ try {
     Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Directory pointer recovery modified pending'
     Remove-Item -LiteralPath $current -Recurse -Force
     Set-Content -LiteralPath $current -Value $a
+    # A directory at previous.version must fail before changing any pointer.
+    Journal 'committed'
+    Set-Content -LiteralPath $current -Value $a
+    Set-Content -LiteralPath $pending -Value $b
+    $previousMarker = Join-Path $root 'previous.version'
+    if (Test-Path -LiteralPath $previousMarker) { Remove-Item -LiteralPath $previousMarker -Force }
+    New-Item -ItemType Directory -Path $previousMarker | Out-Null
+    $previousDirectoryRejected = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $previousDirectoryRejected = $true }
+    Assert $previousDirectoryRejected 'Directory previous.version must block recovery'
+    Assert (Test-Path -LiteralPath $previousMarker -PathType Container) 'Recovery modified previous.version directory'
+    Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Directory previous.version changed current'
+    Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Directory previous.version changed pending'
+    Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Directory previous.version removed journal'
+    Remove-Item -LiteralPath $previousMarker -Recurse -Force
     # Recovery must reject corrupt current pointers without mutating the journal.
     foreach ($badCurrent in @( ('A' * 40), ('g' * 40), '../../bad' )) {
         Journal 'prepared'
