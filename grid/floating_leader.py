@@ -22,7 +22,20 @@ class FloatingLeader:
                 await c.execute("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
                   VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3))
                   ON CONFLICT(service_key) DO UPDATE SET owner=EXCLUDED.owner,lease_until=EXCLUDED.lease_until,
-                  heartbeat_at=now(),metadata=EXCLUDED.metadata""",self.node_id,self.lease_seconds,epoch)
+                  heartbeat_at=now(),metadata=EXCLUDED.metadata
+                  WHERE service_leases.lease_until <= now()
+                  RETURNING (metadata->>'epoch')::bigint""",self.node_id,self.lease_seconds,epoch)
+                # If another contender inserted the missing row first, the
+                # conflict must not overwrite its still-live lease.
+                # Only the contender whose epoch was stored may lead.
+                acquired=await c.fetchval("""SELECT (metadata->>'epoch')::bigint
+                  FROM service_leases WHERE service_key='control-plane-leader'
+                  AND owner=$1 AND (metadata->>'epoch')::bigint=$2
+                  AND lease_until>now()""",self.node_id,epoch)
+                if acquired is None:
+                    self.is_leader=False
+                    self.epoch=None
+                    return False
         # Leadership becomes visible only after transaction commit succeeds.
         self.epoch=epoch; self.is_leader=True
         return True
