@@ -94,7 +94,7 @@ def test_dispatch_collects_telemetry_before_lock_and_reads_reservations_after():
     from pathlib import Path
     source=Path("grid/ml_dispatcher.py").read_text(encoding="utf-8")
     lock=source.index("pg_advisory_xact_lock($1)")
-    telemetry=source.index("reported=await self.node_provider()")
+    telemetry=source.index("reported=await asyncio.wait_for(self.node_provider(),timeout=10)")
     reservations=source.index("reservations=await reserved_by_node(c)")
     assert telemetry<lock<reservations
 
