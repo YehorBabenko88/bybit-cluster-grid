@@ -156,6 +156,21 @@ try {
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Tampered supporting file removed journal'
     Remove-Item -LiteralPath $supportPath -Force
     Remove-Item -LiteralPath $candidateManifest -Force
+    # A valid entry point hash does not authorize an unlisted Python module.
+    Journal 'committed'
+    Set-Content -LiteralPath $current -Value $a
+    Set-Content -LiteralPath $pending -Value $b
+    $unlistedSource = Join-Path $root "releases\$b\unlisted_module.py"
+    [IO.File]::WriteAllText($unlistedSource, '# not in manifest')
+    [IO.File]::WriteAllText($candidateManifest, ('{"version":"' + $b + '","files":{"run_worker.py":"' + $originalHash + '"}}'))
+    $unlistedRejected = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $unlistedRejected = $true }
+    Assert $unlistedRejected 'Unlisted Python module must block committed recovery'
+    Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Unlisted module changed current'
+    Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Unlisted module changed pending'
+    Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Unlisted module removed journal'
+    Remove-Item -LiteralPath $unlistedSource -Force
+    Remove-Item -LiteralPath $candidateManifest -Force
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
