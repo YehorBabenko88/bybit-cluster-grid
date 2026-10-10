@@ -100,10 +100,10 @@ jobs:
           foreach($launcher in @('installer/launcher.ps1','installer/coordinator-launcher.ps1')){
             $source = Get-Content -LiteralPath $launcher -Raw
             $strict = '^[0-9a-f]{40}$'
-            if(-not $source.Contains("if(" + '$v' + " -notmatch '" + $strict + "')")){
+            if(-not $source.Contains("if(" + '$v' + " -cnotmatch '" + $strict + "')")){
               throw "Missing strict current/previous marker validation in $launcher"
             }
-            if(-not $source.Contains("if(" + '$cv' + " -match '" + $strict + "')")){
+            if(-not $source.Contains("if(" + '$cv' + " -cmatch '" + $strict + "')")){
               throw "Missing strict replaced-release marker validation in $launcher"
             }
           }
