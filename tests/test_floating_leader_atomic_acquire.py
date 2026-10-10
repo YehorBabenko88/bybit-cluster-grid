@@ -55,3 +55,24 @@ def test_successful_atomic_insert_publishes_leadership():
         assert leader.epoch is not None
 
     asyncio.run(scenario())
+
+
+def test_invalid_lease_metadata_fails_closed():
+    async def scenario():
+        class BadMetadataConnection(Connection):
+            async def fetchrow(self, sql):
+                return {"owner": "old", "lease_until": None, "metadata": '["invalid"]'}
+
+        pool = Pool(1)
+        pool.connection = BadMetadataConnection(1)
+        leader = FloatingLeader(pool, node_id="candidate")
+        try:
+            await leader.campaign()
+        except ValueError as exc:
+            assert "expected object" in str(exc)
+        else:
+            raise AssertionError("invalid JSON metadata must not allow leadership")
+        assert not leader.is_leader
+        assert leader.epoch is None
+
+    asyncio.run(scenario())
