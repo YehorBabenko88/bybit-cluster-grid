@@ -102,3 +102,13 @@ def test_windows_ml_job_object_fail_closed():
     assert "job_object.close()" in supervisor
     assert "JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE" in windows
     assert "AssignProcessToJobObject" in windows
+
+
+def test_cached_ml_environment_validates_protocol_dependencies():
+    script = Path("installer/bootstrap-ml.ps1").read_text(encoding="utf-8")
+    assert "import aiohttp,asyncpg,psutil,pydantic,httpx,websockets,numpy,scipy,sklearn,joblib,xgboost,lightgbm" in script
+
+
+def test_missing_ml_runtime_readiness_is_cached():
+    script = Path("grid/resources.py").read_text(encoding="utf-8")
+    assert 'if not os.path.isfile(python) or not os.path.isfile(journal):\n        _ML_READY_CACHE.update(at=now,value=False)' in script
