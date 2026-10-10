@@ -11,6 +11,8 @@ def test_queue_metrics_and_successful_write():
         await asyncio.wait_for(q.q.join(),1)
         m=q.metrics()
         assert seen==["x"]
+        assert m["inflight_writes"]==0
+        assert m["worker_tasks_alive"]==1
         assert m["writes_per_sec"]>0
         assert m["queue_depth"]==0
         for t in q.tasks: t.cancel()
@@ -29,6 +31,7 @@ def test_full_queue_applies_backpressure_not_drop():
         await asyncio.sleep(.02)
         assert not blocked.done()
         assert q.metrics()["queue_ratio"]==1.0
+        assert q.metrics()["inflight_writes"]==3
         gate.set()
         await asyncio.wait_for(blocked,1)
         await asyncio.wait_for(q.q.join(),1)
