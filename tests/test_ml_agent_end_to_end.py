@@ -167,3 +167,24 @@ def test_ml_resource_limits_never_exceed_operator_caps(monkeypatch):
         agent._resource_limits({"timeout_seconds": 0})
     with pytest.raises(ValueError, match="must be positive"):
         agent._resource_limits({"ram_limit_mb": -1})
+
+
+def test_ml_compute_requires_fresh_lease_after_dataset(tmp_path, monkeypatch):
+    import asyncio
+    import pytest
+    import grid.ml_agent_worker as agent
+
+    monkeypatch.setenv("ProgramData", str(tmp_path))
+    async def fake_bundle(client, job, path):
+        path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(agent, "_write_paged_bundle", fake_bundle)
+
+    class Client:
+        async def renew(self, job):
+            return None
+
+    async def scenario():
+        with pytest.raises(RuntimeError, match="lease lost before compute"):
+            await agent.execute_remote_job(Client(), {"job_type": "train", "payload": {}})
+
+    asyncio.run(scenario())
