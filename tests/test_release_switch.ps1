@@ -81,6 +81,16 @@ try {
     Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
 
 
+    # A manifest cannot point outside the release root via absolute paths.
+    foreach ($unsafePath in @('C:\\Windows\\win.ini', '/tmp/outside.py', '..\\escape.py')) {
+        Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"' + ($unsafePath.Replace('\\','\\\\')) + '":"' + $hash + '"}}')
+        $unsafeRejected = $false
+        try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null } catch { $unsafeRejected = $true }
+        Assert $unsafeRejected "Unsafe manifest path must fail closed: $unsafePath"
+        Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Unsafe manifest created pending'
+        Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Unsafe manifest created journal'
+    }
+    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
     Set-Content -LiteralPath (Join-Path $root "releases\$b\run_worker.py") -Value '# tampered'
     $blocked = $false
     try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null }
