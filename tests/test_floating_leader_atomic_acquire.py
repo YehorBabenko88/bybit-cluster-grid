@@ -150,3 +150,34 @@ def test_bigint_epoch_overflow_fails_before_insert():
         assert pool.connection.insert_sql is None
 
     asyncio.run(scenario())
+
+
+def test_leader_run_recovers_after_temporary_database_outage():
+    async def scenario():
+        class RecoveringLeader(FloatingLeader):
+            def __init__(self):
+                super().__init__(pool=None, node_id="recovery", renew_seconds=0.001)
+                self.attempts = 0
+
+            async def campaign(self):
+                self.attempts += 1
+                if self.attempts == 1:
+                    raise ConnectionError("PostgreSQL temporarily unavailable")
+                self.is_leader = True
+                self.epoch = 123
+                return True
+
+            async def renew(self):
+                self.stop()
+                return True
+
+        leader = RecoveringLeader()
+        gained = []
+        await asyncio.wait_for(leader.run(on_gain=lambda epoch: record_gain(epoch)), 2)
+
+    async def record_gain(epoch):
+        gained.append(epoch)
+
+    gained = []
+    asyncio.run(scenario())
+    assert gained == [123]
