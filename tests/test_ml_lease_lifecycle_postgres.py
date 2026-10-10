@@ -39,7 +39,9 @@ def test_ml_reservations_renew_finish_and_recovery_postgres():
               id uuid PRIMARY KEY,status text NOT NULL,lease_owner text,
               lease_generation integer NOT NULL DEFAULT 1,lease_until timestamptz,
               attempts integer NOT NULL DEFAULT 1,max_attempts integer NOT NULL DEFAULT 3,
-              not_before timestamptz,finished_at timestamptz,error text)""")
+              not_before timestamptz,finished_at timestamptz,error text,
+              started_at timestamptz,priority integer NOT NULL DEFAULT 1,
+              created_at timestamptz NOT NULL DEFAULT clock_timestamp())""")
             await admin.execute(f"""CREATE TABLE "{schema}".ml_resource_reservations (
               job_id uuid PRIMARY KEY,node_id text,cpu double precision,ram_gb double precision,
               scratch_gb double precision,gpu boolean,expires_at timestamptz)""")
