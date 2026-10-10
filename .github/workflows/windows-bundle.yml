@@ -153,8 +153,14 @@ jobs:
           $handle=[System.IO.File]::Open($lockPath,[System.IO.FileMode]::OpenOrCreate,
             [System.IO.FileAccess]::ReadWrite,[System.IO.FileShare]::None)
           try {
-            $output=& ./installer/bootstrap-ml.ps1 -Python $base -BasePython $base -ReleaseDir $bundle -RuntimeRoot $root -Mode PILOT 2>&1
-            if($LASTEXITCODE -eq 0){ throw "Concurrent ML bootstrap unexpectedly succeeded" }
+            $rejected=$false
+            try {
+              & ./installer/bootstrap-ml.ps1 -Python $base -BasePython $base -ReleaseDir $bundle -RuntimeRoot $root -Mode PILOT
+            } catch {
+              if($_.Exception.Message -notmatch "ML bootstrap already running"){ throw }
+              $rejected=$true
+            }
+            if(!$rejected){ throw "Concurrent ML bootstrap unexpectedly succeeded" }
             $after=Get-Content -LiteralPath $journalPath -Raw
             if($after -ne $before){ throw "Concurrent ML bootstrap modified the ready journal" }
           } finally {
