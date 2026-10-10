@@ -97,7 +97,7 @@ def test_ml_isolation_uses_dedicated_venv_and_compute_interpreter():
 def test_windows_ml_job_object_fail_closed():
     supervisor=Path("grid/ml_process_supervisor.py").read_text(encoding="utf-8")
     windows=Path("grid/ml_windows_job.py").read_text(encoding="utf-8")
-    assert "job_object=WindowsJob(proc.pid)" in supervisor
+    assert "job_object=WindowsJob(proc.pid, resume_primary_thread=True)" in supervisor
     assert "await terminate_process_tree(proc,grace_seconds)" in supervisor
     assert "job_object.close()" in supervisor
     assert "JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE" in windows
