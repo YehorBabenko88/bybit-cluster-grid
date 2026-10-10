@@ -124,6 +124,22 @@ try {
         Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Repeat committed recovery lost pending candidate'
         Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Repeat committed recovery retained journal'
     }
+    # A crash can leave the active pointer absent while the journal survives.
+    # The journal must still be sufficient to recover either transaction phase.
+    foreach ($phaseCase in @('prepared','committed')) {
+        Journal $phaseCase
+        if (Test-Path -LiteralPath $current) { Remove-Item -LiteralPath $current -Force }
+        if (Test-Path -LiteralPath $pending) { Remove-Item -LiteralPath $pending -Force }
+        & $script -InstallRoot $root -Role WORKER -Apply | Out-Null
+        $expectedCurrent = if ($phaseCase -eq 'prepared') { $a } else { $b }
+        Assert (((Get-Content $current -Raw).Trim()) -ceq $expectedCurrent) 'Missing active pointer was not reconstructed'
+        if ($phaseCase -eq 'prepared') {
+            Assert (-not (Test-Path $pending)) 'Prepared recovery recreated pending marker'
+        } else {
+            Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Committed recovery did not reconstruct pending'
+        }
+        Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Missing-pointer recovery retained journal'
+    }
     # Missing rollback entry point must fail closed for both roles and phases.
     foreach ($roleCase in @(
         @{ Role='WORKER'; Entry='run_worker.py' },
