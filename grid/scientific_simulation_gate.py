@@ -36,22 +36,23 @@ class ScientificSimulationGate:
     async def run_one(self,run_id,hypothesis_id,dataset_cutoff):
         # Reclaim an abandoned run only after its prior owner has had a
         # generous opportunity to finish. Old partial rows are removed below.
+        attempt_id=uuid.uuid4()
         claimed=await self.pool.fetchval("""UPDATE scientific_simulation_runs
-          SET status='RUNNING',started_at=now(),completed_at=NULL
+          SET status='RUNNING',started_at=now(),completed_at=NULL,attempt_id=$2
           WHERE id=$1 AND (status='QUEUED' OR
             (status='RUNNING' AND started_at < now() - interval '24 hours'))
-          RETURNING id""",run_id)
+          RETURNING id""",run_id,attempt_id)
         if claimed is None:
             return {"run_id":str(run_id),"status":"SKIPPED_NOT_QUEUED"}
         oos_start=await self.pool.fetchval("""SELECT max(dataset_cutoff)
           FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1 AND passed=true""",hypothesis_id)
         if oos_start is None:
-            return await self._waiting(run_id,"validated hypothesis has no fixed evidence cutoff")
-        await self.pool.execute("UPDATE scientific_simulation_runs SET oos_start=$2 WHERE id=$1",run_id,oos_start)
+            return await self._waiting(run_id,attempt_id,"validated hypothesis has no fixed evidence cutoff")
+        await self.pool.execute("UPDATE scientific_simulation_runs SET oos_start=$2 WHERE id=$1 AND attempt_id=$3",run_id,oos_start,attempt_id)
         h=await self.pool.fetchrow("""SELECT method,pattern,horizon_ms,direction,definition,status
           FROM scientific_hypotheses WHERE id=$1""",hypothesis_id)
         if not h or str(h["status"])!="VALIDATED":
-            return await self._fail(run_id,"hypothesis is no longer VALIDATED")
+            return await self._fail(run_id,attempt_id,"hypothesis is no longer VALIDATED")
         if str(h["method"])!="combinatorial-v1":
             return await self._waiting(run_id,f"exact simulation matcher unavailable for method {h['method']}")
         definition=_dict(h["definition"]);params=definition.get("parameters") or {}
@@ -92,6 +93,12 @@ class ScientificSimulationGate:
         # A crash or SQL error must not expose a completed run with partial trades.
         async with self.pool.acquire() as conn:
             async with conn.transaction():
+                # Lock and fence the current attempt before writing any results.
+                owner=await conn.fetchval("""SELECT id FROM scientific_simulation_runs
+                  WHERE id=$1 AND status='RUNNING' AND attempt_id=$2 FOR UPDATE""",
+                  run_id,attempt_id)
+                if owner is None:
+                    return {"run_id":str(run_id),"status":"SKIPPED_STALE_ATTEMPT"}
                 # A reclaimed run must replace, never mix, old and new results.
                 await conn.execute("DELETE FROM scientific_simulation_trades WHERE run_id=$1",run_id)
                 for t in base["trades"]:
@@ -105,18 +112,19 @@ class ScientificSimulationGate:
                       t["funding_bps"],t["equity_after"])
                 await conn.execute("""UPDATE scientific_simulation_runs SET status=$2,
                   metrics=$3::jsonb,stress_metrics=$4::jsonb,reason=$5,completed_at=now()
-                  WHERE id=$1 AND status='RUNNING'""",
+                  WHERE id=$1 AND status='RUNNING' AND attempt_id=$6""",
                   run_id,status,json.dumps(metrics,separators=(",",":")),
                   json.dumps(stress["metrics"],separators=(",",":")),
-                  None if passed else "one or more promotion checks failed")
+                  None if passed else "one or more promotion checks failed",attempt_id)
         return {"run_id":str(run_id),"status":status,"metrics":metrics,"stress":stress["metrics"]}
 
-    async def _waiting(self,run_id,reason):
+    async def _waiting(self,run_id,attempt_id,reason):
         await self.pool.execute("""UPDATE scientific_simulation_runs SET status='WAITING_OOS',
-          reason=$2,completed_at=now() WHERE id=$1""",run_id,str(reason))
+          reason=$2,completed_at=now() WHERE id=$1 AND attempt_id=$3
+          AND status='RUNNING'""",run_id,str(reason),attempt_id)
         return {"run_id":str(run_id),"status":"WAITING_OOS","reason":str(reason)}
 
-    async def _fail(self,run_id,reason):
+    async def _fail(self,run_id,attempt_id,reason):
         await self.pool.execute("""UPDATE scientific_simulation_runs SET status='SIMULATION_FAILED',
           reason=$2,completed_at=now() WHERE id=$1""",run_id,str(reason))
         return {"run_id":str(run_id),"status":"SIMULATION_FAILED","reason":str(reason)}
