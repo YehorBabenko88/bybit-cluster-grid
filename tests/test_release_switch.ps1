@@ -29,6 +29,16 @@ try {
     Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -ceq $a) 'Pending directory changed current'
     Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Pending directory created journal'
     Remove-Item -LiteralPath $pendingDir -Force
+    # A failed.version directory is corrupt state, not an absent quarantine marker.
+    $failedDir = Join-Path $root 'failed.version'
+    New-Item -ItemType Directory -Path $failedDir | Out-Null
+    $failedDirectoryRejected = $false
+    try { & $script -Version $b -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $failedDirectoryRejected = $true }
+    Assert $failedDirectoryRejected 'Failed-version directory must block promotion'
+    Assert (Test-Path -LiteralPath $failedDir -PathType Container) 'Switch removed failed-version directory'
+    Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -ceq $a) 'Failed-version directory changed current'
+    Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Failed-version directory created journal'
+    Remove-Item -LiteralPath $failedDir -Force
     # CONTROL manifests use forward slashes while its required path uses Windows separators.
     $previousControl = Join-Path $root "releases\$a\grid\coordinator.py"
     New-Item -ItemType Directory -Force -Path (Split-Path $previousControl -Parent) | Out-Null
