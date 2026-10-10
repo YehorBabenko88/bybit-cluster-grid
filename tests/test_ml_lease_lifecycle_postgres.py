@@ -7,6 +7,7 @@ import asyncpg
 
 from grid.ml_concurrency import renew_ml_job, finish_ml_job
 from grid.ml_retry import fail_or_retry
+from grid.ml_worker_protocol import accept_assigned_job
 from grid.ml_orchestrator_service import MLOrchestratorService
 
 
@@ -55,6 +56,17 @@ def test_ml_reservations_renew_finish_and_recovery_postgres():
             assert await finish_ml_job(pool,live,"worker-a",3)
             assert await reservation(live) is None
             assert await admin.fetchval(f'SELECT status FROM "{schema}".ml_jobs WHERE id=$1',live)=="done"
+
+            assigned=await add_job("assigned","pilot",0,60,20)
+            accepted=await accept_assigned_job(pool,"pilot",lease_seconds=180)
+            assert accepted is not None
+            assert accepted["id"]==assigned
+            assert accepted["status"]=="running"
+            assert accepted["lease_generation"]==1
+            assert await reservation(assigned)==accepted["lease_until"]
+            assert await accept_assigned_job(pool,"pilot") is None
+            assert await finish_ml_job(pool,assigned,"pilot",1)
+            assert await reservation(assigned) is None
 
             retry_job=await add_job("running","retry-owner",4,60,60)
             assert await fail_or_retry(pool,retry_job,"old-owner",3,"stale")=="stale"
