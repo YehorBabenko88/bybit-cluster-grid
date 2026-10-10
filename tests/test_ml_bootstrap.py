@@ -47,7 +47,7 @@ def test_ml_bootstrap_recreates_missing_ready_journal_without_pip():
     assert 'if(!(Test-Path -LiteralPath $Python))' in script
     healthy = script.split('if(!$Need){', 1)[1].split('exit 0', 1)[0]
     assert 'status="ready"' in healthy
-    assert 'Set-Content -Encoding UTF8 $Journal' in healthy
+    assert 'Write-MLJournal' in healthy
     assert '-m pip install' not in healthy
 
 
@@ -129,3 +129,10 @@ def test_recreated_ml_environment_always_reinstalls_dependencies():
     script=Path("installer/bootstrap-ml.ps1").read_text(encoding="utf-8")
     assert '$Need=($Hash -ne $Old) -or $Recreate' in script
     assert 'if($Recreate){' in script
+
+
+def test_ml_journal_is_atomically_replaced():
+    script=Path("installer/bootstrap-ml.ps1").read_text(encoding="utf-8")
+    assert '[System.IO.File]::Move($tmp,$Journal,$true)' in script
+    assert 'ValueFromPipeline=$true' in script
+    assert 'Set-Content -Encoding UTF8 $Journal' not in script
