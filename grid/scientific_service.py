@@ -143,18 +143,29 @@ class ScientificResearchService:
                 n=await self.run_once()
                 now=time.monotonic()
                 if now-self.last_mining_check>=3600:
-                    mined=await self.mining.run_closed_split_once()
-                    self.mining_runs+=len(mined.get("runs") or [])
-                    cutoff=mined["dataset_cutoff"]
-                    await self.simulation.enqueue_validated(cutoff)
+                    # Isolate research failures from the independent simulation queue.
+                    # Back off a failed mining attempt rather than retrying in a hot loop.
                     self.last_mining_check=now
-                # Drain queued/recoverable simulations independently of mining.
-                # A temporary mining failure must not strand simulation work.
+                    try:
+                        mined=await self.mining.run_closed_split_once()
+                        self.mining_runs+=len(mined.get("runs") or [])
+                        cutoff=mined["dataset_cutoff"]
+                        await self.simulation.enqueue_validated(cutoff)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        self.errors+=1
+                        log.exception("scientific mining failed",extra={"event":"scientific_mining_failed"})
                 if now-self.last_simulation_check>=30:
-                    # Cap background work to avoid monopolizing the event loop.
                     self.last_simulation_check=now
-                    simulated=await self.simulation.run_queued(limit=1)
-                    self.simulation_runs+=len(simulated)
+                    try:
+                        simulated=await self.simulation.run_queued(limit=1)
+                        self.simulation_runs+=len(simulated)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        self.errors+=1
+                        log.exception("scientific simulation queue failed",extra={"event":"scientific_simulation_queue_failed"})
                 if not n:await asyncio.sleep(self.poll_seconds)
             except asyncio.CancelledError:
                 raise
