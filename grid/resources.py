@@ -26,7 +26,7 @@ NODE_ID = _node_id()
 STARTED_AT=time.time()
 _RESOURCE_TREND=ResourceTrend()
 _STORAGE_CACHE={"at":0.0,"value":{}}
-_ML_READY_CACHE={"at":0.0,"value":False,"running":False}
+_ML_READY_CACHE={"at":0.0,"value":False,"running":False,"journal_signature":None}
 _ML_READY_LOCK=threading.Lock()
 
 def _tree_bytes(root):
@@ -76,16 +76,25 @@ def _probe_ml_runtime(python,journal):
 
 
 def ml_runtime_ready():
-    """Nonblocking cached readiness; unverified environments are not schedulable."""
+    """Nonblocking probe with immediate journal-change invalidation."""
     now=time.monotonic()
+    root=os.path.join(os.getenv("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","runtime")
+    python=os.path.join(root,"ml-venv","Scripts","python.exe")
+    journal=os.path.join(root,"ml-bootstrap.json")
+    try:
+        stat=os.stat(journal)
+        signature=(stat.st_mtime_ns,stat.st_size)
+    except OSError:
+        signature=None
     with _ML_READY_LOCK:
+        if signature!=_ML_READY_CACHE["journal_signature"]:
+            _ML_READY_CACHE.update(at=0.0,value=False,journal_signature=signature)
+        if signature is None:
+            return False
         if _ML_READY_CACHE["running"]:
             return False
         if _ML_READY_CACHE["at"] and now-_ML_READY_CACHE["at"]<60:
             return _ML_READY_CACHE["value"]
-        root=os.path.join(os.getenv("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","runtime")
-        python=os.path.join(root,"ml-venv","Scripts","python.exe")
-        journal=os.path.join(root,"ml-bootstrap.json")
         _ML_READY_CACHE.update(value=False,running=True)
         try:
             threading.Thread(target=_probe_ml_runtime,args=(python,journal),
