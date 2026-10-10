@@ -473,6 +473,12 @@ created_at timestamptz NOT NULL DEFAULT now())""",
 
 ,(45,"scientific_simulation_attempt_fencing",[
 "ALTER TABLE scientific_simulation_runs ADD COLUMN IF NOT EXISTS attempt_id uuid"
+]),
+(46,"scientific_method_event_idempotency",[
+"ALTER TABLE scientific_method_events ADD COLUMN IF NOT EXISTS source_event_id bigint",
+"""CREATE UNIQUE INDEX IF NOT EXISTS scientific_method_events_source_unique
+ON scientific_method_events(method_key,source_event_id)
+WHERE source_event_id IS NOT NULL"""
 ])
 ]
 
