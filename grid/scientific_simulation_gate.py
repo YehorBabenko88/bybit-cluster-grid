@@ -22,6 +22,11 @@ class ScientificSimulationGate:
               ON CONFLICT(hypothesis_id,simulation_version,dataset_cutoff) DO NOTHING""",
               uuid.uuid4(),r["id"],SIMULATION_VERSION,config_json(self.config),dataset_cutoff)
             if str(tag).endswith("1"):made+=1
+        # Recheck waiting simulations only when a newer data cutoff is available.
+        # Reuse the existing run identity and deterministic simulation seed.
+        await self.pool.execute("""UPDATE scientific_simulation_runs
+          SET status='QUEUED',reason=NULL,completed_at=NULL
+          WHERE status='WAITING_OOS' AND dataset_cutoff < $1""",dataset_cutoff)
         return made
 
     async def run_queued(self,limit=4):
