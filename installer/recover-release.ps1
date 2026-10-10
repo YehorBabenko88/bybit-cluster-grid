@@ -66,7 +66,7 @@ try {
         try {
             [IO.File]::WriteAllText($tmp,$Value,[Text.UTF8Encoding]::new($false))
             if ([IO.File]::Exists($Path)) {
-                [IO.File]::Replace($tmp, $Path, $null, $true)
+                [IO.File]::Replace($tmp, $Path, "$Path.$([guid]::NewGuid().ToString('N')).bak", $true)
             } else {
                 [IO.File]::Move($tmp, $Path)
             }
