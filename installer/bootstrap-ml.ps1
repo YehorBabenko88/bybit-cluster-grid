@@ -26,7 +26,9 @@ try {
   throw "ML bootstrap already running for runtime root: $RuntimeRoot"
 }
 try {
-function Write-MLJournal([System.Collections.IDictionary]$Record) {
+function Write-MLJournal {
+  param([Parameter(ValueFromPipeline=$true,Mandatory=$true)][System.Collections.IDictionary]$Record)
+  process {
   $json=$Record | ConvertTo-Json -Depth 6
   $tmp=Join-Path $RuntimeRoot ("ml-bootstrap."+[guid]::NewGuid().ToString("N")+".tmp")
   try {
@@ -34,6 +36,7 @@ function Write-MLJournal([System.Collections.IDictionary]$Record) {
     [System.IO.File]::Move($tmp,$Journal,$true)
   } finally {
     if(Test-Path -LiteralPath $tmp){Remove-Item -LiteralPath $tmp -Force}
+  }
   }
 }
 $Hash=(Get-FileHash -Algorithm SHA256 $Req).Hash.ToLowerInvariant()
