@@ -156,6 +156,11 @@ class SegmentWAL:
                 raise ValueError("WAL ACK id is outside the allocated record range")
             current=self._checkpoint_id()
             if record_id<=current: return
+            # A caller must not ACK past an earlier pending record: doing so
+            # would make that earlier write unrecoverable after a crash.
+            pending=next(self.iter_recover(),None)
+            if pending is None or pending[0]!=record_id:
+                raise ValueError("WAL ACK must target the oldest pending record")
             tmp=self.root/"checkpoint.next"
             with open(tmp,"w",encoding="ascii") as f:
                 f.write(str(record_id)); f.flush(); os.fsync(f.fileno())
