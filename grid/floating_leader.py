@@ -134,9 +134,9 @@ class FloatingLeader:
         self.epoch = None
         if held_epoch is None:
             return
-        try:
-            if on_loss is not None:
-                await on_loss()
-        finally:
-            await self.release(held_epoch)
+        # Do not release early when cleanup fails: the lease must remain
+        # fenced until expiry rather than overlap a successor with old work.
+        if on_loss is not None:
+            await on_loss()
+        await self.release(held_epoch)
 
