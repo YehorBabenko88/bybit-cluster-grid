@@ -40,6 +40,15 @@ while ($pathCursor) {
 }
 $releaseRoot = Join-Path $InstallRoot 'releases'
 $release = Join-Path $releaseRoot $Version
+# Release directories must be physical directories, not redirected junctions.
+foreach ($releasePath in @($releaseRoot, $release)) {
+    if (Test-Path -LiteralPath $releasePath) {
+        $releaseItem = Get-Item -LiteralPath $releasePath -Force
+        if (($releaseItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Release path is a reparse point: $releasePath"
+        }
+    }
+}
 $required = if ($Role -eq 'CONTROL') { 'grid\coordinator.py' } else { 'run_worker.py' }
 if (-not (Test-Path -LiteralPath (Join-Path $release $required) -PathType Leaf)) {
     throw "Candidate release lacks required entry point: $required"
