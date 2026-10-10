@@ -52,6 +52,7 @@ try {
         Assert (Test-Path $env:GRID_TEST_CAPTURE) "$role failed to invoke valid bootstrap"
         $bootstrapInvocation = Get-Content -LiteralPath $env:GRID_TEST_CAPTURE -Raw
         Assert ($bootstrapInvocation.Contains('--version bootstrap')) "$role failed to select bootstrap"
+        Set-Location -LiteralPath $originalLocation
         Remove-Item -LiteralPath (Join-Path $install 'bootstrap') -Recurse -Force
 
     }
