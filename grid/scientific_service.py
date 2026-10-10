@@ -1,6 +1,7 @@
 """Background CONTROL consumer for the scientific research layer."""
 from __future__ import annotations
 import asyncio,datetime,json,logging,time
+from dataclasses import replace
 from .scientific_orchestrator import ScientificResearchOrchestrator
 from .scientific_event_router import route_market_event
 from .retention_v2 import register_consumer
@@ -54,6 +55,13 @@ class ScientificResearchService:
         # after a failed batch would mix uncheckpointed observations with
         # restored history and could distort subsequent scientific signals.
         self.orchestrator=ScientificResearchOrchestrator()
+        # The built-in observational learner also holds mutable history.
+        # Replace its bound handler on retry without discarding third-party
+        # scientific methods registered on the existing registry.
+        self.book_tape=BookTapePaperLearner()
+        method=self.methods.methods["book_tape_research"]
+        self.methods.methods["book_tape_research"]=replace(
+            method,handler=self.book_tape.observe)
         # Hydrate only state known to be at-or-before the durable source checkpoint.
         await self._hydrate_features()
         await self._hydrate_micro_agents()
