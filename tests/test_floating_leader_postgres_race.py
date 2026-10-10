@@ -74,6 +74,25 @@ def test_only_one_first_time_leader_postgres():
             assert winner.epoch > previous_epoch
             assert await loser.renew() is False
             assert loser.epoch is None
+
+            # A delayed cleanup from the old epoch must never revoke the
+            # successor's live lease, even when both share the same node ID.
+            old_epoch = winner.epoch
+            await pool.execute(
+                "UPDATE service_leases SET lease_until=now()-interval '1 second' "
+                "WHERE service_key='control-plane-leader'"
+            )
+            same_node_successor = FloatingLeader(pool, node_id=winner.node_id)
+            assert await same_node_successor.campaign() is True
+            assert same_node_successor.epoch > old_epoch
+            assert await winner.release(old_epoch) == "UPDATE 0"
+            assert await same_node_successor.renew() is True
+            current = await pool.fetchrow(
+                "SELECT owner, (metadata->>'epoch')::bigint AS epoch "
+                "FROM service_leases WHERE service_key='control-plane-leader'"
+            )
+            assert current["owner"] == same_node_successor.node_id
+            assert current["epoch"] == same_node_successor.epoch
         finally:
             if pool is not None:
                 await pool.close()
