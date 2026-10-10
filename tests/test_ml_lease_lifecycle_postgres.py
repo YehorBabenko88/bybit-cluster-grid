@@ -70,6 +70,19 @@ def test_ml_reservations_renew_finish_and_recovery_postgres():
             assert await finish_ml_job(pool,assigned,"pilot",1)
             assert await reservation(assigned) is None
 
+            competing=await add_job("assigned","pilot",7,60,30)
+            winner,loser=await asyncio.gather(
+                accept_assigned_job(pool,"pilot",lease_seconds=120),
+                accept_assigned_job(pool,"pilot",lease_seconds=120),
+            )
+            accepted_jobs=[job for job in (winner,loser) if job is not None]
+            assert len(accepted_jobs)==1
+            assert accepted_jobs[0]["id"]==competing
+            assert accepted_jobs[0]["lease_generation"]==8
+            assert await reservation(competing)==accepted_jobs[0]["lease_until"]
+            assert await finish_ml_job(pool,competing,"pilot",8)
+            assert await reservation(competing) is None
+
             retry_job=await add_job("running","retry-owner",4,60,60)
             assert await fail_or_retry(pool,retry_job,"old-owner",3,"stale")=="stale"
             assert await reservation(retry_job) is not None
