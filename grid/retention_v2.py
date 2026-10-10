@@ -10,8 +10,10 @@ async def register_consumer(pool,dataset,consumer,required=True,active=True):
       ON CONFLICT(dataset,consumer) DO UPDATE SET required=EXCLUDED.required,
       active=EXCLUDED.active,updated_at=now()""",dataset,consumer,bool(required),bool(active))
 
-async def cleanup_dataset_safe(pool,dataset,retention_days,batch_size=10000):
+async def cleanup_dataset_safe(pool,dataset,retention_days,batch_size=10000,max_batches=20):
     if dataset not in TABLE_TS:raise ValueError("unsupported dataset")
+    if int(retention_days)<0 or int(batch_size)<1 or int(max_batches)<1:
+        raise ValueError("retention_days must be nonnegative; batch_size and max_batches positive")
     ts=TABLE_TS[dataset]; deleted=0
     # No active required-consumer registry => fail closed. This prevents a fresh
     # installation from deleting data before downstream consumers announce themselves.
@@ -44,7 +46,9 @@ async def cleanup_dataset_safe(pool,dataset,retention_days,batch_size=10000):
       LIMIT $2
     ) DELETE FROM {dataset} t USING doomed d WHERE t.ctid=d.ctid"""
     async with pool.acquire() as c:
-        while True:
+        # Limit each pass so retention cannot monopolize a DB connection or
+        # starve other maintenance during a large historical backlog.
+        for _ in range(int(max_batches)):
             r=await c.execute(sql,int(retention_days),int(batch_size),dataset)
             n=int(r.split()[-1]);deleted+=n
             if n<int(batch_size):break
