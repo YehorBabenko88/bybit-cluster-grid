@@ -99,3 +99,32 @@ def test_malformed_lease_epochs_fail_closed():
     for metadata in ('{"epoch":-1}', '{"epoch":true}', '{"epoch":"42"}',
                      '{"epoch":1.5}', '{"epoch":null}'):
         asyncio.run(scenario(metadata))
+
+
+def test_live_competitor_lease_clears_stale_local_epoch():
+    from datetime import datetime, timedelta, timezone
+
+    async def scenario():
+        class LiveLeaseConnection(Connection):
+            async def fetchrow(self, sql):
+                return {
+                    "owner": "other",
+                    "lease_until": datetime.now(timezone.utc) + timedelta(minutes=5),
+                    "metadata": '{"epoch":99}',
+                }
+
+            async def fetchval(self, sql, *args):
+                assert sql == "SELECT now()"
+                return datetime.now(timezone.utc)
+
+        pool = Pool(1)
+        pool.connection = LiveLeaseConnection(1)
+        leader = FloatingLeader(pool, node_id="stale")
+        leader.is_leader = True
+        leader.epoch = 10
+        assert await leader.campaign() is False
+        assert leader.is_leader is False
+        assert leader.epoch is None
+        assert pool.connection.insert_sql is None
+
+    asyncio.run(scenario())
