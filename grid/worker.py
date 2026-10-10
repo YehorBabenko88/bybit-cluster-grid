@@ -56,6 +56,18 @@ class Worker:
         self.ml_stop=asyncio.Event()
         self.restart_requested=False
 
+    async def _apply_local_pressure(self):
+        if self.operator_stopped or self.bootstrap_paused:
+            return
+        if self.wanted or self.pressure_drained:
+            assigned=self.wanted | self.pressure_drained
+            drained=desired_drained_symbols(self.pressure,assigned)
+            if drained!=self.pressure_drained:
+                self.pressure_drained=drained
+                self.wanted=assigned-drained
+                self.micro_wanted.intersection_update(self.wanted)
+                await self.reconcile()
+
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
             while True:
@@ -101,16 +113,7 @@ class Worker:
                 # producers keep running. Drain expensive live streams locally; a
                 # later healthy CONTROL heartbeat will restore assignments once
                 # pressure has recovered.
-                if self.wanted:
-                    # Include previously drained symbols: they are still assigned
-                    # even though their live streams are currently stopped.
-                    local_assigned=self.wanted | self.pressure_drained
-                    local_drained=desired_drained_symbols(self.pressure,local_assigned)
-                    if local_drained != self.pressure_drained:
-                        self.pressure_drained=local_drained
-                        self.wanted=local_assigned-local_drained
-                        self.micro_wanted.intersection_update(self.wanted)
-                        await self.reconcile()
+                await self._apply_local_pressure()
                 snap['bootstrap_paused']=self.bootstrap_paused
                 snap['operator_stopped']=self.operator_stopped
                 snap['bootstrap_phase']=self.bootstrap_phase
