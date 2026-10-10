@@ -26,15 +26,20 @@ class ScientificSimulationGate:
 
     async def run_queued(self,limit=4):
         rows=await self.pool.fetch("""SELECT id,hypothesis_id,dataset_cutoff FROM scientific_simulation_runs
-          WHERE status='QUEUED' ORDER BY created_at LIMIT $1""",max(1,int(limit)))
+          WHERE status='QUEUED' OR
+            (status='RUNNING' AND started_at < now() - interval '24 hours')
+          ORDER BY created_at LIMIT $1""",max(1,int(limit)))
         out=[]
         for r in rows:out.append(await self.run_one(r["id"],r["hypothesis_id"],r["dataset_cutoff"]))
         return out
 
     async def run_one(self,run_id,hypothesis_id,dataset_cutoff):
+        # Reclaim an abandoned run only after its prior owner has had a
+        # generous opportunity to finish. Old partial rows are removed below.
         claimed=await self.pool.fetchval("""UPDATE scientific_simulation_runs
-          SET status='RUNNING',started_at=now()
-          WHERE id=$1 AND status='QUEUED'
+          SET status='RUNNING',started_at=now(),completed_at=NULL
+          WHERE id=$1 AND (status='QUEUED' OR
+            (status='RUNNING' AND started_at < now() - interval '24 hours'))
           RETURNING id""",run_id)
         if claimed is None:
             return {"run_id":str(run_id),"status":"SKIPPED_NOT_QUEUED"}
@@ -87,6 +92,8 @@ class ScientificSimulationGate:
         # A crash or SQL error must not expose a completed run with partial trades.
         async with self.pool.acquire() as conn:
             async with conn.transaction():
+                # A reclaimed run must replace, never mix, old and new results.
+                await conn.execute("DELETE FROM scientific_simulation_trades WHERE run_id=$1",run_id)
                 for t in base["trades"]:
                     await conn.execute("""INSERT INTO scientific_simulation_trades(
                       run_id,ordinal,symbol,event_ts_ms,split_key,raw_return_bps,net_return_bps,
