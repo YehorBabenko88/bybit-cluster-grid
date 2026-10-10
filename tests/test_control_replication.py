@@ -65,84 +65,31 @@ def test_telegram_cursor_reads_jsonb_string(monkeypatch):
     assert result == 100376615
 
 
-def test_commit_telegram_cursor_advances_from_jsonb_string(monkeypatch):
-    writes = []
-
-    async def fake_get_control_state(pool, key):
-        assert key == "telegram_cursor"
-        return {
-            "value": '{"next_update_id":100376615}',
-            "version": 1,
-        }
-
-    async def fake_put_control_state(pool, key, value, node_id):
-        writes.append(
-            {
-                "key": key,
-                "value": value,
-                "node_id": node_id,
-            }
-        )
-
-    monkeypatch.setattr(
-        replication,
-        "get_control_state",
-        fake_get_control_state,
-    )
-    monkeypatch.setattr(
-        replication,
-        "put_control_state",
-        fake_put_control_state,
-    )
+def test_commit_telegram_cursor_advances_from_jsonb_string():
+    class Pool:
+        async def fetchrow(self, sql, *args):
+            assert "ON CONFLICT" in sql
+            assert args == (100376616, "CONTROL")
+            return {"next_update_id": 100376616}
 
     result = asyncio.run(
-        replication.commit_telegram_cursor(
-            object(),
-            "CONTROL",
-            100376616,
-        )
+        replication.commit_telegram_cursor(Pool(), "CONTROL", 100376616)
     )
-
     assert result == 100376616
-    assert writes == [
-        {
-            "key": "telegram_cursor",
-            "value": {"next_update_id": 100376616},
-            "node_id": "CONTROL",
-        }
-    ]
 
 
 def test_commit_telegram_cursor_never_moves_backwards(monkeypatch):
-    writes = []
+    class Pool:
+        async def fetchrow(self, sql, *args):
+            assert "ON CONFLICT" in sql
+            return None
 
     async def fake_get_control_state(pool, key):
-        return {
-            "value": '{"next_update_id":100376616}',
-            "version": 2,
-        }
+        assert key == "telegram_cursor"
+        return {"value": '{"next_update_id":100376616}', "version": 2}
 
-    async def fake_put_control_state(pool, key, value, node_id):
-        writes.append(value)
-
-    monkeypatch.setattr(
-        replication,
-        "get_control_state",
-        fake_get_control_state,
-    )
-    monkeypatch.setattr(
-        replication,
-        "put_control_state",
-        fake_put_control_state,
-    )
-
+    monkeypatch.setattr(replication, "get_control_state", fake_get_control_state)
     result = asyncio.run(
-        replication.commit_telegram_cursor(
-            object(),
-            "CONTROL",
-            100376615,
-        )
+        replication.commit_telegram_cursor(Pool(), "CONTROL", 100376615)
     )
-
     assert result == 100376616
-    assert writes == []
