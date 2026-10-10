@@ -133,3 +133,29 @@ def test_ml_lease_lifecycle_reservation_fencing_contract():
     assert "DELETE FROM ml_resource_reservations" in finish
     assert "NOT EXISTS (" in recovery
     assert "j.status IN ('assigned','running')" in recovery
+
+def test_dispatch_telemetry_timeout_never_opens_database_transaction():
+    import asyncio
+    import pytest
+    from grid.ml_dispatcher import MLDispatcher
+
+    class PoolMustNotBeUsed:
+        def acquire(self):
+            raise AssertionError("database connection acquired before telemetry completed")
+
+    async def never_returns():
+        await asyncio.Event().wait()
+
+    async def scenario():
+        dispatcher=MLDispatcher(PoolMustNotBeUsed(),never_returns)
+        # Replace the 10-second wait with a short real timeout while preserving
+        # cancellation semantics of the async telemetry coroutine.
+        original=asyncio.wait_for
+        async def short_wait(awaitable,timeout):
+            assert timeout==10
+            return await original(awaitable,timeout=0.02)
+        from unittest.mock import patch
+        with patch("grid.ml_dispatcher.asyncio.wait_for",short_wait):
+            with pytest.raises(asyncio.TimeoutError):
+                await dispatcher(1)
+    asyncio.run(scenario())
