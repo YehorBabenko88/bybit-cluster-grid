@@ -111,7 +111,12 @@ function Write-Atomic([string]$Path,[string]$Value) {
         if ([IO.File]::Exists($Path)) {
             # File.Replace uses the Windows replace-file primitive rather than
             # removing the destination before renaming the temporary file.
-            [IO.File]::Replace($tmp, $Path, "$Path.$([guid]::NewGuid().ToString('N')).bak", $true)
+            $backup = "$Path.$([guid]::NewGuid().ToString('N')).bak"
+                try {
+                    [IO.File]::Replace($tmp, $Path, $backup, $true)
+                } finally {
+                    if ([IO.File]::Exists($backup)) { [IO.File]::Delete($backup) }
+                }
         } else {
             [IO.File]::Move($tmp, $Path)
         }
