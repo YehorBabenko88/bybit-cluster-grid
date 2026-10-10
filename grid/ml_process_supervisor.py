@@ -95,7 +95,12 @@ async def run_supervised_process(argv,*,timeout_seconds,ram_limit_mb=None,
             from .ml_windows_job import WindowsJob
             job_object=WindowsJob(proc.pid, resume_primary_thread=True)
         except BaseException:
-            await terminate_process_tree(proc,grace_seconds)
+            # Assignment/resume failed while the child may still be suspended.
+            # Force-kill directly rather than waiting for a graceful exit.
+            if proc.returncode is None:
+                try: proc.kill()
+                except ProcessLookupError: pass
+            await proc.wait()
             raise
     stdout_tail=deque();stderr_tail=deque()
     drains=[
