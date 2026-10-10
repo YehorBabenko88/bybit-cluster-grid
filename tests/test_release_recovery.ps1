@@ -276,6 +276,23 @@ try {
         Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Recovery deleted journal with truncated current'
     }
     Set-Content -LiteralPath $current -Value $a
+    # A previous.version directory must never be overwritten by recovery.
+    $previousPointer = Join-Path $root 'previous.version'
+    if (Test-Path -LiteralPath $previousPointer) { Remove-Item -LiteralPath $previousPointer -Force }
+    New-Item -ItemType Directory -Path $previousPointer | Out-Null
+    foreach ($phaseCase in @('prepared','committed')) {
+        Journal $phaseCase
+        Set-Content -LiteralPath $current -Value $a
+        Set-Content -LiteralPath $pending -Value $b
+        $directoryPointerRejected = $false
+        try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $directoryPointerRejected = $true }
+        Assert $directoryPointerRejected "Directory previous pointer must block $phaseCase recovery"
+        Assert (Test-Path -LiteralPath $previousPointer -PathType Container) 'Recovery replaced previous pointer directory'
+        Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Directory previous pointer changed current'
+        Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Directory previous pointer changed pending'
+        Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Directory previous pointer removed journal'
+    }
+    Remove-Item -LiteralPath $previousPointer -Force
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
