@@ -77,9 +77,11 @@ class BookTapeResearch:
         relative_volume=volume/avg_volume if avg_volume>0 else 0.0
         if not isfinite(relative_volume):
             return {"version":VERSION,"eligible":False,"reason":"invalid_relative_volume"}
+        delta_ratio=(buy-sell)/volume
+        if not isfinite(delta_ratio):
+            return {"version":VERSION,"eligible":False,"reason":"invalid_delta_ratio"}
         self.last_ts[symbol]=ts
         history.append((ts,close,volume,buy-sell))
-        delta_ratio=(buy-sell)/volume
         previous=prices[-1]
         high=max(prices)
         low=min(prices)
