@@ -20,6 +20,8 @@ class FloatingLeader:
                 metadata = row["metadata"] if row else None
                 if isinstance(metadata, str):
                     metadata = json.loads(metadata)
+                if metadata is not None and not isinstance(metadata, dict):
+                    raise ValueError("invalid leader lease metadata: expected object")
                 previous_epoch = int((metadata or {}).get("epoch", 0))
                 epoch=max(int(time.time()*1000),previous_epoch+1)
                 acquired=await c.fetchval("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
