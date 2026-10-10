@@ -35,7 +35,7 @@ foreach($name in @("current.version","previous.version")){
     $marker=Join-Path $InstallRoot $name
     if(!(Test-Path -LiteralPath $marker -PathType Leaf)){continue}
     $v=(Get-Content -LiteralPath $marker -Raw).Trim()
-    if($v -cnotmatch '^[0-9a-f]{40}){continue}
+    if($v -cnotmatch '^[0-9a-f]{40}$'){continue}
     $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
     if(Test-Path -LiteralPath (Join-Path $candidate "run_worker.py") -PathType Leaf){$release=$candidate;break}
 }
@@ -43,75 +43,7 @@ if(!$release){
     $currentMarker=Join-Path $InstallRoot "current.version"
     if(Test-Path -LiteralPath $currentMarker -PathType Leaf){
         $cv=(Get-Content -LiteralPath $currentMarker -Raw).Trim()
-        if($cv -cmatch '^[0-9a-f]{40}){
-            $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
-            if(Test-Path -LiteralPath (Join-Path $replaced "run_worker.py") -PathType Leaf){$release=$replaced}
-        }
-    }
-}
-if(!$release){$release=Join-Path $InstallRoot "bootstrap"}
-$run=Join-Path $release "run_worker.py"
-if(!(Test-Path -LiteralPath $run -PathType Leaf)){throw "No runnable Grid release found"}
-Set-Location $release
-$version=Split-Path $release -Leaf
-& $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $release --readiness worker -- $Python $run
-exit $LASTEXITCODE
-){continue}
-    $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
-    if(Test-Path -LiteralPath (Join-Path $candidate "run_worker.py") -PathType Leaf){$release=$candidate;break}
-}
-if(!$release){
-    $currentMarker=Join-Path $InstallRoot "current.version"
-    if(Test-Path -LiteralPath $currentMarker -PathType Leaf){
-        $cv=(Get-Content -LiteralPath $currentMarker -Raw).Trim()
-        if($cv -match '^[0-9a-f]{40}$'){
-            $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
-            if(Test-Path -LiteralPath (Join-Path $replaced "run_worker.py") -PathType Leaf){$release=$replaced}
-        }
-    }
-}
-if(!$release){$release=Join-Path $InstallRoot "bootstrap"}
-$run=Join-Path $release "run_worker.py"
-if(!(Test-Path -LiteralPath $run -PathType Leaf)){throw "No runnable Grid release found"}
-Set-Location $release
-$version=Split-Path $release -Leaf
-& $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $release --readiness worker -- $Python $run
-exit $LASTEXITCODE
-){
-            $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
-            if(Test-Path -LiteralPath (Join-Path $replaced "run_worker.py") -PathType Leaf){$release=$replaced}
-        }
-    }
-}
-if(!$release){$release=Join-Path $InstallRoot "bootstrap"}
-$run=Join-Path $release "run_worker.py"
-if(!(Test-Path -LiteralPath $run -PathType Leaf)){throw "No runnable Grid release found"}
-Set-Location $release
-$version=Split-Path $release -Leaf
-& $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $release --readiness worker -- $Python $run
-exit $LASTEXITCODE
-){continue}
-    $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
-    if(Test-Path -LiteralPath (Join-Path $candidate "run_worker.py") -PathType Leaf){$release=$candidate;break}
-}
-if(!$release){
-    $currentMarker=Join-Path $InstallRoot "current.version"
-    if(Test-Path -LiteralPath $currentMarker -PathType Leaf){
-        $cv=(Get-Content -LiteralPath $currentMarker -Raw).Trim()
-        if($cv -cmatch '^[0-9a-f]{40}){
-            $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
-            if(Test-Path -LiteralPath (Join-Path $replaced "run_worker.py") -PathType Leaf){$release=$replaced}
-        }
-    }
-}
-if(!$release){$release=Join-Path $InstallRoot "bootstrap"}
-$run=Join-Path $release "run_worker.py"
-if(!(Test-Path -LiteralPath $run -PathType Leaf)){throw "No runnable Grid release found"}
-Set-Location $release
-$version=Split-Path $release -Leaf
-& $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $release --readiness worker -- $Python $run
-exit $LASTEXITCODE
-){
+        if($cv -cmatch '^[0-9a-f]{40}$'){
             $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
             if(Test-Path -LiteralPath (Join-Path $replaced "run_worker.py") -PathType Leaf){$release=$replaced}
         }
