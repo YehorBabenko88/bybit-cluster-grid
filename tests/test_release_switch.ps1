@@ -80,6 +80,17 @@ try {
     Assert ($journal.phase -eq 'committed') 'Apply did not commit journal'
     Assert ($journal.previous -eq $a -and $journal.candidate -eq $b) 'Apply wrote inconsistent journal'
     Assert (@(Get-ChildItem -LiteralPath $root -File -Filter '*.bak').Count -eq 0) 'Apply leaked File.Replace backup'
+    # Complete the committed transaction through the real recovery script.
+    $recover = Join-Path $PSScriptRoot '..\\installer\\recover-release.ps1'
+    & $recover -InstallRoot $root -Role WORKER -Apply | Out-Null
+    Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $b) 'Committed recovery reverted promoted release'
+    Assert (((Get-Content (Join-Path $root 'previous.version') -Raw).Trim()) -eq $a) 'Committed recovery lost rollback pointer'
+    Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Committed recovery left pending marker'
+    Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Committed recovery left journal'
+    $secondRecovery = & $recover -InstallRoot $root -Role WORKER -Apply
+    Assert ($secondRecovery -contains 'NO_JOURNAL=true') 'Repeated recovery was not idempotent'
+    Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $b) 'Repeated recovery changed current release'
+    Assert (@(Get-ChildItem -LiteralPath $root -File -Filter '*.bak').Count -eq 0) 'Recovery leaked backup files'
     Write-Output 'PASS: release switch plan, missing release, manifest mismatch, failed-release quarantine, concurrent-switch lock'
 } finally {
     if (Test-Path $root) { Remove-Item -LiteralPath $root -Recurse -Force }
