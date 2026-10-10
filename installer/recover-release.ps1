@@ -38,7 +38,7 @@ try {
     }
     $currentPath = Join-Path $InstallRoot 'current.version'
     $current = if (Test-Path -LiteralPath $currentPath) { (Get-Content -LiteralPath $currentPath -Raw).Trim() } else { '' }
-    if ($current -and $current -notin @($j.previous,$j.candidate)) {
+    if ($current -and ($current -cne $j.previous) -and ($current -cne $j.candidate)) {
         throw 'Current pointer conflicts with journal; manual recovery required'
     }
     # A prepared transaction may already have written the candidate pointer
