@@ -28,7 +28,12 @@ class FloatingLeader:
                 if isinstance(raw_epoch, bool) or not isinstance(raw_epoch, int) or raw_epoch < 0:
                     raise ValueError("invalid leader lease epoch: expected nonnegative integer")
                 previous_epoch = raw_epoch
+                max_epoch = (1 << 63) - 1
+                if previous_epoch >= max_epoch:
+                    raise ValueError("leader lease epoch exhausted bigint range")
                 epoch=max(int(time.time()*1000),previous_epoch+1)
+                if epoch > max_epoch:
+                    raise ValueError("leader lease epoch exceeds bigint range")
                 acquired=await c.fetchval("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
                   VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3::bigint))
                   ON CONFLICT(service_key) DO UPDATE SET owner=EXCLUDED.owner,lease_until=EXCLUDED.lease_until,
