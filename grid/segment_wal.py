@@ -33,7 +33,7 @@ class SegmentWAL:
                 try:
                     obj=json.loads(tail)
                     body=json.dumps(obj["payload"],separators=(",",":"),ensure_ascii=False).encode("utf-8")
-                    valid=(zlib.crc32(body)&0xffffffff)==int(obj["crc32"]) and int(obj["id"])>=0
+                    valid=(type(obj["crc32"]) is int and type(obj["id"]) is int\n                           and obj["id"]>=0 and (zlib.crc32(body)&0xffffffff)==obj["crc32"])
                 except (ValueError,KeyError,TypeError,json.JSONDecodeError):
                     valid=False
                 if valid:
@@ -122,11 +122,14 @@ class SegmentWAL:
                         try:
                             obj=json.loads(raw)
                             body=json.dumps(obj["payload"],separators=(",",":"),ensure_ascii=False).encode("utf-8")
-                            if (zlib.crc32(body)&0xffffffff)!=int(obj["crc32"]):
+                            crc=obj["crc32"]
+                            rid=obj["id"]
+                            if type(crc) is not int or not 0<=crc<=0xffffffff:
+                                raise ValueError("invalid WAL CRC field")
+                            if type(rid) is not int or rid<0:
+                                raise ValueError("invalid WAL record id")
+                            if (zlib.crc32(body)&0xffffffff)!=crc:
                                 raise ValueError("WAL CRC mismatch")
-                            rid=int(obj["id"])
-                            if rid<0:
-                                raise ValueError("negative WAL record id")
                             yield p,rid,obj["payload"]
                         except (ValueError,KeyError,TypeError,UnicodeError) as exc:
                             # Silently skipping a corrupted middle record lets
