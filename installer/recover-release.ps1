@@ -65,7 +65,11 @@ try {
         $tmp = "$Path.$([guid]::NewGuid().ToString('N')).tmp"
         try {
             [IO.File]::WriteAllText($tmp,$Value,[Text.UTF8Encoding]::new($false))
-            Move-Item -LiteralPath $tmp -Destination $Path -Force
+            if ([IO.File]::Exists($Path)) {
+                [IO.File]::Replace($tmp, $Path, $null)
+            } else {
+                [IO.File]::Move($tmp, $Path)
+            }
         } finally {
             if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
         }
