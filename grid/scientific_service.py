@@ -89,9 +89,11 @@ class ScientificResearchService:
         rows=await self.pool.fetch("""WITH ranked AS (
           SELECT symbol,ts,quality_status,features,
                  row_number() OVER(PARTITION BY symbol ORDER BY ts DESC) rn
-          FROM market_features_1m WHERE eligible=true AND quality_status='GOOD')
+          FROM market_features_1m
+          WHERE eligible=true AND quality_status='GOOD'
+            AND ($1::timestamptz IS NULL OR ts<=$1))
           SELECT symbol,ts,quality_status,features FROM ranked WHERE rn<=128
-          ORDER BY symbol,ts""")
+          ORDER BY symbol,ts""",self.last_event_ts)
         for r in rows:
             features=_dict(r["features"])
             ts_ms=int(r["ts"].timestamp()*1000)
