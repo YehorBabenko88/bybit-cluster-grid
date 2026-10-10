@@ -50,6 +50,10 @@ class ScientificResearchService:
             self.last_id=int(await self.pool.fetchval("SELECT COALESCE(max(id),0) FROM market_events") or 0)
             self.last_event_ts=await self.pool.fetchval("SELECT max(event_ts) FROM market_events")
             await self._checkpoint()
+        # Recreate volatile state on every startup attempt. Reusing agents
+        # after a failed batch would mix uncheckpointed observations with
+        # restored history and could distort subsequent scientific signals.
+        self.orchestrator=ScientificResearchOrchestrator()
         # Hydrate only state known to be at-or-before the durable source checkpoint.
         await self._hydrate_features()
         await self._hydrate_micro_agents()
