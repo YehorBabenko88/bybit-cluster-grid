@@ -108,6 +108,11 @@ jobs:
             }
           }
 
+      - name: Test isolated release launcher selection
+        shell: pwsh
+        run: |
+          & ./tests/test_release_launcher_selection.ps1
+
       - name: Test guarded release switch
         shell: pwsh
         run: |
