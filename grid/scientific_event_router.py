@@ -11,11 +11,13 @@ async def route_market_event(orchestrator,pool,symbol,ts_ms,event_type,payload,s
     signals=[];matured={"labels":[],"hypothesis_updates":[]}
     if event_type=="trade_tape_250ms":
         price=_num(p.get("close"))
-        volume=_num(p.get("buy_volume"),0.0)+_num(p.get("sell_volume"),0.0)
+        buy_volume=_num(p.get("buy_volume"),0.0)
+        sell_volume=_num(p.get("sell_volume"),0.0)
+        volume=buy_volume+sell_volume
         delta=_num(p.get("delta"),0.0)
         if price is None or price<=0:
             return {"processed":False,"reason":"invalid_trade_price","scheduled":0}
-        if volume<0:
+        if buy_volume<0 or sell_volume<0 or not math.isfinite(volume):
             return {"processed":False,"reason":"invalid_trade_volume","scheduled":0}
         if price is not None and price>0:
             orchestrator.latest_trade[symbol]=(ts,price)
