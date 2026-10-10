@@ -198,6 +198,48 @@ class ReleaseSupervisorTests(unittest.TestCase):
                 self.assertIn("already running", result.stderr)
             self.assertFalse((root / "release-ready.txt").exists())
 
+    def test_crash_processing_waits_for_inflight_confirmation(self):
+        import threading
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            version = "b" * 40
+            (root / "current.version").write_text(version)
+            (root / "pending.version").write_text(version)
+            proc = mock.Mock()
+            proc.poll.return_value = None
+            entered = threading.Event()
+            release = threading.Event()
+            completed = threading.Event()
+            def slow_ready(*args):
+                entered.set()
+                if not release.wait(timeout=5):
+                    raise RuntimeError("readiness wait timed out")
+                return True
+            def crash():
+                supervisor._after_exit(root, version, 1, exit_code=1)
+                completed.set()
+            with mock.patch.object(supervisor.time, "sleep", return_value=None):
+                with mock.patch.object(supervisor, "_ready", side_effect=slow_ready):
+                    confirm_thread = threading.Thread(
+                        target=supervisor._confirm,
+                        args=(root, version, proc, 1, "coordinator", None),
+                    )
+                    confirm_thread.start()
+                    try:
+                        self.assertTrue(entered.wait(timeout=5))
+                        crash_thread = threading.Thread(target=crash)
+                        crash_thread.start()
+                        self.assertFalse(completed.wait(timeout=0.1),
+                                         "crash processing bypassed confirmation lock")
+                    finally:
+                        release.set()
+                        confirm_thread.join(timeout=5)
+                        if "crash_thread" in locals():
+                            crash_thread.join(timeout=5)
+            self.assertTrue(completed.is_set())
+            self.assertFalse((root / "pending.version").exists())
+            self.assertFalse((root / "pending-crashes.txt").exists())
+
     def test_child_exiting_during_readiness_does_not_confirm(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
