@@ -158,6 +158,13 @@ class Storage:
                 # feature/derived persistence idempotently.
                 regressive=False
                 if accepted:
+                    # The accepted candle is an authoritative replacement for
+                    # its entire price footprint. Clear obsolete price levels
+                    # in the same transaction before inserting the new set.
+                    await c.execute(
+                        "DELETE FROM footprint_1m WHERE symbol=$1 AND ts=$2",
+                        row["symbol"], ts,
+                    )
                     await c.executemany("""INSERT INTO footprint_1m(symbol,ts,price,buy_volume,sell_volume,delta,volume,buy_count,sell_count)
                     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
                     ON CONFLICT(symbol,ts,price) DO UPDATE SET buy_volume=EXCLUDED.buy_volume,sell_volume=EXCLUDED.sell_volume,
@@ -171,6 +178,19 @@ class Storage:
                     regressive=(current_trade_count is not None and current_trade_count > row["trade_count"])
         if regressive:
             return
+        # A WAL retry of an equal-count minute must use the canonical database
+        # candle, not an incoming fragment whose payload may differ. This also
+        # prevents an older equal-count message from poisoning derived features.
+        if not accepted:
+            canonical=await self.pool.fetchrow(
+                """SELECT open,high,low,close,buy_volume,sell_volume,delta,
+                          trade_count,poc_price,quality_status,quality_reasons
+                   FROM candles_1m WHERE symbol=$1 AND ts=$2""",
+                row["symbol"],ts,
+            )
+            if canonical is None:
+                raise RuntimeError("canonical candle disappeared before feature replay")
+            row={**row, **dict(canonical)}
         feature_row=dict(row); feature_row["ts"]=ts
         built=await self.feature_builder.build(self.pool,feature_row)
         await self.feature_builder.persist(self.pool,built)

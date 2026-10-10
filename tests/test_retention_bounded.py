@@ -1,11 +1,20 @@
 import asyncio
+from contextlib import asynccontextmanager
 import pytest
 from grid.retention_v2 import cleanup_dataset_safe
 
 class FakeConnection:
-    def __init__(self):
+    def __init__(self,required):
         self.calls=0
+        self.required=required
+    @asynccontextmanager
+    async def transaction(self):
+        yield self
+    async def fetchval(self,*args):
+        return self.required
     async def execute(self,sql,*args):
+        if sql.startswith("LOCK TABLE"):
+            return "LOCK TABLE"
         self.calls+=1
         return "DELETE "+str(args[1])
 
@@ -17,7 +26,7 @@ class Acquire:
 class Pool:
     def __init__(self,required=1):
         self.required=required
-        self.conn=FakeConnection()
+        self.conn=FakeConnection(required)
     async def fetchval(self,*args):return self.required
     def acquire(self):return Acquire(self.conn)
 

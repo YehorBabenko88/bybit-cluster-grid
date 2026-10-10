@@ -36,7 +36,13 @@ class SegmentWAL:
                     valid=(zlib.crc32(body)&0xffffffff)==int(obj["crc32"]) and int(obj["id"])>=0
                 except (ValueError,KeyError,TypeError,json.JSONDecodeError):
                     valid=False
-                if valid:return
+                if valid:
+                    # Normalize a valid unterminated record before the next
+                    # append; otherwise two JSON objects would share one line.
+                    f.seek(0,os.SEEK_END)
+                    f.write(bytes([10]))
+                    f.flush();os.fsync(f.fileno())
+                    return
                 f.truncate(0 if cut<0 else cut+1)
                 f.flush();os.fsync(f.fileno())
         except OSError:
@@ -56,9 +62,15 @@ class SegmentWAL:
 
     def _read_checkpoint(self,path):
         try:
-            value=int(path.read_text(encoding="ascii").strip() or "0")
+            raw=path.read_text(encoding="ascii").strip()
+            # A torn write can leave a valid-looking integer prefix. A
+            # checkpoint is accepted only if the whole file is a single
+            # canonical decimal number, with no leading/trailing junk.
+            if not raw or not raw.isascii() or not raw.isdecimal():
+                return None
+            value=int(raw)
             return value if value>=0 else None
-        except (OSError,ValueError):
+        except (OSError,ValueError,UnicodeError):
             return None
 
     def _checkpoint_id(self):
@@ -110,12 +122,20 @@ class SegmentWAL:
                         try:
                             obj=json.loads(raw)
                             body=json.dumps(obj["payload"],separators=(",",":"),ensure_ascii=False).encode("utf-8")
-                            if (zlib.crc32(body)&0xffffffff)!=int(obj["crc32"]): continue
-                            yield p,int(obj["id"]),obj["payload"]
-                        except (ValueError,KeyError,TypeError,json.JSONDecodeError):
-                            continue
-            except OSError:
-                continue
+                            if (zlib.crc32(body)&0xffffffff)!=int(obj["crc32"]):
+                                raise ValueError("WAL CRC mismatch")
+                            rid=int(obj["id"])
+                            if rid<0:
+                                raise ValueError("negative WAL record id")
+                            yield p,rid,obj["payload"]
+                        except (ValueError,KeyError,TypeError,UnicodeError) as exc:
+                            # Silently skipping a corrupted middle record lets
+                            # a later ACK advance past permanently lost data.
+                            raise RuntimeError(f"corrupt WAL record in {p}") from exc
+            except OSError as exc:
+                # An unreadable segment is not an empty segment. Skipping it
+                # can let recovery ACK records after a missing WAL range.
+                raise RuntimeError(f"cannot read WAL segment {p}") from exc
 
     def iter_recover(self):
         """Stream pending records so a large outage backlog is never materialized in RAM."""
@@ -130,22 +150,30 @@ class SegmentWAL:
 
     async def ack(self,record_id):
         async with self._lock:
+            # A checkpoint beyond the last allocated record would cause future
+            # WAL entries to be skipped during crash recovery.
+            if not isinstance(record_id,int) or isinstance(record_id,bool) or record_id<0 or record_id>=self._next_id:
+                raise ValueError("WAL ACK id is outside the allocated record range")
             current=self._checkpoint_id()
             if record_id<=current: return
+            # A caller must not ACK past an earlier pending record: doing so
+            # would make that earlier write unrecoverable after a crash.
+            pending=next(self.iter_recover(),None)
+            if pending is None or pending[0]!=record_id:
+                raise ValueError("WAL ACK must target the oldest pending record")
             tmp=self.root/"checkpoint.next"
             with open(tmp,"w",encoding="ascii") as f:
                 f.write(str(record_id)); f.flush(); os.fsync(f.fileno())
             # Preserve the previous known-good generation before publishing the
             # new primary. Recovery chooses the highest valid generation.
-            if self.checkpoint.exists():
+            previous=self._read_checkpoint(self.checkpoint)
+            if previous is not None:
                 backup_tmp=self.root/"checkpoint.backup.next"
                 try:
-                    data=self.checkpoint.read_text(encoding="ascii")
-                    int(data.strip() or "0")
                     with open(backup_tmp,"w",encoding="ascii") as f:
-                        f.write(data); f.flush(); os.fsync(f.fileno())
+                        f.write(str(previous)); f.flush(); os.fsync(f.fileno())
                     os.replace(backup_tmp,self.checkpoint_backup)
-                except (OSError,ValueError):
+                except OSError:
                     try: backup_tmp.unlink()
                     except OSError: pass
             os.replace(tmp,self.checkpoint)
