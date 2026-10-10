@@ -64,7 +64,7 @@ class SegmentWAL:
                 return None
             value=int(raw)
             return value if value>=0 else None
-        except (OSError,ValueError):
+        except (OSError,ValueError,UnicodeError):
             return None
 
     def _checkpoint_id(self):
