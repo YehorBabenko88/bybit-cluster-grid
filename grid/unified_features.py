@@ -38,6 +38,12 @@ class UnifiedFeatureBuilder:
         ts=row["ts"]; symbol=row["symbol"]
         source=dict(row)
         previous=self.last_ts.get(symbol)
+        # Duplicate minutes and older replays must not append to rolling
+        # histories or rewind the online feature clock.
+        if previous is not None and ts<=previous:
+            raise ValueError(
+                f"non-monotonic feature minute for {symbol}: {ts} <= {previous}"
+            )
         gap=previous is not None and ts-previous!=timedelta(minutes=1)
         if gap:
             # Never bridge a missing minute with rolling statistics. Reset all
