@@ -104,6 +104,7 @@ try {
     $unverifiedEntrypointRejected = $false
     try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null } catch { $unverifiedEntrypointRejected = $true }
     Assert $unverifiedEntrypointRejected 'Manifest omitting worker entry point must fail closed'
+    Remove-Item -LiteralPath $otherFile -Force
     Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Unverified entry point created pending'
     Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Unverified entry point created journal'
     Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
