@@ -90,6 +90,30 @@ try {
     Assert (((Get-Content $current -Raw).Trim()) -eq ('c' * 40)) 'Conflict recovery changed current'
     Assert (((Get-Content $pending -Raw).Trim()) -eq $b) 'Conflict recovery changed pending'
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Conflict recovery removed journal'
+    # Missing rollback entry point must fail closed for both roles and phases.
+    foreach ($roleCase in @(
+        @{ Role='WORKER'; Entry='run_worker.py' },
+        @{ Role='CONTROL'; Entry='grid\\coordinator.py' }
+    )) {
+        $rollbackEntry = Join-Path (Join-Path $root "releases\\$a") $roleCase.Entry
+        $savedEntry = Get-Content -LiteralPath $rollbackEntry -Raw
+        Remove-Item -LiteralPath $rollbackEntry -Force
+        try {
+            foreach ($phase in @('prepared','committed')) {
+                Journal $phase
+                Set-Content -LiteralPath $current -Value $b
+                Set-Content -LiteralPath $pending -Value $b
+                $blockedMissingRollback = $false
+                try { & $script -InstallRoot $root -Role $roleCase.Role -Apply | Out-Null } catch { $blockedMissingRollback = $true }
+                Assert $blockedMissingRollback "Missing $($roleCase.Role) rollback target must fail closed"
+                Assert (((Get-Content $current -Raw).Trim()) -eq $b) 'Missing rollback changed current pointer'
+                Assert (((Get-Content $pending -Raw).Trim()) -eq $b) 'Missing rollback changed pending pointer'
+                Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Missing rollback deleted journal'
+            }
+        } finally {
+            [IO.File]::WriteAllText($rollbackEntry, $savedEntry)
+        }
+    }
     # Corrupt or truncated journals must never modify release pointers.
     foreach ($badJournal in @('', '{', 'null', '[]',
         '{"schema":1,"previous":"not-a-sha","candidate":"bbbb","phase":"prepared"}',
