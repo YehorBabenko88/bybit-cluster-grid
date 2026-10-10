@@ -62,3 +62,38 @@ def test_assignment_watchdog_runs_without_heartbeat_loop(monkeypatch):
         assert called.is_set()
 
     asyncio.run(run())
+
+
+def test_assignment_expiry_waits_for_reconciliation_lock():
+    async def run():
+        worker = Worker()
+        worker.last_assignment_heartbeat = 100.0
+        worker.wanted = {"BTCUSDT"}
+        worker.reconcile = AsyncMock()
+        async with worker.assignment_lock:
+            pending = asyncio.create_task(worker.expire_stale_assignments(now=1000.0))
+            await asyncio.sleep(0)
+            assert not pending.done()
+            assert worker.wanted == {"BTCUSDT"}
+            worker.last_assignment_heartbeat = 999.0
+        assert not await pending
+        assert worker.wanted == {"BTCUSDT"}
+        worker.reconcile.assert_not_awaited()
+
+    asyncio.run(run())
+
+
+def test_concurrent_assignment_expiry_reconciles_only_once():
+    async def run():
+        worker = Worker()
+        worker.last_assignment_heartbeat = 100.0
+        worker.wanted = {"BTCUSDT"}
+        worker.reconcile = AsyncMock()
+        results = await asyncio.gather(
+            worker.expire_stale_assignments(now=1000.0),
+            worker.expire_stale_assignments(now=1000.0),
+        )
+        assert results.count(True) == 1
+        worker.reconcile.assert_awaited_once()
+
+    asyncio.run(run())
