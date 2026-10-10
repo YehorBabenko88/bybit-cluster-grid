@@ -122,10 +122,16 @@ class SegmentWAL:
                         try:
                             obj=json.loads(raw)
                             body=json.dumps(obj["payload"],separators=(",",":"),ensure_ascii=False).encode("utf-8")
-                            if (zlib.crc32(body)&0xffffffff)!=int(obj["crc32"]): continue
-                            yield p,int(obj["id"]),obj["payload"]
-                        except (ValueError,KeyError,TypeError,json.JSONDecodeError):
-                            continue
+                            if (zlib.crc32(body)&0xffffffff)!=int(obj["crc32"]):
+                                raise ValueError("WAL CRC mismatch")
+                            rid=int(obj["id"])
+                            if rid<0:
+                                raise ValueError("negative WAL record id")
+                            yield p,rid,obj["payload"]
+                        except (ValueError,KeyError,TypeError,UnicodeError) as exc:
+                            # Silently skipping a corrupted middle record lets
+                            # a later ACK advance past permanently lost data.
+                            raise RuntimeError(f"corrupt WAL record in {p}") from exc
             except OSError:
                 continue
 
