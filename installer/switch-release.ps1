@@ -86,6 +86,15 @@ foreach ($entry in $manifest.files.PSObject.Properties) {
     if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
         throw "Manifest file missing: $relative"
     }
+    # A normal file can still be reached through a redirected parent directory.
+    $parentCursor = [IO.Path]::GetDirectoryName($target)
+    while ($parentCursor -and $parentCursor.Length -ge $releaseFull.TrimEnd([IO.Path]::DirectorySeparatorChar).Length) {
+        if ((Get-Item -LiteralPath $parentCursor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw "Manifest path traverses a reparse point: $relative"
+        }
+        if ($parentCursor -ieq $releaseFull.TrimEnd([IO.Path]::DirectorySeparatorChar)) { break }
+        $parentCursor = [IO.Path]::GetDirectoryName($parentCursor)
+    }
     if ((Get-Item -LiteralPath $target -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
         throw "Manifest file is a reparse point: $relative"
     }
