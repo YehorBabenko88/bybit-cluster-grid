@@ -15,7 +15,9 @@ class FloatingLeader:
                   WHERE service_key='control-plane-leader' FOR UPDATE""")
                 if row and row["lease_until"] and row["lease_until"]>await c.fetchval("SELECT now()"):
                     self.is_leader=False; return False
-                # Even the same node_id cannot seize an unexpired lease.\n                # A second process must wait for expiry, not steal ownership.\n                previous_epoch = int((row["metadata"] or {}).get("epoch", 0)) if row else 0
+                # Even the same node_id cannot seize an unexpired lease.
+                # A second process must wait for expiry, not steal ownership.
+                previous_epoch = int((row["metadata"] or {}).get("epoch", 0)) if row else 0
                 epoch=max(int(time.time()*1000),previous_epoch+1)
                 await c.execute("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
                   VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3))
