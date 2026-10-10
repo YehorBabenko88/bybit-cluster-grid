@@ -164,14 +164,15 @@ class Worker:
                                     # redelivery is acknowledged from the receipt without re-execution.
                                     self.command_receipts.put(cmd.get("id"),ok,result,error)
                                 try:
-                                    await s.post(
+                                    async with s.post(
                                         settings.coordinator_url+f"/commands/{cmd['id']}/result",
                                         json={"node_id":snap["node_id"],"ok":ok,"result":result,"error":error},
                                         headers={
                                             "X-Grid-Token":settings.grid_shared_token,
                                             "X-Node-Credential":node_credential(),
                                         },timeout=10
-                                    )
+                                    ) as ack_response:
+                                        ack_response.raise_for_status()
                                 except Exception:
                                     log.exception("command acknowledgement failed",extra={"event":"command_ack_failed"})
                             self.runtime_state=str(reply.get("runtime_state","INFRA_ONLY"))
