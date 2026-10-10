@@ -61,6 +61,19 @@ def test_only_one_first_time_leader_postgres():
             assert await winner.renew() is False
             assert winner.is_leader is False
             assert winner.epoch is None
+
+            # Legacy schemas can contain a NULL lease expiry. Treat it as
+            # expired rather than permanently preventing leadership recovery.
+            await pool.execute("ALTER TABLE service_leases ALTER COLUMN lease_until DROP NOT NULL")
+            await pool.execute(
+                "UPDATE service_leases SET lease_until=NULL "
+                "WHERE service_key='control-plane-leader'"
+            )
+            previous_epoch = loser.epoch
+            assert await winner.campaign() is True
+            assert winner.epoch > previous_epoch
+            assert await loser.renew() is False
+            assert loser.epoch is None
         finally:
             if pool is not None:
                 await pool.close()
