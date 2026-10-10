@@ -124,7 +124,7 @@ class FloatingLeader:
                     except Exception:
                         log.exception("failed to release lease after leader initialization error",
                                       extra={"event":"leader_release_failed"})
-            if previous and not current and on_loss:
+            if previous and not current and on_loss and not self.stop_event.is_set():
                 try:
                     await on_loss()
                 except asyncio.CancelledError:
