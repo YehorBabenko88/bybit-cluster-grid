@@ -46,10 +46,14 @@ async def cleanup_dataset_safe(pool,dataset,retention_days,batch_size=10000,max_
       LIMIT $2
     ) DELETE FROM {dataset} t USING doomed d WHERE t.ctid=d.ctid"""
     async with pool.acquire() as c:
-        # Limit each pass so retention cannot monopolize a DB connection or
-        # starve other maintenance during a large historical backlog.
+        # Stabilize required-consumer membership, watermarks, and retention holds
+        # for each delete batch; concurrent writers acquire conflicting locks.
         for _ in range(int(max_batches)):
-            r=await c.execute(sql,int(retention_days),int(batch_size),dataset)
+            async with c.transaction():
+                await c.execute(
+                    "LOCK TABLE retention_consumers, consumer_watermarks, retention_holds IN SHARE MODE"
+                )
+                r=await c.execute(sql,int(retention_days),int(batch_size),dataset)
             n=int(r.split()[-1]);deleted+=n
             if n<int(batch_size):break
             await asyncio.sleep(.05)
