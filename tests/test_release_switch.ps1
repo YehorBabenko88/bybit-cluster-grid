@@ -110,6 +110,17 @@ try {
     Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Unverified entry point created journal'
     Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
 
+    # A valid manifest entry point is insufficient if another Python source is omitted.
+    $unlistedSource = Join-Path $root "releases\$b\unlisted_module.py"
+    Set-Content -LiteralPath $unlistedSource -Value '# omitted from manifest'
+    $unlistedRejected = $false
+    try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null } catch { $unlistedRejected = $true }
+    Assert $unlistedRejected 'Unlisted Python module must block release promotion'
+    Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -ceq $a) 'Unlisted module changed current'
+    Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Unlisted module created pending'
+    Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Unlisted module created journal'
+    Remove-Item -LiteralPath $unlistedSource -Force
+
     # A manifest cannot point outside the release root via absolute paths.
     foreach ($unsafePath in @('C:\\Windows\\win.ini', '/tmp/outside.py', '..\\escape.py')) {
         Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"' + ($unsafePath.Replace('\\','\\\\')) + '":"' + $hash + '"}}')
