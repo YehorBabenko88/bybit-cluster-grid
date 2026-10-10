@@ -56,3 +56,27 @@ def test_scheduler_rejects_corrupted_node_telemetry():
         bad=node(10,32,100)
         bad[field]=value
         assert choose_node({"bad":bad},Workload("train",cpu=2,ram_gb=4,scratch_gb=5)) is None
+
+
+def test_dispatch_uses_transaction_scoped_postgres_lock():
+    from pathlib import Path
+    source=Path("grid/ml_dispatcher.py").read_text(encoding="utf-8")
+    assert "pg_advisory_xact_lock($1)" in source
+    transaction=source.index("async with c.transaction():")
+    lock=source.index("pg_advisory_xact_lock($1)")
+    reservations=source.index("reservations=await reserved_by_node(c)")
+    active=source.index("active=await c.fetchval(")
+    assignment=source.index("UPDATE ml_jobs SET status='assigned'")
+    assert transaction<lock<reservations<active<assignment
+    assert "reservations=await reserved_by_node(self.pool)" not in source
+
+
+def test_dispatch_reservation_adjustment_keeps_node_telemetry_immutable():
+    from grid.ml_dispatcher import _adjust_nodes
+    original={"n":{"ram_available":16*1024**3,"disk_free":40*1024**3,
+                   "cpu_pct":10,"cpu_count":8,"gpu_available":True}}
+    adjusted=_adjust_nodes(original,{"n":{"ram_gb":4,"scratch_gb":5,"cpu":2}})
+    assert adjusted["n"]["ram_available"]==12*1024**3
+    assert adjusted["n"]["disk_free"]==35*1024**3
+    assert adjusted["n"]["cpu_pct"]==35
+    assert original["n"]["ram_available"]==16*1024**3
