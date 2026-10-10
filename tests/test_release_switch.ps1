@@ -78,6 +78,15 @@ try {
     catch { $blocked = $true }
     Assert $blocked 'Existing pending switch must block another promotion'
     Remove-Item -LiteralPath (Join-Path $root 'pending.version') -Force
+    foreach ($badPending in @('', 'not-a-sha', ('A' * 40))) {
+        Set-Content -LiteralPath (Join-Path $root 'pending.version') -Value $badPending
+        $blockedBadPending = $false
+        try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null } catch { $blockedBadPending = $true }
+        Assert $blockedBadPending 'Corrupt pending marker must block promotion'
+        Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $a) 'Bad pending marker changed current'
+        Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Bad pending marker created journal'
+        Remove-Item -LiteralPath (Join-Path $root 'pending.version') -Force
+    }
     $mutex = [System.Threading.Mutex]::new($false, 'Global\BybitClusterGridReleaseSwitch')
     $held = $mutex.WaitOne(0)
     Assert $held 'Could not acquire test mutex'
