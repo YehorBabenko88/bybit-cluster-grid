@@ -103,6 +103,12 @@ jobs:
         run: |
           & ./tests/test_release_recovery.ps1
 
+      - name: Windows suspended ML process containment integration
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check pytest
+          python -m pytest -q tests/test_ml_process_supervisor.py -k "windows_suspended_job or windows_job_close"
+
       - name: Test supervisor crash recovery
         shell: pwsh
         run: |
