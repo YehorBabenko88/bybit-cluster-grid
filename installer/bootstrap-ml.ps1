@@ -30,6 +30,12 @@ if(!$Need){
   if($LASTEXITCODE -ne 0){$Need=$true}
 }
 if(!$Need){
+  # Import success alone does not prove native ML wheels can train a model.
+  # Revalidate the DLL/native execution path even for fingerprint cache hits.
+  & $Python -c "import numpy as np,xgboost as xgb,lightgbm as lgb; X=np.array([[0.],[1.],[2.],[3.]]); y=np.array([0.,0.,1.,1.]); xgb.XGBRegressor(n_estimators=1,max_depth=1,n_jobs=1).fit(X,y); lgb.LGBMRegressor(n_estimators=1,n_jobs=1,verbosity=-1).fit(X,y)" 2>$null
+  if($LASTEXITCODE -ne 0){$Need=$true}
+}
+if(!$Need){
   # A previous interrupted repair may leave a valid fingerprint but no journal.
   # Restore the durable ready record without reinstalling healthy packages.
   [ordered]@{status="ready";mode=$Mode;hash=$Hash;verified_at=(Get-Date).ToUniversalTime().ToString("o")} |
