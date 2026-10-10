@@ -127,7 +127,15 @@ async def run_supervised_process(argv,*,timeout_seconds,ram_limit_mb=None,
                 await asyncio.wait_for(proc.wait(),timeout=max(.05,float(poll_seconds)))
             except asyncio.TimeoutError:
                 pass
-        await asyncio.gather(*drains)
+        # Descendants can inherit stdout/stderr after the root exits. Close the
+        # Windows Job before draining so orphaned pipe writers cannot hang us.
+        if job_object is not None:
+            job_object.close()
+            job_object=None
+        try:
+            await asyncio.wait_for(asyncio.gather(*drains),timeout=max(1.0,float(grace_seconds)))
+        except asyncio.TimeoutError:
+            raise ProcessLimitError("ML subprocess output pipes remained open after exit")
         if proc.returncode!=0:
             tail=_tail_bytes(stderr_tail).decode("utf-8","replace")[-4000:]
             raise RuntimeError(f"ML subprocess exited {proc.returncode}: {tail}")
