@@ -86,14 +86,20 @@ class ScientificResearchService:
                 float(row["score"]),int(row["direction"]),features)
 
     async def _hydrate_features(self):
+        # Minute features describe a completed window, but ts is its start.
+        # Without a source checkpoint there is no safe availability bound.
+        if self.last_event_ts is None:
+            return
         rows=await self.pool.fetch("""WITH ranked AS (
           SELECT symbol,ts,quality_status,features,
                  row_number() OVER(PARTITION BY symbol ORDER BY ts DESC) rn
           FROM market_features_1m WHERE eligible=true AND quality_status='GOOD'
-            AND ($1::timestamptz IS NULL OR ts<=$1::timestamptz))
+            AND ts<=$1::timestamptz - interval '1 minute')
           SELECT symbol,ts,quality_status,features FROM ranked WHERE rn<=128
           ORDER BY symbol,ts""",self.last_event_ts)
         for r in rows:
+            if r["ts"]+datetime.timedelta(minutes=1)>self.last_event_ts:
+                continue
             features=_dict(r["features"])
             ts_ms=int(r["ts"].timestamp()*1000)
             self.orchestrator.ingest_feature_row(r["symbol"],ts_ms,features,r["quality_status"],"market_features_1m")
