@@ -134,6 +134,8 @@ try {
     # Corrupt or truncated journals must never modify release pointers.
     foreach ($badJournal in @('', '{', 'null', '[]',
         '{"schema":1,"previous":"not-a-sha","candidate":"bbbb","phase":"prepared"}',
+        ('{"schema":1,"previous":"' + ('A' * 40) + '","candidate":"' + $b + '","phase":"prepared"}'),
+        ('{"schema":1,"previous":"' + $a + '","candidate":"' + ('B' * 40) + '","phase":"committed"}'),
         ('{"schema":1,"previous":"' + $a + '","candidate":"' + $b + '","phase":"unknown"}'))) {
         Set-Content -LiteralPath $current -Value $b
         Set-Content -LiteralPath $pending -Value $b
