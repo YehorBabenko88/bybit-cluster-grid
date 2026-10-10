@@ -169,6 +169,16 @@ try {
         Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Empty pointer recovery erased journal'
         Assert (((Get-Content $current -Raw).Trim()) -ceq '') 'Empty pointer recovery changed current'
     }
+    # Invalid JSON root types cannot represent a transaction journal.
+    foreach ($invalidRoot in @('null', '[]', '42', '"prepared"', '{}')) {
+        [IO.File]::WriteAllText((Join-Path $root 'switch-journal.json'), $invalidRoot)
+        Set-Content -LiteralPath $current -Value $a
+        $invalidRootRejected = $false
+        try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $invalidRootRejected = $true }
+        Assert $invalidRootRejected "Invalid journal root must fail closed: $invalidRoot"
+        Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Invalid journal root was removed'
+        Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Invalid journal root changed current'
+    }
     # Missing rollback entry point must fail closed for both roles and phases.
     foreach ($roleCase in @(
         @{ Role='WORKER'; Entry='run_worker.py' },
