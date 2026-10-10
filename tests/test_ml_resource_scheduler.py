@@ -88,3 +88,12 @@ def test_existing_gpu_reservation_blocks_second_gpu_job():
     adjusted=_adjust_nodes(reported,{"gpu-node":{"cpu":1,"ram_gb":1,"scratch_gb":1,"gpu":True}})
     assert adjusted["gpu-node"]["gpu_available"] is False
     assert choose_node(adjusted,Workload("train",gpu=True,ram_gb=4,scratch_gb=5)) is None
+
+
+def test_dispatch_refreshes_node_telemetry_after_lock():
+    from pathlib import Path
+    source=Path("grid/ml_dispatcher.py").read_text(encoding="utf-8")
+    lock=source.index("pg_advisory_xact_lock($1)")
+    telemetry=source.index("reported=await self.node_provider()")
+    reservations=source.index("reservations=await reserved_by_node(c)")
+    assert lock<telemetry<reservations
