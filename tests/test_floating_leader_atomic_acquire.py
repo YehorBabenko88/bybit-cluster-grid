@@ -76,3 +76,26 @@ def test_invalid_lease_metadata_fails_closed():
         assert leader.epoch is None
 
     asyncio.run(scenario())
+
+
+def test_malformed_lease_epochs_fail_closed():
+    async def scenario(metadata):
+        class BadEpochConnection(Connection):
+            async def fetchrow(self, sql):
+                return {"owner": "old", "lease_until": None, "metadata": metadata}
+
+        pool = Pool(1)
+        pool.connection = BadEpochConnection(1)
+        leader = FloatingLeader(pool, node_id="candidate")
+        try:
+            await leader.campaign()
+        except ValueError as exc:
+            assert "invalid leader lease epoch" in str(exc)
+        else:
+            raise AssertionError("malformed lease epoch must not allow leadership")
+        assert not leader.is_leader and leader.epoch is None
+        assert pool.connection.insert_sql is None
+
+    for metadata in ('{"epoch":-1}', '{"epoch":true}', '{"epoch":"42"}',
+                     '{"epoch":1.5}', '{"epoch":null}'):
+        asyncio.run(scenario(metadata))
