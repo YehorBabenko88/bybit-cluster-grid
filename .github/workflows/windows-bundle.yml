@@ -107,7 +107,7 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --disable-pip-version-check pytest psutil pydantic-settings
-          python -m pytest -q tests/test_ml_process_supervisor.py -k "windows_suspended_job or windows_job_close or windows_parent_crash"
+          python -m pytest -q tests/test_ml_process_supervisor.py -k "windows_suspended_job or windows_job_close or windows_parent_crash or windows_descendant_inherits_pipes"
           python -m pytest -q tests/test_ml_runtime_readiness.py
 
       - name: Validate isolated ML venv on Windows
