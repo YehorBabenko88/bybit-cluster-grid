@@ -41,6 +41,17 @@ function Write-MLJournal {
 }
 $Hash=(Get-FileHash -Algorithm SHA256 $Req).Hash.ToLowerInvariant()
 $Old=if(Test-Path $State){(Get-Content $State -Raw).Trim()}else{""}
+# A fingerprint alone is not proof of a completed installation.
+# If a previous bootstrap was interrupted, force dependency repair.
+$PreviousReady=$false
+if(Test-Path -LiteralPath $Journal){
+  try {
+    $PreviousJournal=Get-Content -LiteralPath $Journal -Raw | ConvertFrom-Json -ErrorAction Stop
+    $PreviousReady=($PreviousJournal.status -eq "ready")
+  } catch {
+    $PreviousReady=$false
+  }
+}
 
 # CONTROL orchestrates ML and PILOT is allowed to validate compute capability.
 # NORMAL collectors stay lightweight until promoted/assigned as compute nodes.
@@ -81,7 +92,7 @@ $CoreReq=Join-Path $ReleaseDir "requirements.txt"
 if(!(Test-Path $CoreReq)){throw "Missing core requirements for ML environment"}
 $CoreHash=(Get-FileHash -Algorithm SHA256 $CoreReq).Hash.ToLowerInvariant()
 $Hash=("{0}:{1}" -f $CoreHash,$Hash)
-$Need=($Hash -ne $Old) -or $Recreate
+$Need=($Hash -ne $Old) -or $Recreate -or !$PreviousReady
 if(!$Need){
   # A cached ML environment must also contain the worker protocol dependencies.
   & $Python -c "import aiohttp,asyncpg,psutil,pydantic,httpx,websockets,numpy,scipy,sklearn,joblib,xgboost,lightgbm" 2>$null
