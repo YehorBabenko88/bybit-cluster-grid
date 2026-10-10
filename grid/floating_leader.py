@@ -14,7 +14,9 @@ class FloatingLeader:
                 row=await c.fetchrow("""SELECT owner,lease_until,metadata FROM service_leases
                   WHERE service_key='control-plane-leader' FOR UPDATE""")
                 if row and row["lease_until"] and row["lease_until"]>await c.fetchval("SELECT now()"):
-                    self.is_leader=False; return False
+                    self.is_leader=False
+                    self.epoch=None
+                    return False
                 # Even the same node_id cannot seize an unexpired lease.
                 # A second process must wait for expiry, not steal ownership.
                 metadata = row["metadata"] if row else None
