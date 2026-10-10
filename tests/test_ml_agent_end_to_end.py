@@ -37,3 +37,35 @@ def test_stale_workspace_cleanup(tmp_path,monkeypatch):
     removed=cleanup_stale_workspaces(86400)
     assert removed==1
     assert not old.exists() and fresh.exists()
+
+
+def test_ml_agent_recovers_after_transient_claim_error(monkeypatch):
+    import asyncio
+    import grid.ml_agent_worker as agent
+
+    class Client:
+        def __init__(self):
+            self.calls = 0
+        async def claim(self):
+            self.calls += 1
+            if self.calls == 1:
+                raise ConnectionError("temporary coordinator outage")
+            return None
+
+    async def run():
+        stop = asyncio.Event()
+        client = Client()
+        async def stop_after_recovery():
+            while client.calls < 2:
+                await asyncio.sleep(.01)
+            stop.set()
+        watcher = asyncio.create_task(stop_after_recovery())
+        try:
+            await asyncio.wait_for(agent.ml_agent_loop(client, stop, poll_seconds=.02), timeout=2)
+        finally:
+            watcher.cancel()
+            await asyncio.gather(watcher, return_exceptions=True)
+        assert client.calls >= 2
+
+    monkeypatch.setattr(agent, "cleanup_stale_workspaces", lambda: 0)
+    asyncio.run(run())
