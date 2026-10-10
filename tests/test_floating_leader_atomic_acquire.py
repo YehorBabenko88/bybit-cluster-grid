@@ -367,7 +367,7 @@ def test_shutdown_stops_services_before_releasing_fenced_lease():
     asyncio.run(scenario())
 
 
-def test_shutdown_releases_lease_even_if_cleanup_fails():
+def test_shutdown_retains_lease_if_cleanup_fails():
     import pytest
 
     async def scenario():
@@ -387,7 +387,7 @@ def test_shutdown_releases_lease_even_if_cleanup_fails():
         leader.epoch = 902
         with pytest.raises(RuntimeError, match="cleanup failed"):
             await leader.shutdown(on_loss=on_loss)
-        assert events == [("loss", None), ("release", 902)]
+        assert events == [("loss", None)]
         assert not leader.is_leader and leader.epoch is None
 
     asyncio.run(scenario())
