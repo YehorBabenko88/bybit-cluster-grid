@@ -65,7 +65,7 @@ try {
             throw 'Invalid pending release marker; manual recovery required'
         }
         $pendingValue = (Get-Content -LiteralPath $pendingPath -Raw).Trim()
-        if ($pendingValue -cne $j.candidate) {
+        if ($pendingValue -cne $j.candidate -and $pendingValue -cne $j.previous) {
             throw 'Pending release pointer conflicts with journal; manual recovery required'
         }
     }
