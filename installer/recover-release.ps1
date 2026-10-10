@@ -20,6 +20,20 @@ try {
     try { $held = $mutex.WaitOne(0) }
     catch [System.Threading.AbandonedMutexException] { $held = $true }
     if (-not $held) { throw 'Another Grid release operation is running' }
+    # Reject junctions and symlinks in the installation root ancestry.
+    $installFull = [IO.Path]::GetFullPath($InstallRoot)
+    $pathCursor = $installFull
+    while ($pathCursor) {
+        if (Test-Path -LiteralPath $pathCursor) {
+            $item = Get-Item -LiteralPath $pathCursor -Force
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "InstallRoot traverses a reparse point: $pathCursor"
+            }
+        }
+        $parent = [IO.Directory]::GetParent($pathCursor)
+        if ($null -eq $parent) { break }
+        $pathCursor = $parent.FullName
+    }
     $journalPath = Join-Path $InstallRoot 'switch-journal.json'
     if (-not (Test-Path -LiteralPath $journalPath)) {
         Write-Output 'NO_JOURNAL=true'
