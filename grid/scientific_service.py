@@ -143,6 +143,9 @@ class ScientificResearchService:
         try:
             await self._checkpoint()
         except BaseException:
+            # Force a fresh startup even if PostgreSQL is still unavailable
+            # and the durable checkpoint cannot be read immediately.
+            self.started=False
             # A failed checkpoint must never leave the in-memory cursor ahead
             # of the durable cursor. Re-read the persisted state before retry.
             saved=await self.pool.fetchrow("""SELECT state,last_ts FROM observer_checkpoints
