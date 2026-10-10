@@ -31,7 +31,7 @@ def test_full_queue_applies_backpressure_not_drop():
         await asyncio.sleep(.02)
         assert not blocked.done()
         assert q.metrics()["queue_ratio"]==1.0
-        assert q.metrics()["inflight_writes"]==3
+        assert q.metrics()["inflight_writes"]==2  # blocked put(3) has not been admitted
         gate.set()
         await asyncio.wait_for(blocked,1)
         await asyncio.wait_for(q.q.join(),1)
