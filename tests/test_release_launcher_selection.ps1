@@ -25,6 +25,9 @@ try {
         foreach ($case in @(
             @{ Current=$a; Previous=$b; Expected=$a },
             @{ Current='../../bad'; Previous=$b; Expected=$b },
+            @{ Current=('A' * 40); Previous=$b; Expected=$b },
+            @{ Current=('g' * 40); Previous=$b; Expected=$b },
+            @{ Current=''; Previous=$b; Expected=$b },
             @{ Current=$b; Previous=$a; Expected=$b },
             @{ Current=('c' * 40); Previous=$a; Expected=$a }
         )) {
