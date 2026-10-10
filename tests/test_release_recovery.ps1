@@ -263,6 +263,19 @@ try {
     Assert ((Get-Content $staleCurrentTmp -Raw) -ceq ('c' * 40)) 'Recovery modified stale current temp'
     Assert ((Get-Content $stalePreviousTmp -Raw) -ceq ('c' * 40)) 'Recovery modified stale previous temp'
     Remove-Item -LiteralPath $staleCurrentTmp, $stalePreviousTmp -Force
+    # A truncated current.version is never silently repaired from the journal.
+    foreach ($phaseCase in @('prepared','committed')) {
+        Journal $phaseCase
+        Set-Content -LiteralPath $current -Value ''
+        Set-Content -LiteralPath $pending -Value $b
+        $emptyCurrentRejected = $false
+        try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $emptyCurrentRejected = $true }
+        Assert $emptyCurrentRejected "Empty current pointer must block $phaseCase recovery"
+        Assert (((Get-Content $current -Raw).Trim()) -ceq '') 'Recovery modified truncated current pointer'
+        Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Recovery modified pending with truncated current'
+        Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Recovery deleted journal with truncated current'
+    }
+    Set-Content -LiteralPath $current -Value $a
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
