@@ -1,4 +1,4 @@
-import os, platform, socket, uuid, time
+import os, platform, socket, uuid, time, subprocess, json
 import psutil
 from .config import settings
 from .disk_guard import DiskWatermarks,disk_state
@@ -53,10 +53,20 @@ def local_storage_usage(cache_seconds=300):
     return dict(parts)
 
 def ml_runtime_ready():
+    """Readiness is tied to the dedicated ML interpreter, not worker imports."""
+    root=os.path.join(os.getenv("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","runtime")
+    python=os.path.join(root,"ml-venv","Scripts","python.exe")
+    journal=os.path.join(root,"ml-bootstrap.json")
+    if not os.path.isfile(python) or not os.path.isfile(journal):
+        return False
     try:
-        import xgboost, lightgbm, sklearn  # noqa: F401
-        return True
-    except (ImportError,OSError):
+        with open(journal,encoding="utf-8-sig") as f:
+            state=json.load(f)
+        if state.get("status")!="ready":return False
+        result=subprocess.run([python,"-c","import numpy,scipy,sklearn,joblib,xgboost,lightgbm"],
+                              capture_output=True,timeout=20,check=False)
+        return result.returncode==0
+    except (OSError,ValueError,subprocess.TimeoutExpired):
         return False
 
 def agent_version():
