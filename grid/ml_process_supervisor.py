@@ -16,7 +16,13 @@ async def _drain_stream(stream,tail,max_bytes=8192):
         tail.append(chunk)
         total=sum(len(x) for x in tail)
         while tail and total>max_bytes:
-            removed=tail.popleft();total-=len(removed)
+            overflow=total-max_bytes
+            first=tail.popleft()
+            if len(first)>overflow:
+                tail.appendleft(first[overflow:])
+                total=max_bytes
+            else:
+                total-=len(first)
 
 
 def _tail_bytes(parts,max_bytes=8192):
