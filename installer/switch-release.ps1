@@ -15,6 +15,7 @@ param(
     [switch]$Apply
 )
 $ErrorActionPreference = 'Stop'
+if ($Version -cnotmatch '^[0-9a-f]{40}$') { throw 'Invalid candidate release SHA: expected lowercase hexadecimal' }
 # An exclusive cross-process lock prevents concurrent promotions on this host.
 $lockName = 'Global\BybitClusterGridReleaseSwitch'
 $mutex = [System.Threading.Mutex]::new($false, $lockName)
@@ -34,7 +35,7 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
     throw 'Candidate release manifest missing'
 }
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-if ($manifest.version -ne $Version) { throw 'Candidate release manifest version mismatch' }
+if ($manifest.version -cne $Version) { throw 'Candidate release manifest version mismatch' }
 # Validate manifest paths and hashes before any pointer changes.
 if ($null -eq $manifest.files -or @($manifest.files.PSObject.Properties).Count -eq 0) {
     throw 'Release manifest has no file checksums'
