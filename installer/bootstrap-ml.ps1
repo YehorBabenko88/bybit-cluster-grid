@@ -41,7 +41,8 @@ $CoreHash=(Get-FileHash -Algorithm SHA256 $CoreReq).Hash.ToLowerInvariant()
 $Hash=("{0}:{1}" -f $CoreHash,$Hash)
 $Need=($Hash -ne $Old)
 if(!$Need){
-  & $Python -c "import numpy,scipy,sklearn,joblib,xgboost,lightgbm" 2>$null
+  # A cached ML environment must also contain the worker protocol dependencies.
+  & $Python -c "import aiohttp,asyncpg,psutil,pydantic,httpx,websockets,numpy,scipy,sklearn,joblib,xgboost,lightgbm" 2>$null
   if($LASTEXITCODE -ne 0){$Need=$true}
 }
 if(!$Need){
