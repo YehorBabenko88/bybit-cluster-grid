@@ -2,14 +2,18 @@ import ast
 from pathlib import Path
 
 
-def test_failed_checkpoint_restores_durable_cursor_before_retry():
+def test_failed_checkpoint_forces_reload_of_durable_cursor_on_next_start():
     tree=ast.parse(Path("grid/scientific_service.py").read_text(encoding="utf-8"))
-    method=next(n for n in ast.walk(tree) if isinstance(n,ast.AsyncFunctionDef) and n.name=="run_once")
-    guarded=[n for n in ast.walk(method) if isinstance(n,ast.Try)
-             and any(isinstance(x,ast.Call) and isinstance(x.func,ast.Attribute)
-                     and x.func.attr=="_checkpoint" for x in ast.walk(ast.Module(body=n.body,type_ignores=[])))]
-    assert guarded
-    handler=next(h for h in guarded[0].handlers if isinstance(h.type,ast.Name) and h.type.id=="BaseException")
-    assert any(isinstance(n,ast.Attribute) and n.attr=="last_id" for n in ast.walk(handler))
-    assert any(isinstance(n,ast.Attribute) and n.attr=="last_event_ts" for n in ast.walk(handler))
-    assert any(isinstance(n,ast.Raise) for n in ast.walk(handler))
+    service=next(n for n in tree.body if isinstance(n,ast.ClassDef)
+                 and n.name=="ScientificResearchService")
+    run=next(n for n in service.body if isinstance(n,ast.AsyncFunctionDef)
+             and n.name=="run_once")
+    start=next(n for n in service.body if isinstance(n,ast.AsyncFunctionDef)
+               and n.name=="start")
+    assert any(isinstance(n,ast.If) and any(isinstance(x,ast.Call)
+               and isinstance(x.func,ast.Attribute) and x.func.attr=="start"
+               for x in ast.walk(n)) for n in run.body)
+    assert any(isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute)
+               and n.func.attr=="fetchrow" for n in ast.walk(start))
+    assert any(isinstance(n,ast.Assign) and any(isinstance(t,ast.Attribute)
+               and t.attr=="last_id" for t in n.targets) for n in ast.walk(start))
