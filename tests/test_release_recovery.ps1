@@ -247,6 +247,22 @@ try {
     Assert (((Get-Content $current -Raw).Trim()) -ceq $b) 'Legacy rollback recovery changed candidate'
     Assert (((Get-Content (Join-Path $root 'previous.version') -Raw).Trim()) -ceq $a) 'Legacy rollback recovery lost previous'
     Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Legacy rollback recovery left journal'
+    # An interrupted prepared transaction may leave temporary pointer files.
+    # Recovery must not treat them as authoritative or remove unrelated files.
+    $staleCurrentTmp = Join-Path $root 'current.version.interrupted.tmp'
+    $stalePreviousTmp = Join-Path $root 'previous.version.interrupted.tmp'
+    [IO.File]::WriteAllText($staleCurrentTmp, ('c' * 40))
+    [IO.File]::WriteAllText($stalePreviousTmp, ('c' * 40))
+    Journal 'prepared'
+    Set-Content -LiteralPath $current -Value $b
+    Set-Content -LiteralPath $pending -Value $b
+    & $script -InstallRoot $root -Role WORKER -Apply | Out-Null
+    Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Stale temp file affected prepared recovery'
+    Assert (-not (Test-Path $pending)) 'Stale temp recovery retained pending'
+    Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Stale temp recovery retained journal'
+    Assert ((Get-Content $staleCurrentTmp -Raw) -ceq ('c' * 40)) 'Recovery modified stale current temp'
+    Assert ((Get-Content $stalePreviousTmp -Raw) -ceq ('c' * 40)) 'Recovery modified stale previous temp'
+    Remove-Item -LiteralPath $staleCurrentTmp, $stalePreviousTmp -Force
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
