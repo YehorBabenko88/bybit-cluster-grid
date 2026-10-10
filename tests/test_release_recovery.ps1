@@ -140,6 +140,22 @@ try {
         Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Malformed recovery manifest removed journal'
     }
     Remove-Item -LiteralPath $candidateManifest -Force
+    # A manifest-listed supporting file must be verified as well as the entry point.
+    Journal 'committed'
+    Set-Content -LiteralPath $current -Value $a
+    Set-Content -LiteralPath $pending -Value $b
+    $supportPath = Join-Path $root "releases\$b\support.txt"
+    [IO.File]::WriteAllText($supportPath, 'original')
+    $supportHash = (Get-FileHash -LiteralPath $supportPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    [IO.File]::WriteAllText($candidateManifest, ('{"version":"' + $b + '","files":{"run_worker.py":"' + $originalHash + '","support.txt":"' + $supportHash + '"}}'))
+    [IO.File]::WriteAllText($supportPath, 'tampered')
+    $supportRejected = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $supportRejected = $true }
+    Assert $supportRejected 'Tampered supporting file must block recovery'
+    Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Tampered supporting file changed current'
+    Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Tampered supporting file removed journal'
+    Remove-Item -LiteralPath $supportPath -Force
+    Remove-Item -LiteralPath $candidateManifest -Force
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
