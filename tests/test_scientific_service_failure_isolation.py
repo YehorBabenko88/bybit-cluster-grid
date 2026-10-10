@@ -18,7 +18,7 @@ def test_mining_and_simulation_queue_have_separate_failure_boundaries():
     assert set(guarded) == {"run_closed_split_once", "run_queued"}
     assert guarded["run_closed_split_once"] is not guarded["run_queued"]
     for handler in guarded.values():
-        assert any(any(isinstance(node, ast.Name) and node.id == "CancelledError"
+        assert any(any(isinstance(node, ast.Attribute) and node.attr == "CancelledError"
                        for node in ast.walk(h.type)) for h in handler.handlers if h.type)
         assert any(any(isinstance(node, ast.Name) and node.id == "Exception"
                        for node in ast.walk(h.type)) for h in handler.handlers if h.type)
