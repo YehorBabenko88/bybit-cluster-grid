@@ -93,6 +93,20 @@ jobs:
             if($errors.Count -gt 0){ throw ("PowerShell parse failed for "+$file+": "+(($errors | ForEach-Object {$_.Message}) -join '; ')) }
           }
 
+      - name: Test launcher marker validation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach($launcher in @('installer/launcher.ps1','installer/coordinator-launcher.ps1')){
+            $source = Get-Content -LiteralPath $launcher -Raw
+            if($source -notmatch [regex]::Escape("if(\u0024v -notmatch '^[0-9a-f]{40}\u0024')")){
+              throw "Missing strict current/previous marker validation in $launcher"
+            }
+            if($source -notmatch [regex]::Escape("if(\u0024cv -match '^[0-9a-f]{40}\u0024')")){
+              throw "Missing strict replaced-release marker validation in $launcher"
+            }
+          }
+
       - name: Test guarded release switch
         shell: pwsh
         run: |
