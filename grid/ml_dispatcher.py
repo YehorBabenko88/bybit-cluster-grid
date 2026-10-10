@@ -33,13 +33,13 @@ class MLDispatcher:
         self.pool=pool; self.node_provider=node_provider
 
     async def __call__(self,slots,health=None):
-        # Telemetry may be stale; reservations and slot usage MUST be refreshed
-        # after acquiring the transaction-scoped dispatch lock.
-        reported=await self.node_provider()
+        # Read node telemetry after acquiring the dispatch lock, so a waiting
+        # coordinator does not schedule against a pre-lock snapshot.
         dispatched=[]
         async with self.pool.acquire() as c:
             async with c.transaction():
                 await c.execute("SELECT pg_advisory_xact_lock($1)",DISPATCH_LOCK_KEY)
+                reported=await self.node_provider()
                 reservations=await reserved_by_node(c)
                 nodes=_adjust_nodes(reported,reservations)
                 active=await c.fetchval("""SELECT count(*) FROM ml_jobs
