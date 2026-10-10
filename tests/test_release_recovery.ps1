@@ -32,6 +32,30 @@ try {
     Assert (((Get-Content $current -Raw).Trim()) -eq $b) 'Committed recovery did not retain candidate'
     Assert (((Get-Content $pending -Raw).Trim()) -eq $b) 'Committed recovery lost pending'
     Assert (((Get-Content (Join-Path $root 'previous.version') -Raw).Trim()) -eq $a) 'Committed recovery lost rollback target'
+    # CONTROL uses a different required entry point; verify both recovery phases.
+    foreach ($version in @($a,$b)) {
+        $control = Join-Path $root "releases\$version\grid"
+        New-Item -ItemType Directory -Force -Path $control | Out-Null
+        Set-Content -LiteralPath (Join-Path $control 'coordinator.py') -Value '# test'
+    }
+    Set-Content -LiteralPath $current -Value $b
+    Set-Content -LiteralPath $pending -Value $b
+    Journal 'prepared'
+    & $script -InstallRoot $root -Role CONTROL -Apply | Out-Null
+    Assert (((Get-Content $current -Raw).Trim()) -eq $a) 'CONTROL prepared recovery failed'
+    Assert (-not (Test-Path $pending)) 'CONTROL prepared recovery left pending'
+    Set-Content -LiteralPath $current -Value $a
+    Journal 'committed'
+    & $script -InstallRoot $root -Role CONTROL -Apply | Out-Null
+    Assert (((Get-Content $current -Raw).Trim()) -eq $b) 'CONTROL committed recovery failed'
+    Assert (((Get-Content $pending -Raw).Trim()) -eq $b) 'CONTROL committed recovery lost pending'
+    # Reject a committed candidate whose CONTROL entry point is missing.
+    Remove-Item -LiteralPath (Join-Path $root "releases\$b\grid\coordinator.py") -Force
+    Journal 'committed'
+    $missingBlocked = $false
+    try { & $script -InstallRoot $root -Role CONTROL -Apply | Out-Null } catch { $missingBlocked = $true }
+    Assert $missingBlocked 'Missing committed CONTROL candidate must fail closed'
+    Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Missing candidate removed journal'
     Journal 'invalid'
     $blocked = $false
     try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $blocked = $true }
