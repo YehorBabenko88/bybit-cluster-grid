@@ -41,7 +41,7 @@ if ($null -eq $manifest.files -or @($manifest.files.PSObject.Properties).Count -
     throw 'Release manifest has no file checksums'
 }
 # A checksum manifest must cover the executable entry point for this role.
-$requiredKey = $required.Replace('\\', '/')
+$requiredKey = $required.Replace([char]92, '/')
 if ($null -eq $manifest.files.PSObject.Properties[$requiredKey]) {
     throw "Release manifest omits required entry point: $requiredKey"
 }
