@@ -140,7 +140,19 @@ class ScientificResearchService:
             self.processed+=1;self.scheduled+=int(result.get("scheduled") or 0)
             self.last_id=int(r["id"]);self.last_event_ts=r["event_ts"]
             watermarks[r["symbol"]]=r["event_ts"]
-        await self._checkpoint()
+        try:
+            await self._checkpoint()
+        except BaseException:
+            # A failed checkpoint must never leave the in-memory cursor ahead
+            # of the durable cursor. Re-read the persisted state before retry.
+            saved=await self.pool.fetchrow("""SELECT state,last_ts FROM observer_checkpoints
+              WHERE observer='scientific_research' AND symbol='*'""")
+            if saved:
+                self.last_id=int(_dict(saved["state"]).get("last_id") or 0)
+                self.last_event_ts=saved["last_ts"]
+            else:
+                self.started=False
+            raise
         await set_consumer_watermarks(self.pool,[
             ("market_events","scientific_research",sym,ts,False) for sym,ts in watermarks.items()])
         return len(rows)
