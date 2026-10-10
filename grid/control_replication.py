@@ -72,24 +72,24 @@ async def telegram_cursor(pool, journal=None):
 
 
 async def commit_telegram_cursor(pool, node_id, next_update_id):
-    row = await get_control_state(pool, "telegram_cursor")
-
-    if row:
-        value = _json_object(row["value"])
-        current = int(value.get("next_update_id", 0))
-    else:
-        current = 0
-
+    """Advance the shared Telegram cursor monotonically in one DB statement."""
     next_update_id = int(next_update_id)
-
-    if next_update_id <= current:
-        return current
-
-    await put_control_state(
-        pool,
-        "telegram_cursor",
-        {"next_update_id": next_update_id},
-        node_id,
-    )
-
-    return next_update_id
+    if next_update_id < 0:
+        raise ValueError("negative Telegram cursor")
+    row = await pool.fetchrow("""
+        INSERT INTO replicated_control_state (state_key,value,updated_by)
+        VALUES ('telegram_cursor',jsonb_build_object('next_update_id',$1::bigint),$2)
+        ON CONFLICT (state_key) DO UPDATE
+        SET value=EXCLUDED.value,
+            version=replicated_control_state.version+1,
+            updated_at=now(),updated_by=EXCLUDED.updated_by
+        WHERE COALESCE(
+            CASE WHEN (replicated_control_state.value->>'next_update_id') ~ '^[0-9]+$'
+            THEN (replicated_control_state.value->>'next_update_id')::bigint
+            ELSE 0 END,0) < $1::bigint
+        RETURNING (value->>'next_update_id')::bigint AS next_update_id
+    """,next_update_id,node_id)
+    if row:
+        return int(row["next_update_id"])
+    current = await telegram_cursor(pool)
+    return max(current,next_update_id) if current == next_update_id else current
