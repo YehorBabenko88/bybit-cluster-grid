@@ -132,8 +132,10 @@ class SegmentWAL:
                             # Silently skipping a corrupted middle record lets
                             # a later ACK advance past permanently lost data.
                             raise RuntimeError(f"corrupt WAL record in {p}") from exc
-            except OSError:
-                continue
+            except OSError as exc:
+                # An unreadable segment is not an empty segment. Skipping it
+                # can let recovery ACK records after a missing WAL range.
+                raise RuntimeError(f"cannot read WAL segment {p}") from exc
 
     def iter_recover(self):
         """Stream pending records so a large outage backlog is never materialized in RAM."""
