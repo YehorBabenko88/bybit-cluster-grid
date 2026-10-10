@@ -128,6 +128,8 @@ class ScientificResearchService:
         if not rows:return 0
         watermarks={}
         for r in rows:
+            # Checkpoint after each completed event. A crash may replay the
+            # in-flight event, but must not replay the entire fetched batch.
             payload=_dict(r["payload"]);ts_ms=int(r["event_ts"].timestamp()*1000)
             split_key=_split_key(r["event_ts"])
             result=await route_market_event(
@@ -140,7 +142,7 @@ class ScientificResearchService:
             self.processed+=1;self.scheduled+=int(result.get("scheduled") or 0)
             self.last_id=int(r["id"]);self.last_event_ts=r["event_ts"]
             watermarks[r["symbol"]]=r["event_ts"]
-        await self._checkpoint()
+            await self._checkpoint()
         await set_consumer_watermarks(self.pool,[
             ("market_events","scientific_research",sym,ts,False) for sym,ts in watermarks.items()])
         return len(rows)
