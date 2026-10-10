@@ -54,6 +54,11 @@ async def _write_paged_bundle(client,job,bundle_path,page_size=500):
         while offset<total:
             page=first if offset==0 else await client.dataset_page(job,offset,page_size)
             if page is None:raise RuntimeError("remote ML lease lost during dataset fetch")
+            if (page.get("dataset_id")!=first.get("dataset_id") or
+                    page.get("dataset_hash")!=expected or
+                    int(page.get("sample_count",-1))!=total or
+                    page.get("feature_version")!=first.get("feature_version")):
+                raise ValueError("dataset page metadata changed during transfer")
             items=list(page.get("samples") or [])
             if not items:break
             if len(items)>min(int(page_size),total-offset):
