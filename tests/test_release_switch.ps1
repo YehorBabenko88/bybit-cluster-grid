@@ -81,6 +81,18 @@ try {
     Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
 
 
+    # A manifest listing only another valid file must not leave the entry point unchecked.
+    $otherFile = Join-Path $root "releases\$b\other.py"
+    Set-Content -LiteralPath $otherFile -Value '# other'
+    $otherHash = (Get-FileHash -LiteralPath $otherFile -Algorithm SHA256).Hash.ToLowerInvariant()
+    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"other.py":"' + $otherHash + '"}}')
+    $unverifiedEntrypointRejected = $false
+    try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null } catch { $unverifiedEntrypointRejected = $true }
+    Assert $unverifiedEntrypointRejected 'Manifest omitting worker entry point must fail closed'
+    Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Unverified entry point created pending'
+    Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Unverified entry point created journal'
+    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
+
     # A manifest cannot point outside the release root via absolute paths.
     foreach ($unsafePath in @('C:\\Windows\\win.ini', '/tmp/outside.py', '..\\escape.py')) {
         Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"' + ($unsafePath.Replace('\\','\\\\')) + '":"' + $hash + '"}}')
