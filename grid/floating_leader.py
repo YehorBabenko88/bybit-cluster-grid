@@ -22,7 +22,10 @@ class FloatingLeader:
                     metadata = json.loads(metadata)
                 if metadata is not None and not isinstance(metadata, dict):
                     raise ValueError("invalid leader lease metadata: expected object")
-                previous_epoch = int((metadata or {}).get("epoch", 0))
+                raw_epoch = (metadata or {}).get("epoch", 0)
+                if isinstance(raw_epoch, bool) or not isinstance(raw_epoch, int) or raw_epoch < 0:
+                    raise ValueError("invalid leader lease epoch: expected nonnegative integer")
+                previous_epoch = raw_epoch
                 epoch=max(int(time.time()*1000),previous_epoch+1)
                 acquired=await c.fetchval("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
                   VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3::bigint))
