@@ -10,7 +10,7 @@ async def claim_ml_job(pool,owner,lease_seconds=120):
             if not row: return None
             # Legacy direct claims may take over an expired running job.
             # Its previous node's reservation must not survive that takeover.
-            if row["status"]=="running":
+            if row.get("status")=="running":
                 await c.execute("DELETE FROM ml_resource_reservations WHERE job_id=$1",row["id"])
             updated=await c.fetchrow("""UPDATE ml_jobs SET status='running',lease_owner=$2,
               lease_until=clock_timestamp()+($3*interval '1 second'),started_at=COALESCE(started_at,clock_timestamp()),
