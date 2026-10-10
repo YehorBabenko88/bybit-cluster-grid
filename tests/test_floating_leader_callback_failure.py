@@ -7,8 +7,16 @@ class Pool:
 def test_loss_callback_failure_does_not_kill_election_loop():
     async def scenario():
         leader=FloatingLeader(Pool(),node_id="node",renew_seconds=0.01)
-        leader.is_leader=True
-        leader.epoch=7
+        async def campaign():
+            leader.is_leader=True
+            leader.epoch=7
+            return True
+        async def renew():
+            leader.is_leader=False
+            leader.epoch=None
+            return False
+        leader.campaign=campaign
+        leader.renew=renew
         events=[]
         async def on_loss():
             events.append("loss")
