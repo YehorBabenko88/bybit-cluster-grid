@@ -1,4 +1,4 @@
-import math
+import json
 from .ml_resource_scheduler import Workload,choose_node
 from .ml_reservations import reserved_by_node
 
@@ -11,6 +11,16 @@ WORKLOAD_DEFAULTS={
 # Stable project-wide advisory lock, not a per-process Python mutex.
 # Lock scope is one PostgreSQL transaction and is released on rollback/crash.
 DISPATCH_LOCK_KEY=734106028
+
+def _job_payload(value):
+    """asyncpg returns jsonb as text unless a custom codec is installed."""
+    if value is None:
+        return {}
+    if isinstance(value,str):
+        value=json.loads(value)
+    if not isinstance(value,dict):
+        raise ValueError("ML job payload must be a JSON object")
+    return value
 
 def _adjust_nodes(nodes,reservations):
     adjusted={}
@@ -53,7 +63,7 @@ class MLDispatcher:
                     job=None;pick=None;w=None
                     for candidate in jobs:
                         try:
-                            payload=dict(candidate["payload"] or {})
+                            payload=_job_payload(candidate["payload"])
                             d=WORKLOAD_DEFAULTS.get(candidate["job_type"],WORKLOAD_DEFAULTS["evaluate"])
                             candidate_nodes=nodes
                             if candidate["job_type"] in ("train","evaluate"):
