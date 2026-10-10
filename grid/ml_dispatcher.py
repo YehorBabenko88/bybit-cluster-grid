@@ -48,6 +48,10 @@ class MLDispatcher:
         dispatched=[]
         async with self.pool.acquire() as c:
             async with c.transaction():
+                # Bound waiting on the advisory lock and the leader row. A
+                # stalled peer must not hold a dispatcher connection forever.
+                await c.execute("SET LOCAL lock_timeout = '5s'")
+                await c.execute("SET LOCAL statement_timeout = '25s'")
                 await c.execute("SELECT pg_advisory_xact_lock($1)",DISPATCH_LOCK_KEY)
                 if leader_owner is not None:
                     # Lock the leadership row until this dispatch transaction
