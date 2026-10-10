@@ -151,3 +151,19 @@ def test_dataset_transfer_rejects_zero_page_size(tmp_path):
             await _write_paged_bundle(Client(), {"id": "job"}, tmp_path / "bad.json", page_size=0)
 
     asyncio.run(scenario())
+
+
+def test_ml_resource_limits_never_exceed_operator_caps(monkeypatch):
+    from types import SimpleNamespace
+    import pytest
+    import grid.ml_agent_worker as agent
+
+    monkeypatch.setattr(agent, "settings", SimpleNamespace(
+        ml_job_timeout_seconds=30, ml_job_ram_limit_mb=128
+    ))
+    assert agent._resource_limits({"timeout_seconds": 3600, "ram_limit_mb": 4096}) == (30, 128)
+    assert agent._resource_limits({"timeout_seconds": 10, "ram_limit_mb": 64}) == (10, 64)
+    with pytest.raises(ValueError, match="must be positive"):
+        agent._resource_limits({"timeout_seconds": 0})
+    with pytest.raises(ValueError, match="must be positive"):
+        agent._resource_limits({"ram_limit_mb": -1})
