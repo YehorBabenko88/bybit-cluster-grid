@@ -20,6 +20,9 @@ try {
     Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $a) 'Plan changed current'
     Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Plan created pending marker'
     # CONTROL manifests use forward slashes while its required path uses Windows separators.
+    $previousControl = Join-Path $root "releases\$a\grid\coordinator.py"
+    New-Item -ItemType Directory -Force -Path (Split-Path $previousControl -Parent) | Out-Null
+    Set-Content -LiteralPath $previousControl -Value '# previous control rollback'
     $controlFile = Join-Path $root "releases\$b\grid\coordinator.py"
     New-Item -ItemType Directory -Force -Path (Split-Path $controlFile -Parent) | Out-Null
     Set-Content -LiteralPath $controlFile -Value '# control test'
