@@ -33,7 +33,8 @@ class SegmentWAL:
                 try:
                     obj=json.loads(tail)
                     body=json.dumps(obj["payload"],separators=(",",":"),ensure_ascii=False).encode("utf-8")
-                    valid=(type(obj["crc32"]) is int and type(obj["id"]) is int\n                           and obj["id"]>=0 and (zlib.crc32(body)&0xffffffff)==obj["crc32"])
+                    valid=(type(obj["crc32"]) is int and type(obj["id"]) is int
+                           and obj["id"]>=0 and (zlib.crc32(body)&0xffffffff)==obj["crc32"])
                 except (ValueError,KeyError,TypeError,json.JSONDecodeError):
                     valid=False
                 if valid:
