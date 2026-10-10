@@ -57,6 +57,8 @@ async def _persist_signal(pool,signal,source_event_id=None):
       int(source_event_id) if source_event_id is not None else None)
 
 def _num(v,default=None):
+    if isinstance(v,bool):
+        return default
     try:
         value=float(v) if v is not None else default
         return value if value is None or math.isfinite(value) else default
