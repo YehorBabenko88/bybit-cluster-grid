@@ -52,7 +52,29 @@ foreach($name in @("current.version","previous.version")){
   $marker=Join-Path $InstallRoot $name
   if(!(Test-Path -LiteralPath $marker -PathType Leaf)){continue}
   $v=(Get-Content -LiteralPath $marker -Raw).Trim()
-  if($v -notmatch '^[0-9a-f]{40}$'){continue}
+  if($v -cnotmatch '^[0-9a-f]{40}){continue}
+  $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
+  if(Test-Path -LiteralPath (Join-Path $candidate "grid\coordinator.py") -PathType Leaf){$Release=$candidate;break}
+}
+if(!$Release){
+    $currentMarker=Join-Path $InstallRoot "current.version"
+    if(Test-Path -LiteralPath $currentMarker -PathType Leaf){
+        $cv=(Get-Content -LiteralPath $currentMarker -Raw).Trim()
+        if($cv -cmatch '^[0-9a-f]{40}){
+            $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
+            if(Test-Path -LiteralPath (Join-Path $replaced "grid\coordinator.py") -PathType Leaf){$Release=$replaced}
+        }
+    }
+}
+if(!$Release){$Release=Join-Path $InstallRoot "bootstrap"}
+if(!(Test-Path -LiteralPath (Join-Path $Release "grid\coordinator.py") -PathType Leaf)){throw "No runnable Grid CONTROL release found"}
+$WaitDb=Join-Path $Release "installer\wait-grid-postgres.ps1"
+if(Test-Path -LiteralPath $WaitDb -PathType Leaf){ & $WaitDb -DataRoot $DataRoot -TimeoutSeconds 120 }
+Set-Location $Release
+$version=Split-Path $Release -Leaf
+& $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $Release --readiness coordinator -- $Python -m uvicorn grid.coordinator:app --host 0.0.0.0 --port 8765
+exit $LASTEXITCODE
+){continue}
   $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
   if(Test-Path -LiteralPath (Join-Path $candidate "grid\coordinator.py") -PathType Leaf){$Release=$candidate;break}
 }
@@ -61,6 +83,56 @@ if(!$Release){
     if(Test-Path -LiteralPath $currentMarker -PathType Leaf){
         $cv=(Get-Content -LiteralPath $currentMarker -Raw).Trim()
         if($cv -match '^[0-9a-f]{40}$'){
+            $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
+            if(Test-Path -LiteralPath (Join-Path $replaced "grid\coordinator.py") -PathType Leaf){$Release=$replaced}
+        }
+    }
+}
+if(!$Release){$Release=Join-Path $InstallRoot "bootstrap"}
+if(!(Test-Path -LiteralPath (Join-Path $Release "grid\coordinator.py") -PathType Leaf)){throw "No runnable Grid CONTROL release found"}
+$WaitDb=Join-Path $Release "installer\wait-grid-postgres.ps1"
+if(Test-Path -LiteralPath $WaitDb -PathType Leaf){ & $WaitDb -DataRoot $DataRoot -TimeoutSeconds 120 }
+Set-Location $Release
+$version=Split-Path $Release -Leaf
+& $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $Release --readiness coordinator -- $Python -m uvicorn grid.coordinator:app --host 0.0.0.0 --port 8765
+exit $LASTEXITCODE
+){
+            $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
+            if(Test-Path -LiteralPath (Join-Path $replaced "grid\coordinator.py") -PathType Leaf){$Release=$replaced}
+        }
+    }
+}
+if(!$Release){$Release=Join-Path $InstallRoot "bootstrap"}
+if(!(Test-Path -LiteralPath (Join-Path $Release "grid\coordinator.py") -PathType Leaf)){throw "No runnable Grid CONTROL release found"}
+$WaitDb=Join-Path $Release "installer\wait-grid-postgres.ps1"
+if(Test-Path -LiteralPath $WaitDb -PathType Leaf){ & $WaitDb -DataRoot $DataRoot -TimeoutSeconds 120 }
+Set-Location $Release
+$version=Split-Path $Release -Leaf
+& $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $Release --readiness coordinator -- $Python -m uvicorn grid.coordinator:app --host 0.0.0.0 --port 8765
+exit $LASTEXITCODE
+){continue}
+  $candidate=Join-Path (Join-Path $InstallRoot "releases") $v
+  if(Test-Path -LiteralPath (Join-Path $candidate "grid\coordinator.py") -PathType Leaf){$Release=$candidate;break}
+}
+if(!$Release){
+    $currentMarker=Join-Path $InstallRoot "current.version"
+    if(Test-Path -LiteralPath $currentMarker -PathType Leaf){
+        $cv=(Get-Content -LiteralPath $currentMarker -Raw).Trim()
+        if($cv -cmatch '^[0-9a-f]{40}){
+            $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
+            if(Test-Path -LiteralPath (Join-Path $replaced "grid\coordinator.py") -PathType Leaf){$Release=$replaced}
+        }
+    }
+}
+if(!$Release){$Release=Join-Path $InstallRoot "bootstrap"}
+if(!(Test-Path -LiteralPath (Join-Path $Release "grid\coordinator.py") -PathType Leaf)){throw "No runnable Grid CONTROL release found"}
+$WaitDb=Join-Path $Release "installer\wait-grid-postgres.ps1"
+if(Test-Path -LiteralPath $WaitDb -PathType Leaf){ & $WaitDb -DataRoot $DataRoot -TimeoutSeconds 120 }
+Set-Location $Release
+$version=Split-Path $Release -Leaf
+& $Python -m grid.release_supervisor --install-root $InstallRoot --version $version --cwd $Release --readiness coordinator -- $Python -m uvicorn grid.coordinator:app --host 0.0.0.0 --port 8765
+exit $LASTEXITCODE
+){
             $replaced=Join-Path (Join-Path $InstallRoot "releases") ($cv+".replaced")
             if(Test-Path -LiteralPath (Join-Path $replaced "grid\coordinator.py") -PathType Leaf){$Release=$replaced}
         }
