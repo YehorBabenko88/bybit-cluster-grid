@@ -123,3 +123,9 @@ def test_ml_bootstrap_repairs_corrupted_interpreter_and_fails_closed():
     assert 'Remove-Item -LiteralPath $MLVenv -Recurse -Force' in script
     assert 'status="installing"' in script
     assert 'status="failed"' in script
+
+
+def test_recreated_ml_environment_always_reinstalls_dependencies():
+    script=Path("installer/bootstrap-ml.ps1").read_text(encoding="utf-8")
+    assert '$Need=($Hash -ne $Old) -or $Recreate' in script
+    assert 'if($Recreate){' in script
