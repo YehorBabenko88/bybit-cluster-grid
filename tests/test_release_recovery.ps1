@@ -179,6 +179,21 @@ try {
         Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Invalid journal root was removed'
         Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Invalid journal root changed current'
     }
+    # JSON coercion must not turn malformed field types into valid metadata.
+    foreach ($badTypedJournal in @(
+        ('{"schema":"1","previous":"' + $a + '","candidate":"' + $b + '","phase":"prepared"}'),
+        ('{"schema":true,"previous":"' + $a + '","candidate":"' + $b + '","phase":"prepared"}'),
+        ('{"schema":1,"previous":null,"candidate":"' + $b + '","phase":"prepared"}'),
+        ('{"schema":1,"previous":"' + $a + '","candidate":"' + $b + '","phase":["prepared"]}')
+    )) {
+        [IO.File]::WriteAllText((Join-Path $root 'switch-journal.json'), $badTypedJournal)
+        Set-Content -LiteralPath $current -Value $a
+        $badTypeRejected = $false
+        try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $badTypeRejected = $true }
+        Assert $badTypeRejected 'Wrong journal field type must fail closed'
+        Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Wrong journal field type erased journal'
+        Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Wrong journal field type changed current'
+    }
     # Missing rollback entry point must fail closed for both roles and phases.
     foreach ($roleCase in @(
         @{ Role='WORKER'; Entry='run_worker.py' },
