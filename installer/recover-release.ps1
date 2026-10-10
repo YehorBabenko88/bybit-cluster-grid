@@ -26,6 +26,13 @@ try {
         return
     }
     $j = Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json
+    if ($null -eq $j -or $j -isnot [pscustomobject] -or
+        @($j.PSObject.Properties.Match('schema')).Count -ne 1 -or
+        @($j.PSObject.Properties.Match('previous')).Count -ne 1 -or
+        @($j.PSObject.Properties.Match('candidate')).Count -ne 1 -or
+        @($j.PSObject.Properties.Match('phase')).Count -ne 1) {
+        throw 'Invalid release switch journal structure; manual recovery required'
+    }
     if ($j.schema -ne 1 -or $j.previous -cnotmatch '^[0-9a-f]{40}$' -or
         $j.candidate -cnotmatch '^[0-9a-f]{40}$' -or
         $j.phase -cnotin @('prepared','committed') -or $j.previous -eq $j.candidate) {
