@@ -79,8 +79,12 @@ async def run_supervised_process(argv,*,timeout_seconds,ram_limit_mb=None,
         raise ValueError("timeout_seconds must be positive")
     if ram_limit_mb is not None and float(ram_limit_mb)<=0:
         raise ValueError("ram_limit_mb must be positive")
+    # Windows starts the primary thread suspended; the Job Object is assigned
+    # before the child executes any user code or creates descendants.
+    creation_kwargs={"creationflags":0x00000004} if os.name=="nt" else {}
     proc=await asyncio.create_subprocess_exec(
         *[str(x) for x in argv],
+        **creation_kwargs,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         env=env,cwd=cwd,
@@ -89,7 +93,7 @@ async def run_supervised_process(argv,*,timeout_seconds,ram_limit_mb=None,
     if os.name=="nt":
         try:
             from .ml_windows_job import WindowsJob
-            job_object=WindowsJob(proc.pid)
+            job_object=WindowsJob(proc.pid, resume_primary_thread=True)
         except BaseException:
             await terminate_process_tree(proc,grace_seconds)
             raise
