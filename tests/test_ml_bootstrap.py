@@ -151,3 +151,9 @@ def test_interrupted_ml_bootstrap_forces_dependency_repair():
     assert '$PreviousReady=($PreviousJournal.status -eq "ready")' in script
     assert '$Need=($Hash -ne $Old) -or $Recreate -or !$PreviousReady' in script
     assert 'Write-MLJournal' in script
+
+
+def test_ready_journal_hash_must_match_requirements_fingerprint():
+    script=Path("installer/bootstrap-ml.ps1").read_text(encoding="utf-8")
+    assert '$PreviousJournalHash=[string]$PreviousJournal.hash' in script
+    assert '-or ($PreviousJournalHash -ne $Hash)' in script
