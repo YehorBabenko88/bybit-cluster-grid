@@ -66,7 +66,12 @@ try {
         try {
             [IO.File]::WriteAllText($tmp,$Value,[Text.UTF8Encoding]::new($false))
             if ([IO.File]::Exists($Path)) {
-                [IO.File]::Replace($tmp, $Path, "$Path.$([guid]::NewGuid().ToString('N')).bak", $true)
+                $backup = "$Path.$([guid]::NewGuid().ToString('N')).bak"
+                try {
+                    [IO.File]::Replace($tmp, $Path, $backup, $true)
+                } finally {
+                    if ([IO.File]::Exists($backup)) { [IO.File]::Delete($backup) }
+                }
             } else {
                 [IO.File]::Move($tmp, $Path)
             }
