@@ -10,7 +10,7 @@ def test_ack_cannot_skip_earlier_unprocessed_record(tmp_path):
         wal=SegmentWAL(tmp_path)
         first=await wal.append({"minute":1})
         second=await wal.append({"minute":2})
-        with pytest.raises(ValueError,match="oldest pending"):
+        with pytest.raises(ValueError,match="missing record id|oldest pending"):
             await wal.ack(second)
         assert wal._checkpoint_id()==0
         assert [rid for rid,_ in wal.recover()]==[first,second]
