@@ -305,3 +305,38 @@ def test_on_loss_failure_does_not_prevent_future_leader_election():
         assert leader.epoch == 2
 
     asyncio.run(scenario())
+
+
+def test_stop_event_prevents_campaign_before_first_iteration():
+    async def scenario():
+        class NeverCampaign(FloatingLeader):
+            async def campaign(self):
+                raise AssertionError("stopped leader must not campaign")
+
+        leader = NeverCampaign(pool=None)
+        leader.stop()
+        await asyncio.wait_for(leader.run(), 1)
+        assert leader.is_leader is False
+        assert leader.epoch is None
+
+    asyncio.run(scenario())
+
+
+def test_stop_interrupts_renewal_wait_without_waiting_for_timeout():
+    async def scenario():
+        started = asyncio.Event()
+
+        class WaitingLeader(FloatingLeader):
+            async def campaign(self):
+                started.set()
+                return False
+
+        leader = WaitingLeader(pool=None, lease_seconds=60, renew_seconds=30)
+        task = asyncio.create_task(leader.run())
+        await asyncio.wait_for(started.wait(), 1)
+        leader.stop()
+        await asyncio.wait_for(task, 1)
+        assert leader.is_leader is False
+        assert leader.epoch is None
+
+    asyncio.run(scenario())
