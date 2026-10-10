@@ -190,6 +190,9 @@ try {
     [IO.File]::WriteAllText($previousEntry, $previousOriginal)
     Remove-Item -LiteralPath $previousManifest -Force
 
+    # CONTROL fixture remains in the previous release; include it in valid rollback manifests.
+    $previousControl = Join-Path $root "releases\$a\grid\coordinator.py"
+    $previousControlHash = (Get-FileHash -LiteralPath $previousControl -Algorithm SHA256).Hash.ToLowerInvariant()
     # Committed recovery must not retain a corrupted rollback entry point.
     Journal 'committed'
     Set-Content -LiteralPath $current -Value $a
