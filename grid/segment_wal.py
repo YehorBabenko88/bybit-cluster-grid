@@ -155,15 +155,14 @@ class SegmentWAL:
                 f.write(str(record_id)); f.flush(); os.fsync(f.fileno())
             # Preserve the previous known-good generation before publishing the
             # new primary. Recovery chooses the highest valid generation.
-            if self.checkpoint.exists():
+            previous=self._read_checkpoint(self.checkpoint)
+            if previous is not None:
                 backup_tmp=self.root/"checkpoint.backup.next"
                 try:
-                    data=self.checkpoint.read_text(encoding="ascii")
-                    int(data.strip() or "0")
                     with open(backup_tmp,"w",encoding="ascii") as f:
-                        f.write(data); f.flush(); os.fsync(f.fileno())
+                        f.write(str(previous)); f.flush(); os.fsync(f.fileno())
                     os.replace(backup_tmp,self.checkpoint_backup)
-                except (OSError,ValueError):
+                except OSError:
                     try: backup_tmp.unlink()
                     except OSError: pass
             os.replace(tmp,self.checkpoint)
