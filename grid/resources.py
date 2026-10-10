@@ -26,6 +26,7 @@ NODE_ID = _node_id()
 STARTED_AT=time.time()
 _RESOURCE_TREND=ResourceTrend()
 _STORAGE_CACHE={"at":0.0,"value":{}}
+_ML_READY_CACHE={"at":0.0,"value":False}
 
 def _tree_bytes(root):
     total=0
@@ -54,6 +55,9 @@ def local_storage_usage(cache_seconds=300):
 
 def ml_runtime_ready():
     """Readiness is tied to the dedicated ML interpreter, not worker imports."""
+    now=time.monotonic()
+    if _ML_READY_CACHE["at"] and now-_ML_READY_CACHE["at"]<60:
+        return _ML_READY_CACHE["value"]
     root=os.path.join(os.getenv("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","runtime")
     python=os.path.join(root,"ml-venv","Scripts","python.exe")
     journal=os.path.join(root,"ml-bootstrap.json")
@@ -65,9 +69,11 @@ def ml_runtime_ready():
         if state.get("status")!="ready":return False
         result=subprocess.run([python,"-c","import numpy,scipy,sklearn,joblib,xgboost,lightgbm"],
                               capture_output=True,timeout=20,check=False)
-        return result.returncode==0
+        ready=result.returncode==0
     except (OSError,ValueError,subprocess.TimeoutExpired):
-        return False
+        ready=False
+    _ML_READY_CACHE.update(at=now,value=ready)
+    return ready
 
 def agent_version():
     root=os.getenv("ProgramFiles")
