@@ -1,6 +1,6 @@
 """Route persisted market events into scientific micro agents."""
 from __future__ import annotations
-import json
+import json,math
 
 async def route_market_event(orchestrator,pool,symbol,ts_ms,event_type,payload,split_key,source_event_id=None):
     symbol=str(symbol);ts=int(ts_ms);p=dict(payload or {})
@@ -53,5 +53,7 @@ async def _persist_signal(pool,signal,source_event_id=None):
       int(source_event_id) if source_event_id is not None else None)
 
 def _num(v,default=None):
-    try:return float(v) if v is not None else default
-    except (TypeError,ValueError):return default
+    try:
+        value=float(v) if v is not None else default
+        return value if value is None or math.isfinite(value) else default
+    except (TypeError,ValueError,OverflowError):return default
