@@ -99,3 +99,56 @@ def test_two_dispatchers_respect_global_slots_and_node_capacity():
             await admin.execute(f'DROP SCHEMA "{schema}" CASCADE')
             await admin.close()
     asyncio.run(scenario())
+
+def test_dispatch_fences_expired_leader_and_rolls_back_slow_placement():
+    import uuid
+    from grid.ml_dispatcher import MLDispatcher
+
+    async def scenario():
+        schema="dispatch_fence_"+uuid.uuid4().hex
+        admin=await asyncpg.connect(os.environ["POSTGRES_DSN"])
+        await admin.execute(f'CREATE SCHEMA "{schema}"')
+        pool=None
+        async def setup(conn):
+            await conn.execute(f'SET search_path TO "{schema}"')
+        try:
+            await admin.execute(f'''CREATE TABLE "{schema}".ml_jobs (
+                id uuid PRIMARY KEY,status text NOT NULL,job_type text NOT NULL,
+                payload jsonb,attempts int NOT NULL DEFAULT 0,max_attempts int NOT NULL DEFAULT 3,
+                not_before timestamptz,priority int NOT NULL DEFAULT 1,
+                created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+                lease_owner text,lease_until timestamptz)''')
+            await admin.execute(f'''CREATE TABLE "{schema}".ml_resource_reservations (
+                job_id uuid PRIMARY KEY,node_id text,cpu double precision,
+                ram_gb double precision,scratch_gb double precision,gpu boolean,
+                expires_at timestamptz)''')
+            await admin.execute(f'''CREATE TABLE "{schema}".service_leases (
+                service_key text PRIMARY KEY,owner text,lease_until timestamptz)''')
+            job_id=uuid.uuid4()
+            await admin.execute(f'INSERT INTO "{schema}".ml_jobs(id,status,job_type,payload) VALUES($1,$2,$3,$4::jsonb)',
+                                job_id,"queued","train",'{"cpu":1}')
+            await admin.execute(f'''INSERT INTO "{schema}".service_leases(service_key,owner,lease_until)
+                VALUES('ml-orchestrator-leader','leader-a',clock_timestamp()+interval '5 seconds')''')
+            pool=await asyncpg.create_pool(os.environ["POSTGRES_DSN"],min_size=1,max_size=2,setup=setup)
+            async def nodes():
+                return {"pilot":{"cpu_pct":0,"cpu_count":8,"ram_available":12*1024**3,
+                                 "disk_free":40*1024**3,"ml_runtime_ready":True}}
+            dispatcher=MLDispatcher(pool,nodes)
+            assert await dispatcher(1,leader_owner="wrong-owner")==[]
+            assert await admin.fetchval(f'SELECT status FROM "{schema}".ml_jobs WHERE id=$1',job_id)=="queued"
+            assert len(await dispatcher(1,leader_owner="leader-a"))==1
+            await admin.execute(f'''UPDATE "{schema}".ml_jobs SET status='queued',lease_owner=NULL,lease_until=NULL WHERE id=$1''',job_id)
+            await admin.execute(f'DELETE FROM "{schema}".ml_resource_reservations')
+            await admin.execute(f'''UPDATE "{schema}".service_leases SET lease_until=clock_timestamp()+interval '0.2 seconds' ''')
+            async def slow_nodes():
+                await asyncio.sleep(.35)
+                return await nodes()
+            with pytest.raises(RuntimeError,match="leadership expired"):
+                await MLDispatcher(pool,slow_nodes)(1,leader_owner="leader-a")
+            assert await admin.fetchval(f'SELECT status FROM "{schema}".ml_jobs WHERE id=$1',job_id)=="queued"
+            assert await admin.fetchval(f'SELECT count(*) FROM "{schema}".ml_resource_reservations')==0
+        finally:
+            if pool is not None:await pool.close()
+            await admin.execute(f'DROP SCHEMA "{schema}" CASCADE')
+            await admin.close()
+    asyncio.run(scenario())
