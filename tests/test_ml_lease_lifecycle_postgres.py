@@ -102,6 +102,19 @@ def test_ml_reservations_renew_finish_and_recovery_postgres():
             async def health(): return {}
             service=MLOrchestratorService(pool,dispatcher,health)
             await service.recover()
+            # A new orchestrator must preserve a live worker's lease.
+            restarted=MLOrchestratorService(pool,dispatcher,health)
+            await restarted.recover()
+            assert await admin.fetchval(f'SELECT status FROM "{schema}".ml_jobs WHERE id=$1',healthy)=="running"
+            assert await reservation(healthy) is not None
+            # A crashed worker stops renewing; a later pass requeues it.
+            crashed=await add_job("running","crashed-node",6,60,600)
+            await admin.execute(f'UPDATE "{schema}".ml_jobs SET lease_until=clock_timestamp()-make_interval(secs=>1) WHERE id=$1',crashed)
+            await restarted.recover()
+            assert await admin.fetchval(f'SELECT status FROM "{schema}".ml_jobs WHERE id=$1',crashed)=="queued"
+            assert await reservation(crashed) is None
+            assert not await renew_ml_job(pool,crashed,"crashed-node",6)
+            assert not await finish_ml_job(pool,crashed,"crashed-node",6)
             rows=await admin.fetch(f'SELECT id,status,lease_owner,lease_until,not_before FROM "{schema}".ml_jobs')
             jobs={row["id"]:row for row in rows}
             assert jobs[expired]["status"]=="queued"
