@@ -46,3 +46,13 @@ def test_scheduler_enforces_requested_cpu_capacity():
     nodes={"busy":node(70,64,100,cores=8)}
     assert choose_node(nodes,Workload("train",cpu=4,ram_gb=8,scratch_gb=10)) is None
     assert choose_node(nodes,Workload("train",cpu=1,ram_gb=8,scratch_gb=10)) is not None
+
+
+def test_scheduler_rejects_corrupted_node_telemetry():
+    for field,value in (("cpu_pct",float("nan")),
+                        ("cpu_pct",-1),("ram_available",float("inf")),
+                        ("disk_free",-1),("cpu_count",0),
+                        ("lan_mbps",float("nan")),("lan_mbps",0)):
+        bad=node(10,32,100)
+        bad[field]=value
+        assert choose_node({"bad":bad},Workload("train",cpu=2,ram_gb=4,scratch_gb=5)) is None
