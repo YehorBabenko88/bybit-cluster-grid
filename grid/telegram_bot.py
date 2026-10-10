@@ -619,6 +619,17 @@ async def telegram_loop(db,nodes):
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     claimed=await claim_update(db.pool,upd["update_id"],chat,txt,node_id)
                     if not claimed:
+                        # Another leader may have claimed the update but crashed
+                        # before completing its side effects. Do not acknowledge
+                        # and skip an unfinished command as if it succeeded.
+                        status=await db.pool.fetchval(
+                            "SELECT status FROM telegram_updates WHERE update_id=$1",
+                            int(upd["update_id"]))
+                        if status!="DONE":
+                            log.error("telegram update is unfinished; manual reconciliation required",
+                                      extra={"event":"telegram_update_stuck",
+                                             "component":str(upd["update_id"])})
+                            raise RuntimeError("Telegram update not completed; cursor held")
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     try:
                         await handle_command(db,session,chat,txt,nodes)
