@@ -55,6 +55,7 @@ class Worker:
         self.ml_task=None
         self.ml_stop=asyncio.Event()
         self.restart_requested=False
+        self._last_db_write_failures=None
 
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
@@ -72,6 +73,10 @@ class Worker:
                     snap.update({'control_generation':0,'control_checksum':'CORRUPT'})
                 dbm=self.storage.metrics()
                 microm=self.micro_storage.metrics()
+                db_failures=int(dbm.get("write_failures",0) or 0)
+                recent_db_failures=(max(0,db_failures-self._last_db_write_failures)
+                                    if self._last_db_write_failures is not None else 0)
+                self._last_db_write_failures=db_failures
                 combined_pressure=max(
                     dbm["queue_ratio"],dbm.get("spool_ratio",0.0),
                     microm["queue_ratio"],microm.get("spool_ratio",0.0),
@@ -82,6 +87,7 @@ class Worker:
                              "db_queue_ratio":round(dbm["queue_ratio"],4),
                              "db_writes_per_sec":round(dbm["writes_per_sec"],3),
                              "db_write_failures":dbm["write_failures"],
+                             "db_write_failures_recent":recent_db_failures,
                              "db_spool_bytes":dbm.get("spool_bytes",0),
                              "db_spool_ratio":round(dbm.get("spool_ratio",0.0),4),
                              "db_avg_write_latency_ms":round(dbm["avg_write_latency_ms"],3),

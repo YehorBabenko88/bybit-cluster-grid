@@ -164,7 +164,9 @@ def test_release_install_recovers_power_loss_replaced_window(tmp_path):
     package=tmp_path/"v1.zip"
     with zipfile.ZipFile(package,"w") as z:z.writestr("run_worker.py","new")
     target=install_release(package,"v1",root)
-    assert (target/"run_worker.py").read_text(encoding="utf-8")=="new"
+    # Interrupted replacement must restore the last runnable release.
+    # The same version is immutable, so the new package cannot overwrite it.
+    assert (target/"run_worker.py").read_text(encoding="utf-8")=="old"
     assert not replaced.exists()
 
 

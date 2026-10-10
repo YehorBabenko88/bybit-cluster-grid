@@ -49,7 +49,7 @@ def test_cleanup_removes_only_old_staging_downloads_and_upgrade_workspaces(tmp_p
     downloads=data/"downloads"; downloads.mkdir(parents=True)
     old_zip=downloads/"old.zip"; old_zip.write_bytes(b"x")
     fresh_zip=downloads/"fresh.zip"; fresh_zip.write_bytes(b"x")
-    upgrade=data/"upgrade-old"; upgrade.mkdir(parents=True)
+    upgrade=data/"upgrade-staging-old"; upgrade.mkdir(parents=True)
     old=time.time()-3*86400
     for p in (staging,old_zip,upgrade): os.utime(p,(old,old))
     result=cleanup_release_storage(install,data,keep_recent=0,older_than_seconds=86400)
@@ -59,4 +59,4 @@ def test_cleanup_removes_only_old_staging_downloads_and_upgrade_workspaces(tmp_p
     assert not upgrade.exists()
     assert result["staging"]==["dead.staging"]
     assert result["downloads"]==["old.zip"]
-    assert result["upgrades"]==["upgrade-old"]
+    assert result["upgrades"]==["upgrade-staging-old"]
