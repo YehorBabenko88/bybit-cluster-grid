@@ -114,6 +114,23 @@ try {
             [IO.File]::WriteAllText($rollbackEntry, $savedEntry)
         }
     }
+    # Once the missing rollback entry point is restored, retry must recover
+    # the same journal without requiring any manual marker edits.
+    Journal 'prepared'
+    Set-Content -LiteralPath $current -Value $b
+    Set-Content -LiteralPath $pending -Value $b
+    $rollbackFile = Join-Path $root "releases\\$a\\run_worker.py"
+    $rollbackContents = Get-Content -LiteralPath $rollbackFile -Raw
+    Remove-Item -LiteralPath $rollbackFile -Force
+    $retryInitiallyBlocked = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $retryInitiallyBlocked = $true }
+    Assert $retryInitiallyBlocked 'First recovery should reject missing rollback file'
+    Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Failed recovery must retain journal for retry'
+    [IO.File]::WriteAllText($rollbackFile, $rollbackContents)
+    & $script -InstallRoot $root -Role WORKER -Apply | Out-Null
+    Assert (((Get-Content $current -Raw).Trim()) -eq $a) 'Recovery retry did not restore previous version'
+    Assert (-not (Test-Path $pending)) 'Recovery retry left pending marker'
+    Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Recovery retry left journal'
     # Corrupt or truncated journals must never modify release pointers.
     foreach ($badJournal in @('', '{', 'null', '[]',
         '{"schema":1,"previous":"not-a-sha","candidate":"bbbb","phase":"prepared"}',
