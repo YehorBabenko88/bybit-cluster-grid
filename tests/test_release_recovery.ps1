@@ -204,7 +204,9 @@ try {
         '{"schema":1,"previous":"not-a-sha","candidate":"bbbb","phase":"prepared"}',
         ('{"schema":1,"previous":"' + ('A' * 40) + '","candidate":"' + $b + '","phase":"prepared"}'),
         ('{"schema":1,"previous":"' + $a + '","candidate":"' + ('B' * 40) + '","phase":"committed"}'),
-        ('{"schema":1,"previous":"' + $a + '","candidate":"' + $b + '","phase":"unknown"}'))) {
+        ('{"schema":1,"previous":"' + $a + '","candidate":"' + $b + '","phase":"unknown"}'),
+        ('{"schema":1,"previous":"' + $a + '","candidate":"' + $b + '","phase":"PREPARED"}'),
+        ('{"schema":1,"previous":"' + $a + '","candidate":"' + $b + '","phase":"COMMITTED"}'))) {
         Set-Content -LiteralPath $current -Value $b
         Set-Content -LiteralPath $pending -Value $b
         [IO.File]::WriteAllText((Join-Path $root 'switch-journal.json'), $badJournal)
