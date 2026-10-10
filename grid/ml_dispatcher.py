@@ -45,6 +45,9 @@ class MLDispatcher:
     async def __call__(self,slots,health=None,leader_owner=None):
         # Read node telemetry after acquiring the dispatch lock, so a waiting
         # coordinator does not schedule against a pre-lock snapshot.
+        # External telemetry may be slow. Collect it without holding the
+        # advisory lock, leader row lock, or a database transaction.
+        reported=await self.node_provider()
         dispatched=[]
         async with self.pool.acquire() as c:
             async with c.transaction():
@@ -62,7 +65,6 @@ class MLDispatcher:
                         AND lease_until>clock_timestamp() FOR UPDATE""",leader_owner)
                     if leader!=1:
                         return []
-                reported=await self.node_provider()
                 reservations=await reserved_by_node(c)
                 nodes=_adjust_nodes(reported,reservations)
                 active=await c.fetchval("""SELECT count(*) FROM ml_jobs
