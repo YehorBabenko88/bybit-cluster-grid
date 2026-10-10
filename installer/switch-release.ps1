@@ -15,6 +15,7 @@ param(
     [switch]$Apply
 )
 $ErrorActionPreference = 'Stop'
+if ($Version -cnotmatch '^[0-9a-f]{40}$') { throw 'Invalid candidate release SHA: expected lowercase hexadecimal' }
 # An exclusive cross-process lock prevents concurrent promotions on this host.
 $lockName = 'Global\BybitClusterGridReleaseSwitch'
 $mutex = [System.Threading.Mutex]::new($false, $lockName)
@@ -34,10 +35,15 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
     throw 'Candidate release manifest missing'
 }
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-if ($manifest.version -ne $Version) { throw 'Candidate release manifest version mismatch' }
+if ($manifest.version -cne $Version) { throw 'Candidate release manifest version mismatch' }
 # Validate manifest paths and hashes before any pointer changes.
 if ($null -eq $manifest.files -or @($manifest.files.PSObject.Properties).Count -eq 0) {
     throw 'Release manifest has no file checksums'
+}
+# A checksum manifest must cover the executable entry point for this role.
+$requiredKey = $required.Replace([char]92, '/')
+if ($null -eq $manifest.files.PSObject.Properties[$requiredKey]) {
+    throw "Release manifest omits required entry point: $requiredKey"
 }
 $releaseFull = [IO.Path]::GetFullPath($release).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
 foreach ($entry in $manifest.files.PSObject.Properties) {
@@ -59,9 +65,22 @@ foreach ($entry in $manifest.files.PSObject.Properties) {
         throw "Manifest checksum mismatch: $relative"
     }
 }
+# Refuse to promote a release containing unverified Python source files.
+# Runtime-generated caches and virtual environments are outside this source check.
+$manifestKeys = @{}
+foreach ($entry in $manifest.files.PSObject.Properties) {
+    $manifestKeys[[string]$entry.Name.Replace([char]92, '/')] = $true
+}
+Get-ChildItem -LiteralPath $release -Recurse -File -Filter '*.py' | ForEach-Object {
+    $relativePath = $_.FullName.Substring($releaseFull.Length).Replace([char]92, '/')
+    if (-not $manifestKeys.ContainsKey($relativePath)) {
+        throw "Release manifest omits Python source: $relativePath"
+    }
+}
 $failedMarker = Join-Path $InstallRoot 'failed.version'
 if (Test-Path -LiteralPath $failedMarker -PathType Leaf) {
     $failedVersion = (Get-Content -LiteralPath $failedMarker -Raw).Trim()
+    if ($failedVersion -cnotmatch '^[0-9a-f]{40}$') { throw 'Invalid failed.version; manual review required' }
     if ($failedVersion -eq $Version) {
         throw 'Candidate was previously rolled back as failed; manual review required'
     }
@@ -70,14 +89,18 @@ if (Test-Path -LiteralPath $failedMarker -PathType Leaf) {
 $pendingMarker = Join-Path $InstallRoot 'pending.version'
 if (Test-Path -LiteralPath $pendingMarker -PathType Leaf) {
     $pendingVersion = (Get-Content -LiteralPath $pendingMarker -Raw).Trim()
-    if ($pendingVersion) {
-        throw "Unconfirmed pending release $pendingVersion; resolve recovery before switching again"
-    }
+    throw 'Pending release marker exists; resolve or remove it through the recovery procedure before switching again'
+}
+# An interrupted transaction must be recovered before any new promotion,
+# including when the journal exists but the pending marker is absent.
+$journalPath = Join-Path $InstallRoot 'switch-journal.json'
+if (Test-Path -LiteralPath $journalPath) {
+    throw 'Release switch journal exists; run recovery before switching again'
 }
 $marker = Join-Path $InstallRoot 'current.version'
 if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) { throw 'current.version missing' }
 $current = (Get-Content -LiteralPath $marker -Raw).Trim()
-if ($current -notmatch '^[0-9a-f]{40}$') { throw 'Invalid current.version' }
+if ($current -cnotmatch '^[0-9a-f]{40}$') { throw 'Invalid current.version' }
 if ($current -eq $Version) {
     Write-Output "ALREADY_CURRENT=$Version"
     return
@@ -108,7 +131,18 @@ function Write-Atomic([string]$Path,[string]$Value) {
     $tmp = "$Path.$([guid]::NewGuid().ToString('N')).tmp"
     try {
         [IO.File]::WriteAllText($tmp, $Value, [Text.UTF8Encoding]::new($false))
-        Move-Item -LiteralPath $tmp -Destination $Path -Force
+        if ([IO.File]::Exists($Path)) {
+            # File.Replace uses the Windows replace-file primitive rather than
+            # removing the destination before renaming the temporary file.
+            $backup = "$Path.$([guid]::NewGuid().ToString('N')).bak"
+                try {
+                    [IO.File]::Replace($tmp, $Path, $backup, $true)
+                } finally {
+                    if ([IO.File]::Exists($backup)) { [IO.File]::Delete($backup) }
+                }
+        } else {
+            [IO.File]::Move($tmp, $Path)
+        }
     } finally {
         if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
     }

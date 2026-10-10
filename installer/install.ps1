@@ -12,11 +12,20 @@ $InstallRoot="$env:ProgramFiles\BybitClusterGrid"
 $DataRoot="$env:ProgramData\BybitClusterGrid"
 $InstallerRoot=Join-Path $DataRoot "installer"
 New-Item -ItemType Directory -Force -Path $InstallerRoot | Out-Null
+# Both worker and CONTROL launchers depend on the persistent recovery script.
+# Verify and stage recovery before replacing any existing launcher files.
+$RecoverySource = Join-Path $ReleaseDir "installer\recover-release.ps1"
+if (!(Test-Path -LiteralPath $RecoverySource -PathType Leaf)) {
+  throw "Release missing required recovery script: $RecoverySource"
+}
+Copy-Item -LiteralPath $RecoverySource -Destination (Join-Path $InstallerRoot "recover-release.ps1") -Force
+if (!(Test-Path -LiteralPath (Join-Path $InstallerRoot "recover-release.ps1") -PathType Leaf)) {
+  throw "Recovery script staging failed"
+}
 Copy-Item (Join-Path $ReleaseDir "installer\launcher.ps1") (Join-Path $InstallerRoot "launcher.ps1") -Force
 Copy-Item (Join-Path $ReleaseDir "installer\archive-launcher.ps1") (Join-Path $InstallerRoot "archive-launcher.ps1") -Force
 Copy-Item (Join-Path $ReleaseDir "installer\uninstall.ps1") (Join-Path $InstallerRoot "uninstall.ps1") -Force
 Copy-Item (Join-Path $ReleaseDir "installer\preflight.ps1") (Join-Path $InstallerRoot "preflight.ps1") -Force
-
 $Launcher=Join-Path $InstallerRoot "launcher.ps1"
 $ArchiveLauncher=Join-Path $InstallerRoot "archive-launcher.ps1"
 $CoordinatorLauncher=Join-Path $InstallerRoot "coordinator-launcher.ps1"
