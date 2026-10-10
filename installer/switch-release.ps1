@@ -72,6 +72,12 @@ if (Test-Path -LiteralPath $pendingMarker -PathType Leaf) {
     $pendingVersion = (Get-Content -LiteralPath $pendingMarker -Raw).Trim()
     throw 'Pending release marker exists; resolve or remove it through the recovery procedure before switching again'
 }
+# An interrupted transaction must be recovered before any new promotion,
+# including when the journal exists but the pending marker is absent.
+$journalPath = Join-Path $InstallRoot 'switch-journal.json'
+if (Test-Path -LiteralPath $journalPath) {
+    throw 'Release switch journal exists; run recovery before switching again'
+}
 $marker = Join-Path $InstallRoot 'current.version'
 if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) { throw 'current.version missing' }
 $current = (Get-Content -LiteralPath $marker -Raw).Trim()
