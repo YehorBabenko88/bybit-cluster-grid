@@ -102,6 +102,28 @@ try {
         Assert (((Get-Content $pending -Raw).Trim()) -eq $b) 'Corrupt pointer recovery changed pending'
         Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Corrupt pointer recovery deleted journal'
     }
+    # Recovery must be repeatable when a prepared transaction is interrupted
+    # after the rollback pointer was written but before journal removal.
+    foreach ($pendingValue in @($a,$b)) {
+        Journal 'prepared'
+        Set-Content -LiteralPath $current -Value $a
+        Set-Content -LiteralPath $pending -Value $pendingValue
+        & $script -InstallRoot $root -Role WORKER -Apply | Out-Null
+        Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Repeat prepared recovery changed rollback target'
+        Assert (-not (Test-Path $pending)) 'Repeat prepared recovery retained pending marker'
+        Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Repeat prepared recovery retained journal'
+    }
+    # A committed transaction interrupted after writing the candidate pointer
+    # must converge on candidate + pending, and remain safe to retry.
+    foreach ($pendingValue in @($a,$b)) {
+        Journal 'committed'
+        Set-Content -LiteralPath $current -Value $b
+        Set-Content -LiteralPath $pending -Value $pendingValue
+        & $script -InstallRoot $root -Role WORKER -Apply | Out-Null
+        Assert (((Get-Content $current -Raw).Trim()) -ceq $b) 'Repeat committed recovery lost candidate'
+        Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Repeat committed recovery lost pending candidate'
+        Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Repeat committed recovery retained journal'
+    }
     # Missing rollback entry point must fail closed for both roles and phases.
     foreach ($roleCase in @(
         @{ Role='WORKER'; Entry='run_worker.py' },
