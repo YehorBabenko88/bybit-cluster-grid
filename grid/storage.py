@@ -158,6 +158,13 @@ class Storage:
                 # feature/derived persistence idempotently.
                 regressive=False
                 if accepted:
+                    # The accepted candle is an authoritative replacement for
+                    # its entire price footprint. Clear obsolete price levels
+                    # in the same transaction before inserting the new set.
+                    await c.execute(
+                        "DELETE FROM footprint_1m WHERE symbol=$1 AND ts=$2",
+                        row["symbol"], ts,
+                    )
                     await c.executemany("""INSERT INTO footprint_1m(symbol,ts,price,buy_volume,sell_volume,delta,volume,buy_count,sell_count)
                     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
                     ON CONFLICT(symbol,ts,price) DO UPDATE SET buy_volume=EXCLUDED.buy_volume,sell_volume=EXCLUDED.sell_volume,
