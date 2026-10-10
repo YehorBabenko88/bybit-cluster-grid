@@ -8,7 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from grid import coordinator
-from grid.control_plane import command_result, enqueue_command, ensure_control_schema
+from grid.control_plane import command_result, enqueue_command, ensure_control_schema, pending_commands
 
 
 pytestmark = pytest.mark.skipif(not os.getenv('POSTGRES_DSN'), reason='isolated PostgreSQL DSN required')
@@ -35,6 +35,8 @@ def test_atomic_ack_is_bound_to_the_command_owner():
     async def scenario(pool):
         cid = await enqueue_command(pool, 'worker-b', 'stop')
         assert await command_result(pool, cid, True, node_id='worker-a') is False
+        assert await command_result(pool, cid, True, node_id='worker-b') is False
+        await pending_commands(pool, 'worker-b')
         assert await pool.fetchval('SELECT status FROM agent_commands WHERE id=$1', uuid.UUID(cid)) == 'queued'
         assert await command_result(pool, cid, True, node_id='worker-b') is True
         assert await pool.fetchval('SELECT status FROM agent_commands WHERE id=$1', uuid.UUID(cid)) == 'done'
@@ -68,6 +70,7 @@ def test_worker_cannot_ack_foreign_or_missing_command(monkeypatch, foreign):
 def test_owner_ack_reconciles_only_after_persistence(monkeypatch):
     async def scenario(pool):
         cid = await enqueue_command(pool, 'worker-a', 'stop')
+        await pending_commands(pool, 'worker-a')
         monkeypatch.setattr(coordinator, 'db', SimpleNamespace(pool=pool))
 
         async def authenticated(*args):
@@ -93,4 +96,17 @@ def test_explicit_admin_ack_without_node_remains_supported(monkeypatch):
 
         monkeypatch.setattr(coordinator, 'reconcile_fleet_operation', reconcile)
         assert await coordinator.post_command_result(cid, {'ok':True}, 'admin-token', '') == {'ok':True}
+    asyncio.run(isolated_commands(scenario))
+
+def test_worker_ack_rejects_expired_lease_and_duplicate_terminal_result():
+    async def scenario(pool):
+        cid = await enqueue_command(pool, 'worker-a', 'restart')
+        await pending_commands(pool, 'worker-a')
+        await pool.execute("UPDATE agent_commands SET lease_until=now()-interval '1 second' WHERE id=$1", uuid.UUID(cid))
+        assert await command_result(pool,cid,True,node_id='worker-a') is False
+        assert await pool.fetchval("SELECT status FROM agent_commands WHERE id=$1",uuid.UUID(cid))=='delivered'
+        await pool.execute("UPDATE agent_commands SET lease_until=now()+interval '1 minute' WHERE id=$1",uuid.UUID(cid))
+        assert await command_result(pool,cid,True,node_id='worker-a') is True
+        assert await command_result(pool,cid,False,node_id='worker-a') is False
+        assert await pool.fetchval("SELECT status FROM agent_commands WHERE id=$1",uuid.UUID(cid))=='done'
     asyncio.run(isolated_commands(scenario))
