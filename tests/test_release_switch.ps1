@@ -23,6 +23,11 @@ try {
     try { & $script -Version ('c' * 40) -InstallRoot $root -Role WORKER | Out-Null }
     catch { $invalid = $true }
     Assert $invalid 'Missing release must fail'
+    # PowerShell ValidatePattern is case-insensitive; enforce canonical SHA explicitly.
+    $uppercaseRejected = $false
+    try { & $script -Version ($b.ToUpperInvariant()) -InstallRoot $root -Role WORKER | Out-Null } catch { $uppercaseRejected = $true }
+    Assert $uppercaseRejected 'Uppercase candidate SHA must be rejected'
+    Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Uppercase candidate created journal'
     # The current pointer must be a lowercase hexadecimal SHA.
     foreach ($badCurrent in @( ('A' * 40), ('g' * 40), '../../bad' )) {
         Set-Content -LiteralPath (Join-Path $root 'current.version') -Value $badCurrent
