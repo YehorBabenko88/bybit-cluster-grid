@@ -21,9 +21,12 @@ try {
     catch [System.Threading.AbandonedMutexException] { $held = $true }
     if (-not $held) { throw 'Another Grid release operation is running' }
     $journalPath = Join-Path $InstallRoot 'switch-journal.json'
-    if (-not (Test-Path -LiteralPath $journalPath -PathType Leaf)) {
+    if (-not (Test-Path -LiteralPath $journalPath)) {
         Write-Output 'NO_JOURNAL=true'
         return
+    }
+    if (-not (Test-Path -LiteralPath $journalPath -PathType Leaf)) {
+        throw 'Invalid release switch journal type; manual recovery required'
     }
     $j = Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json
     if ($null -eq $j -or $j -isnot [pscustomobject] -or
