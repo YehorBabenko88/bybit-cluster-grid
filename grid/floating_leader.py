@@ -15,7 +15,8 @@ class FloatingLeader:
                   WHERE service_key='control-plane-leader' FOR UPDATE""")
                 if row and row["owner"]!=self.node_id and row["lease_until"] and row["lease_until"]>await c.fetchval("SELECT now()"):
                     self.is_leader=False; return False
-                epoch=int(time.time()*1000)
+                previous_epoch = int((row["metadata"] or {}).get("epoch", 0)) if row else 0
+                epoch=max(int(time.time()*1000),previous_epoch+1)
                 await c.execute("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
                   VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3))
                   ON CONFLICT(service_key) DO UPDATE SET owner=EXCLUDED.owner,lease_until=EXCLUDED.lease_until,
@@ -30,7 +31,10 @@ class FloatingLeader:
           heartbeat_at=now() WHERE service_key='control-plane-leader' AND owner=$1
           AND (metadata->>'epoch')::bigint=$2 AND lease_until>=now()""",
           self.node_id,self.epoch,self.lease_seconds)
-        self.is_leader=r.endswith(" 1"); return self.is_leader
+        self.is_leader=r.endswith(" 1")
+        if not self.is_leader:
+            self.epoch=None
+        return self.is_leader
 
     async def run(self,on_gain=None,on_loss=None):
         previous=False
