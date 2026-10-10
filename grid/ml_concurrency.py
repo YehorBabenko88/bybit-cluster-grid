@@ -1,4 +1,3 @@
-from datetime import timedelta
 import json,uuid
 
 async def claim_ml_job(pool,owner,lease_seconds=120):
@@ -16,16 +15,34 @@ async def claim_ml_job(pool,owner,lease_seconds=120):
             return dict(updated)
 
 async def renew_ml_job(pool,job_id,owner,lease_generation,lease_seconds=120):
-    r=await pool.execute("""UPDATE ml_jobs SET lease_until=now()+($3*interval '1 second')
-      WHERE id=$1 AND status='running' AND lease_owner=$2 AND lease_generation=$4 AND lease_until>=now()""",
-      job_id,owner,int(lease_seconds),int(lease_generation))
-    return r.endswith(" 1")
+    # Keep the reservation alive for the same period as the running lease.
+    # Both writes commit or roll back together; stale owners cannot extend it.
+    async with pool.acquire() as c:
+        async with c.transaction():
+            r=await c.execute("""UPDATE ml_jobs SET lease_until=clock_timestamp()+($3*interval '1 second')
+              WHERE id=$1 AND status='running' AND lease_owner=$2 AND lease_generation=$4
+                AND lease_until>=clock_timestamp()""",
+              job_id,owner,int(lease_seconds),int(lease_generation))
+            if not r.endswith(" 1"):
+                return False
+            await c.execute("""UPDATE ml_resource_reservations SET
+              expires_at=(SELECT lease_until FROM ml_jobs WHERE id=$1)
+              WHERE job_id=$1""",job_id)
+            return True
 
 async def finish_ml_job(pool,job_id,owner,lease_generation,error=None):
-    r=await pool.execute("""UPDATE ml_jobs SET status=$3,finished_at=now(),lease_until=NULL,error=$4
-      WHERE id=$1 AND lease_owner=$2 AND lease_generation=$5 AND status='running' AND lease_until>=now()""",
-      job_id,owner,"failed" if error else "done",error,int(lease_generation))
-    return r.endswith(" 1")
+    # Only the current generation may finish and release its reservation.
+    async with pool.acquire() as c:
+        async with c.transaction():
+            r=await c.execute("""UPDATE ml_jobs SET status=$3,finished_at=clock_timestamp(),
+              lease_until=NULL,error=$4
+              WHERE id=$1 AND lease_owner=$2 AND lease_generation=$5
+                AND status='running' AND lease_until>=clock_timestamp()""",
+              job_id,owner,"failed" if error else "done",error,int(lease_generation))
+            if not r.endswith(" 1"):
+                return False
+            await c.execute("DELETE FROM ml_resource_reservations WHERE job_id=$1",job_id)
+            return True
 
 async def acquire_service_lease(pool,key,owner,lease_seconds=30,metadata=None):
     row=await pool.fetchrow("""INSERT INTO service_leases(service_key,owner,lease_until,metadata)
