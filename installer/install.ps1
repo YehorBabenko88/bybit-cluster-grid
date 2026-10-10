@@ -16,17 +16,17 @@ Copy-Item (Join-Path $ReleaseDir "installer\launcher.ps1") (Join-Path $Installer
 Copy-Item (Join-Path $ReleaseDir "installer\archive-launcher.ps1") (Join-Path $InstallerRoot "archive-launcher.ps1") -Force
 Copy-Item (Join-Path $ReleaseDir "installer\uninstall.ps1") (Join-Path $InstallerRoot "uninstall.ps1") -Force
 Copy-Item (Join-Path $ReleaseDir "installer\preflight.ps1") (Join-Path $InstallerRoot "preflight.ps1") -Force
-# The CONTROL launcher must have recovery available outside versioned releases.
+# Both worker and CONTROL launchers require recovery outside versioned releases.
 # Stage it before replacing the launcher, so an interrupted deployment cannot
 # leave a new launcher referencing a missing recovery script.
-if ($Mode -eq "CONTROL") {
+{
   $RecoverySource = Join-Path $ReleaseDir "installer\recover-release.ps1"
   if (!(Test-Path -LiteralPath $RecoverySource -PathType Leaf)) {
-    throw "CONTROL release missing required recovery script: $RecoverySource"
+    throw "Release missing required recovery script: $RecoverySource"
   }
   Copy-Item -LiteralPath $RecoverySource -Destination (Join-Path $InstallerRoot "recover-release.ps1") -Force
   if (!(Test-Path -LiteralPath (Join-Path $InstallerRoot "recover-release.ps1") -PathType Leaf)) {
-    throw "CONTROL recovery script staging failed"
+    throw "Recovery script staging failed"
   }
 }
 
