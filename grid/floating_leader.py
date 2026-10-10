@@ -121,3 +121,22 @@ class FloatingLeader:
             except asyncio.TimeoutError: pass
 
     def stop(self):self.stop_event.set()
+
+    async def shutdown(self, on_loss=None):
+        """Stop local leadership and release only the lease held by this epoch.
+
+        Callers should stop leader-only services before releasing the lease,
+        so a successor cannot start while the old services are still running.
+        """
+        self.stop()
+        held_epoch = self.epoch if self.is_leader else None
+        self.is_leader = False
+        self.epoch = None
+        if held_epoch is None:
+            return
+        try:
+            if on_loss is not None:
+                await on_loss()
+        finally:
+            await self.release(held_epoch)
+
