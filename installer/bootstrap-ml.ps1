@@ -1,5 +1,6 @@
 param(
   [Parameter(Mandatory=$true)][string]$Python,
+  [string]$BasePython="",
   [Parameter(Mandatory=$true)][string]$ReleaseDir,
   [Parameter(Mandatory=$true)][string]$RuntimeRoot,
   [ValidateSet("CONTROL","PILOT","NORMAL")][string]$Mode="NORMAL"
@@ -9,6 +10,10 @@ $Req=Join-Path $ReleaseDir "requirements-ml.txt"
 if(!(Test-Path $Req)){throw "Missing ML requirements: $Req"}
 if(!(Test-Path -LiteralPath $Python)){throw "Missing ML Python runtime: $Python"}
 New-Item -ItemType Directory -Force -Path $RuntimeRoot | Out-Null
+# Heavy dependencies must never mutate the market-data worker venv.
+$MLVenv=Join-Path $RuntimeRoot "ml-venv"
+$MLPython=Join-Path $MLVenv "Scripts\python.exe"
+if(!$BasePython){$BasePython=$Python}
 $State=Join-Path $RuntimeRoot "ml-requirements.sha256"
 $Journal=Join-Path $RuntimeRoot "ml-bootstrap.json"
 $Hash=(Get-FileHash -Algorithm SHA256 $Req).Hash.ToLowerInvariant()
@@ -24,6 +29,16 @@ if(!$ShouldInstall){
   exit 0
 }
 
+if(!(Test-Path -LiteralPath $MLPython)){
+  if(!(Test-Path -LiteralPath $BasePython)){throw "Missing base Python for isolated ML environment"}
+  & $BasePython -m venv $MLVenv
+  if($LASTEXITCODE -ne 0){throw "Failed to create isolated ML environment"}
+}
+$Python=$MLPython
+$CoreReq=Join-Path $ReleaseDir "requirements.txt"
+if(!(Test-Path $CoreReq)){throw "Missing core requirements for ML environment"}
+$CoreHash=(Get-FileHash -Algorithm SHA256 $CoreReq).Hash.ToLowerInvariant()
+$Hash=("{0}:{1}" -f $CoreHash,$Hash)
 $Need=($Hash -ne $Old)
 if(!$Need){
   & $Python -c "import numpy,scipy,sklearn,joblib,xgboost,lightgbm" 2>$null
@@ -47,7 +62,7 @@ if(!$Need){
 [ordered]@{status="installing";mode=$Mode;hash=$Hash;started_at=(Get-Date).ToUniversalTime().ToString("o")} |
   ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
 try {
-  & $Python -m pip install --disable-pip-version-check --retries 8 --timeout 60 --prefer-binary --upgrade -r $Req
+  & $Python -m pip install --disable-pip-version-check --retries 8 --timeout 60 --prefer-binary --upgrade -r $CoreReq -r $Req
   if($LASTEXITCODE -ne 0){throw "ML dependency installation failed after retries"}
   & $Python -c "import numpy,scipy,sklearn,joblib,xgboost,lightgbm; print('ML runtime OK')"
   if($LASTEXITCODE -ne 0){throw "ML runtime import validation failed"}
