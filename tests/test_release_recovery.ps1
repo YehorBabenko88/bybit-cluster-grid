@@ -90,6 +90,18 @@ try {
     Assert (((Get-Content $current -Raw).Trim()) -eq ('c' * 40)) 'Conflict recovery changed current'
     Assert (((Get-Content $pending -Raw).Trim()) -eq $b) 'Conflict recovery changed pending'
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Conflict recovery removed journal'
+    # Recovery must reject corrupt current pointers without mutating the journal.
+    foreach ($badCurrent in @( ('A' * 40), ('g' * 40), '../../bad' )) {
+        Journal 'prepared'
+        Set-Content -LiteralPath $current -Value $badCurrent
+        Set-Content -LiteralPath $pending -Value $b
+        $rejectedPointer = $false
+        try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $rejectedPointer = $true }
+        Assert $rejectedPointer 'Corrupt current pointer must block recovery'
+        Assert (((Get-Content $current -Raw).Trim()) -eq $badCurrent) 'Corrupt pointer recovery changed current'
+        Assert (((Get-Content $pending -Raw).Trim()) -eq $b) 'Corrupt pointer recovery changed pending'
+        Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Corrupt pointer recovery deleted journal'
+    }
     # Missing rollback entry point must fail closed for both roles and phases.
     foreach ($roleCase in @(
         @{ Role='WORKER'; Entry='run_worker.py' },
