@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import math
 import asyncpg
 from datetime import datetime,timezone
 import json
@@ -28,6 +29,7 @@ class Storage:
         self.http=None
         self.replay_task=None
         self.replay_done=asyncio.Event(); self.replay_done.set()
+        self.replay_error=None
         self.replay_ids=set()
         # Preserve WAL ID order across concurrent producers until queue admission.
         self._enqueue_lock=asyncio.Lock()
@@ -53,6 +55,7 @@ class Storage:
             self.http=aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20))
         await self.write_queue.start()
         pending=self.spool.iter_recover()
+        self.replay_error=None
         self.replay_done.clear()
         self.replay_task=asyncio.create_task(self._replay(pending))
     async def _replay(self,pending):
@@ -71,22 +74,55 @@ class Storage:
             # Recovery is complete only after every recovered WAL record has
             # reached the durable sink and _save_spooled() has ACKed its WAL id.
             await self.write_queue.q.join()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            # Fail closed: live producers must not overtake an incomplete replay.
-            self.replay_done.clear()
+        except (Exception,asyncio.CancelledError) as exc:
+            # Wake producers with an explicit failure; never let them overtake
+            # incomplete replay or hang indefinitely after replay exits.
+            self.replay_error=exc
+            self.replay_done.set()
             raise
         else:
             self.replay_done.set()
 
     async def save(self,row):
         await self.replay_done.wait()
+        if getattr(self,"replay_error",None) is not None:
+            raise RuntimeError("WAL replay failed; restart storage before accepting writes") from self.replay_error
         if self.spool.ratio()>=settings.spool_critical_ratio:
             raise BufferError("Grid WAL critical threshold reached; load shedding required")
         async with self._enqueue_lock:
+            if getattr(self,"replay_error",None) is not None:
+                raise RuntimeError("WAL replay failed; restart storage before accepting writes") from self.replay_error
             record_id=await self.spool.append(row)
-            await self.write_queue.put(record_id,row)
+            # Cancellation must not wait for capacity during an outage. Stop
+            # admission under the order lock and fail closed so later IDs cannot
+            # overtake this durable, unacknowledged record before restart.
+            admission=asyncio.create_task(self.write_queue.put(record_id,row))
+            try:
+                await asyncio.shield(admission)
+            except asyncio.CancelledError as exc:
+                admission.cancel()
+                # Queue.put is cancellation-cooperative; finish its cancellation
+                # even if the producer receives repeated cancellation requests.
+                while not admission.done():
+                    try:
+                        await asyncio.shield(admission)
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception:
+                        break
+                # The producer may be cancelled after its child has already
+                # admitted the record. That successful admission preserves WAL
+                # order and needs no restart. Only failed admission poisons it.
+                if admission.cancelled():
+                    self.replay_error=exc
+                else:
+                    failure=admission.exception()
+                    if failure is not None:
+                        self.replay_error=failure
+                raise
+            except Exception as exc:
+                self.replay_error=exc
+                raise
 
     async def close(self,drain_timeout=5):
         if self.replay_task is not None and not self.replay_task.done():
@@ -103,7 +139,8 @@ class Storage:
         m=self.write_queue.metrics()
         m['spool_bytes']=self.spool.bytes_used()
         m['spool_ratio']=self.spool.ratio()
-        m["replay_active"]=not self.replay_done.is_set()
+        m["replay_failed"]=getattr(self,"replay_error",None) is not None
+        m["replay_active"]=not self.replay_done.is_set() or m["replay_failed"]
         m["replay_backlog_bytes"]=m["spool_bytes"] if m["replay_active"] else 0
         m["replay_rate_per_second"]=float(self.replay_rate)
         elapsed=max(0.0,asyncio.get_running_loop().time()-self.replay_started_at) if self.replay_started_at else 0.0
@@ -114,8 +151,10 @@ class Storage:
 
 
     def set_replay_rate(self,rate):
-        try:self.replay_rate=max(0.0,float(rate))
-        except (TypeError,ValueError):pass
+        try:value=float(rate)
+        except (TypeError,ValueError,OverflowError):return
+        if math.isfinite(value) and value>=0:
+            self.replay_rate=value
 
     async def _save_spooled(self,record_id,row):
         if record_id in self.replay_ids:

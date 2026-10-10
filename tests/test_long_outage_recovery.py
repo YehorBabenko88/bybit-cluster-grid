@@ -42,8 +42,10 @@ def test_worker_can_shed_load_without_successful_control_heartbeat():
     post=s.index("async with s.post(",pressure)
     assert pressure < post
     block=s[pressure:post]
-    assert "symbols_to_drain" in block
-    assert "await self.reconcile()" in block
+    assert "await self._apply_local_pressure(recovering)" in block
+    helper=s.split("async def _apply_local_pressure",1)[1].split("async def heartbeat",1)[0]
+    assert "desired_drained_symbols" in helper
+    assert "await self.reconcile()" in helper
 
 
 def test_replay_is_paced_and_staggered_across_nodes():
@@ -69,7 +71,7 @@ def test_worker_sheds_fresh_micro_capture_during_wal_recovery():
     assert '"db_replay_active"' in s
     assert '"micro_replay_active"' in s
     assert "recovering=bool(dbm.get" in s
-    assert "new_micro=(requested_micro & new) if not recovering else set()" in s
+    assert "new_micro=(self.assigned_micro_symbols & new) if not recovering else set()" in s
 
 
 def test_control_publishes_adaptive_recovery_feedback():
@@ -87,7 +89,7 @@ def test_worker_applies_dynamic_replay_rate_and_pause_is_quiet():
     from pathlib import Path
     w=Path("grid/worker.py").read_text(encoding="utf-8")
     assert 'reply.get("recovery_profile")' in w
-    assert "self.db.set_replay_rate" in w
+    assert "self.storage.set_replay_rate" in w
     assert "self.micro_storage.set_replay_rate" in w
     for name in ("grid/storage.py","grid/micro_event_storage.py"):
         s=Path(name).read_text(encoding="utf-8")

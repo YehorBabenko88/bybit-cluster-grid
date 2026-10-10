@@ -74,3 +74,27 @@ def test_reachability_probe_always_closes_socket(monkeypatch):
     monkeypatch.setattr(resilience.socket,"create_connection",lambda *a,**k:sock)
     assert resilience._probe_tcp("example.invalid",443,3) is True
     assert sock.closed is True
+
+@pytest.mark.parametrize('tick', ['NaN', 'Infinity', '-Infinity'])
+def test_linear_symbols_rejects_nonfinite_tick(monkeypatch, tick):
+    row={'symbol':'BTCUSDT','status':'Trading','contractType':'LinearPerpetual',
+         'priceFilter':{'tickSize':tick}}
+    FakeSession.responses=[FakeResponse(200,{'retCode':0,'result':{'list':[row]}})]
+    monkeypatch.setattr(bybit.aiohttp,'ClientSession',FakeSession)
+    with pytest.raises(RuntimeError,match='malformed instrument'):
+        asyncio.run(bybit.linear_symbols('https://example.invalid',max_attempts=1))
+
+@pytest.mark.parametrize('header',['NaN','Infinity','-5','99999999'])
+def test_linear_symbols_bounds_retry_after(monkeypatch,header):
+    row={'symbol':'BTCUSDT','status':'Trading','contractType':'LinearPerpetual',
+         'priceFilter':{'tickSize':'0.1'}}
+    FakeSession.responses=[FakeResponse(429,{}, {'Retry-After':header}),
+                          FakeResponse(200,{'retCode':0,'result':{'list':[row]}})]
+    monkeypatch.setattr(bybit.aiohttp,'ClientSession',FakeSession)
+    monkeypatch.setattr(bybit.random,'uniform',lambda *a:0)
+    delays=[]
+    async def sleep(delay): delays.append(delay)
+    monkeypatch.setattr(bybit.asyncio,'sleep',sleep)
+    asyncio.run(bybit.linear_symbols('https://example.invalid',max_attempts=2))
+    assert len(delays)==1
+    assert 0<=delays[0]<=30

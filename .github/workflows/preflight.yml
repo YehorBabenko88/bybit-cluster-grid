@@ -51,7 +51,7 @@ jobs:
       - name: Install test dependencies
         run: pip install pytest
       - name: Compile
-        run: python -m compileall -q grid run_worker.py run_coordinator.py
+        run: python -m compileall -q grid tests run_worker.py run_coordinator.py
       - name: Import smoke test
         env:
           GRID_SHARED_TOKEN: test-token

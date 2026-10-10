@@ -19,7 +19,7 @@ from .strategy_runner import strategy_worker
 from .agent_commands import execute_command
 from .credential_store import node_credential
 from .decommission import mark_coordinator_success,mark_internet_success,internet_available,decommission_due
-from .pressure import PressureController, NORMAL, SOFT_PRESSURE
+from .pressure import PressureController, desired_drained_symbols
 from .continuity import TradeContinuity
 from .local_control_journal import LocalControlJournal
 from .control_snapshot_ring import ControlSnapshotRing,replica_meta
@@ -49,12 +49,34 @@ class Worker:
         self.runtime_state='INFRA_ONLY'
         self.pressure=PressureController(settings.resource_cpu_limit,settings.resource_ram_limit,settings.resource_disk_free_gb)
         self.pressure_drained=set()
+        self.assigned_symbols=set()
+        self.assigned_micro_symbols=set()
         self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json'))
         self.control_ring=ControlSnapshotRing(os.getenv('GRID_CONTROL_SNAPSHOTS','control-snapshots'))
         self.command_receipts=CommandReceiptStore()
         self.ml_task=None
         self.ml_stop=asyncio.Event()
         self.restart_requested=False
+
+    async def _apply_local_pressure(self,recovering=False):
+        # Keep CONTROL intent separate from the currently running producers so
+        # shedding is bounded and recovery works even with CONTROL offline.
+        allowed=(self.enabled and not self.operator_stopped
+                 and not self.bootstrap_paused and self.runtime_state=="ACTIVE")
+        assigned=self.assigned_symbols if allowed else set()
+        drained=desired_drained_symbols(self.pressure,assigned)
+        new=assigned-drained
+        new_micro=(self.assigned_micro_symbols & new) if not recovering else set()
+        assignments_changed=(new != self.wanted or new_micro != self.micro_wanted)
+        self.pressure_drained=drained
+        self.wanted=new
+        self.micro_wanted=new_micro
+        dead_trade_tasks=any(task.done() for task in self.trade_tasks.values())
+        dead_micro_tasks=any(task.done() for task in self.micro_tasks)
+        if dead_micro_tasks:
+            self.micro_signature=None
+        if assignments_changed or dead_trade_tasks or dead_micro_tasks:
+            await self.reconcile()
 
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
@@ -72,6 +94,13 @@ class Worker:
                     snap.update({'control_generation':0,'control_checksum':'CORRUPT'})
                 dbm=self.storage.metrics()
                 microm=self.micro_storage.metrics()
+                if dbm.get("replay_failed") or microm.get("replay_failed"):
+                    # Preserve WAL ordering by restarting both sinks through the
+                    # existing launcher; recovery must not depend on CONTROL.
+                    self.restart_requested=True
+                    log.error("WAL admission/replay failed; graceful restart required",
+                              extra={"event":"wal_restart_required"})
+                    raise RuntimeError("WAL recovery requires worker restart")
                 combined_pressure=max(
                     dbm["queue_ratio"],dbm.get("spool_ratio",0.0),
                     microm["queue_ratio"],microm.get("spool_ratio",0.0),
@@ -99,17 +128,8 @@ class Worker:
                              "micro_replay_backlog_bytes":int(microm.get("replay_backlog_bytes",0))})
                 snap['pressure_state']=state
                 # Pressure control must remain autonomous when CONTROL is unreachable.
-                # Otherwise a long outage can fill the durable WAL while all market
-                # producers keep running. Drain expensive live streams locally; a
-                # later healthy CONTROL heartbeat will restore assignments once
-                # pressure has recovered.
-                if state not in (NORMAL,SOFT_PRESSURE) and self.wanted:
-                    victims=set(self.pressure.symbols_to_drain(self.wanted-self.pressure_drained))
-                    if victims:
-                        self.pressure_drained.update(victims)
-                        self.wanted.difference_update(victims)
-                        self.micro_wanted.intersection_update(self.wanted)
-                        await self.reconcile()
+                recovering=bool(dbm.get("replay_active",False) or microm.get("replay_active",False))
+                await self._apply_local_pressure(recovering)
                 snap['bootstrap_paused']=self.bootstrap_paused
                 snap['operator_stopped']=self.operator_stopped
                 snap['bootstrap_phase']=self.bootstrap_phase
@@ -182,27 +202,11 @@ class Worker:
                                 except Exception:
                                     log.exception("instrument metadata refresh failed",extra={"event":"metadata_refresh_failed"})
                             recovery=reply.get("recovery_profile") or {}
-                            self.db.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
+                            self.storage.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
                             self.micro_storage.set_replay_rate(recovery.get("micro_per_second",settings.replay_micro_per_second))
-                            assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
-                            if state in (NORMAL,SOFT_PRESSURE):
-                                self.pressure_drained.clear()
-                            else:
-                                self.pressure_drained.update(self.pressure.symbols_to_drain(assigned-self.pressure_drained))
-                            new=assigned-self.pressure_drained
-                            requested_micro=set(reply.get("micro_symbols",[]))
-                            recovering=bool(dbm.get("replay_active",False) or microm.get("replay_active",False))
-                            new_micro=(requested_micro & new) if not recovering else set()
-                            assignments_changed=(new != self.wanted or new_micro != self.micro_wanted)
-                            dead_trade_tasks=any(task.done() for task in self.trade_tasks.values())
-                            dead_micro_tasks=any(task.done() for task in self.micro_tasks)
-                            if assignments_changed or dead_trade_tasks or dead_micro_tasks:
-                                self.wanted=new
-                                self.micro_wanted=new_micro
-                                if dead_micro_tasks:
-                                    # Force the microstructure collector group to be rebuilt.
-                                    self.micro_signature=None
-                                await self.reconcile()
+                            self.assigned_symbols=set(reply.get("symbols",[])) if market_enabled else set()
+                            self.assigned_micro_symbols=set(reply.get("micro_symbols",[]))
+                            await self._apply_local_pressure(recovering)
                             # Confirm this release only after an authenticated CONTROL
                             # heartbeat and successful assignment reconciliation.
                             ready_file=os.getenv('GRID_RELEASE_READY_FILE')
