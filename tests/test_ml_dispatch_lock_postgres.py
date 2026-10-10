@@ -172,3 +172,48 @@ def test_dispatch_fences_expired_leader_and_rolls_back_slow_placement():
             await admin.execute(f'DROP SCHEMA "{schema}" CASCADE')
             await admin.close()
     asyncio.run(scenario())
+
+def test_stale_telemetry_is_rejected_after_dispatch_lock_wait():
+    import uuid
+    from grid.ml_dispatcher import MLDispatcher
+
+    async def scenario():
+        schema="dispatch_stale_"+uuid.uuid4().hex
+        admin=await asyncpg.connect(os.environ["POSTGRES_DSN"])
+        await admin.execute(f'CREATE SCHEMA "{schema}"')
+        pool=None
+        async def setup(conn):
+            await conn.execute(f'SET search_path TO "{schema}"')
+        try:
+            await admin.execute(f'''CREATE TABLE "{schema}".ml_jobs (
+                id uuid PRIMARY KEY,status text NOT NULL,job_type text NOT NULL,
+                payload jsonb,attempts int NOT NULL DEFAULT 0,max_attempts int NOT NULL DEFAULT 3,
+                not_before timestamptz,priority int NOT NULL DEFAULT 1,
+                created_at timestamptz NOT NULL DEFAULT now(),lease_owner text,lease_until timestamptz)''')
+            await admin.execute(f'''CREATE TABLE "{schema}".ml_resource_reservations (
+                job_id uuid PRIMARY KEY,node_id text,cpu double precision,
+                ram_gb double precision,scratch_gb double precision,gpu boolean,expires_at timestamptz)''')
+            job_id=uuid.uuid4()
+            await admin.execute(f'''INSERT INTO "{schema}".ml_jobs(id,status,job_type,payload)
+                VALUES($1,'queued','train','{"cpu":1}'::jsonb)''',job_id)
+            pool=await asyncpg.create_pool(os.environ["POSTGRES_DSN"],min_size=2,max_size=2,setup=setup)
+            started=asyncio.Event()
+            async def nodes():
+                started.set()
+                return {"pilot":{"cpu_pct":0,"cpu_count":8,"ram_available":12*1024**3,
+                                 "disk_free":40*1024**3,"ml_runtime_ready":True}}
+            async with pool.acquire() as blocker:
+                async with blocker.transaction():
+                    await blocker.execute("SELECT pg_advisory_xact_lock($1)",DISPATCH_LOCK_KEY)
+                    task=asyncio.create_task(MLDispatcher(pool,nodes)(1))
+                    await asyncio.wait_for(started.wait(),2)
+                    await asyncio.sleep(5.15)
+                result=await asyncio.wait_for(task,5)
+            assert result==[]
+            assert await admin.fetchval(
+                f'SELECT status FROM "{schema}".ml_jobs WHERE id=$1',job_id)=="queued"
+        finally:
+            if pool is not None:await pool.close()
+            await admin.execute(f'DROP SCHEMA "{schema}" CASCADE')
+            await admin.close()
+    asyncio.run(scenario())
