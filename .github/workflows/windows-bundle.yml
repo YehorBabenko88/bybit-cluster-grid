@@ -140,6 +140,26 @@ jobs:
           & $base -c "import sys; assert 'ml-venv' not in sys.executable.lower()"
           if($LASTEXITCODE -ne 0){ throw "Base interpreter was modified" }
 
+      - name: Repair ML venv with missing pip on Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
+          $root=Join-Path $env:RUNNER_TEMP "grid-ml-isolation-test"
+          $base=(Get-Command python).Source
+          $mlpy=Join-Path $root "ml-venv\Scripts\python.exe"
+          $pipDir=Join-Path $root "ml-venv\Lib\site-packages\pip"
+          if(!(Test-Path -LiteralPath $pipDir)){throw "pip missing before corruption test"}
+          Remove-Item -LiteralPath $pipDir -Recurse -Force
+          & $mlpy -m pip --version 2>$null
+          if($LASTEXITCODE -eq 0){throw "Failed to simulate missing pip"}
+          & ./installer/bootstrap-ml.ps1 -Python $base -BasePython $base -ReleaseDir $bundle -RuntimeRoot $root -Mode PILOT
+          if($LASTEXITCODE -ne 0){throw "ML bootstrap failed to repair missing pip"}
+          & $mlpy -m pip --version
+          if($LASTEXITCODE -ne 0){throw "ML pip not restored"}
+          $journal=Get-Content (Join-Path $root "ml-bootstrap.json") -Raw | ConvertFrom-Json
+          if($journal.status -ne "ready"){throw "ML journal not ready after pip repair"}
+
       - name: Reject concurrent ML bootstrap without changing ready journal
         shell: pwsh
         run: |
