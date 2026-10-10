@@ -44,6 +44,16 @@ try {
         try { & $launcher -Python $stub -InstallRoot $install | Out-Null } catch { $startupFailed = $true }
         Assert $startupFailed "$role launched without a valid release or bootstrap"
         Assert (-not (Test-Path $env:GRID_TEST_CAPTURE)) "$role invoked Python without a runnable release"
+        # A provisioned bootstrap is the last permitted fallback.
+        $bootstrapEntry = Join-Path (Join-Path $install 'bootstrap') $entry
+        New-Item -ItemType Directory -Force -Path (Split-Path $bootstrapEntry -Parent) | Out-Null
+        Set-Content -LiteralPath $bootstrapEntry -Value '# bootstrap stub'
+        & $launcher -Python $stub -InstallRoot $install
+        Assert (Test-Path $env:GRID_TEST_CAPTURE) "$role failed to invoke valid bootstrap"
+        $bootstrapInvocation = Get-Content -LiteralPath $env:GRID_TEST_CAPTURE -Raw
+        Assert ($bootstrapInvocation.Contains('--version bootstrap')) "$role failed to select bootstrap"
+        Remove-Item -LiteralPath (Join-Path $install 'bootstrap') -Recurse -Force
+
     }
     Write-Output 'PASS: WORKER and CONTROL launcher version selection'
 } finally {
