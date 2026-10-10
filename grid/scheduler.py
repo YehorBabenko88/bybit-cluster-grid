@@ -1,3 +1,4 @@
+import math
 from statistics import median
 
 def learned_symbol_cost(nodes, default=1.0):
@@ -8,11 +9,17 @@ def learned_symbol_cost(nodes, default=1.0):
                 value=float(cost)
             except (TypeError,ValueError):
                 continue
-            if value>0:
+            if math.isfinite(value) and value>0:
                 samples.setdefault(symbol,[]).append(value)
     known=[v for vals in samples.values() for v in vals]
-    fallback=median(known) if known else float(default)
-    return {symbol:median(vals) for symbol,vals in samples.items()},max(float(default),fallback)
+    try:
+        baseline=float(default)
+    except (TypeError,ValueError,OverflowError):
+        baseline=1.0
+    if not math.isfinite(baseline) or baseline<=0:
+        baseline=1.0
+    fallback=median(known) if known else baseline
+    return {symbol:median(vals) for symbol,vals in samples.items()},max(baseline,fallback)
 
 def node_avoids(node,symbol):
     state=(node.get("pressure_state") or "NORMAL").upper()
@@ -22,7 +29,18 @@ def node_avoids(node,symbol):
     return state=="REDUCE_LOAD" and symbol in drained
 
 def weighted_assign(symbols,node_scores,nodes):
-    node_scores={n:s for n,s in node_scores.items() if (nodes.get(n,{}) or {}).get("accepts_work",True)}
+    # A missing, zero, negative, or non-finite capacity cannot safely take work.
+    eligible_scores={}
+    for node_id,raw_score in node_scores.items():
+        if not (nodes.get(node_id,{}) or {}).get("accepts_work",True):
+            continue
+        try:
+            score=float(raw_score)
+        except (TypeError,ValueError,OverflowError):
+            continue
+        if math.isfinite(score) and score>0:
+            eligible_scores[node_id]=score
+    node_scores=eligible_scores
     result={n:[] for n in node_scores}
     if not node_scores:
         return result
@@ -38,7 +56,13 @@ def weighted_assign(symbols,node_scores,nodes):
             # Never put the whole universe back onto overloaded machines.
             if symbol!="BTCUSDT" and any(x=="BTCUSDT" for x in symbols):
                 continue
-            eligible=[min(node_scores,key=lambda n:(load[n]/node_scores[n],n))]
+            # A CRITICAL node must never receive a new assignment, even
+            # when every available machine is overloaded. Pause collection
+            # rather than force work onto a machine reporting emergency state.
+            eligible=[n for n in node_scores if
+                      (nodes.get(n,{}).get("pressure_state") or "NORMAL").upper()!="CRITICAL"]
+            if not eligible:
+                continue
         node=min(eligible,key=lambda n:(load[n]/node_scores[n],n))
         result[node].append(symbol)
         load[node]+=cost
@@ -59,7 +83,13 @@ def stabilize_assignments(proposed,current,nodes,max_churn_fraction=.10):
     old_owner={s:n for n,syms in current.items() for s in syms}
     new_owner={s:n for n,syms in proposed.items() for s in syms}
     moves=[s for s,n in new_owner.items() if old_owner.get(s) not in (None,n) and s not in forced]
-    cap=max(1,int(max(1,len(new_owner))*float(max_churn_fraction)))
+    try:
+        churn=float(max_churn_fraction)
+    except (TypeError,ValueError,OverflowError):
+        churn=0.0
+    if not math.isfinite(churn):
+        churn=0.0
+    cap=max(0,int(len(new_owner)*max(0.0,min(1.0,churn))))
     allowed=set(sorted(moves)[:cap])
     out={n:[] for n in proposed}
     for symbol,new in new_owner.items():
