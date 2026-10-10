@@ -98,10 +98,16 @@ def _file_sha256(path):
 async def execute_remote_job(client,job):
     if job.get("job_type")!="train":raise ValueError("unsupported remote ML job type")
     payload=dict(job.get("payload") or {})
-    timeout=max(60,min(int(payload.get("timeout_seconds",settings.ml_job_timeout_seconds)),
-                       int(settings.ml_job_timeout_seconds)))
-    ram=max(256,min(int(payload.get("ram_limit_mb",settings.ml_job_ram_limit_mb)),
-                    int(settings.ml_job_ram_limit_mb)))
+    configured_timeout=int(settings.ml_job_timeout_seconds)
+    configured_ram=int(settings.ml_job_ram_limit_mb)
+    if configured_timeout<=0 or configured_ram<=0:
+        raise ValueError("ML resource configuration must be positive")
+    requested_timeout=int(payload.get("timeout_seconds",configured_timeout))
+    requested_ram=int(payload.get("ram_limit_mb",configured_ram))
+    if requested_timeout<=0 or requested_ram<=0:
+        raise ValueError("ML job resource limits must be positive")
+    timeout=min(requested_timeout,configured_timeout)
+    ram=min(requested_ram,configured_ram)
     workdir=pathlib.Path(tempfile.mkdtemp(prefix="job-",dir=str(_workspace_root())))
     bundle=workdir/"bundle.json";artifact=workdir/"artifact.bin";result=workdir/"result.json"
     try:
