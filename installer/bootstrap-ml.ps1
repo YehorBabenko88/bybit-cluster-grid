@@ -29,10 +29,25 @@ if(!$ShouldInstall){
   exit 0
 }
 
-if(!(Test-Path -LiteralPath $MLPython)){
-  if(!(Test-Path -LiteralPath $BasePython)){throw "Missing base Python for isolated ML environment"}
-  & $BasePython -m venv $MLVenv
-  if($LASTEXITCODE -ne 0){throw "Failed to create isolated ML environment"}
+# Mark the environment unavailable before touching a potentially incomplete venv.
+[ordered]@{status="installing";mode=$Mode;hash=$Hash;started_at=(Get-Date).ToUniversalTime().ToString("o")} |
+  ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
+try {
+  $Recreate=!(Test-Path -LiteralPath $MLPython)
+  if(!$Recreate){
+    & $MLPython -c "import sys; assert sys.prefix != sys.base_prefix" 2>$null
+    if($LASTEXITCODE -ne 0){$Recreate=$true}
+  }
+  if($Recreate){
+    if(!(Test-Path -LiteralPath $BasePython)){throw "Missing base Python for isolated ML environment"}
+    if(Test-Path -LiteralPath $MLVenv){Remove-Item -LiteralPath $MLVenv -Recurse -Force}
+    & $BasePython -m venv $MLVenv
+    if($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $MLPython)){throw "Failed to recreate isolated ML environment"}
+  }
+} catch {
+  [ordered]@{status="failed";mode=$Mode;error=$_.Exception.Message;failed_at=(Get-Date).ToUniversalTime().ToString("o")} |
+    ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
+  throw
 }
 $Python=$MLPython
 $CoreReq=Join-Path $ReleaseDir "requirements.txt"
