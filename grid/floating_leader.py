@@ -55,8 +55,24 @@ class FloatingLeader:
                 current=False
                 self.is_leader=False
                 self.epoch=None
-            if current and not previous and on_gain: await on_gain(self.epoch)
-            if previous and not current and on_loss: await on_loss()
+            if current and not previous and on_gain:
+                try:
+                    await on_gain(self.epoch)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    log.exception("leader gain callback failed",extra={"event":"leader_gain_failed"})
+                    # Do not advertise leadership when initialization failed.
+                    self.is_leader=False
+                    self.epoch=None
+                    current=False
+            if previous and not current and on_loss:
+                try:
+                    await on_loss()
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    log.exception("leader loss callback failed",extra={"event":"leader_loss_failed"})
             previous=current
             try: await asyncio.wait_for(self.stop_event.wait(),timeout=self.renew_seconds)
             except asyncio.TimeoutError: pass
