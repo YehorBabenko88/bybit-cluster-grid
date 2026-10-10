@@ -165,6 +165,23 @@ try {
                     $previousHash.Value.ToUpperInvariant()) {
                 throw 'Rollback entry point checksum mismatch; manual recovery required'
             }
+            $previousFull = [IO.Path]::GetFullPath($previousDir).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+            foreach ($fileEntry in $previousManifest.files.PSObject.Properties) {
+                $relative = [string]$fileEntry.Name
+                if ([IO.Path]::IsPathRooted($relative) -or $relative -match '(^|[\\/])\.\.([\\/]|$)' -or
+                    $relative -match '^[a-zA-Z]:' -or $fileEntry.Value -isnot [string] -or
+                    $fileEntry.Value -cnotmatch '^[0-9a-fA-F]{64}$') {
+                    throw 'Invalid rollback manifest file entry; manual recovery required'
+                }
+                $filePath = [IO.Path]::GetFullPath((Join-Path $previousDir ($relative.Replace('/', [IO.Path]::DirectorySeparatorChar))))
+                if (-not $filePath.StartsWith($previousFull, [StringComparison]::OrdinalIgnoreCase) -or
+                    -not (Test-Path -LiteralPath $filePath -PathType Leaf)) {
+                    throw 'Rollback manifest file missing or outside release; manual recovery required'
+                }
+                if ((Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash -cne $fileEntry.Value.ToUpperInvariant()) {
+                    throw 'Rollback manifest file checksum mismatch; manual recovery required'
+                }
+            }
         }
     }
     Write-Output "RECOVERY_PHASE=$($j.phase)"
