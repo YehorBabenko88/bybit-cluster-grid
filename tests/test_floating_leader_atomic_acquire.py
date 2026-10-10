@@ -263,8 +263,8 @@ def test_failed_gain_callback_releases_its_epoch_and_retries():
 
         leader = RetryingLeader()
         await asyncio.wait_for(leader.run(on_gain=on_gain), 2)
-        assert events == [("gain", 101), ("release", 101), ("gain", 102)]
-        assert leader.epoch == 102
+        assert events == [("gain", 101), ("release", 101), ("gain", 102), ("release", 102)]
+        assert leader.epoch is None
 
     asyncio.run(scenario())
 
