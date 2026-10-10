@@ -47,11 +47,10 @@ async def latest_operation(pool, action=None):
     return dict(row) if row else None
 
 async def _registered_targets(pool,nodes):
-    try:
-        rows=await pool.fetch("SELECT node_id FROM agent_credentials WHERE revoked_at IS NULL ORDER BY node_id")
-        return sorted(set(nodes) | {r["node_id"] for r in rows})
-    except Exception:
-        return sorted(nodes)
+    # Fail closed: an unavailable credential registry cannot be interpreted
+    # as an empty set of offline nodes, especially during fleet DELETE.
+    rows=await pool.fetch("SELECT node_id FROM agent_credentials WHERE revoked_at IS NULL ORDER BY node_id")
+    return sorted(set(nodes) | {r["node_id"] for r in rows})
 
 async def _last_local_intent(pool,nid,node):
     if node:
