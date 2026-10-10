@@ -48,6 +48,7 @@ if(Test-Path -LiteralPath $Journal){
   try {
     $PreviousJournal=Get-Content -LiteralPath $Journal -Raw | ConvertFrom-Json -ErrorAction Stop
     $PreviousReady=($PreviousJournal.status -eq "ready")
+    $PreviousJournalHash=[string]$PreviousJournal.hash
   } catch {
     $PreviousReady=$false
   }
@@ -92,7 +93,7 @@ $CoreReq=Join-Path $ReleaseDir "requirements.txt"
 if(!(Test-Path $CoreReq)){throw "Missing core requirements for ML environment"}
 $CoreHash=(Get-FileHash -Algorithm SHA256 $CoreReq).Hash.ToLowerInvariant()
 $Hash=("{0}:{1}" -f $CoreHash,$Hash)
-$Need=($Hash -ne $Old) -or $Recreate -or !$PreviousReady
+$Need=($Hash -ne $Old) -or $Recreate -or !$PreviousReady -or ($PreviousJournalHash -ne $Hash)
 if(!$Need){
   # A cached ML environment must also contain the worker protocol dependencies.
   & $Python -c "import aiohttp,asyncpg,psutil,pydantic,httpx,websockets,numpy,scipy,sklearn,joblib,xgboost,lightgbm" 2>$null
