@@ -207,7 +207,7 @@ def test_stale_telemetry_is_rejected_after_dispatch_lock_wait():
                     await blocker.execute("SELECT pg_advisory_xact_lock($1)",DISPATCH_LOCK_KEY)
                     task=asyncio.create_task(MLDispatcher(pool,nodes)(1))
                     await asyncio.wait_for(started.wait(),2)
-                    await asyncio.sleep(5.15)
+                    await asyncio.sleep(4.2)
                 result=await asyncio.wait_for(task,5)
             assert result==[]
             assert await admin.fetchval(
