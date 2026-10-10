@@ -221,6 +221,21 @@ try {
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Corrupted rollback support removed journal'
     Remove-Item -LiteralPath $rollbackSupport -Force
     Remove-Item -LiteralPath $previousManifest -Force
+    # Committed recovery must reject Python sources omitted from rollback manifest.
+    Journal 'committed'
+    Set-Content -LiteralPath $current -Value $a
+    Set-Content -LiteralPath $pending -Value $b
+    $unlistedRollback = Join-Path $root "releases\$a\unlisted_rollback.py"
+    [IO.File]::WriteAllText($unlistedRollback, '# unlisted rollback source')
+    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + '"}}'))
+    $unlistedRollbackRejected = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $unlistedRollbackRejected = $true }
+    Assert $unlistedRollbackRejected 'Unlisted rollback Python source must block committed recovery'
+    Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Unlisted rollback source changed current'
+    Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Unlisted rollback source changed pending'
+    Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Unlisted rollback source removed journal'
+    Remove-Item -LiteralPath $unlistedRollback -Force
+    Remove-Item -LiteralPath $previousManifest -Force
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
