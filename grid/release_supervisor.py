@@ -172,8 +172,14 @@ def _ready(mode,proc,ready_file):
         except Exception:return False
     return False
 
+_release_state_lock = threading.Lock()
+
 def _confirm(root,version,proc,delay,mode=None,ready_file=None):
     time.sleep(delay)
+    with _release_state_lock:
+        return _confirm_locked(root,version,proc,mode,ready_file)
+
+def _confirm_locked(root,version,proc,mode=None,ready_file=None):
     root=pathlib.Path(root)
     pending=root/"pending.version"
     if _read(pending)!=version or proc.poll() is not None:return
@@ -187,6 +193,10 @@ def _confirm(root,version,proc,delay,mode=None,ready_file=None):
     (root/"pending-crashes.txt").unlink(missing_ok=True)
 
 def _after_exit(root,version,runtime,exit_code=1,mode=None):
+    with _release_state_lock:
+        return _after_exit_locked(root,version,runtime,exit_code,mode)
+
+def _after_exit_locked(root,version,runtime,exit_code=1,mode=None):
     # An intentional clean stop must not count as a release crash.
     if exit_code == 0:return False
     root=pathlib.Path(root); pending=root/"pending.version"
