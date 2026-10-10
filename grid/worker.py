@@ -59,6 +59,27 @@ class Worker:
         # heartbeat expiry window when the network is partitioned.
         self.last_assignment_heartbeat=None
 
+    async def expire_stale_assignments(self, now=None):
+        """Revoke collectors when CONTROL stops renewing the assignment lease."""
+        if self.last_assignment_heartbeat is None:
+            return False
+        current=time.monotonic() if now is None else now
+        if current-self.last_assignment_heartbeat < max(1.0,3.0*settings.heartbeat_seconds):
+            return False
+        if not (self.wanted or self.micro_wanted):
+            return False
+        log.error("CONTROL assignment lease expired; stopping collectors",
+                  extra={"event":"assignment_lease_expired"})
+        self.wanted=set()
+        self.micro_wanted=set()
+        await self.reconcile()
+        return True
+
+    async def assignment_watchdog(self):
+        while True:
+            await self.expire_stale_assignments()
+            await asyncio.sleep(max(0.25,min(1.0,settings.heartbeat_seconds/2)))
+
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
             while True:
@@ -228,18 +249,7 @@ class Worker:
                         log.info("graceful self-decommission shutdown",
                                  extra={"event":"self_decommission_shutdown"})
                         return
-                # Stop stale collectors after the same three-heartbeat window
-                # used by CONTROL to declare a worker offline. A single missed
-                # heartbeat is tolerated; recovery resumes via normal reconcile.
-                if (self.last_assignment_heartbeat is not None
-                        and time.monotonic()-self.last_assignment_heartbeat
-                        >= max(1.0,3.0*settings.heartbeat_seconds)
-                        and (self.wanted or self.micro_wanted)):
-                    log.error("CONTROL assignment lease expired; stopping collectors",
-                              extra={"event":"assignment_lease_expired"})
-                    self.wanted=set()
-                    self.micro_wanted=set()
-                    await self.reconcile()
+                await self.expire_stale_assignments()
                 if self.restart_requested:
                     # Receipt is durable and ACK was attempted above. Return through
                     # Worker.run() so ML/process-tree and WAL cleanup runs first.
@@ -406,6 +416,7 @@ class Worker:
             self.operator_stopped=True; self.enabled=False
 
         health_task=asyncio.create_task(health_monitor())
+        assignment_watchdog_task=asyncio.create_task(self.assignment_watchdog())
         if ml_runtime_ready():
             client=MLTransportClient(NODE_ID)
             def ml_can_claim():
@@ -428,7 +439,8 @@ class Worker:
                 task.cancel()
             await asyncio.gather(*list(self.trade_tasks.values()),*self.micro_tasks,return_exceptions=True)
             health_task.cancel()
-            await asyncio.gather(health_task,return_exceptions=True)
+            assignment_watchdog_task.cancel()
+            await asyncio.gather(health_task,assignment_watchdog_task,return_exceptions=True)
             self.ml_stop.set()
             if self.ml_task is not None:
                 self.ml_task.cancel()
