@@ -30,7 +30,7 @@ def test_recovery_only_runs_for_leader_and_repeats_after_restart(monkeypatch):
     async def run():
         p=Pool()
         calls=[]
-        async def dispatch(*a):
+        async def dispatch(*a,**kw):
             calls.append("dispatch")
             return []
         async def health():
@@ -64,7 +64,7 @@ def test_leadership_loss_during_recovery_prevents_dispatch(monkeypatch):
         async def leadership(*args):
             attempts.append(True)
             return len(attempts)==1
-        async def dispatch(*args):
+        async def dispatch(*args,**kw):
             dispatches.append(args)
             return []
         async def health():
