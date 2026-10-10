@@ -198,6 +198,21 @@ class ReleaseSupervisorTests(unittest.TestCase):
                 self.assertIn("already running", result.stderr)
             self.assertFalse((root / "release-ready.txt").exists())
 
+    def test_child_exiting_during_readiness_does_not_confirm(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            version = "b" * 40
+            (root / "current.version").write_text(version)
+            (root / "pending.version").write_text(version)
+            (root / "pending-crashes.txt").write_text("2")
+            proc = mock.Mock()
+            proc.poll.side_effect = [None, 1]
+            with mock.patch.object(supervisor.time, "sleep", return_value=None):
+                with mock.patch.object(supervisor, "_ready", return_value=True):
+                    supervisor._confirm(root, version, proc, 1, mode="coordinator")
+            self.assertTrue((root / "pending.version").exists())
+            self.assertEqual((root / "pending-crashes.txt").read_text(), "2")
+
     def test_missing_current_marker_blocks_confirmation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
