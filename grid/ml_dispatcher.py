@@ -18,11 +18,15 @@ class MLDispatcher:
         reservations=await reserved_by_node(self.pool)
         adjusted={}
         for node_id,n in nodes.items():
-            x=dict(n); r=reservations.get(node_id,{})
-            x["ram_available"]=max(0,float(x.get("ram_available",0))-float(r.get("ram_gb",0) or 0)*1024**3)
-            x["disk_free"]=max(0,float(x.get("disk_free",0))-float(r.get("scratch_gb",0) or 0)*1024**3)
-            cpu_count=max(1,int(x.get("cpu_count",1)))
-            x["cpu_pct"]=min(100.0,float(x.get("cpu_pct",0))+100.0*float(r.get("cpu",0) or 0)/cpu_count)
+            try:
+                x=dict(n); r=reservations.get(node_id,{})
+                x["ram_available"]=max(0,float(x.get("ram_available",0))-float(r.get("ram_gb",0) or 0)*1024**3)
+                x["disk_free"]=max(0,float(x.get("disk_free",0))-float(r.get("scratch_gb",0) or 0)*1024**3)
+                cpu_count=max(1,int(x.get("cpu_count",1)))
+                x["cpu_pct"]=min(100.0,float(x.get("cpu_pct",0))+100.0*float(r.get("cpu",0) or 0)/cpu_count)
+            except (TypeError,ValueError,OverflowError):
+                # One corrupt heartbeat must not stop placement on healthy nodes.
+                continue
             adjusted[node_id]=x
         nodes=adjusted
         active=await self.pool.fetchval("""SELECT count(*) FROM ml_jobs
