@@ -123,7 +123,7 @@ def test_windows_job_close_kills_descendant(tmp_path):
 
     child = subprocess.Popen(
         [sys.executable, "-c", "import time; time.sleep(60)"],
-        creationflags=subprocess.CREATE_SUSPENDED,
+        creationflags=0x00000004,  # CREATE_SUSPENDED (Win32),
     )
     job = None
     try:
