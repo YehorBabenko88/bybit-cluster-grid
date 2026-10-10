@@ -4,28 +4,34 @@ from unittest.mock import patch
 from grid import resources
 
 
-def test_ml_readiness_probe_does_not_block_heartbeat():
-    """A slow ML import must not hold up the caller's heartbeat."""
-    resources._ML_READY_CACHE.update(at=0.0, value=False, running=False)
+def test_ml_readiness_probe_does_not_block_heartbeat(tmp_path):
+    """A slow import cannot block heartbeat when a ready journal exists."""
+    import json
+    root=tmp_path/"BybitClusterGrid"/"runtime"
+    root.mkdir(parents=True)
+    journal=root/"ml-bootstrap.json"
+    journal.write_text(json.dumps({"status":"ready"}))
+    resources._ML_READY_CACHE.update(at=0.0,value=False,running=False,journal_signature=None)
 
-    def slow_probe(python, journal):
+    def slow_probe(python, journal_path):
         time.sleep(0.5)
         with resources._ML_READY_LOCK:
-            resources._ML_READY_CACHE.update(at=time.monotonic(), value=True, running=False)
+            resources._ML_READY_CACHE.update(at=time.monotonic(),value=True,running=False)
 
     try:
-        with patch.object(resources, "_probe_ml_runtime", slow_probe):
-            started=time.monotonic()
-            assert resources.ml_runtime_ready() is False
-            assert time.monotonic()-started < 0.3
-            assert resources.ml_runtime_ready() is False
-            deadline=time.monotonic()+3
-            while resources._ML_READY_CACHE["running"] and time.monotonic()<deadline:
-                time.sleep(0.02)
-            assert resources.ml_runtime_ready() is True
+        with patch.dict(resources.os.environ,{"ProgramData":str(tmp_path)}):
+            with patch.object(resources,"_probe_ml_runtime",slow_probe):
+                started=time.monotonic()
+                assert resources.ml_runtime_ready() is False
+                assert time.monotonic()-started < 0.3
+                assert resources.ml_runtime_ready() is False
+                deadline=time.monotonic()+3
+                while resources._ML_READY_CACHE["running"] and time.monotonic()<deadline:
+                    time.sleep(.02)
+                assert resources.ml_runtime_ready() is True
     finally:
         with resources._ML_READY_LOCK:
-            resources._ML_READY_CACHE.update(at=0.0, value=False, running=False)
+            resources._ML_READY_CACHE.update(at=0.0,value=False,running=False,journal_signature=None)
 
 
 def test_ml_probe_missing_files_fails_closed(tmp_path):
