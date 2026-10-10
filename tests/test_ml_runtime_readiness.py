@@ -78,3 +78,16 @@ def test_ml_readiness_invalidates_ready_cache_on_journal_change(tmp_path):
             time.sleep(.02)
         assert resources._ML_READY_CACHE["value"] is False
     resources._ML_READY_CACHE.update(at=0.0,value=False,running=False,journal_signature=None)
+
+
+def test_ml_readiness_rejects_nonobject_journal(tmp_path):
+    import json
+    python=tmp_path/"python.exe"
+    journal=tmp_path/"ml-bootstrap.json"
+    python.write_text("not executable")
+    for state in (None,[],42,"ready"):
+        journal.write_text(json.dumps(state))
+        with patch.object(resources.subprocess,"run",side_effect=AssertionError("must not run ML")):
+            resources._probe_ml_runtime(str(python),str(journal))
+        assert resources._ML_READY_CACHE["value"] is False
+        assert resources._ML_READY_CACHE["running"] is False
