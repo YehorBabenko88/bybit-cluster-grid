@@ -61,7 +61,7 @@ def _probe_ml_runtime(python,journal):
         if os.path.isfile(python) and os.path.isfile(journal):
             with open(journal,encoding="utf-8-sig") as f:
                 state=json.load(f)
-            if state.get("status")=="ready":
+            if isinstance(state,dict) and state.get("status")=="ready":
                 result=subprocess.run(
                     [python,"-c","import aiohttp,asyncpg,psutil,pydantic,httpx,websockets,numpy,scipy,sklearn,joblib,xgboost,lightgbm"],
                     stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
