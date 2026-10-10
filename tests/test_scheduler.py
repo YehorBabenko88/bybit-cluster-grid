@@ -52,10 +52,10 @@ def test_recovered_node_can_receive_symbol_again():
     out=weighted_assign(["BTC"],{"A":10,"B":1},nodes)
     assert out["A"]==["BTC"]
 
-def test_all_pressured_still_preserves_collection():
+def test_all_critical_nodes_pause_collection():
     nodes={"A":{"pressure_state":"CRITICAL"},"B":{"pressure_state":"CRITICAL"}}
-    out=weighted_assign(["BTC"],{"A":1,"B":1},nodes)
-    assert len(out["A"])+len(out["B"])==1
+    out=weighted_assign(["BTCUSDT"],{"A":1,"B":1},nodes)
+    assert out=={"A":[],"B":[]}
 
 
 def test_dev_observer_never_receives_market_work():
@@ -86,3 +86,45 @@ def test_observer_disappearance_does_not_change_worker_assignment():
     a=weighted_assign(symbols,scores_with,with_home)
     b=weighted_assign(symbols,scores_without,workers)
     assert a==b
+
+
+def test_invalid_symbol_costs_are_ignored():
+    import math
+    costs, fallback=learned_symbol_cost({
+        "A":{"symbol_cost":{"BTCUSDT":float("inf"),"ETHUSDT":float("nan"),"SOLUSDT":-3}},
+        "B":{"symbol_cost":{"BTCUSDT":7}},
+    })
+    assert costs=={"BTCUSDT":7}
+    assert math.isfinite(fallback)
+    out=weighted_assign(["BTCUSDT","ETHUSDT"],{"A":1,"B":1},{
+        "A":{"symbol_cost":{"BTCUSDT":float("inf")}},
+        "B":{"symbol_cost":{"BTCUSDT":7}},
+    })
+    assert sorted(out["A"]+out["B"])==["BTCUSDT","ETHUSDT"]
+
+
+def test_zero_negative_nonfinite_capacity_never_gets_work():
+    nodes={key:{"pressure_state":"NORMAL"} for key in ("zero","negative","nan","inf","valid")}
+    out=weighted_assign(["BTCUSDT"],{
+        "zero":0,"negative":-1,"nan":float("nan"),"inf":float("inf"),"valid":2},nodes)
+    assert out=={"valid":["BTCUSDT"]}
+
+
+def test_all_invalid_capacities_result_in_no_assignment():
+    assert weighted_assign(["BTCUSDT"],{"A":0,"B":float("nan")},{})=={}
+
+
+def test_stabilization_zero_churn_keeps_healthy_owner():
+    from grid.scheduler import stabilize_assignments
+    proposed={"A":[],"B":["BTCUSDT"]}
+    current={"A":["BTCUSDT"],"B":[]}
+    nodes={"A":{"pressure_state":"NORMAL"},"B":{"pressure_state":"NORMAL"}}
+    assert stabilize_assignments(proposed,current,nodes,0)==current
+
+
+def test_stabilization_invalid_churn_is_conservative():
+    from grid.scheduler import stabilize_assignments
+    proposed={"A":[],"B":["BTCUSDT"]}
+    current={"A":["BTCUSDT"],"B":[]}
+    nodes={"A":{"pressure_state":"NORMAL"},"B":{"pressure_state":"NORMAL"}}
+    assert stabilize_assignments(proposed,current,nodes,float("nan"))==current

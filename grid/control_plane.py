@@ -50,5 +50,6 @@ async def pending_commands(pool,node_id,limit=10):
 async def command_result(pool,command_id,ok,result=None,error=None):
     async with pool.acquire() as c:
         await c.execute("""UPDATE agent_commands SET status=$2,completed_at=now(),
-          lease_until=NULL,result=$3::jsonb,error=$4 WHERE id=$1""",command_id,
+          lease_until=NULL,result=$3::jsonb,error=$4
+          WHERE id=$1 AND status='delivered' AND lease_until>=now()""",command_id,
           "done" if ok else "failed",json.dumps(result or {}),error)

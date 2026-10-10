@@ -19,10 +19,18 @@ class FloatingLeader:
                 # A second process must wait for expiry, not steal ownership.
                 previous_epoch = int((row["metadata"] or {}).get("epoch", 0)) if row else 0
                 epoch=max(int(time.time()*1000),previous_epoch+1)
-                await c.execute("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
+                result=await c.execute("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
                   VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3))
                   ON CONFLICT(service_key) DO UPDATE SET owner=EXCLUDED.owner,lease_until=EXCLUDED.lease_until,
-                  heartbeat_at=now(),metadata=EXCLUDED.metadata""",self.node_id,self.lease_seconds,epoch)
+                  heartbeat_at=now(),metadata=EXCLUDED.metadata
+                  WHERE service_leases.lease_until IS NULL OR service_leases.lease_until<=now()""",
+                  self.node_id,self.lease_seconds,epoch)
+                if not result.endswith(" 1"):
+                    # A concurrent contender acquired the initially absent row.
+                    # Never announce leadership if the UPSERT did not acquire it.
+                    self.is_leader=False
+                    self.epoch=None
+                    return False
         # Leadership becomes visible only after transaction commit succeeds.
         self.epoch=epoch; self.is_leader=True
         return True
