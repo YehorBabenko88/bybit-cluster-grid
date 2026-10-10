@@ -90,6 +90,20 @@ try {
     Assert (((Get-Content $current -Raw).Trim()) -eq ('c' * 40)) 'Conflict recovery changed current'
     Assert (((Get-Content $pending -Raw).Trim()) -eq $b) 'Conflict recovery changed pending'
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Conflict recovery removed journal'
+    # Foreign, empty, and noncanonical pending markers must never be overwritten.
+    foreach ($phaseCase in @('prepared','committed')) {
+        foreach ($foreignPending in @(('c' * 40), '', ('B' * 40))) {
+            Journal $phaseCase
+            Set-Content -LiteralPath $current -Value $a
+            Set-Content -LiteralPath $pending -Value $foreignPending
+            $foreignRejected = $false
+            try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $foreignRejected = $true }
+            Assert $foreignRejected 'Conflicting pending pointer must fail closed'
+            Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Conflicting pending removed journal'
+            Assert (((Get-Content $pending -Raw).Trim()) -ceq $foreignPending) 'Conflicting pending pointer was modified'
+            Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Conflicting pending changed current'
+        }
+    }
     # Recovery must reject corrupt current pointers without mutating the journal.
     foreach ($badCurrent in @( ('A' * 40), ('g' * 40), '../../bad' )) {
         Journal 'prepared'
