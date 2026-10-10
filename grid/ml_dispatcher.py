@@ -61,7 +61,7 @@ class MLDispatcher:
                 await c.execute("SELECT pg_advisory_xact_lock($1)",DISPATCH_LOCK_KEY)
                 # The snapshot may have aged while waiting for another
                 # dispatcher. Reject it instead of scheduling on stale capacity.
-                if asyncio.get_running_loop().time()-sampled_at>5:
+                if asyncio.get_running_loop().time()-sampled_at>4:
                     return []
                 if leader_owner is not None:
                     # Lock the leadership row until this dispatch transaction
