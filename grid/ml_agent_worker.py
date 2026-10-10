@@ -118,6 +118,8 @@ async def execute_remote_job(client,job):
     bundle=workdir/"bundle.json";artifact=workdir/"artifact.bin";result=workdir/"result.json"
     try:
         await _write_paged_bundle(client,job,bundle)
+        if await client.renew(job) is None:
+            raise RuntimeError("remote ML lease lost before compute")
         argv=[sys.executable,"-m","grid.ml_compute_entry","--bundle",str(bundle),
               "--artifact",str(artifact),"--result",str(result)]
         async def work():
