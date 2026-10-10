@@ -21,6 +21,15 @@ class MLOrchestratorService:
         # cannot retain capacity, even if the old reservation expiry is future.
         async with self.pool.acquire() as c:
             async with c.transaction():
+                # Recovery is a writer operation: fence it with the same
+                # leader row used by dispatch, inside this transaction.
+                await c.execute("SET LOCAL lock_timeout = '5s'")
+                owner_ok=await c.fetchval("""SELECT 1 FROM service_leases
+                  WHERE service_key='ml-orchestrator-leader' AND owner=$1
+                    AND lease_until>clock_timestamp() FOR UPDATE""",self.owner)
+                if owner_ok!=1:
+                    self.state=OBSERVING
+                    return False
                 await c.execute("""UPDATE ml_jobs SET status='queued',lease_owner=NULL,lease_until=NULL,
                   not_before=clock_timestamp()+interval '5 seconds',
                   error=COALESCE(error,'recovered after expired lease')
@@ -35,7 +44,13 @@ class MLOrchestratorService:
                     SELECT 1 FROM ml_jobs j WHERE j.id=r.job_id
                     AND j.status IN ('assigned','running')
                     AND j.lease_until>=clock_timestamp())""")
+                still_owner=await c.fetchval("""SELECT lease_until>clock_timestamp()
+                  FROM service_leases WHERE service_key='ml-orchestrator-leader'
+                    AND owner=$1""",self.owner)
+                if not still_owner:
+                    raise RuntimeError('ML recovery leadership expired before commit')
         self.state=OBSERVING
+        return True
 
     async def tick(self):
         leader=await acquire_service_lease(self.pool,"ml-orchestrator-leader",self.owner,30,
@@ -44,7 +59,8 @@ class MLOrchestratorService:
             self.state=OBSERVING; return {"leader":False}
         # Only the current leader may reconcile jobs. Repeating this on each
         # tick also recovers leases that expire long after process startup.
-        await self.recover()
+        if not await self.recover():
+            return {"leader":False,"workers":0}
         h=await self.health_reader()
         workers=self.concurrency.update(float(h.get("cpu_pct",100)),float(h.get("ram_pct",100)),
           float(h.get("db_latency_ms",9999)),float(h.get("db_queue_ratio",1)),
