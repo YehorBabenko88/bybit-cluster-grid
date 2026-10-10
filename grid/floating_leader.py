@@ -1,4 +1,4 @@
-import asyncio,hashlib,logging,socket,time
+import asyncio,hashlib,json,logging,math,socket,time
 log=logging.getLogger("leader_election")
 
 class FloatingLeader:
@@ -6,6 +6,8 @@ class FloatingLeader:
     def __init__(self,pool,node_id=None,lease_seconds=20,renew_seconds=5):
         self.pool=pool; self.node_id=node_id or socket.gethostname()
         self.lease_seconds=int(lease_seconds); self.renew_seconds=float(renew_seconds)
+        if self.lease_seconds <= 0 or not math.isfinite(self.renew_seconds) or not (0 < self.renew_seconds < self.lease_seconds):
+            raise ValueError('leader lease requires 0 < renew_seconds < lease_seconds')
         self.is_leader=False; self.epoch=None; self.stop_event=asyncio.Event()
 
     async def campaign(self):
@@ -14,15 +16,39 @@ class FloatingLeader:
                 row=await c.fetchrow("""SELECT owner,lease_until,metadata FROM service_leases
                   WHERE service_key='control-plane-leader' FOR UPDATE""")
                 if row and row["lease_until"] and row["lease_until"]>await c.fetchval("SELECT now()"):
-                    self.is_leader=False; return False
+                    self.is_leader=False
+                    self.epoch=None
+                    return False
                 # Even the same node_id cannot seize an unexpired lease.
                 # A second process must wait for expiry, not steal ownership.
-                previous_epoch = int((row["metadata"] or {}).get("epoch", 0)) if row else 0
+                metadata = row["metadata"] if row else None
+                if isinstance(metadata, str):
+                    metadata = json.loads(metadata)
+                if metadata is not None and not isinstance(metadata, dict):
+                    raise ValueError("invalid leader lease metadata: expected object")
+                raw_epoch = (metadata or {}).get("epoch", 0)
+                if isinstance(raw_epoch, bool) or not isinstance(raw_epoch, int) or raw_epoch < 0:
+                    raise ValueError("invalid leader lease epoch: expected nonnegative integer")
+                previous_epoch = raw_epoch
+                max_epoch = (1 << 63) - 1
+                if previous_epoch >= max_epoch:
+                    raise ValueError("leader lease epoch exhausted bigint range")
                 epoch=max(int(time.time()*1000),previous_epoch+1)
-                await c.execute("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
-                  VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3))
+                if epoch > max_epoch:
+                    raise ValueError("leader lease epoch exceeds bigint range")
+                acquired=await c.fetchval("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
+                  VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3::bigint))
                   ON CONFLICT(service_key) DO UPDATE SET owner=EXCLUDED.owner,lease_until=EXCLUDED.lease_until,
-                  heartbeat_at=now(),metadata=EXCLUDED.metadata""",self.node_id,self.lease_seconds,epoch)
+                  heartbeat_at=now(),metadata=EXCLUDED.metadata
+                  WHERE (service_leases.lease_until IS NULL OR service_leases.lease_until <= now())
+                  RETURNING (metadata->>'epoch')::bigint""",self.node_id,self.lease_seconds,epoch)
+                # A concurrent first insert can win while we wait on its
+                # unique-key lock. Only the successful INSERT/UPDATE returns.
+
+                if acquired is None:
+                    self.is_leader=False
+                    self.epoch=None
+                    return False
         # Leadership becomes visible only after transaction commit succeeds.
         self.epoch=epoch; self.is_leader=True
         return True
@@ -62,6 +88,21 @@ class FloatingLeader:
                 current=False
                 self.is_leader=False
                 self.epoch=None
+            # Shutdown can race with an in-flight campaign. Never start
+            # leader-only services after stop has already been requested.
+            if current and self.stop_event.is_set():
+                acquired_epoch = self.epoch
+                self.is_leader = False
+                self.epoch = None
+                current = False
+                if acquired_epoch is not None:
+                    try:
+                        await self.release(acquired_epoch)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        log.exception("failed to release lease after concurrent stop",
+                                      extra={"event": "leader_stop_release_failed"})
             if current and not previous and on_gain:
                 try:
                     await on_gain(self.epoch)
@@ -83,7 +124,7 @@ class FloatingLeader:
                     except Exception:
                         log.exception("failed to release lease after leader initialization error",
                                       extra={"event":"leader_release_failed"})
-            if previous and not current and on_loss:
+            if previous and not current and on_loss and not self.stop_event.is_set():
                 try:
                     await on_loss()
                 except asyncio.CancelledError:
@@ -95,3 +136,22 @@ class FloatingLeader:
             except asyncio.TimeoutError: pass
 
     def stop(self):self.stop_event.set()
+
+    async def shutdown(self, on_loss=None):
+        """Stop local leadership and release only the lease held by this epoch.
+
+        Callers should stop leader-only services before releasing the lease,
+        so a successor cannot start while the old services are still running.
+        """
+        self.stop()
+        held_epoch = self.epoch if self.is_leader else None
+        self.is_leader = False
+        self.epoch = None
+        if held_epoch is None:
+            return
+        # Do not release early when cleanup fails: the lease must remain
+        # fenced until expiry rather than overlap a successor with old work.
+        if on_loss is not None:
+            await on_loss()
+        await self.release(held_epoch)
+

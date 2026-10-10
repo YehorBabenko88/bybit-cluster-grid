@@ -11,7 +11,7 @@ class Conn:
     def transaction(self): return Tx()
     async def fetchrow(self,*args):
         return {"owner":"other-node","lease_until":None,"metadata":{"epoch":self.epoch}}
-    async def execute(self,*args): self.args=args;return "INSERT 0 1"
+    async def fetchval(self,*args): self.args=args;return args[-1]
 
 class Acquire:
     def __init__(self,conn):self.conn=conn
