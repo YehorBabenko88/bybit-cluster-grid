@@ -55,6 +55,9 @@ class Worker:
         self.ml_task=None
         self.ml_stop=asyncio.Event()
         self.restart_requested=False
+        # A stale CONTROL assignment must not outlive the coordinator's
+        # heartbeat expiry window when the network is partitioned.
+        self.last_assignment_heartbeat=None
 
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
@@ -132,6 +135,7 @@ class Worker:
                         if r.status==200:
                             mark_coordinator_success()
                             reply=await r.json()
+                            self.last_assignment_heartbeat=time.monotonic()
                             # DEV/OBSERVER remains manageable and visible but is fail-closed
                             # for market workload even if an older/misconfigured CONTROL
                             # accidentally returns assignments.
@@ -224,6 +228,18 @@ class Worker:
                         log.info("graceful self-decommission shutdown",
                                  extra={"event":"self_decommission_shutdown"})
                         return
+                # Stop stale collectors after the same three-heartbeat window
+                # used by CONTROL to declare a worker offline. A single missed
+                # heartbeat is tolerated; recovery resumes via normal reconcile.
+                if (self.last_assignment_heartbeat is not None
+                        and time.monotonic()-self.last_assignment_heartbeat
+                        >= max(1.0,3.0*settings.heartbeat_seconds)
+                        and (self.wanted or self.micro_wanted)):
+                    log.error("CONTROL assignment lease expired; stopping collectors",
+                              extra={"event":"assignment_lease_expired"})
+                    self.wanted=set()
+                    self.micro_wanted=set()
+                    await self.reconcile()
                 if self.restart_requested:
                     # Receipt is durable and ACK was attempted above. Return through
                     # Worker.run() so ML/process-tree and WAL cleanup runs first.
