@@ -42,6 +42,24 @@ try {
     Assert $invalid 'Mismatched manifest must fail'
     Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $a) 'Failed plan changed current'
     Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
+    # Malformed manifest content must fail before any release pointer changes.
+    foreach ($badManifest in @(
+        '{',
+        'null',
+        '{}',
+        ('{"version":"' + $b + '","files":{"../escape.py":"' + $hash + '"}}'),
+        ('{"version":"' + $b + '","files":{"run_worker.py":"not-a-sha256"}}')
+    )) {
+        Set-Content -LiteralPath $manifestPath -Value $badManifest
+        $badManifestRejected = $false
+        try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null } catch { $badManifestRejected = $true }
+        Assert $badManifestRejected 'Malformed release manifest must fail closed'
+        Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $a) 'Bad manifest changed current'
+        Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Bad manifest created pending'
+        Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Bad manifest created journal'
+    }
+    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
+
     Set-Content -LiteralPath (Join-Path $root "releases\$b\run_worker.py") -Value '# tampered'
     $blocked = $false
     try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null }
