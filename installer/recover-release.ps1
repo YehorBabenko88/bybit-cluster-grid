@@ -33,7 +33,7 @@ try {
         @($j.PSObject.Properties.Match('phase')).Count -ne 1) {
         throw 'Invalid release switch journal structure; manual recovery required'
     }
-    if ($j.schema -isnot [int] -or $j.previous -isnot [string] -or
+    if ($j.schema -isnot [long] -and $j.schema -isnot [int] -or $j.previous -isnot [string] -or
         $j.candidate -isnot [string] -or $j.phase -isnot [string]) {
         throw 'Invalid release switch journal field types; manual recovery required'
     }
