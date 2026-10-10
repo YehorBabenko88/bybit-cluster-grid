@@ -58,22 +58,24 @@ class Worker:
         # A stale CONTROL assignment must not outlive the coordinator's
         # heartbeat expiry window when the network is partitioned.
         self.last_assignment_heartbeat=None
+        self.assignment_lock=asyncio.Lock()
 
     async def expire_stale_assignments(self, now=None):
         """Revoke collectors when CONTROL stops renewing the assignment lease."""
-        if self.last_assignment_heartbeat is None:
-            return False
-        current=time.monotonic() if now is None else now
-        if current-self.last_assignment_heartbeat < max(1.0,3.0*settings.heartbeat_seconds):
-            return False
-        if not (self.wanted or self.micro_wanted):
-            return False
-        log.error("CONTROL assignment lease expired; stopping collectors",
-                  extra={"event":"assignment_lease_expired"})
-        self.wanted=set()
-        self.micro_wanted=set()
-        await self.reconcile()
-        return True
+        async with self.assignment_lock:
+            if self.last_assignment_heartbeat is None:
+                return False
+            current=time.monotonic() if now is None else now
+            if current-self.last_assignment_heartbeat < max(1.0,3.0*settings.heartbeat_seconds):
+                return False
+            if not (self.wanted or self.micro_wanted):
+                return False
+            log.error("CONTROL assignment lease expired; stopping collectors",
+                      extra={"event":"assignment_lease_expired"})
+            self.wanted=set()
+            self.micro_wanted=set()
+            await self.reconcile()
+            return True
 
     async def assignment_watchdog(self):
         while True:
@@ -156,7 +158,6 @@ class Worker:
                         if r.status==200:
                             mark_coordinator_success()
                             reply=await r.json()
-                            self.last_assignment_heartbeat=time.monotonic()
                             # DEV/OBSERVER remains manageable and visible but is fail-closed
                             # for market workload even if an older/misconfigured CONTROL
                             # accidentally returns assignments.
@@ -218,16 +219,18 @@ class Worker:
                             requested_micro=set(reply.get("micro_symbols",[]))
                             recovering=bool(dbm.get("replay_active",False) or microm.get("replay_active",False))
                             new_micro=(requested_micro & new) if not recovering else set()
-                            assignments_changed=(new != self.wanted or new_micro != self.micro_wanted)
-                            dead_trade_tasks=any(task.done() for task in self.trade_tasks.values())
-                            dead_micro_tasks=any(task.done() for task in self.micro_tasks)
-                            if assignments_changed or dead_trade_tasks or dead_micro_tasks:
-                                self.wanted=new
-                                self.micro_wanted=new_micro
-                                if dead_micro_tasks:
-                                    # Force the microstructure collector group to be rebuilt.
-                                    self.micro_signature=None
-                                await self.reconcile()
+                            async with self.assignment_lock:
+                                self.last_assignment_heartbeat=time.monotonic()
+                                assignments_changed=(new != self.wanted or new_micro != self.micro_wanted)
+                                dead_trade_tasks=any(task.done() for task in self.trade_tasks.values())
+                                dead_micro_tasks=any(task.done() for task in self.micro_tasks)
+                                if assignments_changed or dead_trade_tasks or dead_micro_tasks:
+                                    self.wanted=new
+                                    self.micro_wanted=new_micro
+                                    if dead_micro_tasks:
+                                        # Force the microstructure collector group to be rebuilt.
+                                        self.micro_signature=None
+                                    await self.reconcile()
                             # Confirm this release only after an authenticated CONTROL
                             # heartbeat and successful assignment reconciliation.
                             ready_file=os.getenv('GRID_RELEASE_READY_FILE')
