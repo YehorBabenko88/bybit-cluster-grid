@@ -113,4 +113,10 @@ class MLDispatcher:
                     selected["cpu_pct"]=min(100.0,float(selected.get("cpu_pct",0))+100.0*w.cpu/cores)
                     if w.gpu:selected["gpu_available"]=False
                     dispatched.append({"job_id":str(job["id"]),"node_id":node_id,"placement":why})
+                if leader_owner is not None:
+                    still_leader=await c.fetchval("""SELECT lease_until>clock_timestamp()
+                      FROM service_leases WHERE service_key='ml-orchestrator-leader'
+                        AND owner=$1""",leader_owner)
+                    if not still_leader:
+                        raise RuntimeError("ML orchestrator leadership expired before dispatch commit")
         return dispatched
