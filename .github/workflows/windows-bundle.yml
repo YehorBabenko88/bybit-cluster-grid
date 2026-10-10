@@ -140,6 +140,29 @@ jobs:
           & $base -c "import sys; assert 'ml-venv' not in sys.executable.lower()"
           if($LASTEXITCODE -ne 0){ throw "Base interpreter was modified" }
 
+      - name: Reject concurrent ML bootstrap without changing ready journal
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
+          $root=Join-Path $env:RUNNER_TEMP "grid-ml-isolation-test"
+          $base=(Get-Command python).Source
+          $journalPath=Join-Path $root "ml-bootstrap.json"
+          $before=Get-Content -LiteralPath $journalPath -Raw
+          $lockPath=Join-Path $root "ml-bootstrap.lock"
+          $handle=[System.IO.File]::Open($lockPath,[System.IO.FileMode]::OpenOrCreate,
+            [System.IO.FileAccess]::ReadWrite,[System.IO.FileShare]::None)
+          try {
+            $output=& ./installer/bootstrap-ml.ps1 -Python $base -BasePython $base -ReleaseDir $bundle -RuntimeRoot $root -Mode PILOT 2>&1
+            if($LASTEXITCODE -eq 0){ throw "Concurrent ML bootstrap unexpectedly succeeded" }
+            $after=Get-Content -LiteralPath $journalPath -Raw
+            if($after -ne $before){ throw "Concurrent ML bootstrap modified the ready journal" }
+          } finally {
+            $handle.Dispose()
+          }
+          & ./installer/bootstrap-ml.ps1 -Python $base -BasePython $base -ReleaseDir $bundle -RuntimeRoot $root -Mode PILOT
+          if($LASTEXITCODE -ne 0){ throw "ML bootstrap did not recover after lock release" }
+
       - name: Test supervisor crash recovery
         shell: pwsh
         run: |
