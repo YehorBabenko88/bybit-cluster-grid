@@ -63,6 +63,7 @@ async def start_readiness(pool,nodes,heartbeat_seconds):
         )
     except Exception:
         op=None
+        missing.append("fleet_operations_unavailable")
     if op:
         details["blocking_operation"]={"action":op["action"],"status":op["status"]}
         missing.append("fleet_operation_in_progress")
