@@ -71,7 +71,14 @@ def _probe_ml_runtime(python,journal):
     except (OSError,ValueError,subprocess.TimeoutExpired):
         ready=False
     finally:
+        try:
+            stat=os.stat(journal)
+            signature=(stat.st_mtime_ns,stat.st_size)
+        except OSError:
+            signature=None
         with _ML_READY_LOCK:
+            if signature!=_ML_READY_CACHE["journal_signature"]:
+                ready=False
             _ML_READY_CACHE.update(at=time.monotonic(),value=ready,running=False)
 
 
