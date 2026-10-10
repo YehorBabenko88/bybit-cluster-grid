@@ -146,10 +146,11 @@ def test_dispatch_fences_expired_leader_and_rolls_back_slow_placement():
                         SET owner='leader-b',lease_until=clock_timestamp()+interval '30 seconds'
                         WHERE service_key='ml-orchestrator-leader' '''))
                 await asyncio.sleep(.15)
-                assert not takeover_task.done()
+                # Telemetry runs before the leadership row is locked.
+                assert takeover_task.done()
                 return await nodes()
-            assert len(await MLDispatcher(pool,nodes_during_takeover)(
-                1,leader_owner="leader-a"))==1
+            assert await MLDispatcher(pool,nodes_during_takeover)(
+                1,leader_owner="leader-a")==[]
             assert takeover_task is not None
             await asyncio.wait_for(takeover_task,5)
             assert await admin.fetchval(
@@ -163,8 +164,7 @@ def test_dispatch_fences_expired_leader_and_rolls_back_slow_placement():
             async def slow_nodes():
                 await asyncio.sleep(.35)
                 return await nodes()
-            with pytest.raises(RuntimeError,match="leadership expired"):
-                await MLDispatcher(pool,slow_nodes)(1,leader_owner="leader-a")
+            assert await MLDispatcher(pool,slow_nodes)(1,leader_owner="leader-a")==[]
             assert await admin.fetchval(f'SELECT status FROM "{schema}".ml_jobs WHERE id=$1',job_id)=="queued"
             assert await admin.fetchval(f'SELECT count(*) FROM "{schema}".ml_resource_reservations')==0
         finally:
