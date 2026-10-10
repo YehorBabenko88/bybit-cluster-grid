@@ -23,3 +23,20 @@ def test_disk_pressure_nodes_are_not_ranked():
                    "ram_available":64*1024**3,"disk_free":100*1024**3,"cpu_count":32}}
     ranked=rank_nodes(nodes,Workload("train",cpu=4,ram_gb=8,scratch_gb=10))
     assert [x[1] for x in ranked]==["ok"]
+
+
+def test_scheduler_rejects_negative_and_nonfinite_requests():
+    nodes={"node":node(10,32,100)}
+    for kwargs in ({"ram_gb":-1},{"scratch_gb":-2},{"cpu":-1},
+                   {"ram_gb":float("nan")},{"cpu":float("inf")},
+                   {"input_gb":float("-inf")}):
+        assert choose_node(nodes,Workload("train",**kwargs)) is None
+
+
+def test_dispatcher_accounts_for_reservations_within_same_batch():
+    from pathlib import Path
+    source=Path("grid/ml_dispatcher.py").read_text(encoding="utf-8")
+    assert 'selected=nodes[node_id]' in source
+    assert 'selected["ram_available"]=max(0.0' in source
+    assert 'selected["disk_free"]=max(0.0' in source
+    assert 'selected["cpu_pct"]=min(100.0' in source
