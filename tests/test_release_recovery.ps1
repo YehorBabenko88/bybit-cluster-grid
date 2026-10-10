@@ -197,7 +197,7 @@ try {
     Journal 'committed'
     Set-Content -LiteralPath $current -Value $a
     Set-Content -LiteralPath $pending -Value $b
-    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + '"}}'))
+    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + ',"grid/coordinator.py":"' + $previousControlHash + '"}}'))
     [IO.File]::WriteAllText($previousEntry, '# damaged previous release')
     $committedRollbackRejected = $false
     try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $committedRollbackRejected = $true }
@@ -214,7 +214,7 @@ try {
     $rollbackSupport = Join-Path $root "releases\$a\rollback-support.txt"
     [IO.File]::WriteAllText($rollbackSupport, 'intact')
     $rollbackSupportHash = (Get-FileHash -LiteralPath $rollbackSupport -Algorithm SHA256).Hash.ToLowerInvariant()
-    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + '","rollback-support.txt":"' + $rollbackSupportHash + '"}}'))
+    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + ',"grid/coordinator.py":"' + $previousControlHash + '","rollback-support.txt":"' + $rollbackSupportHash + '"}}'))
     [IO.File]::WriteAllText($rollbackSupport, 'corrupted')
     $rollbackSupportRejected = $false
     try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $rollbackSupportRejected = $true }
@@ -230,7 +230,7 @@ try {
     Set-Content -LiteralPath $pending -Value $b
     $unlistedRollback = Join-Path $root "releases\$a\unlisted_rollback.py"
     [IO.File]::WriteAllText($unlistedRollback, '# unlisted rollback source')
-    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + '"}}'))
+    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + ',"grid/coordinator.py":"' + $previousControlHash + '"}}'))
     $unlistedRollbackRejected = $false
     try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $unlistedRollbackRejected = $true }
     Assert $unlistedRollbackRejected 'Unlisted rollback Python source must block committed recovery'
