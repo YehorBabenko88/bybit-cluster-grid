@@ -47,10 +47,13 @@ class ScientificMethodRegistry:
                 payload=value if isinstance(value,dict) else {"result":value}
                 json.dumps(payload,default=str)  # fail before DB if plugin emits unserialisable output
                 await pool.execute("""INSERT INTO scientific_method_events(
-                  method_key,event_ts,event_type,payload,schema_version)
-                  VALUES($1,COALESCE($2,now()),$3,$4::jsonb,$5)""",
+                  method_key,event_ts,event_type,payload,schema_version,source_event_id)
+                  VALUES($1,COALESCE($2,now()),$3,$4::jsonb,$5,$6)
+                  ON CONFLICT (method_key,source_event_id)
+                  WHERE source_event_id IS NOT NULL DO NOTHING""",
                   key,event.get("event_ts"),str(event.get("event_type") or "observation"),
-                  json.dumps(payload,default=str,separators=(",",":")),int(m.schema_version))
+                  json.dumps(payload,default=str,separators=(",",":")),int(m.schema_version),
+                  event.get("source_event_id"))
                 await pool.execute("""UPDATE scientific_methods SET failure_count=0,last_error=NULL,
                   updated_at=now() WHERE method_key=$1""",key)
                 results[key]={"ok":True,"payload":payload}
