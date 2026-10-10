@@ -131,19 +131,25 @@ class ScientificResearchService:
           WHERE id>$1 ORDER BY id LIMIT $2""",int(self.last_id),int(self.batch_size))
         if not rows:return 0
         watermarks={}
-        for r in rows:
-            payload=_dict(r["payload"]);ts_ms=int(r["event_ts"].timestamp()*1000)
-            split_key=_split_key(r["event_ts"])
-            result=await route_market_event(
-                self.orchestrator,self.pool,r["symbol"],ts_ms,r["event_type"],payload,split_key,int(r["id"]))
-            # Optional scientific plugins are fault-isolated: their failure is
-            # journaled/quarantined and cannot block the core event checkpoint.
-            await self.methods.dispatch(self.pool,{
-                "source_event_id":int(r["id"]),"symbol":r["symbol"],"event_ts":r["event_ts"],
-                "event_type":r["event_type"],"payload":payload,"split_key":split_key})
-            self.processed+=1;self.scheduled+=int(result.get("scheduled") or 0)
-            self.last_id=int(r["id"]);self.last_event_ts=r["event_ts"]
-            watermarks[r["symbol"]]=r["event_ts"]
+        try:
+            for r in rows:
+                payload=_dict(r["payload"]);ts_ms=int(r["event_ts"].timestamp()*1000)
+                split_key=_split_key(r["event_ts"])
+                result=await route_market_event(
+                    self.orchestrator,self.pool,r["symbol"],ts_ms,r["event_type"],payload,split_key,int(r["id"]))
+                # Optional scientific plugins are fault-isolated: their failure is
+                # journaled/quarantined and cannot block the core event checkpoint.
+                await self.methods.dispatch(self.pool,{
+                    "source_event_id":int(r["id"]),"symbol":r["symbol"],"event_ts":r["event_ts"],
+                    "event_type":r["event_type"],"payload":payload,"split_key":split_key})
+                self.processed+=1;self.scheduled+=int(result.get("scheduled") or 0)
+                self.last_id=int(r["id"]);self.last_event_ts=r["event_ts"]
+                watermarks[r["symbol"]]=r["event_ts"]
+        except BaseException:
+            # Invalidate all volatile state if any event in the batch fails.
+            # The next run reloads the durable cursor and rebuilds agents.
+            self.started=False
+            raise
         try:
             await self._checkpoint()
         except BaseException:
