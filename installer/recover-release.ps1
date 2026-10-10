@@ -61,6 +61,15 @@ try {
     }
     $required = if ($Role -eq 'CONTROL') { 'grid\coordinator.py' } else { 'run_worker.py' }
     $previousDir = Join-Path (Join-Path $InstallRoot 'releases') $j.previous
+    # Reject redirected release storage and rollback directories.
+    foreach ($releasePath in @((Join-Path $InstallRoot 'releases'), $previousDir)) {
+        if (Test-Path -LiteralPath $releasePath) {
+            $releaseItem = Get-Item -LiteralPath $releasePath -Force
+            if (($releaseItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Release path is a reparse point: $releasePath"
+            }
+        }
+    }
     if (-not (Test-Path -LiteralPath (Join-Path $previousDir $required) -PathType Leaf)) {
         throw 'Rollback target missing; manual recovery required'
     }
@@ -102,6 +111,12 @@ try {
     $target = if ($j.phase -eq 'prepared') { $j.previous } else { $j.candidate }
     if ($j.phase -eq 'committed') {
         $candidateDir = Join-Path (Join-Path $InstallRoot 'releases') $j.candidate
+        if (Test-Path -LiteralPath $candidateDir) {
+            $candidateItem = Get-Item -LiteralPath $candidateDir -Force
+            if (($candidateItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Candidate release path is a reparse point: $candidateDir"
+            }
+        }
         if (-not (Test-Path -LiteralPath (Join-Path $candidateDir $required) -PathType Leaf)) {
             throw 'Committed candidate missing; manual recovery required'
         }
