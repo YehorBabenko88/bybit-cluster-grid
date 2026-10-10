@@ -104,6 +104,23 @@ try {
             Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Conflicting pending changed current'
         }
     }
+    # A tampered executable with a valid manifest must block committed recovery.
+    Journal 'committed'
+    Set-Content -LiteralPath $current -Value $a
+    Set-Content -LiteralPath $pending -Value $b
+    $candidateEntry = Join-Path $root "releases\$b\run_worker.py"
+    $candidateManifest = Join-Path $root "releases\$b\release-manifest.json"
+    $originalEntry = Get-Content -LiteralPath $candidateEntry -Raw
+    $originalHash = (Get-FileHash -LiteralPath $candidateEntry -Algorithm SHA256).Hash.ToLowerInvariant()
+    [IO.File]::WriteAllText($candidateManifest, ('{"version":"' + $b + '","files":{"run_worker.py":"' + $originalHash + '"}}'))
+    Set-Content -LiteralPath $candidateEntry -Value '# tampered'
+    $tamperedRejected = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $tamperedRejected = $true }
+    Assert $tamperedRejected 'Tampered recovery executable must be rejected'
+    Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Tampered executable changed current'
+    Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Tampered executable removed journal'
+    [IO.File]::WriteAllText($candidateEntry, $originalEntry)
+    Remove-Item -LiteralPath $candidateManifest -Force
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
