@@ -216,3 +216,19 @@ def test_leader_run_calls_on_loss_after_renew_database_failure():
         assert leader.epoch is None
 
     asyncio.run(scenario())
+
+
+def test_invalid_leader_lease_intervals_are_rejected():
+    import pytest
+
+    for lease, renew in [
+        (0, 1), (-1, 1), (20, 0), (20, -1),
+        (20, 20), (20, 21), (20, float("nan")),
+        (20, float("inf")), (20, float("-inf")),
+    ]:
+        with pytest.raises(ValueError, match="renew_seconds"):
+            FloatingLeader(pool=None, lease_seconds=lease, renew_seconds=renew)
+
+    leader = FloatingLeader(pool=None, lease_seconds=20, renew_seconds=5)
+    assert leader.lease_seconds == 20
+    assert leader.renew_seconds == 5
