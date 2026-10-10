@@ -1,0 +1,43 @@
+$ErrorActionPreference = 'Stop'
+$root = Join-Path ([IO.Path]::GetTempPath()) ("grid-launcher-test-" + [guid]::NewGuid().ToString('N'))
+$oldProgramData = $env:ProgramData
+$oldCapture = $env:GRID_TEST_CAPTURE
+$a = 'a' * 40
+$b = 'b' * 40
+function Assert([bool]$Condition,[string]$Message) { if (-not $Condition) { throw $Message } }
+try {
+    $env:ProgramData = Join-Path $root 'data'
+    New-Item -ItemType Directory -Force -Path $env:ProgramData | Out-Null
+    $stub = Join-Path $root 'fake-python.ps1'
+    Set-Content -LiteralPath $stub -Value '[IO.File]::WriteAllText($env:GRID_TEST_CAPTURE, ($args -join " "))'
+    foreach ($role in @('WORKER','CONTROL')) {
+        $install = Join-Path $root $role
+        $entry = if ($role -eq 'WORKER') { 'run_worker.py' } else { 'grid\coordinator.py' }
+        foreach ($v in @($a,$b)) {
+            $dest = Join-Path (Join-Path $install 'releases') $v
+            New-Item -ItemType Directory -Force -Path (Split-Path (Join-Path $dest $entry) -Parent) | Out-Null
+            Set-Content -LiteralPath (Join-Path $dest $entry) -Value '# stub'
+        }
+        $launcherName = if ($role -eq 'WORKER') { 'launcher.ps1' } else { 'coordinator-launcher.ps1' }
+        $launcher = Join-Path (Join-Path $PSScriptRoot '..\installer') $launcherName
+        $env:GRID_TEST_CAPTURE = Join-Path $root ($role + '.txt')
+        foreach ($case in @(
+            @{ Current=$a; Previous=$b; Expected=$a },
+            @{ Current='../../bad'; Previous=$b; Expected=$b },
+            @{ Current=$b; Previous=$a; Expected=$b }
+        )) {
+            Set-Content -LiteralPath (Join-Path $install 'current.version') -Value $case.Current
+            Set-Content -LiteralPath (Join-Path $install 'previous.version') -Value $case.Previous
+            if (Test-Path $env:GRID_TEST_CAPTURE) { Remove-Item $env:GRID_TEST_CAPTURE -Force }
+            & $launcher -Python $stub -InstallRoot $install
+            Assert (Test-Path $env:GRID_TEST_CAPTURE) "$role launcher did not call stub"
+            $invocation = Get-Content -LiteralPath $env:GRID_TEST_CAPTURE -Raw
+            Assert ($invocation.Contains("--version " + $case.Expected)) "$role selected wrong release for $($case.Current)"
+        }
+    }
+    Write-Output 'PASS: WORKER and CONTROL launcher version selection'
+} finally {
+    $env:ProgramData = $oldProgramData
+    $env:GRID_TEST_CAPTURE = $oldCapture
+    if (Test-Path $root) { Remove-Item -LiteralPath $root -Recurse -Force }
+}
