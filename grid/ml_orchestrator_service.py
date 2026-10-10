@@ -52,6 +52,13 @@ class MLOrchestratorService:
         if workers<=0:
             self.state=DEGRADED
             return {"leader":True,"workers":0,"health":h}
+        # Recovery and health probes can outlast the leadership TTL. Never
+        # dispatch on an earlier leadership decision without reacquiring it.
+        leader=await acquire_service_lease(self.pool,"ml-orchestrator-leader",self.owner,30,
+                                           {"state":self.state})
+        if not leader:
+            self.state=OBSERVING
+            return {"leader":False,"workers":0,"health":h}
         self.state=DISPATCHING
         dispatched=await self.dispatcher(workers,h)
         self.state=OBSERVING
