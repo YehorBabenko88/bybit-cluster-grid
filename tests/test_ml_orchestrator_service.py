@@ -4,6 +4,10 @@ from grid.ml_orchestrator_service import MLOrchestratorService,OBSERVING,DEGRADE
 
 class Pool:
     def __init__(self):self.sql=[]
+    def acquire(self):return self
+    def transaction(self):return self
+    async def __aenter__(self):return self
+    async def __aexit__(self,*a):pass
     async def execute(self,sql,*a):self.sql.append(sql);return "UPDATE 1"
     async def fetchrow(self,*a):return {"owner":a[1] if len(a)>1 else "x","lease_until":None}
 
