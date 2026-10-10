@@ -117,3 +117,19 @@ def test_dispatch_uses_wall_clock_after_waiting_for_postgres_lock():
     assert "lease_until>=clock_timestamp()" in dispatcher
     assert "not_before<=clock_timestamp()" in dispatcher
     assert "expires_at>=clock_timestamp()" in reservations
+
+
+def test_ml_lease_lifecycle_reservation_fencing_contract():
+    from pathlib import Path
+    concurrency=Path("grid/ml_concurrency.py").read_text(encoding="utf-8")
+    recovery=Path("grid/ml_orchestrator_service.py").read_text(encoding="utf-8")
+    renew=concurrency.split("async def renew_ml_job(",1)[1].split("async def finish_ml_job(",1)[0]
+    finish=concurrency.split("async def finish_ml_job(",1)[1].split("async def acquire_service_lease(",1)[0]
+    assert "async with c.transaction():" in renew
+    assert "lease_generation=$4" in renew
+    assert "UPDATE ml_resource_reservations SET" in renew
+    assert "async with c.transaction():" in finish
+    assert "lease_generation=$5" in finish
+    assert "DELETE FROM ml_resource_reservations" in finish
+    assert "NOT EXISTS (" in recovery
+    assert "j.status IN ('assigned','running')" in recovery
