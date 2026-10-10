@@ -13,6 +13,7 @@ def test_queue_metrics_and_successful_write():
         assert seen==["x"]
         assert m["inflight_writes"]==0
         assert m["worker_tasks_alive"]==1
+        assert m["retrying_workers"]==0
         assert m["writes_per_sec"]>0
         assert m["queue_depth"]==0
         for t in q.tasks: t.cancel()
@@ -59,9 +60,29 @@ def test_retry_failure_recency_is_reported_and_recovery_keeps_history():
             metrics = q.metrics()
             assert attempts == 2
             assert metrics["write_failures"] == 1
+            assert metrics["retrying_workers"] == 0
             assert metrics["seconds_since_last_failure"] is not None
             assert metrics["seconds_since_last_failure"] >= 0
             assert metrics["queue_depth"] == 0
         finally:
             await q.close()
+    asyncio.run(run())
+
+
+def test_retrying_worker_visible_until_shutdown():
+    async def run():
+        attempted=asyncio.Event()
+        async def writer(value):
+            attempted.set()
+            raise ConnectionError("CONTROL unavailable")
+        q=BoundedWriteQueue(writer,workers=1,retry_base_seconds=60,retry_max_seconds=60)
+        await q.start()
+        await q.put("durable-wal-record")
+        await asyncio.wait_for(attempted.wait(),1)
+        await asyncio.sleep(0)
+        assert q.metrics()["retrying_workers"]==1
+        assert q.metrics()["inflight_writes"]==1
+        await q.close(drain_timeout=0)
+        assert q.metrics()["retrying_workers"]==0
+        assert q.metrics()["worker_tasks_alive"]==0
     asyncio.run(run())
