@@ -179,6 +179,10 @@ class SegmentWAL:
                 raise ValueError("WAL ACK id is outside the allocated record range")
             current=self._checkpoint_id()
             if record_id<=current: return
+            # Missing IDs after the checkpoint indicate a lost WAL record.
+            # Refuse to checkpoint across that gap even if later rows exist.
+            if record_id!=current+1:
+                raise ValueError("WAL ACK cannot cross a missing record id")
             # A caller must not ACK past an earlier pending record: doing so
             # would make that earlier write unrecoverable after a crash.
             pending=next(self.iter_recover(),None)
