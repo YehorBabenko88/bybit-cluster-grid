@@ -58,6 +58,17 @@ try {
     if ($current -and ($current -cne $j.previous) -and ($current -cne $j.candidate)) {
         throw 'Current pointer conflicts with journal; manual recovery required'
     }
+    # Never erase a pending marker belonging to another transaction.
+    $pendingPath = Join-Path $InstallRoot 'pending.version'
+    if (Test-Path -LiteralPath $pendingPath) {
+        if (-not (Test-Path -LiteralPath $pendingPath -PathType Leaf)) {
+            throw 'Invalid pending release marker; manual recovery required'
+        }
+        $pendingValue = (Get-Content -LiteralPath $pendingPath -Raw).Trim()
+        if ($pendingValue -cne $j.candidate) {
+            throw 'Pending release pointer conflicts with journal; manual recovery required'
+        }
+    }
     # A prepared transaction may already have written the candidate pointer
     # before the power loss. A committed transaction must retain the candidate.
     # The journal is authoritative; no new promotion is attempted here.
