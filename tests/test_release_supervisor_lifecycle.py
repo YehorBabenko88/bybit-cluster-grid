@@ -10,6 +10,50 @@ from unittest import mock
 from grid import release_supervisor as supervisor
 
 
+class CoordinatorPidReadinessTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Windows process ancestry test")
+    def test_real_child_pid_is_accepted(self):
+        with subprocess.Popen([sys.executable, "-c", "import time; time.sleep(10)"]) as child:
+            try:
+                self.assertTrue(supervisor._is_child_process(child.pid, os.getpid()))
+            finally:
+                child.terminate()
+
+    @unittest.skipUnless(os.name == "nt", "Windows process ancestry test")
+    def test_unrelated_pid_is_rejected(self):
+        with subprocess.Popen([sys.executable, "-c", "import time; time.sleep(10)"]) as child:
+            try:
+                self.assertFalse(supervisor._is_child_process(os.getpid(), child.pid))
+            finally:
+                child.terminate()
+
+    def test_health_pid_requires_process_ownership(self):
+        import io
+        proc = mock.Mock()
+        proc.pid = 101
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, *args): return b'{"ok":true,"pid":202}'
+        with mock.patch.object(supervisor.urllib.request, "urlopen", return_value=Response()):
+            with mock.patch.object(supervisor, "_is_child_process", return_value=False):
+                self.assertFalse(supervisor._ready("coordinator", proc, None))
+            with mock.patch.object(supervisor, "_is_child_process", return_value=True):
+                self.assertTrue(supervisor._ready("coordinator", proc, None))
+
+    def test_health_pid_rejects_boolean(self):
+        proc = mock.Mock()
+        proc.pid = 1
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, *args): return b'{"ok":true,"pid":true}'
+        with mock.patch.object(supervisor.urllib.request, "urlopen", return_value=Response()):
+            self.assertFalse(supervisor._ready("coordinator", proc, None))
+
+
 class ReleaseSupervisorTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Windows job object test")
     def test_job_close_terminates_running_child(self):
