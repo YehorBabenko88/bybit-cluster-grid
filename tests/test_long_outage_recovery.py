@@ -42,8 +42,7 @@ def test_worker_can_shed_load_without_successful_control_heartbeat():
     post=s.index("async with s.post(",pressure)
     assert pressure < post
     block=s[pressure:post]
-    assert "symbols_to_drain" in block
-    assert "await self.reconcile()" in block
+    assert "await self._apply_local_pressure()" in block
 
 
 def test_replay_is_paced_and_staggered_across_nodes():

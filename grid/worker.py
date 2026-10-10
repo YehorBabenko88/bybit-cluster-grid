@@ -19,7 +19,7 @@ from .strategy_runner import strategy_worker
 from .agent_commands import execute_command
 from .credential_store import node_credential
 from .decommission import mark_coordinator_success,mark_internet_success,internet_available,decommission_due
-from .pressure import PressureController, NORMAL, SOFT_PRESSURE
+from .pressure import PressureController, NORMAL, SOFT_PRESSURE, desired_drained_symbols
 from .continuity import TradeContinuity
 from .local_control_journal import LocalControlJournal
 from .control_snapshot_ring import ControlSnapshotRing,replica_meta
@@ -55,6 +55,18 @@ class Worker:
         self.ml_task=None
         self.ml_stop=asyncio.Event()
         self.restart_requested=False
+
+    async def _apply_local_pressure(self):
+        if self.operator_stopped or self.bootstrap_paused:
+            return
+        if self.wanted or self.pressure_drained:
+            assigned=self.wanted | self.pressure_drained
+            drained=desired_drained_symbols(self.pressure,assigned)
+            if drained!=self.pressure_drained:
+                self.pressure_drained=drained
+                self.wanted=assigned-drained
+                self.micro_wanted.intersection_update(self.wanted)
+                await self.reconcile()
 
     async def heartbeat(self):
         async with aiohttp.ClientSession() as s:
@@ -101,13 +113,7 @@ class Worker:
                 # producers keep running. Drain expensive live streams locally; a
                 # later healthy CONTROL heartbeat will restore assignments once
                 # pressure has recovered.
-                if state not in (NORMAL,SOFT_PRESSURE) and self.wanted:
-                    victims=set(self.pressure.symbols_to_drain(self.wanted-self.pressure_drained))
-                    if victims:
-                        self.pressure_drained.update(victims)
-                        self.wanted.difference_update(victims)
-                        self.micro_wanted.intersection_update(self.wanted)
-                        await self.reconcile()
+                await self._apply_local_pressure()
                 snap['bootstrap_paused']=self.bootstrap_paused
                 snap['operator_stopped']=self.operator_stopped
                 snap['bootstrap_phase']=self.bootstrap_phase
@@ -183,10 +189,7 @@ class Worker:
                             self.db.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
                             self.micro_storage.set_replay_rate(recovery.get("micro_per_second",settings.replay_micro_per_second))
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
-                            if state in (NORMAL,SOFT_PRESSURE):
-                                self.pressure_drained.clear()
-                            else:
-                                self.pressure_drained.update(self.pressure.symbols_to_drain(assigned-self.pressure_drained))
+                            self.pressure_drained=desired_drained_symbols(self.pressure,assigned)
                             new=assigned-self.pressure_drained
                             requested_micro=set(reply.get("micro_symbols",[]))
                             recovering=bool(dbm.get("replay_active",False) or microm.get("replay_active",False))
