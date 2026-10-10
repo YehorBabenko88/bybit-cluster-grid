@@ -92,3 +92,29 @@ def test_remote_dataset_rejects_page_exceeding_declared_count(tmp_path, monkeypa
             await agent._write_paged_bundle(Client(), {"id": "j"}, tmp_path / "bundle.json")
 
     asyncio.run(run())
+
+
+def test_dataset_pagination_rejects_changed_metadata(tmp_path):
+    import asyncio
+    import hashlib
+    import json
+    import pytest
+    from grid.ml_agent_worker import _write_paged_bundle
+
+    rows = [{"x": 1}, {"x": 2}]
+    hashes = [hashlib.sha256(json.dumps(row, sort_keys=True, separators=(",", ":")).encode()).hexdigest() for row in rows]
+    digest = hashlib.sha256("\n".join(hashes).encode()).hexdigest()
+
+    class Client:
+        async def dataset_page(self, job, offset, limit):
+            return {"dataset_id": "dataset-A" if offset == 0 else "dataset-B",
+                    "dataset_hash": digest, "sample_count": 2, "feature_version": "v1",
+                    "samples": [{"payload": rows[offset], "payload_hash": hashes[offset]}]}
+        async def renew(self, job):
+            return {"ok": True}
+
+    async def scenario():
+        with pytest.raises(ValueError, match="metadata changed"):
+            await _write_paged_bundle(Client(), {"id": "job"}, tmp_path / "bundle.json", page_size=1)
+
+    asyncio.run(scenario())
