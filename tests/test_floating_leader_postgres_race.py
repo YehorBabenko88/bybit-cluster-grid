@@ -1,0 +1,102 @@
+"""Exercise real PostgreSQL uniqueness locking during simultaneous leader election."""
+import asyncio
+import os
+import uuid
+
+import asyncpg
+
+from grid.floating_leader import FloatingLeader
+
+
+def test_only_one_first_time_leader_postgres():
+    async def scenario():
+        schema = "leader_race_" + uuid.uuid4().hex
+        admin = await asyncpg.connect(os.environ["POSTGRES_DSN"])
+        pool = None
+        try:
+            await admin.execute(f'CREATE SCHEMA "{schema}"')
+            await admin.execute(f"""CREATE TABLE "{schema}".service_leases (
+                service_key text PRIMARY KEY,
+                owner text NOT NULL,
+                lease_until timestamptz NOT NULL,
+                heartbeat_at timestamptz,
+                metadata jsonb NOT NULL DEFAULT '{{}}'::jsonb)""")
+
+            async def init(conn):
+                await conn.execute(f'SET search_path TO "{schema}"')
+
+            pool = await asyncpg.create_pool(
+                os.environ["POSTGRES_DSN"], min_size=2, max_size=4, setup=init
+            )
+            first = FloatingLeader(pool, node_id="node-a")
+            second = FloatingLeader(pool, node_id="node-b")
+
+            # Both attempts begin without a lease row. The unique index
+            # serializes competing INSERTs; the live winner must not be stolen.
+            won = await asyncio.wait_for(
+                asyncio.gather(first.campaign(), second.campaign()), timeout=10
+            )
+            assert sorted(won) == [False, True]
+            winner = first if won[0] else second
+            loser = second if won[0] else first
+            assert winner.is_leader and winner.epoch is not None
+            assert not loser.is_leader and loser.epoch is None
+            row = await pool.fetchrow(
+                "SELECT owner, (metadata->>'epoch')::bigint AS epoch "
+                "FROM service_leases WHERE service_key='control-plane-leader'"
+            )
+            assert row["owner"] == winner.node_id
+            assert row["epoch"] == winner.epoch
+
+            # No contender may steal an unexpired lease.
+            assert await loser.campaign() is False
+
+            # After expiry the loser may take over, with a higher epoch.
+            await pool.execute(
+                "UPDATE service_leases SET lease_until=now()-interval '1 second' "
+                "WHERE service_key='control-plane-leader'"
+            )
+            assert await loser.campaign() is True
+            assert loser.epoch > winner.epoch
+            assert await winner.renew() is False
+            assert winner.is_leader is False
+            assert winner.epoch is None
+
+            # Legacy schemas can contain a NULL lease expiry. Treat it as
+            # expired rather than permanently preventing leadership recovery.
+            await pool.execute("ALTER TABLE service_leases ALTER COLUMN lease_until DROP NOT NULL")
+            await pool.execute(
+                "UPDATE service_leases SET lease_until=NULL "
+                "WHERE service_key='control-plane-leader'"
+            )
+            previous_epoch = loser.epoch
+            assert await winner.campaign() is True
+            assert winner.epoch > previous_epoch
+            assert await loser.renew() is False
+            assert loser.epoch is None
+
+            # A delayed cleanup from the old epoch must never revoke the
+            # successor's live lease, even when both share the same node ID.
+            old_epoch = winner.epoch
+            await pool.execute(
+                "UPDATE service_leases SET lease_until=now()-interval '1 second' "
+                "WHERE service_key='control-plane-leader'"
+            )
+            same_node_successor = FloatingLeader(pool, node_id=winner.node_id)
+            assert await same_node_successor.campaign() is True
+            assert same_node_successor.epoch > old_epoch
+            assert await winner.release(old_epoch) == "UPDATE 0"
+            assert await same_node_successor.renew() is True
+            current = await pool.fetchrow(
+                "SELECT owner, (metadata->>'epoch')::bigint AS epoch "
+                "FROM service_leases WHERE service_key='control-plane-leader'"
+            )
+            assert current["owner"] == same_node_successor.node_id
+            assert current["epoch"] == same_node_successor.epoch
+        finally:
+            if pool is not None:
+                await pool.close()
+            await admin.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
+            await admin.close()
+
+    asyncio.run(scenario())
