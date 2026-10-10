@@ -46,6 +46,8 @@ class BoundedWriteQueue:
             "queue_ratio":self.q.qsize()/max(1,self.q.maxsize),
             "writes_per_sec":self.writes/elapsed,
             "write_failures":self.failures,
+            "inflight_writes":self.q._unfinished_tasks,
+            "worker_tasks_alive":sum(not task.done() for task in self.tasks),
             "seconds_since_last_failure":(max(0.0,time.monotonic()-self.last_failure_at)
                                           if self.last_failure_at is not None else None),
             "avg_write_latency_ms":(self.total_latency/max(1,self.writes))*1000,
