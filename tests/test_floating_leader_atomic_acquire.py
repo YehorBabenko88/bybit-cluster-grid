@@ -40,7 +40,7 @@ def test_concurrent_first_insert_loser_cannot_claim_leadership():
         assert leader.is_leader is False
         assert leader.epoch is None
         sql = pool.connection.insert_sql
-        assert "WHERE service_leases.lease_until <= now()" in sql
+        assert "service_leases.lease_until IS NULL OR service_leases.lease_until <= now()" in sql
         assert "RETURNING (metadata->>'epoch')::bigint" in sql
 
     asyncio.run(scenario())
