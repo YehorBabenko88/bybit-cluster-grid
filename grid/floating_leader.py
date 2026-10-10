@@ -1,4 +1,4 @@
-import asyncio,hashlib,json,logging,socket,time
+import asyncio,hashlib,json,logging,math,socket,time
 log=logging.getLogger("leader_election")
 
 class FloatingLeader:
@@ -6,6 +6,8 @@ class FloatingLeader:
     def __init__(self,pool,node_id=None,lease_seconds=20,renew_seconds=5):
         self.pool=pool; self.node_id=node_id or socket.gethostname()
         self.lease_seconds=int(lease_seconds); self.renew_seconds=float(renew_seconds)
+        if self.lease_seconds <= 0 or not math.isfinite(self.renew_seconds) or not (0 < self.renew_seconds < self.lease_seconds):
+            raise ValueError('leader lease requires 0 < renew_seconds < lease_seconds')
         self.is_leader=False; self.epoch=None; self.stop_event=asyncio.Event()
 
     async def campaign(self):
