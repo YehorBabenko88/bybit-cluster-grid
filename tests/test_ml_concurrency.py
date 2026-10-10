@@ -98,3 +98,29 @@ def test_lease_renew_database_error_cancels_running_workload():
             )
         assert cancelled.is_set()
     asyncio.run(run())
+
+def test_legacy_reclaim_removes_expired_owners_reservation_atomically():
+    async def run():
+        class ReclaimConn:
+            def __init__(self):
+                self.operations=[]
+            def transaction(self):return self
+            async def __aenter__(self):return self
+            async def __aexit__(self,*args):pass
+            async def fetchrow(self,sql,*args):
+                self.operations.append("select" if sql.startswith("SELECT") else "update")
+                if sql.startswith("SELECT"):
+                    return {"id":"job-expired","status":"running"}
+                return {"id":"job-expired","status":"running","lease_owner":args[1]}
+            async def execute(self,sql,*args):
+                assert "DELETE FROM ml_resource_reservations" in sql
+                assert args==("job-expired",)
+                self.operations.append("delete")
+                return "DELETE 1"
+        conn=ReclaimConn()
+        class ReclaimPool:
+            def acquire(self):return Acquire(conn)
+        result=await claim_ml_job(ReclaimPool(),"new-worker")
+        assert result["lease_owner"]=="new-worker"
+        assert conn.operations==["select","delete","update"]
+    asyncio.run(run())
