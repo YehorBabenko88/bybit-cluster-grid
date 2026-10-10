@@ -37,6 +37,10 @@ async def _write_paged_bundle(client,job,bundle_path,page_size=500):
     first=await client.dataset_page(job,0,page_size)
     if first is None:raise RuntimeError("remote ML lease lost before dataset fetch")
     total=int(first.get("sample_count",0))
+    if total<=0:
+        raise ValueError("dataset sample count must be positive")
+    if int(page_size)<=0:
+        raise ValueError("dataset page size must be positive")
     expected=first.get("dataset_hash")
     count=0;offset=0;agg=hashlib.sha256();first_hash=True;first_sample=True
     with open(bundle_path,"w",encoding="utf-8") as f:
