@@ -41,6 +41,10 @@ class ScientificResearchService:
           WHERE observer='scientific_research' AND symbol='*'""")
         if row:
             state=_dict(row["state"]);self.last_id=int(state.get("last_id") or 0);self.last_event_ts=row["last_ts"]
+            # Never resume beyond the source table's actual durable head.
+            source_head=int(await self.pool.fetchval("SELECT COALESCE(max(id),0) FROM market_events") or 0)
+            if self.last_id>source_head:
+                raise RuntimeError("scientific checkpoint is ahead of available market events")
         else:
             self.last_id=int(await self.pool.fetchval("SELECT COALESCE(max(id),0) FROM market_events") or 0)
             self.last_event_ts=await self.pool.fetchval("SELECT max(event_ts) FROM market_events")
