@@ -26,6 +26,16 @@ try {
   throw "ML bootstrap already running for runtime root: $RuntimeRoot"
 }
 try {
+function Write-MLJournal([System.Collections.IDictionary]$Record) {
+  $json=$Record | ConvertTo-Json -Depth 6
+  $tmp=Join-Path $RuntimeRoot ("ml-bootstrap."+[guid]::NewGuid().ToString("N")+".tmp")
+  try {
+    [System.IO.File]::WriteAllText($tmp,$json,[System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::Move($tmp,$Journal,$true)
+  } finally {
+    if(Test-Path -LiteralPath $tmp){Remove-Item -LiteralPath $tmp -Force}
+  }
+}
 $Hash=(Get-FileHash -Algorithm SHA256 $Req).Hash.ToLowerInvariant()
 $Old=if(Test-Path $State){(Get-Content $State -Raw).Trim()}else{""}
 
@@ -34,14 +44,14 @@ $Old=if(Test-Path $State){(Get-Content $State -Raw).Trim()}else{""}
 $ShouldInstall=$Mode -in @("CONTROL","PILOT")
 if(!$ShouldInstall){
   [ordered]@{status="skipped";mode=$Mode;reason="collector-only node";at=(Get-Date).ToUniversalTime().ToString("o")} |
-    ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
+    Write-MLJournal
   Write-Host "Heavy ML runtime skipped on NORMAL collector."
   exit 0
 }
 
 # Mark the environment unavailable before touching a potentially incomplete venv.
 [ordered]@{status="installing";mode=$Mode;hash=$Hash;started_at=(Get-Date).ToUniversalTime().ToString("o")} |
-  ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
+  Write-MLJournal
 try {
   $Recreate=!(Test-Path -LiteralPath $MLPython)
   if(!$Recreate){
@@ -56,7 +66,7 @@ try {
   }
 } catch {
   [ordered]@{status="failed";mode=$Mode;error=$_.Exception.Message;failed_at=(Get-Date).ToUniversalTime().ToString("o")} |
-    ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
+    Write-MLJournal
   throw
 }
 $Python=$MLPython
@@ -80,13 +90,13 @@ if(!$Need){
   # A previous interrupted repair may leave a valid fingerprint but no journal.
   # Restore the durable ready record without reinstalling healthy packages.
   [ordered]@{status="ready";mode=$Mode;hash=$Hash;verified_at=(Get-Date).ToUniversalTime().ToString("o")} |
-    ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
+    Write-MLJournal
   Write-Host "ML runtime already healthy and matches fingerprint."
   exit 0
 }
 
 [ordered]@{status="installing";mode=$Mode;hash=$Hash;started_at=(Get-Date).ToUniversalTime().ToString("o")} |
-  ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
+  Write-MLJournal
 try {
   & $Python -m pip install --disable-pip-version-check --retries 8 --timeout 60 --prefer-binary --upgrade -r $CoreReq -r $Req
   if($LASTEXITCODE -ne 0){throw "ML dependency installation failed after retries"}
@@ -98,10 +108,10 @@ try {
   if($LASTEXITCODE -ne 0){throw "ML native-library smoke test failed"}
   [System.IO.File]::WriteAllText($State,$Hash,[System.Text.Encoding]::ASCII)
   [ordered]@{status="ready";mode=$Mode;hash=$Hash;completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
-    ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
+    Write-MLJournal
 } catch {
   [ordered]@{status="failed";mode=$Mode;hash=$Hash;error=$_.Exception.Message;failed_at=(Get-Date).ToUniversalTime().ToString("o")} |
-    ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
+    Write-MLJournal
   throw
 }
 
