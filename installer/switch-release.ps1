@@ -78,7 +78,10 @@ Get-ChildItem -LiteralPath $release -Recurse -File -Filter '*.py' | ForEach-Obje
     }
 }
 $failedMarker = Join-Path $InstallRoot 'failed.version'
-if (Test-Path -LiteralPath $failedMarker -PathType Leaf) {
+if (Test-Path -LiteralPath $failedMarker) {
+    if (-not (Test-Path -LiteralPath $failedMarker -PathType Leaf)) {
+        throw 'Invalid failed.version type; manual review required'
+    }
     $failedVersion = (Get-Content -LiteralPath $failedMarker -Raw).Trim()
     if ($failedVersion -cnotmatch '^[0-9a-f]{40}$') { throw 'Invalid failed.version; manual review required' }
     if ($failedVersion -eq $Version) {
