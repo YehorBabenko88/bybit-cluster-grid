@@ -302,7 +302,8 @@ def test_on_loss_failure_does_not_prevent_future_leader_election():
         leader = Leader()
         await asyncio.wait_for(leader.run(on_gain=on_gain, on_loss=on_loss), 2)
         assert events == [("gain", 1), ("loss", None), ("gain", 2)]
-        assert leader.epoch == 2
+        assert leader.epoch is None
+        assert leader.is_leader is False
 
     asyncio.run(scenario())
 
