@@ -80,3 +80,25 @@ def test_cached_ml_runtime_runs_native_smoke_before_ready():
     assert "XGBRegressor" in cached
     assert "LGBMRegressor" in cached
     assert "$Need=$true" in cached
+
+
+def test_ml_isolation_uses_dedicated_venv_and_compute_interpreter():
+    bootstrap=Path("installer/bootstrap-ml.ps1").read_text(encoding="utf-8")
+    main=Path("installer/bootstrap.ps1").read_text(encoding="utf-8")
+    agent=Path("grid/ml_agent_worker.py").read_text(encoding="utf-8")
+    resources=Path("grid/resources.py").read_text(encoding="utf-8")
+    assert '$MLVenv=Join-Path $RuntimeRoot "ml-venv"' in bootstrap
+    assert '-r $CoreReq -r $Req' in bootstrap
+    assert "-BasePython $BasePython" in main
+    assert '"ml-venv"/"Scripts"/"python.exe"' in agent
+    assert '"ml-venv","Scripts","python.exe"' in resources
+
+
+def test_windows_ml_job_object_fail_closed():
+    supervisor=Path("grid/ml_process_supervisor.py").read_text(encoding="utf-8")
+    windows=Path("grid/ml_windows_job.py").read_text(encoding="utf-8")
+    assert "job_object=WindowsJob(proc.pid)" in supervisor
+    assert "await terminate_process_tree(proc,grace_seconds)" in supervisor
+    assert "job_object.close()" in supervisor
+    assert "JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE" in windows
+    assert "AssignProcessToJobObject" in windows
