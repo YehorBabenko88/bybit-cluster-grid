@@ -70,7 +70,7 @@ try {
   # before an unattended training job receives a lease.
   & $Python -c "import numpy as np,xgboost as xgb,lightgbm as lgb; X=np.array([[0.],[1.],[2.],[3.]]); y=np.array([0.,0.,1.,1.]); xgb.XGBRegressor(n_estimators=1,max_depth=1,n_jobs=1).fit(X,y); lgb.LGBMRegressor(n_estimators=1,n_jobs=1,verbosity=-1).fit(X,y); print('ML native smoke OK')"
   if($LASTEXITCODE -ne 0){throw "ML native-library smoke test failed"}
-  Set-Content -Encoding ascii -NoNewline $State $Hash
+  [System.IO.File]::WriteAllText($State,$Hash,[System.Text.Encoding]::ASCII)
   [ordered]@{status="ready";mode=$Mode;hash=$Hash;completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
     ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
 } catch {
