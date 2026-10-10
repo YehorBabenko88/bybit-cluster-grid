@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $root = Join-Path ([IO.Path]::GetTempPath()) ("grid-launcher-test-" + [guid]::NewGuid().ToString('N'))
+$originalLocation = (Get-Location).Path
 $oldProgramData = $env:ProgramData
 $oldCapture = $env:GRID_TEST_CAPTURE
 $a = 'a' * 40
@@ -37,6 +38,7 @@ try {
     }
     Write-Output 'PASS: WORKER and CONTROL launcher version selection'
 } finally {
+    Set-Location -LiteralPath $originalLocation
     $env:ProgramData = $oldProgramData
     $env:GRID_TEST_CAPTURE = $oldCapture
     if (Test-Path $root) { Remove-Item -LiteralPath $root -Recurse -Force }
