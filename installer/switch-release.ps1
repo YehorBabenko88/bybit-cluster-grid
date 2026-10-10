@@ -63,6 +63,7 @@ foreach ($entry in $manifest.files.PSObject.Properties) {
 $failedMarker = Join-Path $InstallRoot 'failed.version'
 if (Test-Path -LiteralPath $failedMarker -PathType Leaf) {
     $failedVersion = (Get-Content -LiteralPath $failedMarker -Raw).Trim()
+    if ($failedVersion -cnotmatch '^[0-9a-f]{40}$') { throw 'Invalid failed.version; manual review required' }
     if ($failedVersion -eq $Version) {
         throw 'Candidate was previously rolled back as failed; manual review required'
     }
