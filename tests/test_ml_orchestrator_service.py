@@ -55,3 +55,28 @@ def test_recovery_only_runs_for_leader_and_repeats_after_restart(monkeypatch):
         await restarted.tick()
         assert len(p.sql)==3*first
     asyncio.run(run())
+
+def test_leadership_loss_during_recovery_prevents_dispatch(monkeypatch):
+    async def run():
+        p=Pool()
+        attempts=[]
+        dispatches=[]
+        async def leadership(*args):
+            attempts.append(True)
+            return len(attempts)==1
+        async def dispatch(*args):
+            dispatches.append(args)
+            return []
+        async def health():
+            return {"cpu_pct":0,"ram_pct":0,"db_latency_ms":0,
+                    "db_queue_ratio":0,"disk_free_gb":1000}
+        import grid.ml_orchestrator_service as module
+        monkeypatch.setattr(module,"acquire_service_lease",leadership)
+        s=MLOrchestratorService(p,dispatch,health)
+        result=await s.tick()
+        assert result["leader"] is False
+        assert len(attempts)==2
+        assert len(p.sql)==3
+        assert dispatches==[]
+        assert s.state==OBSERVING
+    asyncio.run(run())
