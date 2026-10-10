@@ -9,7 +9,7 @@ async def claim_ml_job(pool,owner,lease_seconds=120):
               ORDER BY priority,created_at FOR UPDATE SKIP LOCKED LIMIT 1""")
             if not row: return None
             updated=await c.fetchrow("""UPDATE ml_jobs SET status='running',lease_owner=$2,
-              lease_until=now()+($3*interval '1 second'),started_at=COALESCE(started_at,now()),
+              lease_until=clock_timestamp()+($3*interval '1 second'),started_at=COALESCE(started_at,clock_timestamp()),
               attempts=attempts+1,lease_generation=lease_generation+1,error=NULL WHERE id=$1 RETURNING *""",
               row["id"],owner,int(lease_seconds))
             return dict(updated)
@@ -46,10 +46,10 @@ async def finish_ml_job(pool,job_id,owner,lease_generation,error=None):
 
 async def acquire_service_lease(pool,key,owner,lease_seconds=30,metadata=None):
     row=await pool.fetchrow("""INSERT INTO service_leases(service_key,owner,lease_until,metadata)
-      VALUES($1,$2,now()+($3*interval '1 second'),$4::jsonb)
+      VALUES($1,$2,clock_timestamp()+($3*interval '1 second'),$4::jsonb)
       ON CONFLICT(service_key) DO UPDATE SET owner=EXCLUDED.owner,
-      lease_until=EXCLUDED.lease_until,heartbeat_at=now(),metadata=EXCLUDED.metadata
-      WHERE service_leases.lease_until<now() OR service_leases.owner=EXCLUDED.owner
+      lease_until=EXCLUDED.lease_until,heartbeat_at=clock_timestamp(),metadata=EXCLUDED.metadata
+      WHERE service_leases.lease_until<clock_timestamp() OR service_leases.owner=EXCLUDED.owner
       RETURNING owner,lease_until""",key,owner,int(lease_seconds),json.dumps(metadata or {}))
     return bool(row and row["owner"]==owner)
 
