@@ -35,7 +35,8 @@ class ScientificSimulationGate:
 
     async def run_one(self,run_id,hypothesis_id,dataset_cutoff):
         # Reclaim an abandoned run only after its prior owner has had a
-        # generous opportunity to finish. Old partial rows are removed below.
+        # generous opportunity to finish. Attempt fencing rejects stale writes.
+        # The 24-hour timeout is a recovery backstop, not a heartbeat lease.
         attempt_id=uuid.uuid4()
         claimed=await self.pool.fetchval("""UPDATE scientific_simulation_runs
           SET status='RUNNING',started_at=now(),completed_at=NULL,attempt_id=$2
