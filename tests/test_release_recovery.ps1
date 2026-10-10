@@ -80,6 +80,16 @@ try {
     try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $blocked = $true }
     Assert $blocked 'Invalid journal must fail closed'
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Invalid journal was deleted'
+    # A conflicting active pointer must stop recovery without changing markers.
+    Journal 'prepared'
+    Set-Content -LiteralPath $current -Value ('c' * 40)
+    Set-Content -LiteralPath $pending -Value $b
+    $conflictBlocked = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $conflictBlocked = $true }
+    Assert $conflictBlocked 'Conflicting current pointer must fail closed'
+    Assert (((Get-Content $current -Raw).Trim()) -eq ('c' * 40)) 'Conflict recovery changed current'
+    Assert (((Get-Content $pending -Raw).Trim()) -eq $b) 'Conflict recovery changed pending'
+    Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Conflict recovery removed journal'
     # Corrupt or truncated journals must never modify release pointers.
     foreach ($badJournal in @('', '{', 'null', '[]',
         '{"schema":1,"previous":"not-a-sha","candidate":"bbbb","phase":"prepared"}',
