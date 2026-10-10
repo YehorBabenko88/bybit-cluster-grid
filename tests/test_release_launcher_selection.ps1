@@ -25,7 +25,8 @@ try {
         foreach ($case in @(
             @{ Current=$a; Previous=$b; Expected=$a },
             @{ Current='../../bad'; Previous=$b; Expected=$b },
-            @{ Current=$b; Previous=$a; Expected=$b }
+            @{ Current=$b; Previous=$a; Expected=$b },
+            @{ Current=('c' * 40); Previous=$a; Expected=$a }
         )) {
             Set-Content -LiteralPath (Join-Path $install 'current.version') -Value $case.Current
             Set-Content -LiteralPath (Join-Path $install 'previous.version') -Value $case.Previous
