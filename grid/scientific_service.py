@@ -60,9 +60,11 @@ class ScientificResearchService:
           SELECT symbol,event_ts,agent,state,score,direction,features,
                  row_number() OVER(PARTITION BY symbol,agent ORDER BY event_ts DESC) rn
           FROM micro_agent_signals WHERE event_ts>now()-interval '7 days'
-            AND (source_event_id IS NULL OR source_event_id<=$1))
+            AND (source_event_id IS NULL OR source_event_id<=$1)
+            AND ($2::timestamptz IS NULL OR event_ts<=$2))
           SELECT symbol,event_ts,agent,state,score,direction,features
-          FROM ranked WHERE rn<=600 ORDER BY symbol,agent,event_ts""",int(self.last_id))
+          FROM ranked WHERE rn<=600 ORDER BY symbol,agent,event_ts""",
+          int(self.last_id),self.last_event_ts)
         groups={}
         latest={}
         for r in rows:
