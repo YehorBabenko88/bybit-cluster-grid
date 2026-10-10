@@ -136,7 +136,27 @@ def test_dispatch_fences_expired_leader_and_rolls_back_slow_placement():
             dispatcher=MLDispatcher(pool,nodes)
             assert await dispatcher(1,leader_owner="wrong-owner")==[]
             assert await admin.fetchval(f'SELECT status FROM "{schema}".ml_jobs WHERE id=$1',job_id)=="queued"
-            assert len(await dispatcher(1,leader_owner="leader-a"))==1
+            # A competing leader takeover cannot commit while the current
+            # dispatch transaction holds its leadership row lock.
+            takeover_task=None
+            async def nodes_during_takeover():
+                nonlocal takeover_task
+                takeover_task=asyncio.create_task(admin.execute(
+                    f'''UPDATE "{schema}".service_leases
+                        SET owner='leader-b',lease_until=clock_timestamp()+interval '30 seconds'
+                        WHERE service_key='ml-orchestrator-leader' '''))
+                await asyncio.sleep(.15)
+                assert not takeover_task.done()
+                return await nodes()
+            assert len(await MLDispatcher(pool,nodes_during_takeover)(
+                1,leader_owner="leader-a"))==1
+            assert takeover_task is not None
+            await asyncio.wait_for(takeover_task,5)
+            assert await admin.fetchval(
+                f'''SELECT owner FROM "{schema}".service_leases
+                    WHERE service_key='ml-orchestrator-leader' ''')=="leader-b"
+            await admin.execute(f'''UPDATE "{schema}".service_leases
+                SET owner='leader-a',lease_until=clock_timestamp()+interval '5 seconds' ''')
             await admin.execute(f'''UPDATE "{schema}".ml_jobs SET status='queued',lease_owner=NULL,lease_until=NULL WHERE id=$1''',job_id)
             await admin.execute(f'DELETE FROM "{schema}".ml_resource_reservations')
             await admin.execute(f'''UPDATE "{schema}".service_leases SET lease_until=clock_timestamp()+interval '0.2 seconds' ''')
