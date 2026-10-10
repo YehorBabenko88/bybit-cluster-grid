@@ -10,7 +10,7 @@ class Tx:
 class Conn:
     def transaction(self):return Tx()
     async def fetchrow(self,*args):return None
-    async def execute(self,*args):return "INSERT 0 1"
+    async def fetchval(self,*args):return 1
 
 class Acquire:
     async def __aenter__(self):return Conn()
