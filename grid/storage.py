@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import math
 import asyncpg
 from datetime import datetime,timezone
 import json
@@ -27,6 +28,7 @@ class Storage:
         self.pool=None
         self.http=None
         self.replay_task=None
+        self.replay_error=None
         self.replay_done=asyncio.Event(); self.replay_done.set()
         self.replay_ids=set()
         # Preserve WAL ID order across concurrent producers until queue admission.
@@ -53,6 +55,7 @@ class Storage:
             self.http=aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20))
         await self.write_queue.start()
         pending=self.spool.iter_recover()
+        self.replay_error=None
         self.replay_done.clear()
         self.replay_task=asyncio.create_task(self._replay(pending))
     async def _replay(self,pending):
@@ -73,20 +76,32 @@ class Storage:
             await self.write_queue.q.join()
         except asyncio.CancelledError:
             raise
-        except Exception:
-            # Fail closed: live producers must not overtake an incomplete replay.
-            self.replay_done.clear()
+        except Exception as exc:
+            # Wake blocked producers with an explicit failure instead of leaving
+            # them waiting forever for a replay that has already crashed.
+            self.replay_error=exc
+            self.replay_done.set()
             raise
         else:
             self.replay_done.set()
 
     async def save(self,row):
         await self.replay_done.wait()
+        if self.replay_error is not None:
+            raise RuntimeError('WAL replay failed; storage restart required') from self.replay_error
         if self.spool.ratio()>=settings.spool_critical_ratio:
             raise BufferError("Grid WAL critical threshold reached; load shedding required")
         async with self._enqueue_lock:
             record_id=await self.spool.append(row)
-            await self.write_queue.put(record_id,row)
+            # A cancellation after durable append but before queue admission
+            # would strand a WAL ID until the next process restart. Finish
+            # admission before propagating cancellation to the producer.
+            admission=asyncio.create_task(self.write_queue.put(record_id,row))
+            try:
+                await asyncio.shield(admission)
+            except asyncio.CancelledError:
+                await asyncio.shield(admission)
+                raise
 
     async def close(self,drain_timeout=5):
         if self.replay_task is not None and not self.replay_task.done():
@@ -114,8 +129,12 @@ class Storage:
 
 
     def set_replay_rate(self,rate):
-        try:self.replay_rate=max(0.0,float(rate))
-        except (TypeError,ValueError):pass
+        try:
+            parsed=float(rate)
+            if math.isfinite(parsed) and parsed>=0:
+                self.replay_rate=parsed
+        except (TypeError,ValueError,OverflowError):
+            pass
 
     async def _save_spooled(self,record_id,row):
         if record_id in self.replay_ids:

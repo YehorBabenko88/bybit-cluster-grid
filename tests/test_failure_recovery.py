@@ -30,6 +30,7 @@ def test_restart_replays_only_uncheckpointed_records(tmp_path):
         ids=[]
         for n in range(4):
             ids.append(await wal.append({"n":n}))
+        await wal.ack(ids[0])
         await wal.ack(ids[1])
         # Simulate process death: construct a new WAL object from the same directory.
         recovered=SegmentWAL(tmp_path,max_bytes=100000).recover()
@@ -528,7 +529,7 @@ def test_archive_does_not_mutate_consumed_feature_source():
 def test_dataset_cutoff_includes_label_horizon():
     from pathlib import Path
     text=Path("grid/ml_dataset_builder.py").read_text(encoding="utf-8")
-    assert "COALESCE(label_end_ts,event_ts)<=$1" in text
+    assert "label_end_ts IS NOT NULL AND label_end_ts<=$1" in text
 
 
 def test_control_firewall_is_tailnet_only():

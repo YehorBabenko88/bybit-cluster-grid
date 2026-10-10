@@ -36,11 +36,25 @@ class SegmentWAL:
                     valid=(zlib.crc32(body)&0xffffffff)==int(obj["crc32"]) and int(obj["id"])>=0
                 except (ValueError,KeyError,TypeError,json.JSONDecodeError):
                     valid=False
-                if valid:return
+                if valid:
+                    # A fully persisted record without a final newline must
+                    # be delimited before the next append, or both records
+                    # become one invalid JSON line after restart.
+                    f.seek(0,os.SEEK_END)
+                    f.write(bytes((10,)))
+                    f.flush();os.fsync(f.fileno())
+                    return
+                # Preserve the damaged bytes for forensic recovery. Only the
+                # incomplete final record may be truncated, never earlier rows.
+                damaged=self.root/(p.name+"."+str(time.time_ns())+".torn-tail")
+                with open(damaged,"wb") as copy:
+                    copy.write(tail);copy.flush();os.fsync(copy.fileno())
                 f.truncate(0 if cut<0 else cut+1)
                 f.flush();os.fsync(f.fileno())
         except OSError:
-            pass
+            # Never silently continue after a failed recovery/forensic copy:
+            # a later append could merge torn bytes with a valid WAL record.
+            raise
 
     def _cleanup_staging_files(self):
         for name in ("checkpoint.next","checkpoint.backup.next"):
@@ -71,9 +85,9 @@ class SegmentWAL:
 
     def bytes_used(self):
         total=0
-        for p in self._segments():
-            try: total+=p.stat().st_size
-            except OSError: pass
+        for p in list(self._segments())+list(self.root.glob("*.torn-tail")):
+            # A failed stat must not undercount the quota and allow more writes.
+            total+=p.stat().st_size
         return total
 
     def ratio(self):
@@ -85,7 +99,8 @@ class SegmentWAL:
             p=segs[-1]
             try:
                 if p.stat().st_size<self.segment_bytes: return p
-            except OSError: pass
+            except OSError:
+                raise
         return self.root/f"wal-{time.time_ns():020d}.seg"
 
     async def append(self,payload):
@@ -110,12 +125,18 @@ class SegmentWAL:
                         try:
                             obj=json.loads(raw)
                             body=json.dumps(obj["payload"],separators=(",",":"),ensure_ascii=False).encode("utf-8")
-                            if (zlib.crc32(body)&0xffffffff)!=int(obj["crc32"]): continue
-                            yield p,int(obj["id"]),obj["payload"]
-                        except (ValueError,KeyError,TypeError,json.JSONDecodeError):
-                            continue
-            except OSError:
-                continue
+                            if (zlib.crc32(body)&0xffffffff)!=int(obj["crc32"]):
+                                raise ValueError("WAL CRC mismatch")
+                            rid=int(obj["id"])
+                            if rid<0:
+                                raise ValueError("negative WAL record id")
+                            yield p,rid,obj["payload"]
+                        except (ValueError,KeyError,TypeError,UnicodeError,json.JSONDecodeError) as exc:
+                            # Silent skipping plus a later checkpoint can permanently
+                            # discard a corrupt but unacknowledged record. Fail closed.
+                            raise ValueError(f"Corrupt WAL record in {p.name}") from exc
+            except OSError as exc:
+                raise OSError(f"Unable to read WAL segment {p.name}") from exc
 
     def iter_recover(self):
         """Stream pending records so a large outage backlog is never materialized in RAM."""
@@ -132,6 +153,10 @@ class SegmentWAL:
         async with self._lock:
             current=self._checkpoint_id()
             if record_id<=current: return
+            # Checkpoints represent a contiguous committed prefix, never the
+            # highest successful write. A gap would discard earlier WAL data.
+            if record_id!=current+1:
+                raise ValueError("WAL acknowledgement out of order")
             tmp=self.root/"checkpoint.next"
             with open(tmp,"w",encoding="ascii") as f:
                 f.write(str(record_id)); f.flush(); os.fsync(f.fileno())

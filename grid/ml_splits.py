@@ -6,6 +6,8 @@ def _get(r,key,default=None):
 
 def walk_forward(rows,folds=5,embargo_minutes=240):
     """Chronological expanding folds. Training labels must finish before validation embargo."""
+    if folds < 1 or embargo_minutes < 0:
+        raise ValueError("invalid split configuration")
     rows=sorted(rows,key=lambda r:r["event_ts"])
     n=len(rows)
     if n<folds+1:return []
@@ -18,7 +20,8 @@ def walk_forward(rows,folds=5,embargo_minutes=240):
         validation_groups={_get(r,"split_group") for r in validation if _get(r,"split_group")}
         train=[]
         for r in rows[:val_start]:
-            label_end=_get(r,"label_end_ts") or r["event_ts"]
+            label_end=_get(r,"label_end_ts")
+            if label_end is None: continue
             if label_end>=boundary:continue
             if _get(r,"split_group") and _get(r,"split_group") in validation_groups:continue
             train.append(r)

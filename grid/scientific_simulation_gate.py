@@ -25,26 +25,61 @@ class ScientificSimulationGate:
         return made
 
     async def run_queued(self,limit=4):
-        rows=await self.pool.fetch("""SELECT id,hypothesis_id,dataset_cutoff FROM scientific_simulation_runs
-          WHERE status='QUEUED' ORDER BY created_at LIMIT $1""",max(1,int(limit)))
+        # Expired jobs are recoverable; repeated crashes are terminal.
+        await self.pool.execute("""UPDATE scientific_simulation_runs
+          SET status=CASE WHEN attempts>=3 THEN 'SIMULATION_FAILED' ELSE 'QUEUED' END,
+              reason='simulation lease expired',
+              lease_token=NULL,lease_expires_at=NULL
+          WHERE status='RUNNING'
+            AND (lease_expires_at<now() OR lease_expires_at IS NULL)""")
         out=[]
-        for r in rows:out.append(await self.run_one(r["id"],r["hypothesis_id"],r["dataset_cutoff"]))
+        for _ in range(max(0,int(limit))):
+            # A single atomic UPDATE claims the oldest available job across workers.
+            # SKIP LOCKED prevents another worker from selecting the same row.
+            r=await self.pool.fetchrow("""UPDATE scientific_simulation_runs AS target
+              SET status='RUNNING',started_at=now(),attempts=target.attempts+1,
+                  lease_token=gen_random_uuid(),lease_expires_at=now()+interval '30 minutes'
+              WHERE target.id=(
+                SELECT id FROM scientific_simulation_runs
+                WHERE status='QUEUED' ORDER BY created_at,id
+                FOR UPDATE SKIP LOCKED LIMIT 1
+              )
+              RETURNING target.id,target.hypothesis_id,target.dataset_cutoff,target.lease_token""")
+            if r is None:break
+            out.append(await self.run_one(r["id"],r["hypothesis_id"],r["dataset_cutoff"],claimed=True,lease_token=r["lease_token"]))
         return out
 
-    async def run_one(self,run_id,hypothesis_id,dataset_cutoff):
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status='RUNNING',
-          started_at=now() WHERE id=$1 AND status='QUEUED'""",run_id)
+    async def run_one(self,run_id,hypothesis_id,dataset_cutoff,claimed=False,lease_token=None):
+        if not claimed:
+            row=await self.pool.fetchrow("""UPDATE scientific_simulation_runs
+              SET status='RUNNING',started_at=now(),attempts=attempts+1,
+                  lease_token=gen_random_uuid(),lease_expires_at=now()+interval '30 minutes'
+              WHERE id=$1 AND status='QUEUED' RETURNING lease_token""",run_id)
+            if row is None:
+                return {"run_id":str(run_id),"status":"NOT_CLAIMED"}
+            lease_token=row["lease_token"]
+        if lease_token is None:
+            return {"run_id":str(run_id),"status":"NOT_CLAIMED"}
+        owned=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET lease_expires_at=now()+interval '30 minutes'
+          WHERE id=$1 AND lease_token=$2 AND status='RUNNING'
+            AND lease_expires_at>now() RETURNING true""",run_id,lease_token)
+        if not owned:return {"run_id":str(run_id),"status":"LEASE_LOST"}
         oos_start=await self.pool.fetchval("""SELECT max(dataset_cutoff)
           FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1 AND passed=true""",hypothesis_id)
         if oos_start is None:
-            return await self._waiting(run_id,"validated hypothesis has no fixed evidence cutoff")
-        await self.pool.execute("UPDATE scientific_simulation_runs SET oos_start=$2 WHERE id=$1",run_id,oos_start)
+            return await self._waiting(run_id,"validated hypothesis has no fixed evidence cutoff",lease_token)
+        updated=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET oos_start=$2 WHERE id=$1 AND status='RUNNING'
+            AND lease_token=$3 AND lease_expires_at>now()
+          RETURNING true""",run_id,oos_start,lease_token)
+        if not updated:return {"run_id":str(run_id),"status":"LEASE_LOST"}
         h=await self.pool.fetchrow("""SELECT method,pattern,horizon_ms,direction,definition,status
           FROM scientific_hypotheses WHERE id=$1""",hypothesis_id)
         if not h or str(h["status"])!="VALIDATED":
-            return await self._fail(run_id,"hypothesis is no longer VALIDATED")
+            return await self._fail(run_id,"hypothesis is no longer VALIDATED",lease_token)
         if str(h["method"])!="combinatorial-v1":
-            return await self._waiting(run_id,f"exact simulation matcher unavailable for method {h['method']}")
+            return await self._waiting(run_id,f"exact simulation matcher unavailable for method {h['method']}",lease_token)
         definition=_dict(h["definition"]);params=definition.get("parameters") or {}
         wanted=set(str(x) for x in params.get("tokens") or ())
         rows=await self.pool.fetch("""SELECT symbol,event_ts_ms,return_bps,payload
@@ -70,40 +105,66 @@ class ScientificSimulationGate:
             matched.append({"symbol":o.symbol,"event_ts_ms":o.event_ts_ms,"split_key":o.split_key,
                             "return_bps":o.return_bps})
         if len(matched)<self.config.min_trades:
-            return await self._waiting(run_id,f"insufficient OOS trades: {len(matched)}/{self.config.min_trades}")
+            return await self._waiting(run_id,f"insufficient OOS trades: {len(matched)}/{self.config.min_trades}",lease_token)
         base=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.0)
         stress=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.75)
         mc=deterministic_bootstrap_drawdowns(
             [x["net_return_bps"] for x in base["trades"]],self.config.monte_carlo_paths,str(run_id),
             float(self.config.position_risk_fraction)/.005)
         passed,checks,p95=promotion_decision(base["metrics"],stress["metrics"],mc,self.config)
-        for t in base["trades"]:
-            await self.pool.execute("""INSERT INTO scientific_simulation_trades(
-              run_id,ordinal,symbol,event_ts_ms,split_key,raw_return_bps,net_return_bps,
-              fill_fraction,fee_bps,spread_bps,slippage_bps,latency_bps,funding_bps,equity_after)
-              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-              ON CONFLICT(run_id,ordinal) DO NOTHING""",run_id,t["ordinal"],t["symbol"],
-              t["event_ts_ms"],t["split_key"],t["raw_return_bps"],t["net_return_bps"],
-              t["fill_fraction"],t["fee_bps"],t["spread_bps"],t["slippage_bps"],t["latency_bps"],
-              t["funding_bps"],t["equity_after"])
+        owned=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET lease_expires_at=now()+interval '30 minutes'
+          WHERE id=$1 AND lease_token=$2 AND status='RUNNING'
+            AND lease_expires_at>now() RETURNING true""",run_id,lease_token)
+        if not owned:return {"run_id":str(run_id),"status":"LEASE_LOST"}
         metrics={**base["metrics"],"checks":checks,"monte_carlo_max_dd_p95":p95}
         status="SIMULATION_PASSED" if passed else "SIMULATION_FAILED"
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status=$2,
-          metrics=$3::jsonb,stress_metrics=$4::jsonb,reason=$5,completed_at=now() WHERE id=$1""",
-          run_id,status,json.dumps(metrics,separators=(",",":")),
-          json.dumps(stress["metrics"],separators=(",",":")),
-          None if passed else "one or more promotion checks failed")
+        # Trades and final status must commit together. A crash, lease takeover,
+        # or failed insert rolls back the entire simulation result.
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                owner=await conn.fetchval("""SELECT true FROM scientific_simulation_runs
+                  WHERE id=$1 AND status='RUNNING' AND lease_token=$2
+                    AND lease_expires_at>now() FOR UPDATE""",run_id,lease_token)
+                if not owner:
+                    return {"run_id":str(run_id),"status":"LEASE_LOST"}
+                await conn.execute("DELETE FROM scientific_simulation_trades WHERE run_id=$1",run_id)
+                for t in base["trades"]:
+                    await conn.execute("""INSERT INTO scientific_simulation_trades(
+                      run_id,ordinal,symbol,event_ts_ms,split_key,raw_return_bps,net_return_bps,
+                      fill_fraction,fee_bps,spread_bps,slippage_bps,latency_bps,funding_bps,equity_after)
+                      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)""",
+                      run_id,t["ordinal"],t["symbol"],t["event_ts_ms"],t["split_key"],
+                      t["raw_return_bps"],t["net_return_bps"],t["fill_fraction"],
+                      t["fee_bps"],t["spread_bps"],t["slippage_bps"],t["latency_bps"],
+                      t["funding_bps"],t["equity_after"])
+                result=await conn.fetchval("""UPDATE scientific_simulation_runs
+                  SET status=$2,metrics=$3::jsonb,stress_metrics=$4::jsonb,
+                    reason=$5,completed_at=now(),lease_token=NULL,lease_expires_at=NULL
+                  WHERE id=$1 AND status='RUNNING' AND lease_token=$6
+                    AND lease_expires_at>now() RETURNING true""",
+                  run_id,status,json.dumps(metrics,separators=(",",":")),
+                  json.dumps(stress["metrics"],separators=(",",":")),
+                  None if passed else "one or more promotion checks failed",lease_token)
+                if not result:
+                    raise RuntimeError("simulation lease lost during atomic finalization")
         return {"run_id":str(run_id),"status":status,"metrics":metrics,"stress":stress["metrics"]}
 
-    async def _waiting(self,run_id,reason):
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status='WAITING_OOS',
-          reason=$2,completed_at=now() WHERE id=$1""",run_id,str(reason))
-        return {"run_id":str(run_id),"status":"WAITING_OOS","reason":str(reason)}
+    async def _waiting(self,run_id,reason,lease_token):
+        owned=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET status='WAITING_OOS',reason=$2,completed_at=now(),
+              lease_token=NULL,lease_expires_at=NULL
+          WHERE id=$1 AND status='RUNNING' AND lease_token=$3
+            AND lease_expires_at>now() RETURNING true""",run_id,str(reason),lease_token)
+        return {"run_id":str(run_id),"status":"WAITING_OOS" if owned else "LEASE_LOST","reason":str(reason)}
 
-    async def _fail(self,run_id,reason):
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status='SIMULATION_FAILED',
-          reason=$2,completed_at=now() WHERE id=$1""",run_id,str(reason))
-        return {"run_id":str(run_id),"status":"SIMULATION_FAILED","reason":str(reason)}
+    async def _fail(self,run_id,reason,lease_token):
+        owned=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET status='SIMULATION_FAILED',reason=$2,completed_at=now(),
+              lease_token=NULL,lease_expires_at=NULL
+          WHERE id=$1 AND status='RUNNING' AND lease_token=$3
+            AND lease_expires_at>now() RETURNING true""",run_id,str(reason),lease_token)
+        return {"run_id":str(run_id),"status":"SIMULATION_FAILED" if owned else "LEASE_LOST","reason":str(reason)}
 
 def _dict(v):
     if isinstance(v,dict):return v

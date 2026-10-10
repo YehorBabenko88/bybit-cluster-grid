@@ -470,7 +470,64 @@ error_type text NOT NULL,error_message text NOT NULL,context jsonb NOT NULL DEFA
 created_at timestamptz NOT NULL DEFAULT now())""",
 "CREATE INDEX IF NOT EXISTS scientific_method_errors_lookup_idx ON scientific_method_errors(method_key,created_at DESC)"
 ])
-
+,
+(45,"protect_production_model_evaluations",[
+"""CREATE OR REPLACE FUNCTION guard_production_model_evaluations()
+RETURNS trigger LANGUAGE plpgsql AS '
+DECLARE model_status text;
+BEGIN
+  SELECT status INTO model_status FROM model_registry
+    WHERE id=COALESCE(NEW.model_id,OLD.model_id) FOR UPDATE;
+  IF model_status=''PRODUCTION'' THEN
+    RAISE EXCEPTION ''production model evaluations are immutable'';
+  END IF;
+  IF TG_OP=''DELETE'' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END
+'""",
+"""DROP TRIGGER IF EXISTS protect_production_model_evaluations ON model_evaluations""",
+"""CREATE TRIGGER protect_production_model_evaluations
+BEFORE INSERT OR UPDATE OR DELETE ON model_evaluations
+FOR EACH ROW EXECUTE FUNCTION guard_production_model_evaluations()"""
+])
+,
+(46,"protect_evaluation_identity",[
+"""CREATE OR REPLACE FUNCTION guard_production_model_evaluations()
+RETURNS trigger LANGUAGE plpgsql AS '
+DECLARE model_status text;
+BEGIN
+  IF TG_OP=''UPDATE'' THEN
+    IF NEW.model_id IS DISTINCT FROM OLD.model_id
+       OR NEW.dataset_id IS DISTINCT FROM OLD.dataset_id
+       OR NEW.stage IS DISTINCT FROM OLD.stage THEN
+      RAISE EXCEPTION ''evaluation identity is immutable'';
+    END IF;
+  END IF;
+  IF TG_OP=''DELETE'' THEN
+    SELECT status INTO model_status FROM model_registry
+      WHERE id=OLD.model_id FOR UPDATE;
+  ELSIF TG_OP=''UPDATE'' THEN
+    SELECT status INTO model_status FROM model_registry
+      WHERE id=OLD.model_id FOR UPDATE;
+  ELSE
+    SELECT status INTO model_status FROM model_registry
+      WHERE id=NEW.model_id FOR UPDATE;
+  END IF;
+  IF model_status=''PRODUCTION'' THEN
+    RAISE EXCEPTION ''production model evaluations are immutable'';
+  END IF;
+  IF TG_OP=''DELETE'' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END
+'"""
+])
+,
+(47,"scientific_simulation_lease_fencing",[
+"ALTER TABLE scientific_simulation_runs ADD COLUMN IF NOT EXISTS lease_token uuid",
+"ALTER TABLE scientific_simulation_runs ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz",
+"ALTER TABLE scientific_simulation_runs ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0",
+"CREATE INDEX IF NOT EXISTS scientific_simulation_lease_idx ON scientific_simulation_runs(status,lease_expires_at) WHERE status='RUNNING'"
+])
 ]
 
 async def apply_migrations(pool):

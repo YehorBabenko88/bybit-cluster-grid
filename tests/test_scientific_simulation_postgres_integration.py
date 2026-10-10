@@ -1,0 +1,123 @@
+"""Real PostgreSQL concurrency and rollback checks for scientific simulation leases."""
+import asyncio
+import os
+import uuid
+from datetime import datetime, timezone
+
+import asyncpg
+import pytest
+
+from grid.scientific_simulation_gate import ScientificSimulationGate
+
+DSN = os.environ.get("POSTGRES_DSN")
+
+
+@pytest.mark.skipif(not DSN, reason="POSTGRES_DSN not configured")
+def test_scientific_atomic_claim_and_expired_recovery():
+    async def scenario():
+        pool = await asyncpg.create_pool(DSN, min_size=1, max_size=5)
+        run_id = uuid.uuid4()
+        hypothesis_id = uuid.uuid4()
+        try:
+            # Temporary tables are session-scoped; use a dedicated schema instead
+            # to allow independent pooled connections to race safely.
+            schema = "science_ci_" + uuid.uuid4().hex[:16]
+            async with pool.acquire() as conn:
+                await conn.execute(f'CREATE SCHEMA "{schema}"')
+            try:
+                async with pool.acquire() as conn:
+                    await conn.execute(
+                        f'CREATE TABLE "{schema}".scientific_simulation_runs('
+                        'id uuid PRIMARY KEY, hypothesis_id uuid NOT NULL, '
+                        'dataset_cutoff timestamptz NOT NULL, '
+                        "status text NOT NULL DEFAULT 'QUEUED', "
+                        'created_at timestamptz NOT NULL DEFAULT now(), '
+                        'started_at timestamptz, attempts integer NOT NULL DEFAULT 0, '
+                        'lease_token uuid, lease_expires_at timestamptz, reason text)'
+                    )
+                    await conn.execute(f'INSERT INTO "{schema}".scientific_simulation_runs '
+                        '(id,hypothesis_id,dataset_cutoff) VALUES($1,$2,$3)',
+                        run_id,hypothesis_id,datetime.now(timezone.utc))
+                # New pool connections each receive the dedicated test schema.
+                await pool.close()
+                pool2 = await asyncpg.create_pool(
+                    DSN, min_size=2, max_size=5,
+                    server_settings={"search_path": f'"{schema}",public'})
+                try:
+                    class Gate(ScientificSimulationGate):
+                        async def run_one(self,run_id,hypothesis_id,dataset_cutoff,
+                                          claimed=False,lease_token=None):
+                            assert claimed and lease_token
+                            await asyncio.sleep(0.03)
+                            return {"run_id":str(run_id),"status":"CLAIMED"}
+                    first,second=await asyncio.gather(
+                        Gate(pool2).run_queued(limit=1),
+                        Gate(pool2).run_queued(limit=1))
+                    assert sorted(map(len,(first,second)))==[0,1]
+                    row=await pool2.fetchrow(
+                        "SELECT attempts,status,lease_token FROM scientific_simulation_runs WHERE id=$1",
+                        run_id)
+                    assert row["attempts"]==1 and row["status"]=="RUNNING"
+                    assert row["lease_token"] is not None
+                    await pool2.execute("""UPDATE scientific_simulation_runs
+                        SET lease_expires_at=now()-interval '1 minute' WHERE id=$1""",run_id)
+                    await Gate(pool2).run_queued(limit=0)
+                    row=await pool2.fetchrow(
+                        "SELECT status,lease_token FROM scientific_simulation_runs WHERE id=$1",
+                        run_id)
+                    assert row["status"]=="QUEUED" and row["lease_token"] is None
+                    # A stale worker cannot renew or finalize a reclaimed job.
+                    stale_token = uuid.uuid4()
+                    changed = await pool2.fetchval(
+                        """UPDATE scientific_simulation_runs
+                           SET status='SIMULATION_PASSED'
+                           WHERE id=$1 AND status='RUNNING'
+                             AND lease_token=$2 AND lease_expires_at>now()
+                           RETURNING true""", run_id, stale_token)
+                    assert changed is None
+                    assert await pool2.fetchval(
+                        "SELECT status FROM scientific_simulation_runs WHERE id=$1",
+                        run_id) == "QUEUED"
+
+                    # Simulate a crash after inserting a trade but before
+                    # completing the run: neither write may survive rollback.
+                    await pool2.execute("""CREATE TABLE scientific_simulation_trades(
+                        run_id uuid NOT NULL, ordinal integer NOT NULL,
+                        PRIMARY KEY(run_id,ordinal))""")
+                    await pool2.execute("""UPDATE scientific_simulation_runs
+                        SET status='RUNNING',lease_token=$2,
+                            lease_expires_at=now()+interval '30 minutes'
+                        WHERE id=$1""",run_id,stale_token)
+                    with pytest.raises(RuntimeError,match="simulated crash"):
+                        async with pool2.acquire() as conn:
+                            async with conn.transaction():
+                                owner=await conn.fetchval(
+                                    """SELECT true FROM scientific_simulation_runs
+                                       WHERE id=$1 AND status='RUNNING'
+                                         AND lease_token=$2 AND lease_expires_at>now()
+                                       FOR UPDATE""",run_id,stale_token)
+                                assert owner is True
+                                await conn.execute(
+                                    """INSERT INTO scientific_simulation_trades(run_id,ordinal)
+                                       VALUES($1,1)""",run_id)
+                                await conn.execute(
+                                    """UPDATE scientific_simulation_runs
+                                       SET status='SIMULATION_PASSED' WHERE id=$1""",run_id)
+                                raise RuntimeError("simulated crash")
+                    assert await pool2.fetchval(
+                        "SELECT count(*) FROM scientific_simulation_trades WHERE run_id=$1",
+                        run_id)==0
+                    assert await pool2.fetchval(
+                        "SELECT status FROM scientific_simulation_runs WHERE id=$1",
+                        run_id)=="RUNNING"
+
+                finally:
+                    await pool2.close()
+            finally:
+                cleanup=await asyncpg.connect(DSN)
+                try: await cleanup.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
+                finally: await cleanup.close()
+        finally:
+            if not pool._closed:
+                await pool.close()
+    asyncio.run(scenario())

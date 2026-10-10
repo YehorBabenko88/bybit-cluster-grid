@@ -36,6 +36,8 @@ async def check_order(storage, submit):
     storage._enqueue_lock = asyncio.Lock()
     storage.replay_done = asyncio.Event()
     storage.replay_done.set()
+    if isinstance(storage, Storage):
+        storage.replay_error = None
 
     first = asyncio.create_task(submit(storage, 1))
     await asyncio.wait_for(storage.write_queue.entered.wait(), 2)
@@ -62,4 +64,25 @@ def test_micro_wal_append_and_enqueue_are_atomic_in_order():
             storage,
             lambda s, n: s.insert_event("BTCUSDT", n, "trade", {"n": n}),
         )
+    asyncio.run(run())
+
+
+def test_cancelled_minute_producer_still_enqueues_durable_wal_record():
+    async def run():
+        storage=Storage.__new__(Storage)
+        storage.spool=FakeSpool()
+        storage.write_queue=DelayedFirstPut()
+        storage._enqueue_lock=asyncio.Lock()
+        storage.replay_done=asyncio.Event()
+        storage.replay_done.set()
+        storage.replay_error=None
+        task=asyncio.create_task(storage.save({"n":1}))
+        await asyncio.wait_for(storage.write_queue.entered.wait(),2)
+        task.cancel()
+        await asyncio.sleep(0)
+        assert not task.done()
+        storage.write_queue.release.set()
+        with __import__("pytest").raises(asyncio.CancelledError):
+            await asyncio.wait_for(task,2)
+        assert storage.write_queue.ids==[1]
     asyncio.run(run())

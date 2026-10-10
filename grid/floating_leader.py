@@ -1,4 +1,4 @@
-import asyncio,hashlib,logging,socket,time
+import asyncio,json,logging,socket
 log=logging.getLogger("leader_election")
 
 class FloatingLeader:
@@ -11,13 +11,22 @@ class FloatingLeader:
     async def campaign(self):
         async with self.pool.acquire() as c:
             async with c.transaction():
+                # SELECT FOR UPDATE locks existing rows only. On first boot the
+                # lease row is absent, so two candidates could both win.
+                # Serialize even the initial campaign with a transaction lock.
+                await c.execute("SELECT pg_advisory_xact_lock(1729, 4511)")
                 row=await c.fetchrow("""SELECT owner,lease_until,metadata FROM service_leases
                   WHERE service_key='control-plane-leader' FOR UPDATE""")
                 if row and row["owner"]!=self.node_id and row["lease_until"] and row["lease_until"]>await c.fetchval("SELECT now()"):
                     self.is_leader=False; return False
-                epoch=int(time.time()*1000)
+                # A DB-serialized generation prevents same-millisecond leader epochs.
+                # Keep it monotonic across rapid takeovers and process restarts.
+                metadata=row['metadata'] if row else None
+                if isinstance(metadata,str):
+                    metadata=json.loads(metadata)
+                epoch=int((metadata or {}).get('epoch',0))+1
                 await c.execute("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
-                  VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3))
+                  VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3::bigint))
                   ON CONFLICT(service_key) DO UPDATE SET owner=EXCLUDED.owner,lease_until=EXCLUDED.lease_until,
                   heartbeat_at=now(),metadata=EXCLUDED.metadata""",self.node_id,self.lease_seconds,epoch)
                 self.epoch=epoch; self.is_leader=True; return True
@@ -33,24 +42,70 @@ class FloatingLeader:
     async def run(self,on_gain=None,on_loss=None):
         previous=False
         while not self.stop_event.is_set():
+            # Finish a previously failed shutdown before attempting a new lease.
+            if previous and not self.is_leader:
+                try:
+                    if on_loss:
+                        await on_loss()
+                    previous=False
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    log.exception("leader shutdown retry failed")
+                    try:
+                        await asyncio.wait_for(self.stop_event.wait(),timeout=self.renew_seconds)
+                    except asyncio.TimeoutError:
+                        pass
+                    continue
             try:
                 current=await (self.renew() if self.is_leader else self.campaign())
             except asyncio.CancelledError:
                 raise
             except Exception:
-                # Loss of the shared lease store must fail closed immediately.
-                # Do not let a transient PostgreSQL outage kill the election loop:
-                # clear local leadership and keep campaigning after the normal
-                # renewal interval so recovery is automatic when DB returns.
+                # A disconnected lease store must never authorize mutations.
                 log.exception("leader election database operation failed",
                               extra={"event":"leader_db_error","node_id":self.node_id})
                 current=False
                 self.is_leader=False
                 self.epoch=None
-            if current and not previous and on_gain: await on_gain(self.epoch)
-            if previous and not current and on_loss: await on_loss()
+
+            if current and not previous:
+                try:
+                    if on_gain:
+                        await on_gain(self.epoch)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    # Startup did not complete: stop campaigning as leader
+                    # locally and let the next iteration reacquire a new epoch.
+                    log.exception("leader gain callback failed",
+                                  extra={"event":"leader_gain_error","node_id":self.node_id})
+                    current=False
+                    self.is_leader=False
+                    self.epoch=None
+            if previous and not current:
+                try:
+                    if on_loss:
+                        await on_loss()
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    # Do not claim the singleton was stopped. Retry on_loss
+                    # before allowing another gain callback on this process.
+                    log.exception("leader loss callback failed",
+                                  extra={"event":"leader_loss_error","node_id":self.node_id})
+                    previous=True
+                    self.is_leader=False
+                    self.epoch=None
+                    try:
+                        await asyncio.wait_for(self.stop_event.wait(),timeout=self.renew_seconds)
+                    except asyncio.TimeoutError:
+                        pass
+                    continue
             previous=current
-            try: await asyncio.wait_for(self.stop_event.wait(),timeout=self.renew_seconds)
-            except asyncio.TimeoutError: pass
+            try:
+                await asyncio.wait_for(self.stop_event.wait(),timeout=self.renew_seconds)
+            except asyncio.TimeoutError:
+                pass
 
     def stop(self):self.stop_event.set()

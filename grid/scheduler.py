@@ -1,3 +1,4 @@
+import math
 from statistics import median
 
 def learned_symbol_cost(nodes, default=1.0):
@@ -6,13 +7,16 @@ def learned_symbol_cost(nodes, default=1.0):
         for symbol,cost in (node.get("symbol_cost") or {}).items():
             try:
                 value=float(cost)
-            except (TypeError,ValueError):
+            except (TypeError,ValueError,OverflowError):
                 continue
-            if value>0:
+            if math.isfinite(value) and value>0:
                 samples.setdefault(symbol,[]).append(value)
     known=[v for vals in samples.values() for v in vals]
-    fallback=median(known) if known else float(default)
-    return {symbol:median(vals) for symbol,vals in samples.items()},max(float(default),fallback)
+    default=float(default)
+    if not math.isfinite(default) or default<=0:
+        default=1.0
+    fallback=median(known) if known else default
+    return {symbol:median(vals) for symbol,vals in samples.items()},max(default,fallback)
 
 def node_avoids(node,symbol):
     state=(node.get("pressure_state") or "NORMAL").upper()
@@ -21,8 +25,18 @@ def node_avoids(node,symbol):
         return True
     return state=="REDUCE_LOAD" and symbol in drained
 
+def _valid_capacity(value):
+    try:
+        score=float(value)
+    except (TypeError,ValueError,OverflowError):
+        return False
+    return math.isfinite(score) and score>0
+
+
 def weighted_assign(symbols,node_scores,nodes):
-    node_scores={n:s for n,s in node_scores.items() if (nodes.get(n,{}) or {}).get("accepts_work",True)}
+    node_scores={n:float(s) for n,s in node_scores.items()
+                 if (nodes.get(n,{}) or {}).get("accepts_work",True)
+                 and _valid_capacity(s)}
     result={n:[] for n in node_scores}
     if not node_scores:
         return result

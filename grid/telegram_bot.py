@@ -37,6 +37,10 @@ def _decode_command_result(value):
         return decoded if isinstance(decoded,dict) else {"message":value}
     return {"message":str(value)}
 
+def authorized_sender(chat_id,chat_type,actor_id):
+    return (chat_type=="private" and actor_id is not None
+            and str(actor_id)==str(chat_id) and allowed(chat_id))
+
 def allowed(chat_id):
     raw={x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()}
     return bool(raw) and str(chat_id) in raw
@@ -150,6 +154,14 @@ async def handle_command(db,session,chat_id,text,nodes):
         await tg_send(session,chat_id,
             "Lifecycle: "+p["phase"]+"\nCompleted: "+(", ".join(p["completed"]) or "-")+
             "\nCapabilities: "+", ".join(f"{k}={'ON' if v else 'OFF'}" for k,v in caps.items()))
+    elif cmd=="/telegramfailed":
+        rows=await db.pool.fetch("""SELECT update_id,command,error,completed_at
+          FROM telegram_updates WHERE status='FAILED'
+          ORDER BY completed_at DESC NULLS LAST LIMIT 10""")
+        lines=["Telegram failed commands (manual review required):"]
+        for item in rows:
+            lines.append(f"#{item['update_id']} {str(item['command'] or '')[:80]} | {str(item['error'] or '')[:100]}")
+        await tg_send(session,chat_id,"\n".join(lines) if rows else "No failed Telegram commands.")
     elif cmd=="/simstatus":
         rows=await db.pool.fetch("""SELECT status,count(*) n FROM scientific_simulation_runs GROUP BY status""")
         recent=await db.pool.fetchrow("""SELECT r.status,r.reason,r.completed_at,h.pattern,h.horizon_ms
@@ -612,13 +624,49 @@ async def telegram_loop(db,nodes):
                         try:
                             await session.post(f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery",json={"callback_query_id":cb.get("id")})
                         except Exception: pass
+                    # Chat allowlisting alone is insufficient in group chats:
+                    # a different group member could otherwise press privileged buttons.
+                    actor=(cb.get("from") if cb else (upd.get("message") or {}).get("from")) or {}
+                    actor_id=actor.get("id")
+                    chat_type=(msg.get("chat") or {}).get("type")
+                    if not authorized_sender(chat,chat_type,actor_id):
+                        log.warning("telegram non-private or mismatched sender denied",
+                                    extra={"event":"telegram_denied_sender"})
+                        offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
+                        continue
                     if not chat or not txt.startswith("/"):
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     if not allowed(chat):
                         log.warning("telegram unauthorized",extra={"event":"telegram_denied"})
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
+                    # Stale CLAIMED updates may have applied effects before a crash.
+                    # Quarantine only after a conservative timeout; never replay.
+                    await db.pool.execute("""UPDATE telegram_updates
+                      SET status='FAILED',completed_at=now(),
+                          error='stale CLAIMED update; manual reconciliation required'
+                      WHERE update_id=$1 AND status='CLAIMED'
+                        AND claimed_at<now()-interval '30 minutes'""",
+                        int(upd["update_id"]))
                     claimed=await claim_update(db.pool,upd["update_id"],chat,txt,node_id)
                     if not claimed:
+                        # A prior handler may have failed. Never silently mark that
+                        # update consumed: operator reconciliation is required.
+                        previous=await db.pool.fetchval(
+                            "SELECT status FROM telegram_updates WHERE update_id=$1",
+                            int(upd["update_id"]))
+                        if previous=="FAILED":
+                            # A failed command may have partially applied side effects.
+                            # Do not replay it automatically. Preserve the audit row and
+                            # allow later unrelated commands to be processed.
+                            log.error("telegram failed update quarantined for manual reconciliation",
+                                      extra={"event":"telegram_update_quarantined",
+                                             "component":str(upd["update_id"])})
+                            offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
+                            continue
+                        if previous!="DONE":
+                            log.error("telegram in-flight update needs reconciliation",
+                                      extra={"event":"telegram_update_unresolved"})
+                            raise RuntimeError("Telegram update not completed; cursor preserved")
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     try:
                         await handle_command(db,session,chat,txt,nodes)

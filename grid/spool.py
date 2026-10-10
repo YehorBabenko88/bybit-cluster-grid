@@ -5,16 +5,18 @@ class DiskSpool:
     def __init__(self,root,max_bytes=2*1024**3):
         self.root=pathlib.Path(root)
         self.pending=self.root/"pending"
+        self.quarantine=self.root/"quarantine"
         self.max_bytes=int(max_bytes)
         self._lock=asyncio.Lock()
         self.pending.mkdir(parents=True,exist_ok=True)
+        self.quarantine.mkdir(parents=True,exist_ok=True)
 
     def _files(self):
         return sorted(self.pending.glob("*.json"))
 
     def bytes_used(self):
         total=0
-        for p in self._files():
+        for p in list(self._files())+list(self.quarantine.glob("*.json")):
             try: total+=p.stat().st_size
             except OSError: pass
         return total
@@ -36,7 +38,10 @@ class DiskSpool:
             return str(final)
 
     async def ack(self,path):
-        try: pathlib.Path(path).unlink()
+        target=pathlib.Path(path)
+        if target.parent.resolve()!=self.pending.resolve() or target.suffix!=".json":
+            raise ValueError("spool acknowledgement must reference a pending JSON entry")
+        try: target.unlink()
         except FileNotFoundError: pass
 
     def recover(self):
@@ -44,6 +49,10 @@ class DiskSpool:
         for p in self._files():
             try:
                 out.append((str(p),json.loads(p.read_text(encoding="utf-8"))))
-            except (OSError,json.JSONDecodeError):
+            except (OSError,UnicodeError,json.JSONDecodeError):
+                # Preserve corrupt entries for inspection, but prevent endless
+                # reprocessing and include them in the spool capacity budget.
+                try: os.replace(p,self.quarantine/p.name)
+                except OSError: pass
                 continue
         return out

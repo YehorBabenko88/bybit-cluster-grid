@@ -1,4 +1,5 @@
 import asyncio,json
+import pytest
 from grid.segment_wal import SegmentWAL
 
 def test_wal_append_recover_checkpoint(tmp_path):
@@ -21,7 +22,8 @@ def test_wal_crc_rejects_corrupt_record(tmp_path):
         obj=json.loads(seg.read_text().splitlines()[0])
         obj["payload"]={"ok":999}
         seg.write_text(json.dumps(obj)+"\n",encoding="utf-8")
-        assert w.recover()==[]
+        with pytest.raises(ValueError,match="Corrupt WAL record"):
+            w.recover()
     asyncio.run(run())
 
 def test_wal_rotates_segments(tmp_path):
@@ -42,4 +44,113 @@ def test_wal_hard_capacity(tmp_path):
                 failed=True; break
         assert failed
         assert w.ratio()<=1.0
+    asyncio.run(run())
+
+
+def test_restart_repairs_valid_tail_without_newline_before_append(tmp_path):
+    async def run():
+        first=SegmentWAL(tmp_path,max_bytes=10000)
+        rid1=await first.append({"symbol":"BTC","n":1})
+        segment=first._segments()[0]
+        raw=segment.read_bytes()
+        assert raw.endswith(bytes((10,)))
+        segment.write_bytes(raw[:-1])
+        restarted=SegmentWAL(tmp_path,max_bytes=10000)
+        rid2=await restarted.append({"symbol":"ETH","n":2})
+        assert rid2>rid1
+        assert restarted.recover()==[
+            (rid1,{"symbol":"BTC","n":1}),
+            (rid2,{"symbol":"ETH","n":2}),
+        ]
+        assert len(segment.read_bytes().splitlines())==2
+    asyncio.run(run())
+
+
+def test_corrupt_middle_record_blocks_replay_and_prevents_checkpoint_skip(tmp_path):
+    async def run():
+        w=SegmentWAL(tmp_path,max_bytes=10000)
+        a=await w.append({"n":1})
+        b=await w.append({"n":2})
+        c=await w.append({"n":3})
+        segment=w._segments()[0]
+        rows=segment.read_text(encoding="utf-8").splitlines()
+        tampered=json.loads(rows[1])
+        tampered["payload"]={"n":999}
+        rows[1]=json.dumps(tampered)
+        segment.write_text(chr(10).join(rows)+chr(10),encoding="utf-8")
+        with pytest.raises(ValueError,match="Corrupt WAL record"):
+            list(w.iter_recover())
+        with pytest.raises(ValueError,match="Corrupt WAL record"):
+            SegmentWAL(tmp_path,max_bytes=10000)
+        assert (a,b,c)==(1,2,3)
+    asyncio.run(run())
+
+
+def test_torn_tail_is_preserved_before_truncation(tmp_path):
+    async def run():
+        wal=SegmentWAL(tmp_path,max_bytes=10000)
+        first=await wal.append({"n":1})
+        seg=wal._segments()[0]
+        with open(seg,"ab") as stream:
+            stream.write(b'{"id":2,"payload":')
+        restarted=SegmentWAL(tmp_path,max_bytes=10000)
+        assert restarted.recover()==[(first,{"n":1})]
+        evidence_files=list(tmp_path.glob("*.torn-tail"))
+        assert len(evidence_files)==1
+        evidence=evidence_files[0]
+        assert evidence.read_bytes()==b'{"id":2,"payload":'
+        assert restarted.bytes_used()>=seg.stat().st_size+evidence.stat().st_size
+        second=await restarted.append({"n":2})
+        assert restarted.recover()==[(first,{"n":1}),(second,{"n":2})]
+    asyncio.run(run())
+
+
+def test_wal_rejects_out_of_order_ack_without_losing_earlier_record(tmp_path):
+    async def run():
+        wal=SegmentWAL(tmp_path,max_bytes=10000)
+        first=await wal.append({"n":1})
+        second=await wal.append({"n":2})
+        with pytest.raises(ValueError,match="out of order"):
+            await wal.ack(second)
+        assert wal.recover()==[(first,{"n":1}),(second,{"n":2})]
+        await wal.ack(first)
+        assert wal.recover()==[(second,{"n":2})]
+        await wal.ack(second)
+        assert wal.recover()==[]
+    asyncio.run(run())
+
+
+def test_repeated_torn_tails_preserve_separate_evidence(tmp_path):
+    async def run():
+        wal=SegmentWAL(tmp_path,max_bytes=10000)
+        await wal.append({"n":1})
+        seg=wal._segments()[0]
+        with open(seg,"ab") as stream:
+            stream.write(b"first-torn-tail")
+        SegmentWAL(tmp_path,max_bytes=10000)
+        with open(seg,"ab") as stream:
+            stream.write(b"second-torn-tail")
+        again=SegmentWAL(tmp_path,max_bytes=10000)
+        evidence=sorted(p.read_bytes() for p in tmp_path.glob("*.torn-tail"))
+        assert evidence==[b"first-torn-tail",b"second-torn-tail"]
+        assert again.recover()==[(1,{"n":1})]
+        assert again.bytes_used()>=sum(len(x) for x in evidence)
+    asyncio.run(run())
+
+
+def test_wal_quota_does_not_ignore_unreadable_segment_metadata(tmp_path,monkeypatch):
+    from pathlib import Path
+    wal=SegmentWAL(tmp_path,max_bytes=10000)
+    original=Path.stat
+    def failing_stat(path,*args,**kwargs):
+        if str(path).endswith(".seg"):
+            raise PermissionError("segment metadata denied")
+        return original(path,*args,**kwargs)
+    async def run():
+        await wal.append({"n":1})
+        monkeypatch.setattr(Path,"stat",failing_stat)
+        with pytest.raises(PermissionError,match="metadata denied"):
+            wal.bytes_used()
+        with pytest.raises(PermissionError,match="metadata denied"):
+            await wal.append({"n":2})
     asyncio.run(run())
