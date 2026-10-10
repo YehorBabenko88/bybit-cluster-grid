@@ -19,19 +19,15 @@ class FloatingLeader:
                 # A second process must wait for expiry, not steal ownership.
                 previous_epoch = int((row["metadata"] or {}).get("epoch", 0)) if row else 0
                 epoch=max(int(time.time()*1000),previous_epoch+1)
-                await c.execute("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
+                acquired=await c.fetchval("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
                   VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3))
                   ON CONFLICT(service_key) DO UPDATE SET owner=EXCLUDED.owner,lease_until=EXCLUDED.lease_until,
                   heartbeat_at=now(),metadata=EXCLUDED.metadata
                   WHERE service_leases.lease_until <= now()
                   RETURNING (metadata->>'epoch')::bigint""",self.node_id,self.lease_seconds,epoch)
-                # If another contender inserted the missing row first, the
-                # conflict must not overwrite its still-live lease.
-                # Only the contender whose epoch was stored may lead.
-                acquired=await c.fetchval("""SELECT (metadata->>'epoch')::bigint
-                  FROM service_leases WHERE service_key='control-plane-leader'
-                  AND owner=$1 AND (metadata->>'epoch')::bigint=$2
-                  AND lease_until>now()""",self.node_id,epoch)
+                # A concurrent first insert can win while we wait on its
+                # unique-key lock. Only the successful INSERT/UPDATE returns.
+
                 if acquired is None:
                     self.is_leader=False
                     self.epoch=None
