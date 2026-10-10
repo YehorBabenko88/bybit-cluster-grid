@@ -131,6 +131,18 @@ try {
             }
         }
     }
+    if (Test-Path -LiteralPath $targetManifestPath -PathType Leaf) {
+        $manifestKeys = @{}
+        foreach ($fileEntry in $targetManifest.files.PSObject.Properties) {
+            $manifestKeys[[string]$fileEntry.Name.Replace([char]92, '/')] = $true
+        }
+        Get-ChildItem -LiteralPath $targetDir -Recurse -File -Filter '*.py' | ForEach-Object {
+            $relativePath = $_.FullName.Substring($targetFull.Length).Replace([char]92, '/')
+            if (-not $manifestKeys.ContainsKey($relativePath)) {
+                throw "Recovery manifest omits Python source: $relativePath; manual recovery required"
+            }
+        }
+    }
     Write-Output "RECOVERY_PHASE=$($j.phase)"
     Write-Output "RECOVERY_TARGET=$target"
     if (-not $Apply) { Write-Output 'PLAN_ONLY=true'; return }
