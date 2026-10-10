@@ -51,3 +51,8 @@ class PressureController:
         fraction=.5 if self.state==CRITICAL else .25
         count=max(1,int(len(assigned)*fraction))
         return sorted(assigned,key=lambda s:(self.symbol_cost.get(s,0),s),reverse=True)[:count]
+
+
+def desired_drained_symbols(controller,assigned):
+    """Compute bounded shedding from the complete current CONTROL assignment."""
+    return set(controller.symbols_to_drain(assigned))

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 import random
 
 import aiohttp
@@ -39,7 +40,10 @@ async def linear_symbols(base_url: str, *, max_attempts: int = 8):
                                 delay=float(retry_after) if retry_after else min(30.0,2**(attempt-1))
                             except (TypeError,ValueError):
                                 delay=min(30.0,2**(attempt-1))
-                            delay+=random.uniform(0,min(1.0,delay*0.1))
+                            if not math.isfinite(delay) or delay<0:
+                                delay=min(30.0,2**(attempt-1))
+                            delay=min(30.0,delay)
+                            delay=min(30.0,delay+random.uniform(0,min(1.0,delay*0.1)))
                             log.warning("Bybit discovery retry",extra={"event":"bybit_discovery_retry","status":resp.status,"attempt":attempt})
                             await asyncio.sleep(delay)
                             continue
@@ -69,7 +73,7 @@ async def linear_symbols(base_url: str, *, max_attempts: int = 8):
                 try:
                     if x.get("status")=="Trading" and x.get("contractType") in ("LinearPerpetual","LinearFutures"):
                         tick=float(x["priceFilter"]["tickSize"])
-                        if tick<=0:
+                        if not math.isfinite(tick) or tick<=0:
                             raise ValueError("non-positive tick")
                         out.append({
                             "symbol":x["symbol"],

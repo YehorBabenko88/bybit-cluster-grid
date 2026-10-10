@@ -1,13 +1,14 @@
 import hashlib,json,uuid
 from .ml_worker_protocol import accept_assigned_job,renew_running_job,complete_running_job,fail_running_job
 from .ml_artifact_store import LocalArtifactStore
-from .ml_training_worker import TrainingWorker
+from .ml_training_worker import TrainingWorker,_json_object
 
 
 def _public_job(row):
     d=dict(row)
     allowed=("id","job_type","payload","lease_owner","lease_generation","lease_until","attempts")
     out={k:d.get(k) for k in allowed}
+    out["payload"]=_json_object(out["payload"])
     for k,v in list(out.items()):
         if hasattr(v,"isoformat"):out[k]=v.isoformat()
         elif isinstance(v,uuid.UUID):out[k]=str(v)
@@ -28,7 +29,7 @@ async def dataset_page(pool,job_id,node_id,generation,offset=0,limit=500):
       AND lease_generation=$3 AND status='running' AND lease_until>=now()""",
       job_id,node_id,int(generation))
     if not job:return None
-    payload=dict(job["payload"] or {})
+    payload=_json_object(job["payload"])
     did=payload.get("dataset_id")
     if not did:raise ValueError("train job requires dataset_id")
     ds=await pool.fetchrow("""SELECT id,dataset_hash,feature_version,sample_count FROM dataset_snapshots
@@ -39,7 +40,7 @@ async def dataset_page(pool,job_id,node_id,generation,offset=0,limit=500):
       WHERE dataset_id=$1 ORDER BY ordinal OFFSET $2 LIMIT $3""",did,offset,limit)
     samples=[]
     for r in rows:
-        raw=r["payload"];obj=json.loads(raw) if isinstance(raw,str) else dict(raw)
+        obj=_json_object(r["payload"])
         canonical=json.dumps(obj,sort_keys=True,default=str,separators=(",",":"))
         digest=hashlib.sha256(canonical.encode()).hexdigest()
         if digest!=r["payload_hash"]:raise RuntimeError("dataset payload hash mismatch")
@@ -94,7 +95,7 @@ async def finalize_model(pool,job_id,node_id,generation,artifact_id,metrics=None
       AND lease_generation=$3 AND status='running' AND lease_until>=now() FOR UPDATE""",
       job_id,node_id,int(generation))
     if not row:return False
-    p=dict(row["payload"] or {})
+    p=_json_object(row["payload"])
     did=p.get("dataset_id")
     ds=await pool.fetchrow("SELECT feature_version FROM dataset_snapshots WHERE id=$1 AND status='READY'",did)
     if not ds:raise ValueError("dataset is not READY")

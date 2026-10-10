@@ -90,3 +90,114 @@ def test_leader_db_failure_fails_closed_and_calls_loss_once():
         assert lost==["lost"]
 
     asyncio.run(run())
+
+
+def test_floating_leader_epochs_are_database_serialized():
+    from pathlib import Path
+    source=Path("grid/floating_leader.py").read_text(encoding="utf-8")
+    assert "FOR UPDATE" in source
+    assert "get('epoch',0))+1" in source
+    assert "json.loads(metadata)" in source
+    assert "int(time.time()*1000)" not in source
+
+
+def test_initial_leader_campaign_is_serialized_before_row_lock():
+    from pathlib import Path
+    source=Path("grid/floating_leader.py").read_text(encoding="utf-8")
+    advisory=source.index("pg_advisory_xact_lock")
+    # The comment mentions FOR UPDATE before the SQL; compare executable SQL.
+    select=source.index('row=await c.fetchrow')
+    assert advisory<select
+    assert "pg_advisory_xact_lock(1729, 4511)" in source
+
+
+def test_failed_loss_callback_retries_before_new_campaign():
+    import asyncio
+    from grid.floating_leader import FloatingLeader
+
+    class Candidate(FloatingLeader):
+        def __init__(self):
+            super().__init__(None,node_id="node-a",renew_seconds=.001)
+            self.campaigns=0
+            self.renewals=0
+        async def campaign(self):
+            self.campaigns+=1
+            self.is_leader=True
+            self.epoch=self.campaigns
+            self.stop() if self.campaigns==2 else None
+            return True
+        async def renew(self):
+            self.renewals+=1
+            self.is_leader=False
+            return False
+
+    async def scenario():
+        leader=Candidate()
+        events=[]
+        async def gain(epoch):
+            events.append(("gain",epoch))
+        async def loss():
+            events.append(("loss",leader.campaigns))
+            if events.count(("loss",1))==1:
+                raise RuntimeError("stop failed")
+        await asyncio.wait_for(leader.run(on_gain=gain,on_loss=loss),timeout=2)
+        assert events==[("gain",1),("loss",1),("loss",1),("gain",2)]
+        assert leader.campaigns==2
+    asyncio.run(scenario())
+
+
+def test_failed_gain_callback_does_not_terminate_election_loop():
+    import asyncio
+    from grid.floating_leader import FloatingLeader
+
+    class Candidate(FloatingLeader):
+        def __init__(self):
+            super().__init__(None,node_id="node-a",renew_seconds=.001)
+            self.campaigns=0
+        async def campaign(self):
+            self.campaigns+=1
+            self.is_leader=True
+            self.epoch=self.campaigns
+            return True
+        async def renew(self):
+            self.stop()
+            return True
+
+    async def scenario():
+        leader=Candidate()
+        gains=[]
+        async def gain(epoch):
+            gains.append(epoch)
+            if epoch==1:
+                raise RuntimeError("startup failed")
+        await asyncio.wait_for(leader.run(on_gain=gain),timeout=2)
+        assert gains==[1,2]
+        assert leader.campaigns==2
+    asyncio.run(scenario())
+
+
+def test_failed_gain_cleans_partial_service_before_recampaign():
+    import asyncio
+    from grid.floating_leader import FloatingLeader
+    class Candidate(FloatingLeader):
+        def __init__(self):
+            super().__init__(None,node_id="a",renew_seconds=.001)
+            self.campaigns=0
+        async def campaign(self):
+            self.campaigns+=1
+            self.is_leader=True
+            self.epoch=self.campaigns
+            return True
+        async def renew(self):
+            self.stop()
+            return True
+    async def scenario():
+        leader=Candidate()
+        events=[]
+        async def gain(epoch):
+            events.append(("gain",epoch))
+            if epoch==1:raise RuntimeError("partial gain")
+        async def lose():events.append(("loss",leader.campaigns))
+        await asyncio.wait_for(leader.run(on_gain=gain,on_loss=lose),2)
+        assert events[:3]==[("gain",1),("loss",1),("gain",2)]
+    asyncio.run(scenario())

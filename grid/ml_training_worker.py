@@ -1,6 +1,16 @@
 import json,uuid,hashlib
 from datetime import datetime,timezone,timedelta
+from collections.abc import Mapping
 from .ml_splits import walk_forward
+
+
+def _json_object(value):
+    """Decode default asyncpg JSONB strings and reject non-object payloads."""
+    if isinstance(value,str):
+        value=json.loads(value)
+    if not isinstance(value,Mapping):
+        raise ValueError("JSON payload must be an object")
+    return dict(value)
 
 
 class StaleTrainingLease(RuntimeError):
@@ -70,10 +80,11 @@ class TrainingWorker:
         if len(frozen)!=ds["sample_count"]: raise ValueError("immutable dataset payload count mismatch")
         hashes=[]; rows=[]
         for r in frozen:
-            raw=json.dumps(r["payload"],sort_keys=True,default=str,separators=(",",":"))
+            obj=_json_object(r["payload"])
+            raw=json.dumps(obj,sort_keys=True,default=str,separators=(",",":"))
             h=hashlib.sha256(raw.encode()).hexdigest()
             if h!=r["payload_hash"]: raise ValueError("immutable dataset payload hash mismatch")
-            hashes.append(h); rows.append(dict(r["payload"]))
+            hashes.append(h); rows.append(obj)
         aggregate=hashlib.sha256("\n".join(hashes).encode()).hexdigest()
         if aggregate!=ds["dataset_hash"]: raise ValueError("dataset aggregate hash mismatch")
         folds=walk_forward(rows)
