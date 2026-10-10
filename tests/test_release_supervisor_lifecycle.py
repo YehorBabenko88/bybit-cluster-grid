@@ -10,6 +10,75 @@ from unittest import mock
 from grid import release_supervisor as supervisor
 
 
+class CoordinatorPidReadinessTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Windows process ancestry test")
+    def test_real_child_pid_is_accepted(self):
+        with subprocess.Popen([sys.executable, "-c", "import time; time.sleep(10)"]) as child:
+            try:
+                self.assertTrue(supervisor._is_child_process(child.pid, os.getpid()))
+            finally:
+                child.terminate()
+
+    @unittest.skipUnless(os.name == "nt", "Windows process ancestry test")
+    def test_unrelated_pid_is_rejected(self):
+        with subprocess.Popen([sys.executable, "-c", "import time; time.sleep(10)"]) as child:
+            try:
+                self.assertFalse(supervisor._is_child_process(os.getpid(), child.pid))
+            finally:
+                child.terminate()
+
+    @unittest.skipUnless(os.name == "nt", "Windows process ancestry test")
+    def test_grandchild_pid_is_accepted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = pathlib.Path(tmp) / "grandchild.pid"
+            script = (
+                "import pathlib, subprocess, sys, time\n"
+                "p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(10)'])\n"
+                "pathlib.Path(sys.argv[1]).write_text(str(p.pid))\n"
+                "p.wait()\n"
+            )
+            parent = subprocess.Popen([sys.executable, "-c", script, str(marker)])
+            try:
+                import time
+                for _ in range(100):
+                    if marker.exists():
+                        break
+                    if parent.poll() is not None:
+                        self.fail("intermediate Python process exited early")
+                    time.sleep(0.05)
+                self.assertTrue(marker.exists(), "grandchild PID not recorded")
+                self.assertTrue(supervisor._is_child_process(int(marker.read_text()), os.getpid()))
+            finally:
+                parent.terminate()
+                parent.wait(timeout=10)
+
+    def test_health_pid_requires_process_ownership(self):
+        import io
+        proc = mock.Mock()
+        proc.pid = 101
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, *args): return b'{"ok":true,"pid":202}'
+        with mock.patch.object(supervisor.urllib.request, "urlopen", return_value=Response()):
+            with mock.patch.object(supervisor, "_is_child_process", return_value=False):
+                self.assertFalse(supervisor._ready("coordinator", proc, None))
+            with mock.patch.object(supervisor, "_is_child_process", return_value=True):
+                self.assertTrue(supervisor._ready("coordinator", proc, None))
+
+    def test_health_pid_rejects_boolean(self):
+        proc = mock.Mock()
+        proc.pid = 1
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, *args): return b'{"ok":true,"pid":true}'
+        with mock.patch.object(supervisor.urllib.request, "urlopen", return_value=Response()):
+            self.assertFalse(supervisor._ready("coordinator", proc, None))
+
+
 class ReleaseSupervisorTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Windows job object test")
     def test_job_close_terminates_running_child(self):
@@ -128,6 +197,63 @@ class ReleaseSupervisorTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("already running", result.stderr)
             self.assertFalse((root / "release-ready.txt").exists())
+
+    def test_crash_processing_waits_for_inflight_confirmation(self):
+        import threading
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            version = "b" * 40
+            (root / "current.version").write_text(version)
+            (root / "pending.version").write_text(version)
+            proc = mock.Mock()
+            proc.poll.return_value = None
+            entered = threading.Event()
+            release = threading.Event()
+            completed = threading.Event()
+            def slow_ready(*args):
+                entered.set()
+                if not release.wait(timeout=5):
+                    raise RuntimeError("readiness wait timed out")
+                return True
+            def crash():
+                supervisor._after_exit(root, version, 1, exit_code=1)
+                completed.set()
+            with mock.patch.object(supervisor.time, "sleep", return_value=None):
+                with mock.patch.object(supervisor, "_ready", side_effect=slow_ready):
+                    confirm_thread = threading.Thread(
+                        target=supervisor._confirm,
+                        args=(root, version, proc, 1, "coordinator", None),
+                    )
+                    confirm_thread.start()
+                    try:
+                        self.assertTrue(entered.wait(timeout=5))
+                        crash_thread = threading.Thread(target=crash)
+                        crash_thread.start()
+                        self.assertFalse(completed.wait(timeout=0.1),
+                                         "crash processing bypassed confirmation lock")
+                    finally:
+                        release.set()
+                        confirm_thread.join(timeout=5)
+                        if "crash_thread" in locals():
+                            crash_thread.join(timeout=5)
+            self.assertTrue(completed.is_set())
+            self.assertFalse((root / "pending.version").exists())
+            self.assertFalse((root / "pending-crashes.txt").exists())
+
+    def test_child_exiting_during_readiness_does_not_confirm(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            version = "b" * 40
+            (root / "current.version").write_text(version)
+            (root / "pending.version").write_text(version)
+            (root / "pending-crashes.txt").write_text("2")
+            proc = mock.Mock()
+            proc.poll.side_effect = [None, 1]
+            with mock.patch.object(supervisor.time, "sleep", return_value=None):
+                with mock.patch.object(supervisor, "_ready", return_value=True):
+                    supervisor._confirm(root, version, proc, 1, mode="coordinator")
+            self.assertTrue((root / "pending.version").exists())
+            self.assertEqual((root / "pending-crashes.txt").read_text(), "2")
 
     def test_missing_current_marker_blocks_confirmation(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -267,6 +393,49 @@ class ReleaseSupervisorTests(unittest.TestCase):
             self.assertEqual((root / "current.version").read_text(), old)
             self.assertEqual((root / "failed.version").read_text(), new)
             self.assertFalse((root / "pending.version").exists())
+
+    def test_three_coordinator_crashes_roll_back_to_coordinator_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            old, new = "a" * 40, "b" * 40
+            for name, value in (("previous.version", old), ("current.version", new),
+                                ("pending.version", new)):
+                (root / name).write_text(value)
+            previous = root / "releases" / old / "grid"
+            previous.mkdir(parents=True)
+            (previous / "coordinator.py").write_text("# fixture")
+            for count in (1, 2):
+                self.assertFalse(supervisor._after_exit(root, new, 1, exit_code=1,
+                                                        mode="coordinator"))
+                self.assertEqual((root / "pending-crashes.txt").read_text(), str(count))
+                self.assertEqual((root / "current.version").read_text(), new)
+            self.assertTrue(supervisor._after_exit(root, new, 1, exit_code=1,
+                                                   mode="coordinator"))
+            self.assertEqual((root / "current.version").read_text(), old)
+            self.assertEqual((root / "failed.version").read_text(), new)
+            self.assertFalse((root / "pending.version").exists())
+            self.assertFalse((root / "pending-crashes.txt").exists())
+            self.assertFalse(supervisor._after_exit(root, new, 1, exit_code=1,
+                                                    mode="coordinator"))
+            self.assertEqual((root / "current.version").read_text(), old)
+
+    def test_unresolved_switch_journal_blocks_crash_rollback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            old, new = "a" * 40, "b" * 40
+            for name, value in (("previous.version", old), ("current.version", new),
+                                ("pending.version", new)):
+                (root / name).write_text(value)
+            (root / "switch-journal.json").write_text('{"phase":"prepared"}')
+            previous = root / "releases" / old / "grid"
+            previous.mkdir(parents=True)
+            (previous / "coordinator.py").write_text("# fixture")
+            for _ in range(3):
+                self.assertFalse(supervisor._after_exit(root, new, 1, exit_code=1,
+                                                        mode="coordinator"))
+            self.assertEqual((root / "current.version").read_text(), new)
+            self.assertTrue((root / "pending.version").exists())
+            self.assertFalse((root / "pending-crashes.txt").exists())
 
     def test_symlinked_previous_release_cannot_escape_release_root(self):
         with tempfile.TemporaryDirectory() as tmp:

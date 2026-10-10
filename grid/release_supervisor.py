@@ -104,6 +104,60 @@ def _atomic(path,value):
         f.write(str(value)); f.flush(); os.fsync(f.fileno())
     os.replace(tmp,p)
 
+def _is_child_process(pid, ancestor_pid):
+    """Verify a Windows health PID descends from the supervised process.
+
+    Windows virtualenv launchers can spawn the actual interpreter as a child.
+    Never accept an unrelated process just because it serves /health.
+    """
+    if os.name != "nt":
+        return False
+    try:
+        import ctypes.wintypes as wintypes
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.CreateToolhelp32Snapshot.argtypes = (wintypes.DWORD, wintypes.DWORD)
+        kernel.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+        class ProcessEntry(ctypes.Structure):
+            _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                        ("th32ProcessID", wintypes.DWORD), ("th32DefaultHeapID", ctypes.c_size_t),
+                        ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+                        ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long),
+                        ("dwFlags", wintypes.DWORD), ("szExeFile", wintypes.WCHAR * 260)]
+        kernel.Process32FirstW.argtypes = (wintypes.HANDLE, ctypes.POINTER(ProcessEntry))
+        kernel.Process32FirstW.restype = wintypes.BOOL
+        kernel.Process32NextW.argtypes = (wintypes.HANDLE, ctypes.POINTER(ProcessEntry))
+        kernel.Process32NextW.restype = wintypes.BOOL
+        kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel.CloseHandle.restype = wintypes.BOOL
+        snapshot = kernel.CreateToolhelp32Snapshot(2, 0)
+        invalid = ctypes.c_void_p(-1).value
+        if snapshot == invalid:
+            return False
+        try:
+            entry = ProcessEntry()
+            entry.dwSize = ctypes.sizeof(entry)
+            parents = {}
+            if not kernel.Process32FirstW(snapshot, ctypes.byref(entry)):
+                return False
+            while True:
+                parents[int(entry.th32ProcessID)] = int(entry.th32ParentProcessID)
+                if not kernel.Process32NextW(snapshot, ctypes.byref(entry)):
+                    break
+        finally:
+            kernel.CloseHandle(snapshot)
+        current = int(pid)
+        ancestor = int(ancestor_pid)
+        seen = set()
+        while current and current not in seen:
+            if current == ancestor:
+                return True
+            seen.add(current)
+            current = parents.get(current, 0)
+    except (OSError, ValueError, TypeError):
+        return False
+    return False
+
+
 def _ready(mode,proc,ready_file):
     if mode=='worker':
         try:return pathlib.Path(ready_file).read_text(encoding='ascii').strip()==str(proc.pid)
@@ -113,16 +167,25 @@ def _ready(mode,proc,ready_file):
             with urllib.request.urlopen('http://127.0.0.1:8765/health',timeout=2) as resp:
                 if resp.status!=200:return False
                 payload=json.load(resp)
-                return payload.get('ok') is True and payload.get('pid')==proc.pid
+                return (payload.get('ok') is True and type(payload.get('pid')) is int
+                        and (payload['pid']==proc.pid or _is_child_process(payload['pid'],proc.pid)))
         except Exception:return False
     return False
 
+_release_state_lock = threading.Lock()
+
 def _confirm(root,version,proc,delay,mode=None,ready_file=None):
     time.sleep(delay)
+    with _release_state_lock:
+        return _confirm_locked(root,version,proc,mode,ready_file)
+
+def _confirm_locked(root,version,proc,mode=None,ready_file=None):
     root=pathlib.Path(root)
     pending=root/"pending.version"
     if _read(pending)!=version or proc.poll() is not None:return
     if mode and not _ready(mode,proc,ready_file):return
+    # Readiness probes can block; the child may have exited during the probe.
+    if proc.poll() is not None:return
     # Do not confirm a release while pointer recovery is still unresolved.
     if (root/"switch-journal.json").exists():return
     if _read(root/"current.version")!=version:return
@@ -130,6 +193,10 @@ def _confirm(root,version,proc,delay,mode=None,ready_file=None):
     (root/"pending-crashes.txt").unlink(missing_ok=True)
 
 def _after_exit(root,version,runtime,exit_code=1,mode=None):
+    with _release_state_lock:
+        return _after_exit_locked(root,version,runtime,exit_code,mode)
+
+def _after_exit_locked(root,version,runtime,exit_code=1,mode=None):
     # An intentional clean stop must not count as a release crash.
     if exit_code == 0:return False
     root=pathlib.Path(root); pending=root/"pending.version"
