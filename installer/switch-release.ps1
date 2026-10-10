@@ -111,7 +111,7 @@ function Write-Atomic([string]$Path,[string]$Value) {
         if ([IO.File]::Exists($Path)) {
             # File.Replace uses the Windows replace-file primitive rather than
             # removing the destination before renaming the temporary file.
-            [IO.File]::Replace($tmp, $Path, $null)
+            [IO.File]::Replace($tmp, $Path, $null, $true)
         } else {
             [IO.File]::Move($tmp, $Path)
         }
