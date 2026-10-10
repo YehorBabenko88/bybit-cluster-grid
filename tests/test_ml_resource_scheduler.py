@@ -40,3 +40,9 @@ def test_dispatcher_accounts_for_reservations_within_same_batch():
     assert 'selected["ram_available"]=max(0.0' in source
     assert 'selected["disk_free"]=max(0.0' in source
     assert 'selected["cpu_pct"]=min(100.0' in source
+
+
+def test_scheduler_enforces_requested_cpu_capacity():
+    nodes={"busy":node(70,64,100,cores=8)}
+    assert choose_node(nodes,Workload("train",cpu=4,ram_gb=8,scratch_gb=10)) is None
+    assert choose_node(nodes,Workload("train",cpu=1,ram_gb=8,scratch_gb=10)) is not None
