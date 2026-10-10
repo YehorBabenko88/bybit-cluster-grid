@@ -167,7 +167,8 @@ def _ready(mode,proc,ready_file):
             with urllib.request.urlopen('http://127.0.0.1:8765/health',timeout=2) as resp:
                 if resp.status!=200:return False
                 payload=json.load(resp)
-                return (payload.get('ok') is True and type(payload.get('pid')) is int\n                        and (payload['pid']==proc.pid or _is_child_process(payload['pid'],proc.pid)))
+                return (payload.get('ok') is True and type(payload.get('pid')) is int
+                        and (payload['pid']==proc.pid or _is_child_process(payload['pid'],proc.pid)))
         except Exception:return False
     return False
 
