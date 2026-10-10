@@ -122,7 +122,7 @@ def _is_child_process(pid, ancestor_pid):
                         ("th32ProcessID", wintypes.DWORD), ("th32DefaultHeapID", ctypes.c_size_t),
                         ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
                         ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long),
-                        ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_char * 260)]
+                        ("dwFlags", wintypes.DWORD), ("szExeFile", wintypes.WCHAR * 260)]
         kernel.Process32FirstW.argtypes = (wintypes.HANDLE, ctypes.POINTER(ProcessEntry))
         kernel.Process32FirstW.restype = wintypes.BOOL
         kernel.Process32NextW.argtypes = (wintypes.HANDLE, ctypes.POINTER(ProcessEntry))
