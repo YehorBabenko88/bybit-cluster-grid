@@ -1,4 +1,4 @@
-import asyncio,hashlib,logging,socket,time
+import asyncio,hashlib,json,logging,socket,time
 log=logging.getLogger("leader_election")
 
 class FloatingLeader:
@@ -17,7 +17,10 @@ class FloatingLeader:
                     self.is_leader=False; return False
                 # Even the same node_id cannot seize an unexpired lease.
                 # A second process must wait for expiry, not steal ownership.
-                previous_epoch = int((row["metadata"] or {}).get("epoch", 0)) if row else 0
+                metadata = row["metadata"] if row else None
+                if isinstance(metadata, str):
+                    metadata = json.loads(metadata)
+                previous_epoch = int((metadata or {}).get("epoch", 0))
                 epoch=max(int(time.time()*1000),previous_epoch+1)
                 acquired=await c.fetchval("""INSERT INTO service_leases(service_key,owner,lease_until,heartbeat_at,metadata)
                   VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3::bigint))
