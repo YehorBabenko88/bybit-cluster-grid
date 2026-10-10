@@ -23,10 +23,27 @@ class SegmentWAL:
         p=segs[-1]
         try:
             with open(p,"rb+") as f:
-                data=f.read()
-                if not data or data.endswith(b"\n"):return
-                cut=data.rfind(b"\n")
-                tail=data[cut+1:]
+                # Only the final line can be torn. Avoid loading an entire
+                # multi-megabyte segment into RAM during startup.
+                f.seek(0,os.SEEK_END)
+                end=f.tell()
+                if not end:return
+                f.seek(end-1)
+                if f.read(1)==b"\n":return
+                block_size=65536
+                cursor=end
+                cut=-1
+                while cursor>0:
+                    start=max(0,cursor-block_size)
+                    f.seek(start)
+                    block=f.read(cursor-start)
+                    idx=block.rfind(b"\n")
+                    if idx>=0:
+                        cut=start+idx
+                        break
+                    cursor=start
+                f.seek(cut+1)
+                tail=f.read(end-cut-1)
                 # A complete final JSON record is valid even without a newline
                 # (tests/import tools may create one). Only truncate a tail that
                 # cannot be parsed and CRC-validated as a full WAL record.
