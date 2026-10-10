@@ -232,3 +232,38 @@ def test_invalid_leader_lease_intervals_are_rejected():
     leader = FloatingLeader(pool=None, lease_seconds=20, renew_seconds=5)
     assert leader.lease_seconds == 20
     assert leader.renew_seconds == 5
+
+
+def test_failed_gain_callback_releases_its_epoch_and_retries():
+    async def scenario():
+        events = []
+
+        class RetryingLeader(FloatingLeader):
+            def __init__(self):
+                super().__init__(pool=None, node_id="retry", renew_seconds=0.001)
+                self.epochs = iter((101, 102))
+
+            async def campaign(self):
+                self.epoch = next(self.epochs)
+                self.is_leader = True
+                return True
+
+            async def release(self, epoch):
+                events.append(("release", epoch))
+                return "UPDATE 1"
+
+            async def renew(self):
+                self.stop()
+                return True
+
+        async def on_gain(epoch):
+            events.append(("gain", epoch))
+            if epoch == 101:
+                raise RuntimeError("startup failed")
+
+        leader = RetryingLeader()
+        await asyncio.wait_for(leader.run(on_gain=on_gain), 2)
+        assert events == [("gain", 101), ("release", 101), ("gain", 102)]
+        assert leader.epoch == 102
+
+    asyncio.run(scenario())
