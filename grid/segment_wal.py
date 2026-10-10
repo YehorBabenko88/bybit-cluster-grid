@@ -150,6 +150,10 @@ class SegmentWAL:
 
     async def ack(self,record_id):
         async with self._lock:
+            # A checkpoint beyond the last allocated record would cause future
+            # WAL entries to be skipped during crash recovery.
+            if not isinstance(record_id,int) or isinstance(record_id,bool) or record_id<0 or record_id>=self._next_id:
+                raise ValueError("WAL ACK id is outside the allocated record range")
             current=self._checkpoint_id()
             if record_id<=current: return
             tmp=self.root/"checkpoint.next"
