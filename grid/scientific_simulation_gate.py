@@ -32,8 +32,12 @@ class ScientificSimulationGate:
         return out
 
     async def run_one(self,run_id,hypothesis_id,dataset_cutoff):
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status='RUNNING',
-          started_at=now() WHERE id=$1 AND status='QUEUED'""",run_id)
+        claimed=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET status='RUNNING',started_at=now()
+          WHERE id=$1 AND status='QUEUED'
+          RETURNING id""",run_id)
+        if claimed is None:
+            return {"run_id":str(run_id),"status":"SKIPPED_NOT_QUEUED"}
         oos_start=await self.pool.fetchval("""SELECT max(dataset_cutoff)
           FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1 AND passed=true""",hypothesis_id)
         if oos_start is None:
