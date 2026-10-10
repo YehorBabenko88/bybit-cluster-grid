@@ -53,11 +53,11 @@ class MLDispatcher:
                 reservations=await reserved_by_node(c)
                 nodes=_adjust_nodes(reported,reservations)
                 active=await c.fetchval("""SELECT count(*) FROM ml_jobs
-                  WHERE status IN ('assigned','running') AND lease_until>=now()""")
+                  WHERE status IN ('assigned','running') AND lease_until>=clock_timestamp()""")
                 budget=max(0,int(slots)-int(active or 0))
                 for _ in range(budget):
                     jobs=await c.fetch("""SELECT * FROM ml_jobs WHERE status='queued'
-                      AND attempts<max_attempts AND (not_before IS NULL OR not_before<=now())
+                      AND attempts<max_attempts AND (not_before IS NULL OR not_before<=clock_timestamp())
                       ORDER BY priority,created_at FOR UPDATE SKIP LOCKED LIMIT 32""")
                     if not jobs: break
                     job=None;pick=None;w=None
