@@ -64,7 +64,8 @@ class ScientificMethodRegistry:
                 await pool.execute("""INSERT INTO scientific_method_errors(
                   method_key,event_ts,error_type,error_message,context)
                   VALUES($1,$2,$3,$4,$5::jsonb)""",key,event.get("event_ts"),type(e).__name__,str(e)[:2000],
-                  json.dumps({"event_type":event.get("event_type"),"symbol":event.get("symbol")},separators=(",",":")))
+                  json.dumps({"event_type":str(event.get("event_type") or ""),
+                            "symbol":str(event.get("symbol") or "")},separators=(",",":")))
                 count=await pool.fetchval("""UPDATE scientific_methods SET failure_count=failure_count+1,
                   last_error=$2,status=CASE WHEN failure_count+1 >= $3 THEN 'QUARANTINED' ELSE status END,
                   updated_at=now() WHERE method_key=$1 RETURNING failure_count""",
