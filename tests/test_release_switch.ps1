@@ -87,6 +87,18 @@ try {
         Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Bad pending marker created journal'
         Remove-Item -LiteralPath (Join-Path $root 'pending.version') -Force
     }
+    # A stale journal without pending.version must still prevent another switch.
+    $journalFile = Join-Path $root 'switch-journal.json'
+    foreach ($staleJournal in @('', '{', ('{"schema":1,"previous":"' + $a + '","candidate":"' + $b + '","phase":"prepared"}'))) {
+        [IO.File]::WriteAllText($journalFile, $staleJournal)
+        $blockedStaleJournal = $false
+        try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null } catch { $blockedStaleJournal = $true }
+        Assert $blockedStaleJournal 'Unresolved switch journal must block promotion'
+        Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $a) 'Stale journal changed current'
+        Assert (Test-Path $journalFile) 'Blocked switch removed recovery journal'
+        Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Stale journal created pending marker'
+        Remove-Item -LiteralPath $journalFile -Force
+    }
     $mutex = [System.Threading.Mutex]::new($false, 'Global\BybitClusterGridReleaseSwitch')
     $held = $mutex.WaitOne(0)
     Assert $held 'Could not acquire test mutex'
