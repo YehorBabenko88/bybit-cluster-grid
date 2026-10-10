@@ -147,9 +147,11 @@ class ScientificResearchService:
                     self.mining_runs+=len(mined.get("runs") or [])
                     cutoff=mined["dataset_cutoff"]
                     await self.simulation.enqueue_validated(cutoff)
-                    simulated=await self.simulation.run_queued(limit=2)
-                    self.simulation_runs+=len(simulated)
                     self.last_mining_check=now
+                # Drain queued/recoverable simulations independently of mining.
+                # A temporary mining failure must not strand simulation work.
+                simulated=await self.simulation.run_queued(limit=2)
+                self.simulation_runs+=len(simulated)
                 if not n:await asyncio.sleep(self.poll_seconds)
             except asyncio.CancelledError:
                 raise
