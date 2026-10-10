@@ -62,12 +62,12 @@ class BookTapeResearch:
             return {"version":VERSION,"eligible":False,"reason":"invalid_trade_bucket"}
         if ts<=self.last_ts.get(symbol,-1):
             return {"version":VERSION,"eligible":False,"reason":"replayed_or_out_of_order"}
-        self.last_ts[symbol]=ts
         volume=buy+sell
         history=self.history[symbol]
         past=list(history)
-        history.append((ts,close,volume,buy-sell))
         if len(past)<self.min_history:
+            self.last_ts[symbol]=ts
+            history.append((ts,close,volume,buy-sell))
             return {"version":VERSION,"eligible":False,"reason":"warmup","samples":len(history)}
         volumes=[x[2] for x in past]
         prices=[x[1] for x in past]
@@ -75,6 +75,8 @@ class BookTapeResearch:
         relative_volume=volume/avg_volume if avg_volume>0 else 0.0
         if not isfinite(relative_volume):
             return {"version":VERSION,"eligible":False,"reason":"invalid_relative_volume"}
+        self.last_ts[symbol]=ts
+        history.append((ts,close,volume,buy-sell))
         delta_ratio=(buy-sell)/volume
         previous=prices[-1]
         high=max(prices)
