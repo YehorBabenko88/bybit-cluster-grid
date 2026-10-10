@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
@@ -12,6 +13,11 @@ class Workload:
 
 def rank_nodes(nodes,workload:Workload):
     """Rank execution nodes by measured headroom minus estimated LAN transfer cost."""
+    # Job payloads may be user-controlled: reject negative/NaN/infinite
+    # estimates before placement or reservation arithmetic.
+    estimates=(workload.cpu,workload.ram_gb,workload.scratch_gb,workload.input_gb)
+    if any(not math.isfinite(float(v)) or float(v)<0 for v in estimates):
+        return []
     ranked=[]
     for node_id,n in nodes.items():
         if (n.get("pressure_state") or "NORMAL") in ("REDUCE_LOAD","CRITICAL"): continue
