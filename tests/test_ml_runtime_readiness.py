@@ -1,4 +1,3 @@
-import os
 import time
 from unittest.mock import patch
 
@@ -8,7 +7,6 @@ from grid import resources
 def test_ml_readiness_probe_does_not_block_heartbeat():
     """A slow ML import must not hold up the caller's heartbeat."""
     resources._ML_READY_CACHE.update(at=0.0, value=False, running=False)
-    original = resources._probe_ml_runtime
 
     def slow_probe(python, journal):
         time.sleep(0.5)
@@ -35,3 +33,23 @@ def test_ml_probe_missing_files_fails_closed(tmp_path):
     resources._probe_ml_runtime(str(tmp_path/"missing-python"),str(tmp_path/"missing-journal"))
     assert resources._ML_READY_CACHE["value"] is False
     assert resources._ML_READY_CACHE["running"] is False
+
+
+def test_ml_readiness_rejects_failed_journal(tmp_path):
+    import json
+    python=tmp_path/"python.exe"
+    journal=tmp_path/"ml-bootstrap.json"
+    python.write_text("not executable")
+    journal.write_text(json.dumps({"status":"failed"}))
+    with patch.object(resources.subprocess,"run",side_effect=AssertionError("must not run ML")):
+        resources._probe_ml_runtime(str(python),str(journal))
+    assert resources._ML_READY_CACHE["value"] is False
+
+
+def test_ml_readiness_rejects_corrupt_journal(tmp_path):
+    python=tmp_path/"python.exe"
+    journal=tmp_path/"ml-bootstrap.json"
+    python.write_text("not executable")
+    journal.write_text("{broken json")
+    resources._probe_ml_runtime(str(python),str(journal))
+    assert resources._ML_READY_CACHE["value"] is False
