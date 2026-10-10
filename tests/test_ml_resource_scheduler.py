@@ -80,3 +80,11 @@ def test_dispatch_reservation_adjustment_keeps_node_telemetry_immutable():
     assert adjusted["n"]["disk_free"]==35*1024**3
     assert adjusted["n"]["cpu_pct"]==35
     assert original["n"]["ram_available"]==16*1024**3
+
+
+def test_existing_gpu_reservation_blocks_second_gpu_job():
+    from grid.ml_dispatcher import _adjust_nodes
+    reported={"gpu-node":{**node(10,32,100),"gpu_available":True}}
+    adjusted=_adjust_nodes(reported,{"gpu-node":{"cpu":1,"ram_gb":1,"scratch_gb":1,"gpu":True}})
+    assert adjusted["gpu-node"]["gpu_available"] is False
+    assert choose_node(adjusted,Workload("train",gpu=True,ram_gb=4,scratch_gb=5)) is None
