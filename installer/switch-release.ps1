@@ -77,7 +77,7 @@ if (Test-Path -LiteralPath $pendingMarker -PathType Leaf) {
 $marker = Join-Path $InstallRoot 'current.version'
 if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) { throw 'current.version missing' }
 $current = (Get-Content -LiteralPath $marker -Raw).Trim()
-if ($current -notmatch '^[0-9a-f]{40}$') { throw 'Invalid current.version' }
+if ($current -cnotmatch '^[0-9a-f]{40}$') { throw 'Invalid current.version' }
 if ($current -eq $Version) {
     Write-Output "ALREADY_CURRENT=$Version"
     return
