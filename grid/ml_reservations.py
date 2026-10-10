@@ -1,6 +1,6 @@
 async def reserved_by_node(pool):
     rows=await pool.fetch("""SELECT node_id,COALESCE(sum(cpu),0) cpu,COALESCE(sum(ram_gb),0) ram_gb,
-      COALESCE(sum(scratch_gb),0) scratch_gb,count(*) jobs FROM ml_resource_reservations
+      COALESCE(sum(scratch_gb),0) scratch_gb,COALESCE(bool_or(gpu),false) gpu,count(*) jobs FROM ml_resource_reservations
       WHERE expires_at>=now() GROUP BY node_id""")
     return {r["node_id"]:dict(r) for r in rows}
 
