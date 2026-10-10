@@ -40,6 +40,11 @@ if ($manifest.version -cne $Version) { throw 'Candidate release manifest version
 if ($null -eq $manifest.files -or @($manifest.files.PSObject.Properties).Count -eq 0) {
     throw 'Release manifest has no file checksums'
 }
+# A checksum manifest must cover the executable entry point for this role.
+$requiredKey = $required.Replace('\\', '/')
+if ($null -eq $manifest.files.PSObject.Properties[$requiredKey]) {
+    throw "Release manifest omits required entry point: $requiredKey"
+}
 $releaseFull = [IO.Path]::GetFullPath($release).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
 foreach ($entry in $manifest.files.PSObject.Properties) {
     $relative = [string]$entry.Name
