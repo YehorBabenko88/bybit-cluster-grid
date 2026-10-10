@@ -94,6 +94,13 @@ try {
         Assert (((Get-Content $pending -Raw).Trim()) -eq $b) 'Corrupt journal changed pending'
         Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Corrupt journal was removed'
     }
+    # Successful atomic pointer replacements must not leak .bak files.
+    Journal 'prepared'
+    Set-Content -LiteralPath $current -Value $b
+    Set-Content -LiteralPath $pending -Value $b
+    & $script -InstallRoot $root -Role WORKER -Apply | Out-Null
+    $backups = @(Get-ChildItem -LiteralPath $root -File -Filter '*.bak')
+    Assert ($backups.Count -eq 0) 'Recovery leaked File.Replace backup files'
     Write-Output 'PASS: prepared, committed, plan-only and invalid-journal recovery'
 } finally {
     if (Test-Path $root) { Remove-Item -LiteralPath $root -Recurse -Force }
