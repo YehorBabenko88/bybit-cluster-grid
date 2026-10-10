@@ -136,3 +136,11 @@ def test_ml_journal_is_atomically_replaced():
     assert '[System.IO.File]::Move($tmp,$Journal,$true)' in script
     assert 'ValueFromPipeline=$true' in script
     assert 'Set-Content -Encoding UTF8 $Journal' not in script
+
+
+def test_ml_bootstrap_recreates_venv_if_pip_is_broken():
+    script=Path("installer/bootstrap-ml.ps1").read_text(encoding="utf-8")
+    assert '& $MLPython -m pip --version' in script
+    assert 'if($LASTEXITCODE -ne 0){$Recreate=$true}' in script
+    workflow=Path(".github/workflows/windows-bundle.yml").read_text(encoding="utf-8")
+    assert 'Repair ML venv with missing pip on Windows' in workflow
