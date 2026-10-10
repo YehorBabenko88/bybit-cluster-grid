@@ -56,6 +56,8 @@ async def _write_paged_bundle(client,job,bundle_path,page_size=500):
             if page is None:raise RuntimeError("remote ML lease lost during dataset fetch")
             items=list(page.get("samples") or [])
             if not items:break
+            if len(items)>min(int(page_size),total-offset):
+                raise ValueError("dataset page exceeds remaining sample count")
             for item in items:
                 payload=item["payload"]
                 canonical=json.dumps(payload,sort_keys=True,default=str,separators=(",",":"))
