@@ -120,7 +120,10 @@ async def execute_remote_job(client,job):
         await _write_paged_bundle(client,job,bundle)
         if await client.renew(job) is None:
             raise RuntimeError("remote ML lease lost before compute")
-        argv=[sys.executable,"-m","grid.ml_compute_entry","--bundle",str(bundle),
+        ml_python=pathlib.Path(os.environ.get("ProgramData","C:/ProgramData"))/"BybitClusterGrid"/"runtime"/"ml-venv"/"Scripts"/"python.exe"
+        if not ml_python.is_file():
+            raise RuntimeError("isolated ML Python runtime is missing")
+        argv=[str(ml_python),"-m","grid.ml_compute_entry","--bundle",str(bundle),
               "--artifact",str(artifact),"--result",str(result)]
         async def work():
             return await run_supervised_process(argv,timeout_seconds=timeout,ram_limit_mb=ram,
