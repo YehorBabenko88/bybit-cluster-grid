@@ -121,6 +121,25 @@ try {
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Tampered executable removed journal'
     [IO.File]::WriteAllText($candidateEntry, $originalEntry)
     Remove-Item -LiteralPath $candidateManifest -Force
+    # Malformed and incomplete target manifests must block recovery before writes.
+    foreach ($badTargetManifest in @(
+        '{',
+        'null',
+        ('{"version":"' + $b + '","files":{}}'),
+        ('{"version":"' + $a + '","files":{"run_worker.py":"' + $originalHash + '"}}'),
+        ('{"version":"' + $b + '","files":{"run_worker.py":"bad-hash"}}')
+    )) {
+        Journal 'committed'
+        Set-Content -LiteralPath $current -Value $a
+        Set-Content -LiteralPath $pending -Value $b
+        [IO.File]::WriteAllText($candidateManifest, $badTargetManifest)
+        $badTargetRejected = $false
+        try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $badTargetRejected = $true }
+        Assert $badTargetRejected 'Malformed recovery manifest must fail closed'
+        Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Malformed recovery manifest changed current'
+        Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Malformed recovery manifest removed journal'
+    }
+    Remove-Item -LiteralPath $candidateManifest -Force
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
