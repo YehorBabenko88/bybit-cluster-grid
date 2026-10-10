@@ -98,6 +98,31 @@ try {
         -not (Test-Path -LiteralPath $pendingMarkerPath -PathType Leaf)) {
         throw 'Invalid pending release pointer type; manual recovery required'
     }
+    # Verify executable integrity when a release manifest is available.
+    # Legacy installed releases without a manifest remain supported.
+    $targetDir = Join-Path (Join-Path $InstallRoot 'releases') $target
+    $targetManifestPath = Join-Path $targetDir 'release-manifest.json'
+    if (Test-Path -LiteralPath $targetManifestPath) {
+        if (-not (Test-Path -LiteralPath $targetManifestPath -PathType Leaf)) {
+            throw 'Recovery target manifest is not a file; manual recovery required'
+        }
+        $targetManifest = Get-Content -LiteralPath $targetManifestPath -Raw | ConvertFrom-Json
+        $requiredKey = $required.Replace([char]92, '/')
+        if ($null -eq $targetManifest -or $targetManifest -isnot [pscustomobject] -or
+            $targetManifest.version -cne $target -or
+            $null -eq $targetManifest.files -or $targetManifest.files -isnot [pscustomobject]) {
+            throw 'Invalid recovery target manifest; manual recovery required'
+        }
+        $entry = $targetManifest.files.PSObject.Properties[$requiredKey]
+        if ($null -eq $entry -or $entry.Value -isnot [string] -or
+            $entry.Value -cnotmatch '^[0-9a-fA-F]{64}$') {
+            throw 'Recovery target entry point checksum missing; manual recovery required'
+        }
+        $actualHash = (Get-FileHash -LiteralPath (Join-Path $targetDir $required) -Algorithm SHA256).Hash
+        if ($actualHash -cne $entry.Value.ToUpperInvariant()) {
+            throw 'Recovery target entry point checksum mismatch; manual recovery required'
+        }
+    }
     Write-Output "RECOVERY_PHASE=$($j.phase)"
     Write-Output "RECOVERY_TARGET=$target"
     if (-not $Apply) { Write-Output 'PLAN_ONLY=true'; return }
