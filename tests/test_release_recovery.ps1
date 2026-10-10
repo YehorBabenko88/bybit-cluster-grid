@@ -104,6 +104,19 @@ try {
             Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Conflicting pending changed current'
         }
     }
+    # A directory in place of current.version must not be treated as a missing pointer.
+    Journal 'prepared'
+    if (Test-Path -LiteralPath $current) { Remove-Item -LiteralPath $current -Force }
+    New-Item -ItemType Directory -Path $current | Out-Null
+    Set-Content -LiteralPath $pending -Value $b
+    $directoryPointerRejected = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $directoryPointerRejected = $true }
+    Assert $directoryPointerRejected 'Directory current.version must block recovery'
+    Assert (Test-Path -LiteralPath $current -PathType Container) 'Recovery modified current.version directory'
+    Assert (Test-Path -LiteralPath (Join-Path $root 'switch-journal.json')) 'Directory pointer recovery removed journal'
+    Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Directory pointer recovery modified pending'
+    Remove-Item -LiteralPath $current -Recurse -Force
+    Set-Content -LiteralPath $current -Value $a
     # Recovery must reject corrupt current pointers without mutating the journal.
     foreach ($badCurrent in @( ('A' * 40), ('g' * 40), '../../bad' )) {
         Journal 'prepared'
