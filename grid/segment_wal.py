@@ -36,7 +36,13 @@ class SegmentWAL:
                     valid=(zlib.crc32(body)&0xffffffff)==int(obj["crc32"]) and int(obj["id"])>=0
                 except (ValueError,KeyError,TypeError,json.JSONDecodeError):
                     valid=False
-                if valid:return
+                if valid:
+                    # Normalize a valid unterminated record before the next
+                    # append; otherwise two JSON objects would share one line.
+                    f.seek(0,os.SEEK_END)
+                    f.write(bytes([10]))
+                    f.flush();os.fsync(f.fileno())
+                    return
                 f.truncate(0 if cut<0 else cut+1)
                 f.flush();os.fsync(f.fileno())
         except OSError:
