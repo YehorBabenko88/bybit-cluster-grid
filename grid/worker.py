@@ -185,10 +185,10 @@ class Worker:
                             self.db.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
                             self.micro_storage.set_replay_rate(recovery.get("micro_per_second",settings.replay_micro_per_second))
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
-                            if state in (NORMAL,SOFT_PRESSURE):
-                                self.pressure_drained.clear()
-                            else:
-                                self.pressure_drained.update(self.pressure.symbols_to_drain(assigned-self.pressure_drained))
+                            # Recompute the complete drain set from the full assignment on
+                            # every heartbeat. Accumulating drained symbols across heartbeats
+                            # can progressively shed the entire pilot while pressure persists.
+                            self.pressure_drained=self.pressure.desired_drained_symbols(assigned)
                             new=assigned-self.pressure_drained
                             requested_micro=set(reply.get("micro_symbols",[]))
                             recovering=bool(dbm.get("replay_active",False) or microm.get("replay_active",False))
