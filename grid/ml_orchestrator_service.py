@@ -16,15 +16,25 @@ class MLOrchestratorService:
 
     async def recover(self):
         self.state=RECOVERING
-        # Expired jobs become claimable by workers; live leases are never stolen.
-        await self.pool.execute("""UPDATE ml_jobs SET status='queued',lease_owner=NULL,lease_until=NULL,
-          not_before=now()+interval '5 seconds',
-          error=COALESCE(error,'recovered after expired lease')
-          WHERE status IN ('running','assigned') AND lease_until<now() AND attempts<max_attempts""")
-        await self.pool.execute("""UPDATE ml_jobs SET status='failed',finished_at=now(),
-          error=COALESCE(error,'max attempts exhausted after expired lease')
-          WHERE status IN ('running','assigned') AND lease_until<now() AND attempts>=max_attempts""")
-        await self.pool.execute("DELETE FROM ml_resource_reservations WHERE expires_at<now()")
+        # Reconciliation and reservation cleanup are one transaction. A running
+        # job with a valid lease keeps its reservation; terminal/requeued jobs
+        # cannot retain capacity, even if the old reservation expiry is future.
+        async with self.pool.acquire() as c:
+            async with c.transaction():
+                await c.execute("""UPDATE ml_jobs SET status='queued',lease_owner=NULL,lease_until=NULL,
+                  not_before=clock_timestamp()+interval '5 seconds',
+                  error=COALESCE(error,'recovered after expired lease')
+                  WHERE status IN ('running','assigned') AND lease_until<clock_timestamp()
+                    AND attempts<max_attempts""")
+                await c.execute("""UPDATE ml_jobs SET status='failed',finished_at=clock_timestamp(),
+                  lease_until=NULL,error=COALESCE(error,'max attempts exhausted after expired lease')
+                  WHERE status IN ('running','assigned') AND lease_until<clock_timestamp()
+                    AND attempts>=max_attempts""")
+                await c.execute("""DELETE FROM ml_resource_reservations r
+                  WHERE r.expires_at<clock_timestamp() OR NOT EXISTS (
+                    SELECT 1 FROM ml_jobs j WHERE j.id=r.job_id
+                    AND j.status IN ('assigned','running')
+                    AND j.lease_until>=clock_timestamp())""")
         self.state=OBSERVING
 
     async def tick(self):
