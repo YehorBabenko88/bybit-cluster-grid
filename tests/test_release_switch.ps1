@@ -47,6 +47,13 @@ try {
     Assert $invalid 'Mismatched manifest must fail'
     Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $a) 'Failed plan changed current'
     Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
+    # A manifest with a noncanonical version must not match by case folding.
+    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b.ToUpperInvariant() + '","files":{"run_worker.py":"' + $hash + '"}}')
+    $uppercaseManifestRejected = $false
+    try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null } catch { $uppercaseManifestRejected = $true }
+    Assert $uppercaseManifestRejected 'Uppercase manifest SHA must be rejected'
+    Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Uppercase manifest created pending'
+    Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Uppercase manifest created journal'
     # Malformed manifest content must fail before any release pointer changes.
     foreach ($badManifest in @(
         '{',
