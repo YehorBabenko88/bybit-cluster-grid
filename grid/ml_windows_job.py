@@ -1,14 +1,14 @@
 """Windows Job Object containment for ML subprocesses.
 
 KILL_ON_JOB_CLOSE covers descendants when the owning Python process exits.
-Assignment occurs immediately after spawn; it is not a race-free suspended launch.
+The primary thread is suspended until assignment completes; failure closes the job.
 """
 import ctypes
 import os
 
 
 class WindowsJob:
-    def __init__(self, pid):
+    def __init__(self, pid, resume_primary_thread=False):
         if os.name != "nt":
             raise OSError("Windows Job Objects require Windows")
         from ctypes import wintypes
@@ -23,6 +23,10 @@ class WindowsJob:
         kernel.AssignProcessToJobObject.restype = wintypes.BOOL
         kernel.CloseHandle.argtypes = [wintypes.HANDLE]
         kernel.CloseHandle.restype = wintypes.BOOL
+        kernel.OpenThread.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel.OpenThread.restype = wintypes.HANDLE
+        kernel.ResumeThread.argtypes = [wintypes.HANDLE]
+        kernel.ResumeThread.restype = wintypes.DWORD
 
         class Basic(ctypes.Structure):
             _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64),
@@ -63,6 +67,19 @@ class WindowsJob:
                 raise ctypes.WinError(ctypes.get_last_error())
             if not kernel.AssignProcessToJobObject(self._job, process):
                 raise ctypes.WinError(ctypes.get_last_error())
+            if resume_primary_thread:
+                import psutil
+                threads = psutil.Process(int(pid)).threads()
+                if len(threads) != 1:
+                    raise RuntimeError("suspended ML child must have exactly one thread")
+                thread = kernel.OpenThread(0x0002, False, threads[0].id)
+                if not thread:
+                    raise ctypes.WinError(ctypes.get_last_error())
+                try:
+                    if kernel.ResumeThread(thread) == 0xFFFFFFFF:
+                        raise ctypes.WinError(ctypes.get_last_error())
+                finally:
+                    kernel.CloseHandle(thread)
         except BaseException:
             self.close()
             raise
