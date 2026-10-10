@@ -16,6 +16,16 @@ $MLPython=Join-Path $MLVenv "Scripts\python.exe"
 if(!$BasePython){$BasePython=$Python}
 $State=Join-Path $RuntimeRoot "ml-requirements.sha256"
 $Journal=Join-Path $RuntimeRoot "ml-bootstrap.json"
+# An exclusive OS file handle serializes installers and releases on process death.
+# Never change the journal if another installer owns the ML runtime.
+$LockPath=Join-Path $RuntimeRoot "ml-bootstrap.lock"
+try {
+  $LockHandle=[System.IO.File]::Open($LockPath,[System.IO.FileMode]::OpenOrCreate,
+    [System.IO.FileAccess]::ReadWrite,[System.IO.FileShare]::None)
+} catch [System.IO.IOException] {
+  throw "ML bootstrap already running for runtime root: $RuntimeRoot"
+}
+try {
 $Hash=(Get-FileHash -Algorithm SHA256 $Req).Hash.ToLowerInvariant()
 $Old=if(Test-Path $State){(Get-Content $State -Raw).Trim()}else{""}
 
@@ -93,4 +103,8 @@ try {
   [ordered]@{status="failed";mode=$Mode;hash=$Hash;error=$_.Exception.Message;failed_at=(Get-Date).ToUniversalTime().ToString("o")} |
     ConvertTo-Json | Set-Content -Encoding UTF8 $Journal
   throw
+}
+
+} finally {
+  if($null -ne $LockHandle){$LockHandle.Dispose()}
 }
