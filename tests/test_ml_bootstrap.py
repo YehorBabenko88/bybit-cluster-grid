@@ -63,3 +63,12 @@ def test_pilot_and_control_preflight_fail_without_ml_requirements():
     assert '$Mode -in @("CONTROL","PILOT")' in preflight
     assert 'Join-Path $ReleaseDir "requirements-ml.txt"' in preflight
     assert 'throw "ML requirements missing for $Mode release:' in preflight
+
+
+def test_ml_claim_transport_failure_does_not_terminate_poller():
+    worker = Path("grid/ml_agent_worker.py").read_text(encoding="utf-8")
+    loop = worker.split("async def ml_agent_loop(", 1)[1]
+    assert "try:\n            job=await client.claim()" in loop
+    assert "except asyncio.CancelledError:\n            raise" in loop
+    assert "except Exception:" in loop
+    assert "continue" in loop
