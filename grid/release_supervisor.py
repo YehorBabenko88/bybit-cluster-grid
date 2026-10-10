@@ -178,6 +178,8 @@ def _confirm(root,version,proc,delay,mode=None,ready_file=None):
     pending=root/"pending.version"
     if _read(pending)!=version or proc.poll() is not None:return
     if mode and not _ready(mode,proc,ready_file):return
+    # Readiness probes can block; the child may have exited during the probe.
+    if proc.poll() is not None:return
     # Do not confirm a release while pointer recovery is still unresolved.
     if (root/"switch-journal.json").exists():return
     if _read(root/"current.version")!=version:return
