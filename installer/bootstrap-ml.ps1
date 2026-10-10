@@ -60,6 +60,10 @@ try {
   if(!$Recreate){
     & $MLPython -c "import sys; assert sys.prefix != sys.base_prefix" 2>$null
     if($LASTEXITCODE -ne 0){$Recreate=$true}
+    if(!$Recreate){
+      & $MLPython -m pip --version 2>$null
+      if($LASTEXITCODE -ne 0){$Recreate=$true}
+    }
   }
   if($Recreate){
     if(!(Test-Path -LiteralPath $BasePython)){throw "Missing base Python for isolated ML environment"}
