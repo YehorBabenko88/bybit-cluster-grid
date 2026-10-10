@@ -109,7 +109,7 @@ def test_ml_reservations_renew_finish_and_recovery_postgres():
             await service.recover()
             # A new orchestrator must preserve a live worker's lease.
             restarted=MLOrchestratorService(pool,dispatcher,health)
-            await admin.execute(f'UPDATE "{schema}".service_leases SET lease_until=clock_timestamp()-interval '1 second' WHERE service_key=\u0027ml-orchestrator-leader\u0027')
+            await admin.execute(f"""UPDATE "{schema}".service_leases SET lease_until=clock_timestamp()-interval '1 second' WHERE service_key='ml-orchestrator-leader'""")
             assert await __import__('grid.ml_concurrency',fromlist=['acquire_service_lease']).acquire_service_lease(pool,'ml-orchestrator-leader',restarted.owner)
             await restarted.recover()
             assert await admin.fetchval(f'SELECT status FROM "{schema}".ml_jobs WHERE id=$1',healthy)=="running"
