@@ -144,8 +144,7 @@ def test_dataset_transfer_rejects_zero_page_size(tmp_path):
 
     class Client:
         async def dataset_page(self, job, offset, limit):
-            return {"dataset_id": "ds", "dataset_hash": "unused",
-                    "sample_count": 1, "samples": []}
+            pytest.fail("invalid page size must be rejected before remote request")
 
     async def scenario():
         with pytest.raises(ValueError, match="page size must be positive"):
