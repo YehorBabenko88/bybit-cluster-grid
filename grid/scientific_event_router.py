@@ -4,6 +4,10 @@ import json,math
 
 async def route_market_event(orchestrator,pool,symbol,ts_ms,event_type,payload,split_key,source_event_id=None):
     symbol=str(symbol);ts=int(ts_ms);p=dict(payload or {})
+    # Reject invalid timestamps before they can mutate agent state or be
+    # persisted as PostgreSQL timestamps.
+    if ts<0:
+        return {"processed":False,"reason":"invalid_event_timestamp","scheduled":0}
     signals=[];matured={"labels":[],"hypothesis_updates":[]}
     if event_type=="trade_tape_250ms":
         price=_num(p.get("close"))
