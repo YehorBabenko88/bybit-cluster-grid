@@ -204,6 +204,23 @@ try {
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Corrupt rollback removed journal'
     [IO.File]::WriteAllText($previousEntry, $previousOriginal)
     Remove-Item -LiteralPath $previousManifest -Force
+    # Committed recovery must validate every manifest-listed rollback support file.
+    Journal 'committed'
+    Set-Content -LiteralPath $current -Value $a
+    Set-Content -LiteralPath $pending -Value $b
+    $rollbackSupport = Join-Path $root "releases\$a\rollback-support.txt"
+    [IO.File]::WriteAllText($rollbackSupport, 'intact')
+    $rollbackSupportHash = (Get-FileHash -LiteralPath $rollbackSupport -Algorithm SHA256).Hash.ToLowerInvariant()
+    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + '","rollback-support.txt":"' + $rollbackSupportHash + '"}}'))
+    [IO.File]::WriteAllText($rollbackSupport, 'corrupted')
+    $rollbackSupportRejected = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $rollbackSupportRejected = $true }
+    Assert $rollbackSupportRejected 'Corrupted rollback support file must block committed recovery'
+    Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Corrupted rollback support changed current'
+    Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Corrupted rollback support changed pending'
+    Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Corrupted rollback support removed journal'
+    Remove-Item -LiteralPath $rollbackSupport -Force
+    Remove-Item -LiteralPath $previousManifest -Force
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
