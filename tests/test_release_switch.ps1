@@ -69,6 +69,17 @@ try {
         $mutex.ReleaseMutex()
         $mutex.Dispose()
     }
+    # Exercise a real pointer promotion after all negative cases and verify
+    # the committed journal is recoverable without leaving backup debris.
+    $promoted = & $script -Version $b -InstallRoot $root -Role WORKER -Apply
+    Assert ($promoted -contains "PENDING_SWITCH=$b") 'Successful switch did not report pending candidate'
+    Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $b) 'Apply did not promote candidate'
+    Assert (((Get-Content (Join-Path $root 'previous.version') -Raw).Trim()) -eq $a) 'Apply lost rollback version'
+    Assert (((Get-Content (Join-Path $root 'pending.version') -Raw).Trim()) -eq $b) 'Apply lost pending marker'
+    $journal = Get-Content -LiteralPath (Join-Path $root 'switch-journal.json') -Raw | ConvertFrom-Json
+    Assert ($journal.phase -eq 'committed') 'Apply did not commit journal'
+    Assert ($journal.previous -eq $a -and $journal.candidate -eq $b) 'Apply wrote inconsistent journal'
+    Assert (@(Get-ChildItem -LiteralPath $root -File -Filter '*.bak').Count -eq 0) 'Apply leaked File.Replace backup'
     Write-Output 'PASS: release switch plan, missing release, manifest mismatch, failed-release quarantine, concurrent-switch lock'
 } finally {
     if (Test-Path $root) { Remove-Item -LiteralPath $root -Recurse -Force }
