@@ -10,6 +10,36 @@ class FakeProcess:
         return None if self.alive else 1
 
 
+def test_coordinator_readiness_rejects_stale_health_process(monkeypatch):
+    import io
+    import json
+
+    class HealthResponse(io.BytesIO):
+        status = 200
+
+    proc = FakeProcess(pid=4242)
+    def health_response(pid):
+        return HealthResponse(json.dumps({"ok": True, "pid": pid}).encode("utf-8"))
+
+    monkeypatch.setattr(
+        "grid.release_supervisor.urllib.request.urlopen",
+        lambda *args, **kwargs: health_response(9999),
+    )
+    assert not _ready("coordinator", proc, None)
+
+    monkeypatch.setattr(
+        "grid.release_supervisor.urllib.request.urlopen",
+        lambda *args, **kwargs: health_response(None),
+    )
+    assert not _ready("coordinator", proc, None)
+
+    monkeypatch.setattr(
+        "grid.release_supervisor.urllib.request.urlopen",
+        lambda *args, **kwargs: health_response(4242),
+    )
+    assert _ready("coordinator", proc, None)
+
+
 def test_worker_readiness_requires_matching_process(tmp_path):
     marker=tmp_path/"ready"
     proc=FakeProcess()
@@ -22,6 +52,7 @@ def test_worker_readiness_requires_matching_process(tmp_path):
 
 def test_unready_release_is_not_confirmed_after_stable_uptime(tmp_path,monkeypatch):
     root=tmp_path
+    (root/"current.version").write_text("new",encoding="utf-8")
     (root/"pending.version").write_text("new",encoding="utf-8")
     proc=FakeProcess()
     monkeypatch.setattr("grid.release_supervisor.time.sleep",lambda _:None)
@@ -34,13 +65,14 @@ def test_unready_release_is_not_confirmed_after_stable_uptime(tmp_path,monkeypat
 
 def test_unready_long_lived_release_still_rolls_back(tmp_path):
     root=tmp_path
+    old, new = "a" * 40, "b" * 40
     releases=root/"releases"
-    (releases/"old").mkdir(parents=True)
-    (releases/"old"/"run_worker.py").write_text("",encoding="utf-8")
-    (root/"current.version").write_text("new",encoding="utf-8")
-    (root/"previous.version").write_text("old",encoding="utf-8")
-    (root/"pending.version").write_text("new",encoding="utf-8")
-    assert not _after_exit(root,"new",3600)
-    assert not _after_exit(root,"new",3600)
-    assert _after_exit(root,"new",3600)
-    assert (root/"current.version").read_text(encoding="utf-8")=="old"
+    (releases/old).mkdir(parents=True)
+    (releases/old/"run_worker.py").write_text("",encoding="utf-8")
+    (root/"current.version").write_text(new,encoding="utf-8")
+    (root/"previous.version").write_text(old,encoding="utf-8")
+    (root/"pending.version").write_text(new,encoding="utf-8")
+    assert not _after_exit(root,new,3600)
+    assert not _after_exit(root,new,3600)
+    assert _after_exit(root,new,3600)
+    assert (root/"current.version").read_text(encoding="utf-8")==old

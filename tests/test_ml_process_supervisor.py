@@ -49,6 +49,10 @@ def test_supervised_process_ram_limit_kills_worker():
 def test_lease_loss_propagates_cancel_into_subprocess_supervisor():
     async def run():
         class LeasePool:
+            def acquire(self): return self
+            def transaction(self): return self
+            async def __aenter__(self): return self
+            async def __aexit__(self,*args): pass
             async def execute(self,sql,*args):
                 if "UPDATE ml_jobs SET lease_until" in sql:
                     return "UPDATE 0"
@@ -82,3 +86,150 @@ def test_supervisor_rejects_nonpositive_timeout():
         with pytest.raises(ValueError):
             await run_supervised_process([sys.executable,"-c","pass"],timeout_seconds=0)
     asyncio.run(run())
+
+
+def test_supervisor_keeps_exact_last_bytes_across_chunk_boundaries():
+    async def run():
+        code = "import sys; sys.stdout.buffer.write(b'a'*5000+b'b'*5000); sys.stdout.flush()"
+        out = await run_supervised_process(
+            [sys.executable, "-c", code], timeout_seconds=5, poll_seconds=.02
+        )
+        assert out == b"a"*3192 + b"b"*5000
+    asyncio.run(run())
+
+
+def test_supervisor_rejects_nonpositive_ram_limit():
+    async def run():
+        with pytest.raises(ValueError, match="ram_limit_mb must be positive"):
+            await run_supervised_process(
+                [sys.executable, "-c", "pass"],
+                timeout_seconds=5, ram_limit_mb=0,
+            )
+    asyncio.run(run())
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows Job Object integration")
+def test_windows_suspended_job_runs_only_after_assignment():
+    async def run():
+        out = await run_supervised_process(
+            [sys.executable, "-c", "print(\'suspended-job-ok\')"],
+            timeout_seconds=10, poll_seconds=.05,
+        )
+        assert out.decode().strip() == "suspended-job-ok"
+    asyncio.run(run())
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows Job Object integration")
+def test_windows_job_close_kills_descendant(tmp_path):
+    import subprocess
+    import time
+    from grid.ml_windows_job import WindowsJob
+
+    child = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"],
+        creationflags=0x00000004,  # CREATE_SUSPENDED (Win32),
+    )
+    job = None
+    try:
+        job = WindowsJob(child.pid, resume_primary_thread=True)
+        assert child.poll() is None
+        job.close()
+        job = None
+        child.wait(timeout=10)
+        assert child.returncode is not None
+    finally:
+        if job is not None:
+            job.close()
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=10)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows Job Object integration")
+def test_windows_parent_crash_kills_ml_process_tree(tmp_path):
+    import os
+    import subprocess
+    import time
+
+    child_pid_file = tmp_path / "child.pid"
+    grandchild_pid_file = tmp_path / "grandchild.pid"
+    child_code = (
+        "import os,subprocess,sys,time,pathlib;"
+        "p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(120)']);"
+        "pathlib.Path(sys.argv[1]).write_text(str(p.pid));"
+        "time.sleep(120)"
+    )
+    parent_code = (
+        "import asyncio,sys;"
+        "from grid.ml_process_supervisor import run_supervised_process;"
+        "asyncio.run(run_supervised_process("
+        "[sys.executable,'-c',sys.argv[2],sys.argv[1]],"
+        "timeout_seconds=120,poll_seconds=.05))"
+    )
+    parent = subprocess.Popen(
+        [sys.executable, "-c", parent_code, str(grandchild_pid_file), child_code],
+        cwd=os.getcwd(),
+    )
+    try:
+        deadline=time.monotonic()+15
+        while not grandchild_pid_file.exists() and time.monotonic()<deadline:
+            if parent.poll() is not None:
+                pytest.fail(f"supervisor parent exited prematurely: {parent.returncode}")
+            time.sleep(.1)
+        assert grandchild_pid_file.exists(), "ML descendant did not start"
+        descendant_pid=int(grandchild_pid_file.read_text())
+        descendant=psutil.Process(descendant_pid)
+        ml_child_pid=descendant.ppid()
+        assert psutil.pid_exists(ml_child_pid)
+        parent.kill()
+        parent.wait(timeout=10)
+        deadline=time.monotonic()+10
+        while time.monotonic()<deadline and (psutil.pid_exists(ml_child_pid) or psutil.pid_exists(descendant_pid)):
+            time.sleep(.1)
+        assert not psutil.pid_exists(ml_child_pid)
+        assert not psutil.pid_exists(descendant_pid)
+    finally:
+        if parent.poll() is None:
+            parent.kill()
+            parent.wait(timeout=10)
+        if grandchild_pid_file.exists():
+            try:
+                pid=int(grandchild_pid_file.read_text())
+                if psutil.pid_exists(pid):psutil.Process(pid).kill()
+            except (ValueError,psutil.Error):
+                pass
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows Job Object integration")
+def test_windows_descendant_inherits_pipes_after_root_exit(tmp_path):
+    import time
+    import subprocess
+
+    pid_file=tmp_path/"descendant.pid"
+    code=(
+        "import subprocess,sys,pathlib;"
+        "p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(90)']);"
+        "pathlib.Path(sys.argv[1]).write_text(str(p.pid));"
+        "print('root-finished',flush=True)"
+    )
+    try:
+        started=time.monotonic()
+        out=asyncio.run(run_supervised_process(
+            [sys.executable,"-c",code,str(pid_file)],
+            timeout_seconds=15,poll_seconds=.05,grace_seconds=3,
+        ))
+        assert b"root-finished" in out
+        assert time.monotonic()-started<12
+        assert pid_file.exists()
+        descendant=int(pid_file.read_text())
+        deadline=time.monotonic()+5
+        while psutil.pid_exists(descendant) and time.monotonic()<deadline:
+            time.sleep(.05)
+        assert not psutil.pid_exists(descendant)
+    finally:
+        if pid_file.exists():
+            try:
+                pid=int(pid_file.read_text())
+                if psutil.pid_exists(pid):psutil.Process(pid).kill()
+            except (ValueError,psutil.Error):
+                pass

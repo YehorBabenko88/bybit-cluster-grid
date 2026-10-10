@@ -1,4 +1,5 @@
 import asyncio
+import os
 from collections import deque
 
 import psutil
@@ -16,7 +17,13 @@ async def _drain_stream(stream,tail,max_bytes=8192):
         tail.append(chunk)
         total=sum(len(x) for x in tail)
         while tail and total>max_bytes:
-            removed=tail.popleft();total-=len(removed)
+            overflow=total-max_bytes
+            first=tail.popleft()
+            if len(first)>overflow:
+                tail.appendleft(first[overflow:])
+                total=max_bytes
+            else:
+                total-=len(first)
 
 
 def _tail_bytes(parts,max_bytes=8192):
@@ -65,17 +72,36 @@ async def terminate_process_tree(proc,grace_seconds=5):
 async def run_supervised_process(argv,*,timeout_seconds,ram_limit_mb=None,
                                  poll_seconds=.5,grace_seconds=5,
                                  env=None,cwd=None):
-    """Run heavy compute out-of-process with hard timeout/RAM/output containment."""
+    """Run heavy compute in a child process with polled RAM/time limits and bounded output."""
     if not argv:
         raise ValueError("argv is required")
     if float(timeout_seconds)<=0:
         raise ValueError("timeout_seconds must be positive")
+    if ram_limit_mb is not None and float(ram_limit_mb)<=0:
+        raise ValueError("ram_limit_mb must be positive")
+    # Windows starts the primary thread suspended; the Job Object is assigned
+    # before the child executes any user code or creates descendants.
+    creation_kwargs={"creationflags":0x00000004} if os.name=="nt" else {}
     proc=await asyncio.create_subprocess_exec(
         *[str(x) for x in argv],
+        **creation_kwargs,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         env=env,cwd=cwd,
     )
+    job_object=None
+    if os.name=="nt":
+        try:
+            from .ml_windows_job import WindowsJob
+            job_object=WindowsJob(proc.pid, resume_primary_thread=True)
+        except BaseException:
+            # Assignment/resume failed while the child may still be suspended.
+            # Force-kill directly rather than waiting for a graceful exit.
+            if proc.returncode is None:
+                try: proc.kill()
+                except ProcessLookupError: pass
+            await proc.wait()
+            raise
     stdout_tail=deque();stderr_tail=deque()
     drains=[
         asyncio.create_task(_drain_stream(proc.stdout,stdout_tail)),
@@ -101,7 +127,15 @@ async def run_supervised_process(argv,*,timeout_seconds,ram_limit_mb=None,
                 await asyncio.wait_for(proc.wait(),timeout=max(.05,float(poll_seconds)))
             except asyncio.TimeoutError:
                 pass
-        await asyncio.gather(*drains)
+        # Descendants can inherit stdout/stderr after the root exits. Close the
+        # Windows Job before draining so orphaned pipe writers cannot hang us.
+        if job_object is not None:
+            job_object.close()
+            job_object=None
+        try:
+            await asyncio.wait_for(asyncio.gather(*drains),timeout=max(1.0,float(grace_seconds)))
+        except asyncio.TimeoutError:
+            raise ProcessLimitError("ML subprocess output pipes remained open after exit")
         if proc.returncode!=0:
             tail=_tail_bytes(stderr_tail).decode("utf-8","replace")[-4000:]
             raise RuntimeError(f"ML subprocess exited {proc.returncode}: {tail}")
@@ -113,6 +147,8 @@ async def run_supervised_process(argv,*,timeout_seconds,ram_limit_mb=None,
         await terminate_process_tree(proc,grace_seconds)
         raise
     finally:
+        if job_object is not None:
+            job_object.close()
         for task in drains:
             if not task.done():task.cancel()
         await asyncio.gather(*drains,return_exceptions=True)

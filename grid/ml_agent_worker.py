@@ -34,9 +34,13 @@ def cleanup_stale_workspaces(older_than_seconds=86400):
 
 
 async def _write_paged_bundle(client,job,bundle_path,page_size=500):
+    if int(page_size)<=0:
+        raise ValueError("dataset page size must be positive")
     first=await client.dataset_page(job,0,page_size)
     if first is None:raise RuntimeError("remote ML lease lost before dataset fetch")
     total=int(first.get("sample_count",0))
+    if total<=0:
+        raise ValueError("dataset sample count must be positive")
     expected=first.get("dataset_hash")
     count=0;offset=0;agg=hashlib.sha256();first_hash=True;first_sample=True
     with open(bundle_path,"w",encoding="utf-8") as f:
@@ -54,8 +58,15 @@ async def _write_paged_bundle(client,job,bundle_path,page_size=500):
         while offset<total:
             page=first if offset==0 else await client.dataset_page(job,offset,page_size)
             if page is None:raise RuntimeError("remote ML lease lost during dataset fetch")
+            if (page.get("dataset_id")!=first.get("dataset_id") or
+                    page.get("dataset_hash")!=expected or
+                    int(page.get("sample_count",-1))!=total or
+                    page.get("feature_version")!=first.get("feature_version")):
+                raise ValueError("dataset page metadata changed during transfer")
             items=list(page.get("samples") or [])
             if not items:break
+            if len(items)>min(int(page_size),total-offset):
+                raise ValueError("dataset page exceeds remaining sample count")
             for item in items:
                 payload=item["payload"]
                 canonical=json.dumps(payload,sort_keys=True,default=str,separators=(",",":"))
@@ -84,23 +95,42 @@ def _file_sha256(path):
             h.update(chunk)
     return h.hexdigest()
 
+def _resource_limits(payload):
+    """Apply operator resource ceilings before starting a remote ML job."""
+    configured_timeout=int(settings.ml_job_timeout_seconds)
+    configured_ram=int(settings.ml_job_ram_limit_mb)
+    if configured_timeout<=0 or configured_ram<=0:
+        raise ValueError("ML resource configuration must be positive")
+    requested_timeout=int(payload.get("timeout_seconds",configured_timeout))
+    requested_ram=int(payload.get("ram_limit_mb",configured_ram))
+    if requested_timeout<=0 or requested_ram<=0:
+        raise ValueError("ML job resource limits must be positive")
+    timeout=min(requested_timeout,configured_timeout)
+    ram=min(requested_ram,configured_ram)
+    return timeout,ram
+
+
 async def execute_remote_job(client,job):
     if job.get("job_type")!="train":raise ValueError("unsupported remote ML job type")
     payload=dict(job.get("payload") or {})
-    timeout=max(60,min(int(payload.get("timeout_seconds",settings.ml_job_timeout_seconds)),
-                       int(settings.ml_job_timeout_seconds)))
-    ram=max(256,min(int(payload.get("ram_limit_mb",settings.ml_job_ram_limit_mb)),
-                    int(settings.ml_job_ram_limit_mb)))
+    timeout,ram=_resource_limits(payload)
     workdir=pathlib.Path(tempfile.mkdtemp(prefix="job-",dir=str(_workspace_root())))
     bundle=workdir/"bundle.json";artifact=workdir/"artifact.bin";result=workdir/"result.json"
     try:
         await _write_paged_bundle(client,job,bundle)
-        argv=[sys.executable,"-m","grid.ml_compute_entry","--bundle",str(bundle),
+        if await client.renew(job) is None:
+            raise RuntimeError("remote ML lease lost before compute")
+        ml_python=pathlib.Path(os.environ.get("ProgramData","C:/ProgramData"))/"BybitClusterGrid"/"runtime"/"ml-venv"/"Scripts"/"python.exe"
+        if not ml_python.is_file():
+            raise RuntimeError("isolated ML Python runtime is missing")
+        argv=[str(ml_python),"-m","grid.ml_compute_entry","--bundle",str(bundle),
               "--artifact",str(artifact),"--result",str(result)]
         async def work():
             return await run_supervised_process(argv,timeout_seconds=timeout,ram_limit_mb=ram,
                                                 poll_seconds=.5,grace_seconds=5,env=os.environ.copy())
         await run_remote_lease(client,job,work,renew_every=30)
+        if await client.renew(job) is None:
+            raise RuntimeError("remote ML lease lost before artifact upload")
         sha=_file_sha256(artifact)
         uploaded=await client.artifact_file(job,artifact,sha)
         if uploaded is None:raise RuntimeError("remote ML lease lost before artifact upload")
@@ -120,7 +150,16 @@ async def ml_agent_loop(client,stop_event=None,poll_seconds=5,can_claim=None):
             try:await asyncio.wait_for(stop_event.wait(),timeout=float(poll_seconds))
             except asyncio.TimeoutError:pass
             continue
-        job=await client.claim()
+        try:
+            job=await client.claim()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # Transient CONTROL/network failures must not permanently kill the
+            # ML poller. No lease has been acquired at this point.
+            try:await asyncio.wait_for(stop_event.wait(),timeout=max(1.0,float(poll_seconds)))
+            except asyncio.TimeoutError:pass
+            continue
         if not job:
             try:await asyncio.wait_for(stop_event.wait(),timeout=float(poll_seconds))
             except asyncio.TimeoutError:pass

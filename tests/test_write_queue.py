@@ -34,3 +34,31 @@ def test_full_queue_applies_backpressure_not_drop():
         await asyncio.wait_for(q.q.join(),1)
         for t in q.tasks: t.cancel()
     asyncio.run(run())
+
+
+def test_retry_failure_recency_is_reported_and_recovery_keeps_history():
+    async def run():
+        attempts = 0
+
+        async def writer(value):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise ConnectionError("transient test failure")
+
+        q = BoundedWriteQueue(writer, maxsize=2, workers=1,
+                              retry_base_seconds=0.01, retry_max_seconds=0.02)
+        assert q.metrics()["seconds_since_last_failure"] is None
+        await q.start()
+        try:
+            await q.put("record")
+            await asyncio.wait_for(q.q.join(), 2)
+            metrics = q.metrics()
+            assert attempts == 2
+            assert metrics["write_failures"] == 1
+            assert metrics["seconds_since_last_failure"] is not None
+            assert metrics["seconds_since_last_failure"] >= 0
+            assert metrics["queue_depth"] == 0
+        finally:
+            await q.close()
+    asyncio.run(run())

@@ -32,6 +32,21 @@ if(Test-Path $EnvFile){
   }
 }
 
+# Resolve an interrupted promotion before selecting the service release.
+$journalPath = Join-Path $InstallRoot 'switch-journal.json'
+if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
+    $recovery = Join-Path $PSScriptRoot 'recover-release.ps1'
+    if (-not (Test-Path -LiteralPath $recovery -PathType Leaf)) {
+        throw 'Release switch journal exists but recovery script is missing'
+    }
+    & $recovery -InstallRoot $InstallRoot -Role CONTROL -Apply
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+        throw 'Release journal recovery failed'
+    }
+    if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
+        throw 'Release journal remains unresolved; refusing service startup'
+    }
+}
 $Release=$null
 foreach($name in @("current.version","previous.version")){
   $marker=Join-Path $InstallRoot $name

@@ -37,6 +37,10 @@ def test_lease_loss_cancels_running_workload():
     async def run():
         class LeasePool:
             def __init__(self): self.calls=0
+            def acquire(self): return Acquire(self)
+            def transaction(self): return self
+            async def __aenter__(self): return self
+            async def __aexit__(self,*a): pass
             async def execute(self,sql,*args):
                 if "UPDATE ml_jobs SET lease_until" in sql:
                     self.calls+=1
@@ -64,8 +68,8 @@ def test_expired_ml_recovery_uses_cooldown_before_reassignment():
     from pathlib import Path
     source=Path("grid/ml_orchestrator_service.py").read_text(encoding="utf-8")
     recover=source.split("async def recover(self):",1)[1].split("async def tick(self):",1)[0]
-    assert "lease_until<now()" in recover
-    assert "not_before=now()+interval '5 seconds'" in recover
+    assert "lease_until<clock_timestamp()" in recover
+    assert "not_before=clock_timestamp()+interval '5 seconds'" in recover
     assert "attempts<max_attempts" in recover
     assert "attempts>=max_attempts" in recover
 
@@ -73,6 +77,10 @@ def test_expired_ml_recovery_uses_cooldown_before_reassignment():
 def test_lease_renew_database_error_cancels_running_workload():
     async def run():
         class BrokenLeasePool:
+            def acquire(self): return Acquire(self)
+            def transaction(self): return self
+            async def __aenter__(self): return self
+            async def __aexit__(self,*a): pass
             async def execute(self,sql,*args):
                 if "UPDATE ml_jobs SET lease_until" in sql:
                     raise ConnectionError("database unavailable")
@@ -89,4 +97,30 @@ def test_lease_renew_database_error_cancels_running_workload():
                 "worker-a",work,lease_seconds=1,renew_every=.01
             )
         assert cancelled.is_set()
+    asyncio.run(run())
+
+def test_legacy_reclaim_removes_expired_owners_reservation_atomically():
+    async def run():
+        class ReclaimConn:
+            def __init__(self):
+                self.operations=[]
+            def transaction(self):return self
+            async def __aenter__(self):return self
+            async def __aexit__(self,*args):pass
+            async def fetchrow(self,sql,*args):
+                self.operations.append("select" if sql.startswith("SELECT") else "update")
+                if sql.startswith("SELECT"):
+                    return {"id":"job-expired","status":"running"}
+                return {"id":"job-expired","status":"running","lease_owner":args[1]}
+            async def execute(self,sql,*args):
+                assert "DELETE FROM ml_resource_reservations" in sql
+                assert args==("job-expired",)
+                self.operations.append("delete")
+                return "DELETE 1"
+        conn=ReclaimConn()
+        class ReclaimPool:
+            def acquire(self):return Acquire(conn)
+        result=await claim_ml_job(ReclaimPool(),"new-worker")
+        assert result["lease_owner"]=="new-worker"
+        assert conn.operations==["select","delete","update"]
     asyncio.run(run())

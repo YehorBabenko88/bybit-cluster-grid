@@ -134,7 +134,7 @@ if($NeedDeps){
 
 # Heavy ML dependencies are role-aware and independently fingerprinted. This
 # makes interrupted downloads/repairs resumable without bloating NORMAL collectors.
-& (Join-Path $Release "installer\\bootstrap-ml.ps1") -Python $Python -ReleaseDir $Release -RuntimeRoot $RuntimeRoot -Mode $(if($AgentMode -eq "AUTO"){"NORMAL"}else{$AgentMode})
+& (Join-Path $Release "installer\\bootstrap-ml.ps1") -Python $Python -BasePython $BasePython -ReleaseDir $Release -RuntimeRoot $RuntimeRoot -Mode $(if($AgentMode -eq "AUTO"){"NORMAL"}else{$AgentMode})
 if($LASTEXITCODE -ne 0){throw "Grid ML runtime bootstrap failed"}
 
 $CredentialFile=Join-Path $DataRoot "secrets\\node.credential"
@@ -149,7 +149,7 @@ if($AgentMode -eq "AUTO"){
         $AgentMode=[string]$Enrollment.install_mode
         Write-Host "CONTROL authorized node mode: $AgentMode"
         if($AgentMode -eq "PILOT"){
-            & (Join-Path $Release "installer\\bootstrap-ml.ps1") -Python $Python -ReleaseDir $Release -RuntimeRoot $RuntimeRoot -Mode $AgentMode
+            & (Join-Path $Release "installer\\bootstrap-ml.ps1") -Python $Python -BasePython $BasePython -ReleaseDir $Release -RuntimeRoot $RuntimeRoot -Mode $AgentMode
             if($LASTEXITCODE -ne 0){throw "Grid ML runtime bootstrap failed after PILOT authorization"}
         }
     } finally { Pop-Location }
@@ -276,7 +276,7 @@ if($AgentMode -ne "CONTROL"){
         if($AgentMode -eq "CONTROL"){ & $FirewallScript }
         else { & $FirewallScript -Remove }
     }
-    @{mode=$Mode;status="installed";completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
+    @{mode=$Mode;status="installed";authorized_agent_mode=$AgentMode;completed_at=(Get-Date).ToUniversalTime().ToString("o")} |
         ConvertTo-Json | Set-Content -Encoding UTF8 $StateFile
     $Backup=Join-Path $InstallRoot "bootstrap.previous"
     if(Test-Path $Backup){Remove-Item -Recurse -Force $Backup}

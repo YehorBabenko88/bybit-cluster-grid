@@ -1,4 +1,4 @@
-import os, platform, socket, uuid, time
+import os, platform, socket, uuid, time, subprocess, json, threading
 import psutil
 from .config import settings
 from .disk_guard import DiskWatermarks,disk_state
@@ -26,6 +26,8 @@ NODE_ID = _node_id()
 STARTED_AT=time.time()
 _RESOURCE_TREND=ResourceTrend()
 _STORAGE_CACHE={"at":0.0,"value":{}}
+_ML_READY_CACHE={"at":0.0,"value":False,"running":False,"journal_signature":None}
+_ML_READY_LOCK=threading.Lock()
 
 def _tree_bytes(root):
     total=0
@@ -52,12 +54,61 @@ def local_storage_usage(cache_seconds=300):
     _STORAGE_CACHE.update(at=now,value=parts)
     return dict(parts)
 
-def ml_runtime_ready():
+def _probe_ml_runtime(python,journal):
+    """Run heavy imports off the worker heartbeat thread; fail closed."""
+    ready=False
     try:
-        import xgboost, lightgbm, sklearn  # noqa: F401
-        return True
-    except (ImportError,OSError):
-        return False
+        if os.path.isfile(python) and os.path.isfile(journal):
+            with open(journal,encoding="utf-8-sig") as f:
+                state=json.load(f)
+            if isinstance(state,dict) and state.get("status")=="ready":
+                result=subprocess.run(
+                    [python,"-c","import aiohttp,asyncpg,psutil,pydantic,httpx,websockets,numpy,scipy,sklearn,joblib,xgboost,lightgbm"],
+                    stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
+                    timeout=20,check=False,
+                )
+                ready=result.returncode==0
+    except (OSError,ValueError,subprocess.TimeoutExpired):
+        ready=False
+    finally:
+        try:
+            stat=os.stat(journal)
+            signature=(stat.st_mtime_ns,stat.st_size)
+        except OSError:
+            signature=None
+        with _ML_READY_LOCK:
+            if signature!=_ML_READY_CACHE["journal_signature"]:
+                ready=False
+            _ML_READY_CACHE.update(at=time.monotonic(),value=ready,running=False)
+
+
+def ml_runtime_ready():
+    """Nonblocking probe with immediate journal-change invalidation."""
+    now=time.monotonic()
+    root=os.path.join(os.getenv("ProgramData",r"C:\ProgramData"),"BybitClusterGrid","runtime")
+    python=os.path.join(root,"ml-venv","Scripts","python.exe")
+    journal=os.path.join(root,"ml-bootstrap.json")
+    try:
+        stat=os.stat(journal)
+        signature=(stat.st_mtime_ns,stat.st_size)
+    except OSError:
+        signature=None
+    with _ML_READY_LOCK:
+        if signature!=_ML_READY_CACHE["journal_signature"]:
+            _ML_READY_CACHE.update(at=0.0,value=False,journal_signature=signature)
+        if signature is None:
+            return False
+        if _ML_READY_CACHE["running"]:
+            return False
+        if _ML_READY_CACHE["at"] and now-_ML_READY_CACHE["at"]<60:
+            return _ML_READY_CACHE["value"]
+        _ML_READY_CACHE.update(value=False,running=True)
+        try:
+            threading.Thread(target=_probe_ml_runtime,args=(python,journal),
+                             name="grid-ml-readiness",daemon=True).start()
+        except RuntimeError:
+            _ML_READY_CACHE.update(at=now,value=False,running=False)
+    return False
 
 def agent_version():
     root=os.getenv("ProgramFiles")
