@@ -42,6 +42,9 @@ class MLOrchestratorService:
                                            {"state":self.state})
         if not leader:
             self.state=OBSERVING; return {"leader":False}
+        # Only the current leader may reconcile jobs. Repeating this on each
+        # tick also recovers leases that expire long after process startup.
+        await self.recover()
         h=await self.health_reader()
         workers=self.concurrency.update(float(h.get("cpu_pct",100)),float(h.get("ram_pct",100)),
           float(h.get("db_latency_ms",9999)),float(h.get("db_queue_ratio",1)),
@@ -55,7 +58,6 @@ class MLOrchestratorService:
         return {"leader":True,"workers":workers,"dispatched":dispatched,"health":h}
 
     async def run(self):
-        await self.recover()
         while not self.stop_event.is_set():
             try: await self.tick()
             except Exception:
