@@ -36,6 +36,14 @@ try {
             $invocation = Get-Content -LiteralPath $env:GRID_TEST_CAPTURE -Raw
             Assert ($invocation.Contains("--version " + $case.Expected)) "$role selected wrong release for $($case.Current)"
         }
+        # Neither release exists and bootstrap is absent: startup must fail closed.
+        Set-Content -LiteralPath (Join-Path $install 'current.version') -Value ('c' * 40)
+        Set-Content -LiteralPath (Join-Path $install 'previous.version') -Value ('d' * 40)
+        if (Test-Path $env:GRID_TEST_CAPTURE) { Remove-Item $env:GRID_TEST_CAPTURE -Force }
+        $startupFailed = $false
+        try { & $launcher -Python $stub -InstallRoot $install | Out-Null } catch { $startupFailed = $true }
+        Assert $startupFailed "$role launched without a valid release or bootstrap"
+        Assert (-not (Test-Path $env:GRID_TEST_CAPTURE)) "$role invoked Python without a runnable release"
     }
     Write-Output 'PASS: WORKER and CONTROL launcher version selection'
 } finally {
