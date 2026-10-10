@@ -48,7 +48,7 @@ def test_ml_reservations_renew_finish_and_recovery_postgres():
             await admin.execute(f"""CREATE TABLE "{schema}".service_leases (
               service_key text PRIMARY KEY,owner text NOT NULL,
               lease_until timestamptz NOT NULL,heartbeat_at timestamptz,
-              metadata jsonb NOT NULL DEFAULT '{}'::jsonb)""")
+              metadata jsonb NOT NULL DEFAULT '{{}}'::jsonb)""")
             pool=await asyncpg.create_pool(os.environ["POSTGRES_DSN"],min_size=1,max_size=3,setup=init)
             live=await add_job("running","worker-a",3,60,15)
             old_expiry=await reservation(live)

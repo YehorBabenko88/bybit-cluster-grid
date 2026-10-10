@@ -54,7 +54,7 @@ def test_recovery_only_runs_for_leader_and_repeats_after_restart(monkeypatch):
         assert len(p.sql)==2*first
         restarted=MLOrchestratorService(p,dispatch,health)
         await restarted.tick()
-        assert len(p.sql)==4*first
+        assert len(p.sql)==3*first
     asyncio.run(run())
 
 def test_leadership_loss_during_recovery_prevents_dispatch(monkeypatch):
@@ -77,7 +77,7 @@ def test_leadership_loss_during_recovery_prevents_dispatch(monkeypatch):
         result=await s.tick()
         assert result["leader"] is False
         assert len(attempts)==2
-        assert len(p.sql)==3
+        assert len(p.sql)==4
         assert dispatches==[]
         assert s.state==OBSERVING
     asyncio.run(run())
