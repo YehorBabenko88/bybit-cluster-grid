@@ -182,6 +182,16 @@ try {
                     throw 'Rollback manifest file checksum mismatch; manual recovery required'
                 }
             }
+            $previousManifestKeys = @{}
+            foreach ($fileEntry in $previousManifest.files.PSObject.Properties) {
+                $previousManifestKeys[[string]$fileEntry.Name.Replace([char]92, '/')] = $true
+            }
+            Get-ChildItem -LiteralPath $previousDir -Recurse -File -Filter '*.py' | ForEach-Object {
+                $relativePath = $_.FullName.Substring($previousFull.Length).Replace([char]92, '/')
+                if (-not $previousManifestKeys.ContainsKey($relativePath)) {
+                    throw "Rollback manifest omits Python source: $relativePath; manual recovery required"
+                }
+            }
         }
     }
     Write-Output "RECOVERY_PHASE=$($j.phase)"
