@@ -29,7 +29,7 @@ try {
     $controlHash = (Get-FileHash -LiteralPath $controlFile -Algorithm SHA256).Hash.ToLowerInvariant()
     $controlManifest = Join-Path $root "releases\$b\release-manifest.json"
     $workerManifest = Get-Content -LiteralPath $controlManifest -Raw
-    [IO.File]::WriteAllText($controlManifest, ('{"version":"' + $b + '","files":{"grid/coordinator.py":"' + $controlHash + '"}}'))
+    [IO.File]::WriteAllText($controlManifest, ('{"version":"' + $b + '","files":{"grid/coordinator.py":"' + $controlHash + '","run_worker.py":"' + $hash + '"}}'))
     $controlPlan = & $script -Version $b -InstallRoot $root -Role CONTROL
     Assert ($controlPlan -contains 'PLAN_ONLY=true; no files changed') 'Valid CONTROL manifest must be accepted'
     Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'CONTROL plan created pending'
