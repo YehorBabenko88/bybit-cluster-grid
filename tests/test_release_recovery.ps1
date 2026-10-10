@@ -238,6 +238,15 @@ try {
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Unlisted rollback source removed journal'
     Remove-Item -LiteralPath $unlistedRollback -Force
     Remove-Item -LiteralPath $previousManifest -Force
+    # Legacy rollback releases without a manifest must remain recoverable.
+    Journal 'committed'
+    Set-Content -LiteralPath $current -Value $a
+    Set-Content -LiteralPath $pending -Value $b
+    Assert (-not (Test-Path -LiteralPath $previousManifest)) 'Legacy rollback fixture unexpectedly has manifest'
+    & $script -InstallRoot $root -Role WORKER -Apply | Out-Null
+    Assert (((Get-Content $current -Raw).Trim()) -ceq $b) 'Legacy rollback recovery changed candidate'
+    Assert (((Get-Content (Join-Path $root 'previous.version') -Raw).Trim()) -ceq $a) 'Legacy rollback recovery lost previous'
+    Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Legacy rollback recovery left journal'
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
