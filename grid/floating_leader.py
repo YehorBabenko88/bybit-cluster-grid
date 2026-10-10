@@ -88,6 +88,21 @@ class FloatingLeader:
                 current=False
                 self.is_leader=False
                 self.epoch=None
+            # Shutdown can race with an in-flight campaign. Never start
+            # leader-only services after stop has already been requested.
+            if current and self.stop_event.is_set():
+                acquired_epoch = self.epoch
+                self.is_leader = False
+                self.epoch = None
+                current = False
+                if acquired_epoch is not None:
+                    try:
+                        await self.release(acquired_epoch)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        log.exception("failed to release lease after concurrent stop",
+                                      extra={"event": "leader_stop_release_failed"})
             if current and not previous and on_gain:
                 try:
                     await on_gain(self.epoch)
