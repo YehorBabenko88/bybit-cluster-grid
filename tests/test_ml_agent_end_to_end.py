@@ -118,3 +118,37 @@ def test_dataset_pagination_rejects_changed_metadata(tmp_path):
             await _write_paged_bundle(Client(), {"id": "job"}, tmp_path / "bundle.json", page_size=1)
 
     asyncio.run(scenario())
+
+
+def test_dataset_transfer_rejects_empty_dataset(tmp_path):
+    import asyncio
+    import pytest
+    from grid.ml_agent_worker import _write_paged_bundle
+
+    class Client:
+        async def dataset_page(self, job, offset, limit):
+            return {"dataset_id": "ds", "dataset_hash": "unused",
+                    "sample_count": 0, "samples": []}
+
+    async def scenario():
+        with pytest.raises(ValueError, match="sample count must be positive"):
+            await _write_paged_bundle(Client(), {"id": "job"}, tmp_path / "empty.json")
+
+    asyncio.run(scenario())
+
+
+def test_dataset_transfer_rejects_zero_page_size(tmp_path):
+    import asyncio
+    import pytest
+    from grid.ml_agent_worker import _write_paged_bundle
+
+    class Client:
+        async def dataset_page(self, job, offset, limit):
+            return {"dataset_id": "ds", "dataset_hash": "unused",
+                    "sample_count": 1, "samples": []}
+
+    async def scenario():
+        with pytest.raises(ValueError, match="page size must be positive"):
+            await _write_paged_bundle(Client(), {"id": "job"}, tmp_path / "bad.json", page_size=0)
+
+    asyncio.run(scenario())
