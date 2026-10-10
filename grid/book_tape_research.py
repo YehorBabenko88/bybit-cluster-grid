@@ -12,6 +12,7 @@ VERSION="book-tape-research-v1"
 
 
 def _positive(value):
+    if isinstance(value,bool):return None
     try:
         number=float(value)
     except (ValueError,TypeError,OverflowError):
@@ -20,6 +21,7 @@ def _positive(value):
 
 
 def _nonnegative(value):
+    if isinstance(value,bool):return None
     try:
         number=float(value)
     except (ValueError,TypeError,OverflowError):
@@ -50,7 +52,7 @@ class BookTapeResearch:
         if hasattr(ts,"timestamp"):
             ts=int(ts.timestamp()*1000)
         else:
-            try:ts=int(ts)
+            try:ts=None if isinstance(ts,bool) else int(ts)
             except (ValueError,TypeError,OverflowError):ts=None
         close=_positive(payload.get("close"))
         buy=_nonnegative(payload.get("buy_volume"))
