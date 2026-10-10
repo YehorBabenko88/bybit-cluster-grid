@@ -38,6 +38,13 @@ class FloatingLeader:
             self.epoch=None
         return self.is_leader
 
+    async def release(self, epoch):
+        """Release only the lease acquired by this exact leadership epoch."""
+        return await self.pool.execute("""UPDATE service_leases
+          SET lease_until=now(), heartbeat_at=now()
+          WHERE service_key='control-plane-leader' AND owner=$1
+          AND (metadata->>'epoch')::bigint=$2""", self.node_id, epoch)
+
     async def run(self,on_gain=None,on_loss=None):
         previous=False
         while not self.stop_event.is_set():
@@ -62,10 +69,20 @@ class FloatingLeader:
                     raise
                 except Exception:
                     log.exception("leader gain callback failed",extra={"event":"leader_gain_failed"})
-                    # Do not advertise leadership when initialization failed.
+                    # A failed initialization must not strand the lease until timeout.
+                    # Epoch fencing prevents releasing a lease acquired by a successor.
+                    failed_epoch=self.epoch
                     self.is_leader=False
                     self.epoch=None
                     current=False
+                    try:
+                        if failed_epoch is not None:
+                            await self.release(failed_epoch)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        log.exception("failed to release lease after leader initialization error",
+                                      extra={"event":"leader_release_failed"})
             if previous and not current and on_loss:
                 try:
                     await on_loss()
