@@ -29,8 +29,6 @@ async def complete_running_job(pool,job_id,node_id,lease_generation,error=None):
 async def fail_running_job(pool,job_id,node_id,lease_generation,exc):
     kind,code=classify_failure(exc)
     state=await fail_or_retry(pool,job_id,node_id,lease_generation,f"{code}: {exc}",kind)
-    if state in ("failed","retry"):
-        await pool.execute("DELETE FROM ml_resource_reservations WHERE job_id=$1",job_id)
     return state
 
 
