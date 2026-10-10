@@ -92,12 +92,6 @@ try {
             throw 'Committed candidate missing; manual recovery required'
         }
     }
-    # Committed recovery writes pending.version; reject a directory before touching previous.version.
-    $pendingMarkerPath = Join-Path $InstallRoot 'pending.version'
-    if ((Test-Path -LiteralPath $pendingMarkerPath) -and
-        -not (Test-Path -LiteralPath $pendingMarkerPath -PathType Leaf)) {
-        throw 'Invalid pending release pointer type; manual recovery required'
-    }
     # Verify executable integrity when a release manifest is available.
     # Legacy installed releases without a manifest remain supported.
     $targetDir = Join-Path (Join-Path $InstallRoot 'releases') $target
