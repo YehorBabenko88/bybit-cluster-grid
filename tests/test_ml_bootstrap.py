@@ -56,3 +56,10 @@ def test_windows_bundle_contains_ml_requirements_and_checks_presence():
     assert "run_worker.py,run_coordinator.py,requirements.txt,requirements-ml.txt" in workflow
     assert 'if(!(Test-Path (Join-Path $bundle "requirements-ml.txt")))' in workflow
     assert '      - "requirements-ml.txt"' in workflow
+
+
+def test_pilot_and_control_preflight_fail_without_ml_requirements():
+    preflight = Path("installer/preflight.ps1").read_text(encoding="utf-8")
+    assert '$Mode -in @("CONTROL","PILOT")' in preflight
+    assert 'Join-Path $ReleaseDir "requirements-ml.txt"' in preflight
+    assert 'throw "ML requirements missing for $Mode release:' in preflight
