@@ -70,9 +70,7 @@ if (Test-Path -LiteralPath $failedMarker -PathType Leaf) {
 $pendingMarker = Join-Path $InstallRoot 'pending.version'
 if (Test-Path -LiteralPath $pendingMarker -PathType Leaf) {
     $pendingVersion = (Get-Content -LiteralPath $pendingMarker -Raw).Trim()
-    if ($pendingVersion) {
-        throw "Unconfirmed pending release $pendingVersion; resolve recovery before switching again"
-    }
+    throw 'Pending release marker exists; resolve or remove it through the recovery procedure before switching again'
 }
 $marker = Join-Path $InstallRoot 'current.version'
 if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) { throw 'current.version missing' }
