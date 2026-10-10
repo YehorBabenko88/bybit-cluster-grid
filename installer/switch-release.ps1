@@ -24,6 +24,20 @@ try {
     try { $lockHeld = $mutex.WaitOne(0) }
     catch [System.Threading.AbandonedMutexException] { $lockHeld = $true }
     if (-not $lockHeld) { throw 'Another Grid release switch is already running' }
+# Refuse reparse points in the installation path to avoid redirecting pointer writes.
+$installFull = [IO.Path]::GetFullPath($InstallRoot)
+$pathCursor = $installFull
+while ($pathCursor) {
+    if (Test-Path -LiteralPath $pathCursor) {
+        $item = Get-Item -LiteralPath $pathCursor -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "InstallRoot traverses a reparse point: $pathCursor"
+        }
+    }
+    $parent = [IO.Directory]::GetParent($pathCursor)
+    if ($null -eq $parent) { break }
+    $pathCursor = $parent.FullName
+}
 $releaseRoot = Join-Path $InstallRoot 'releases'
 $release = Join-Path $releaseRoot $Version
 $required = if ($Role -eq 'CONTROL') { 'grid\coordinator.py' } else { 'run_worker.py' }
