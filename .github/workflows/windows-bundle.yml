@@ -99,10 +99,11 @@ jobs:
           $ErrorActionPreference = 'Stop'
           foreach($launcher in @('installer/launcher.ps1','installer/coordinator-launcher.ps1')){
             $source = Get-Content -LiteralPath $launcher -Raw
-            if($source -notmatch [regex]::Escape("if(\u0024v -notmatch '^[0-9a-f]{40}\u0024')")){
+            $strict = '^[0-9a-f]{40}$'
+            if(-not $source.Contains("if(" + '$v' + " -notmatch '" + $strict + "')")){
               throw "Missing strict current/previous marker validation in $launcher"
             }
-            if($source -notmatch [regex]::Escape("if(\u0024cv -match '^[0-9a-f]{40}\u0024')")){
+            if(-not $source.Contains("if(" + '$cv' + " -match '" + $strict + "')")){
               throw "Missing strict replaced-release marker validation in $launcher"
             }
           }
