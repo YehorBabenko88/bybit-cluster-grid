@@ -102,3 +102,40 @@ def test_supervisor_rejects_nonpositive_ram_limit():
                 timeout_seconds=5, ram_limit_mb=0,
             )
     asyncio.run(run())
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows Job Object integration")
+def test_windows_suspended_job_runs_only_after_assignment():
+    async def run():
+        out = await run_supervised_process(
+            [sys.executable, "-c", "print(\'suspended-job-ok\')"],
+            timeout_seconds=10, poll_seconds=.05,
+        )
+        assert out.decode().strip() == "suspended-job-ok"
+    asyncio.run(run())
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows Job Object integration")
+def test_windows_job_close_kills_descendant(tmp_path):
+    import subprocess
+    import time
+    from grid.ml_windows_job import WindowsJob
+
+    child = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"],
+        creationflags=subprocess.CREATE_SUSPENDED,
+    )
+    job = None
+    try:
+        job = WindowsJob(child.pid, resume_primary_thread=True)
+        assert child.poll() is None
+        job.close()
+        job = None
+        child.wait(timeout=10)
+        assert child.returncode is not None
+    finally:
+        if job is not None:
+            job.close()
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=10)
