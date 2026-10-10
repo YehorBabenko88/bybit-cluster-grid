@@ -44,12 +44,13 @@ class MLDispatcher:
         self.pool=pool; self.node_provider=node_provider
 
     async def __call__(self,slots,health=None,leader_owner=None):
-        # Read node telemetry after acquiring the dispatch lock, so a waiting
-        # coordinator does not schedule against a pre-lock snapshot.
+        # Collect telemetry outside the transaction. Leadership and current
+        # reservations are revalidated after acquiring the dispatch lock.
         # External telemetry may be slow. Collect it without holding the
         # advisory lock, leader row lock, or a database transaction.
         # Do not let a hung telemetry provider stall the orchestration loop.
         reported=await asyncio.wait_for(self.node_provider(),timeout=10)
+        sampled_at=asyncio.get_running_loop().time()
         dispatched=[]
         async with self.pool.acquire() as c:
             async with c.transaction():
@@ -58,6 +59,10 @@ class MLDispatcher:
                 await c.execute("SET LOCAL lock_timeout = '5s'")
                 await c.execute("SET LOCAL statement_timeout = '25s'")
                 await c.execute("SELECT pg_advisory_xact_lock($1)",DISPATCH_LOCK_KEY)
+                # The snapshot may have aged while waiting for another
+                # dispatcher. Reject it instead of scheduling on stale capacity.
+                if asyncio.get_running_loop().time()-sampled_at>5:
+                    return []
                 if leader_owner is not None:
                     # Lock the leadership row until this dispatch transaction
                     # commits. A takeover must wait; an expired leader cannot
