@@ -10,6 +10,7 @@ class Pool:
     async def __aexit__(self,*a):pass
     async def execute(self,sql,*a):self.sql.append(sql);return "UPDATE 1"
     async def fetchrow(self,*a):return {"owner":a[1] if len(a)>1 else "x","lease_until":None}
+    async def fetchval(self,sql,*a):return 1 if "FOR UPDATE" in sql else True
 
 def test_recovery_requeues_expired_assignments_and_runs():
     async def run():
@@ -19,7 +20,7 @@ def test_recovery_requeues_expired_assignments_and_runs():
         s=MLOrchestratorService(p,dispatch,health)
         await s.recover()
         assert s.state==OBSERVING
-        assert "('running','assigned')" in p.sql[0]
+        assert "('running','assigned')" in p.sql[1]
     asyncio.run(run())
 
 def test_pressure_can_pause_all_ml_work():
@@ -48,12 +49,12 @@ def test_recovery_only_runs_for_leader_and_repeats_after_restart(monkeypatch):
         monkeypatch.setattr(module,"acquire_service_lease",leader)
         await s.tick()
         first=len(p.sql)
-        assert first==3
+        assert first==4
         await s.tick()
         assert len(p.sql)==2*first
         restarted=MLOrchestratorService(p,dispatch,health)
         await restarted.tick()
-        assert len(p.sql)==3*first
+        assert len(p.sql)==4*first
     asyncio.run(run())
 
 def test_leadership_loss_during_recovery_prevents_dispatch(monkeypatch):
