@@ -37,7 +37,7 @@ def test_atomic_ack_is_bound_to_the_command_owner():
         assert await command_result(pool, cid, True, node_id='worker-a') is False
         assert await command_result(pool, cid, True, node_id='worker-b') is False
         await pending_commands(pool, 'worker-b')
-        assert await pool.fetchval('SELECT status FROM agent_commands WHERE id=$1', uuid.UUID(cid)) == 'queued'
+        assert await pool.fetchval('SELECT status FROM agent_commands WHERE id=$1', uuid.UUID(cid)) == 'delivered'
         assert await command_result(pool, cid, True, node_id='worker-b') is True
         assert await pool.fetchval('SELECT status FROM agent_commands WHERE id=$1', uuid.UUID(cid)) == 'done'
     asyncio.run(isolated_commands(scenario))
