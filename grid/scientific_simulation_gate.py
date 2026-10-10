@@ -126,7 +126,8 @@ class ScientificSimulationGate:
 
     async def _fail(self,run_id,attempt_id,reason):
         await self.pool.execute("""UPDATE scientific_simulation_runs SET status='SIMULATION_FAILED',
-          reason=$2,completed_at=now() WHERE id=$1""",run_id,str(reason))
+          reason=$2,completed_at=now() WHERE id=$1 AND attempt_id=$3
+          AND status='RUNNING'""",run_id,str(reason),attempt_id)
         return {"run_id":str(run_id),"status":"SIMULATION_FAILED","reason":str(reason)}
 
 def _dict(v):
