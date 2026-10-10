@@ -72,3 +72,11 @@ def test_ml_claim_transport_failure_does_not_terminate_poller():
     assert "except asyncio.CancelledError:\n            raise" in loop
     assert "except Exception:" in loop
     assert "continue" in loop
+
+
+def test_cached_ml_runtime_runs_native_smoke_before_ready():
+    script = Path("installer/bootstrap-ml.ps1").read_text(encoding="utf-8")
+    cached = script.split("if(!$Need){", 1)[1].split("if(!$Need){", 1)[0]
+    assert "XGBRegressor" in cached
+    assert "LGBMRegressor" in cached
+    assert "$Need=$true" in cached
