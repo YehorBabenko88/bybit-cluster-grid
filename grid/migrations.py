@@ -471,6 +471,9 @@ created_at timestamptz NOT NULL DEFAULT now())""",
 "CREATE INDEX IF NOT EXISTS scientific_method_errors_lookup_idx ON scientific_method_errors(method_key,created_at DESC)"
 ])
 
+,(45,"scientific_simulation_attempt_fencing",[
+"ALTER TABLE scientific_simulation_runs ADD COLUMN IF NOT EXISTS attempt_id uuid"
+])
 ]
 
 async def apply_migrations(pool):
