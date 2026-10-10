@@ -80,6 +80,20 @@ try {
     try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $blocked = $true }
     Assert $blocked 'Invalid journal must fail closed'
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Invalid journal was deleted'
+    # Corrupt or truncated journals must never modify release pointers.
+    foreach ($badJournal in @('', '{', 'null', '[]',
+        '{"schema":1,"previous":"not-a-sha","candidate":"bbbb","phase":"prepared"}',
+        ('{"schema":1,"previous":"' + $a + '","candidate":"' + $b + '","phase":"unknown"}'))) {
+        Set-Content -LiteralPath $current -Value $b
+        Set-Content -LiteralPath $pending -Value $b
+        [IO.File]::WriteAllText((Join-Path $root 'switch-journal.json'), $badJournal)
+        $rejected = $false
+        try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $rejected = $true }
+        Assert $rejected 'Corrupt journal must fail closed'
+        Assert (((Get-Content $current -Raw).Trim()) -eq $b) 'Corrupt journal changed current'
+        Assert (((Get-Content $pending -Raw).Trim()) -eq $b) 'Corrupt journal changed pending'
+        Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Corrupt journal was removed'
+    }
     Write-Output 'PASS: prepared, committed, plan-only and invalid-journal recovery'
 } finally {
     if (Test-Path $root) { Remove-Item -LiteralPath $root -Recurse -Force }
