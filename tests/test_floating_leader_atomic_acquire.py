@@ -128,3 +128,25 @@ def test_live_competitor_lease_clears_stale_local_epoch():
         assert pool.connection.insert_sql is None
 
     asyncio.run(scenario())
+
+
+def test_bigint_epoch_overflow_fails_before_insert():
+    async def scenario():
+        class OverflowConnection(Connection):
+            async def fetchrow(self, sql):
+                return {"owner": "old", "lease_until": None,
+                        "metadata": '{"epoch":9223372036854775807}'}
+
+        pool = Pool(1)
+        pool.connection = OverflowConnection(1)
+        leader = FloatingLeader(pool, node_id="candidate")
+        try:
+            await leader.campaign()
+        except ValueError as exc:
+            assert "bigint range" in str(exc)
+        else:
+            raise AssertionError("exhausted bigint epoch must not be acquired")
+        assert leader.is_leader is False and leader.epoch is None
+        assert pool.connection.insert_sql is None
+
+    asyncio.run(scenario())
