@@ -27,6 +27,31 @@ class CoordinatorPidReadinessTests(unittest.TestCase):
             finally:
                 child.terminate()
 
+    @unittest.skipUnless(os.name == "nt", "Windows process ancestry test")
+    def test_grandchild_pid_is_accepted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = pathlib.Path(tmp) / "grandchild.pid"
+            script = (
+                "import pathlib, subprocess, sys, time\n"
+                "p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(10)'])\n"
+                "pathlib.Path(sys.argv[1]).write_text(str(p.pid))\n"
+                "p.wait()\n"
+            )
+            parent = subprocess.Popen([sys.executable, "-c", script, str(marker)])
+            try:
+                import time
+                for _ in range(100):
+                    if marker.exists():
+                        break
+                    if parent.poll() is not None:
+                        self.fail("intermediate Python process exited early")
+                    time.sleep(0.05)
+                self.assertTrue(marker.exists(), "grandchild PID not recorded")
+                self.assertTrue(supervisor._is_child_process(int(marker.read_text()), os.getpid()))
+            finally:
+                parent.terminate()
+                parent.wait(timeout=10)
+
     def test_health_pid_requires_process_ownership(self):
         import io
         proc = mock.Mock()
