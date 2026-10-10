@@ -28,7 +28,7 @@ async def route_market_event(orchestrator,pool,symbol,ts_ms,event_type,payload,s
         return {"processed":False,"reason":"event_type_not_research_input","scheduled":0}
 
     ref=orchestrator.latest_trade.get(symbol)
-    fresh_ref=ref is not None and ts-int(ref[0])<=3000
+    fresh_ref=ref is not None and 0<=ts-int(ref[0])<=3000
     scheduled=0;hypotheses=[]
     for signal in signals:
         await _persist_signal(pool,signal,source_event_id)
