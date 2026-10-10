@@ -60,7 +60,7 @@ class MLOrchestratorService:
             self.state=OBSERVING
             return {"leader":False,"workers":0,"health":h}
         self.state=DISPATCHING
-        dispatched=await self.dispatcher(workers,h)
+        dispatched=await self.dispatcher(workers,h,leader_owner=self.owner)
         self.state=OBSERVING
         return {"leader":True,"workers":workers,"dispatched":dispatched,"health":h}
 
