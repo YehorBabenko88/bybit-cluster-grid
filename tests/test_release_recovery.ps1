@@ -190,6 +190,20 @@ try {
     [IO.File]::WriteAllText($previousEntry, $previousOriginal)
     Remove-Item -LiteralPath $previousManifest -Force
 
+    # Committed recovery must not retain a corrupted rollback entry point.
+    Journal 'committed'
+    Set-Content -LiteralPath $current -Value $a
+    Set-Content -LiteralPath $pending -Value $b
+    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + '"}}'))
+    [IO.File]::WriteAllText($previousEntry, '# damaged previous release')
+    $committedRollbackRejected = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $committedRollbackRejected = $true }
+    Assert $committedRollbackRejected 'Committed recovery must reject corrupted rollback entry point'
+    Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Corrupt rollback changed current'
+    Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Corrupt rollback changed pending'
+    Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Corrupt rollback removed journal'
+    [IO.File]::WriteAllText($previousEntry, $previousOriginal)
+    Remove-Item -LiteralPath $previousManifest -Force
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
