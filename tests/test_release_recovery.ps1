@@ -171,6 +171,25 @@ try {
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Unlisted module removed journal'
     Remove-Item -LiteralPath $unlistedSource -Force
     Remove-Item -LiteralPath $candidateManifest -Force
+    # Prepared recovery must validate the previous release, not the candidate.
+    Journal 'prepared'
+    Set-Content -LiteralPath $current -Value $b
+    Set-Content -LiteralPath $pending -Value $b
+    $previousEntry = Join-Path $root "releases\$a\run_worker.py"
+    $previousHash = (Get-FileHash -LiteralPath $previousEntry -Algorithm SHA256).Hash.ToLowerInvariant()
+    $previousManifest = Join-Path $root "releases\$a\release-manifest.json"
+    [IO.File]::WriteAllText($previousManifest, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousHash + '"}}'))
+    $previousOriginal = Get-Content -LiteralPath $previousEntry -Raw
+    [IO.File]::WriteAllText($previousEntry, '# corrupted rollback target')
+    $previousRejected = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $previousRejected = $true }
+    Assert $previousRejected 'Prepared recovery must reject tampered previous release'
+    Assert (((Get-Content $current -Raw).Trim()) -ceq $b) 'Tampered rollback target changed current'
+    Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Tampered rollback target changed pending'
+    Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Tampered rollback target removed journal'
+    [IO.File]::WriteAllText($previousEntry, $previousOriginal)
+    Remove-Item -LiteralPath $previousManifest -Force
+
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
