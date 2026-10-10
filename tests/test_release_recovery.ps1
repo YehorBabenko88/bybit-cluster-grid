@@ -293,6 +293,21 @@ try {
         Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Directory previous pointer removed journal'
     }
     Remove-Item -LiteralPath $previousPointer -Force
+    # A pending.version directory must never be treated as a removable marker.
+    $pendingDirectory = Join-Path $root 'pending.version'
+    if (Test-Path -LiteralPath $pendingDirectory) { Remove-Item -LiteralPath $pendingDirectory -Force }
+    New-Item -ItemType Directory -Path $pendingDirectory | Out-Null
+    foreach ($phaseCase in @('prepared','committed')) {
+        Journal $phaseCase
+        Set-Content -LiteralPath $current -Value $a
+        $pendingDirectoryRejected = $false
+        try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $pendingDirectoryRejected = $true }
+        Assert $pendingDirectoryRejected "Directory pending pointer must block $phaseCase recovery"
+        Assert (Test-Path -LiteralPath $pendingDirectory -PathType Container) 'Recovery replaced pending pointer directory'
+        Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Directory pending pointer changed current'
+        Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Directory pending pointer removed journal'
+    }
+    Remove-Item -LiteralPath $pendingDirectory -Force
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
