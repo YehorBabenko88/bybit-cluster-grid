@@ -104,6 +104,15 @@ try {
             Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Conflicting pending changed current'
         }
     }
+    # A journal path occupied by a directory is corruption, not NO_JOURNAL.
+    $journalMarker = Join-Path $root 'switch-journal.json'
+    if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
+    New-Item -ItemType Directory -Path $journalMarker | Out-Null
+    $journalDirectoryRejected = $false
+    try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $journalDirectoryRejected = $true }
+    Assert $journalDirectoryRejected 'Directory journal must fail closed'
+    Assert (Test-Path -LiteralPath $journalMarker -PathType Container) 'Directory journal was modified'
+    Remove-Item -LiteralPath $journalMarker -Recurse -Force
     # A directory in place of current.version must not be treated as a missing pointer.
     Journal 'prepared'
     if (Test-Path -LiteralPath $current) { Remove-Item -LiteralPath $current -Force }
