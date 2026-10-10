@@ -84,12 +84,12 @@ def test_two_dispatchers_respect_global_slots_and_node_capacity():
             a,b=await asyncio.wait_for(asyncio.gather(first(4),second(4)),10)
             assert len(a)+len(b)==2
             assert len({x["job_id"] for x in a+b})==2
-            rows=await pool.fetch("SELECT status,count(*) AS n FROM ml_jobs GROUP BY status")
+            rows=await admin.fetch(f'SELECT status,count(*) AS n FROM "{schema}".ml_jobs GROUP BY status')
             counts={r["status"]:r["n"] for r in rows}
             assert counts=={"assigned":2,"queued":2}
-            reservations=await pool.fetchrow("""SELECT count(*) AS jobs,sum(cpu) AS cpu,
+            reservations=await admin.fetchrow(f"""SELECT count(*) AS jobs,sum(cpu) AS cpu,
                 sum(ram_gb) AS ram_gb,sum(scratch_gb) AS scratch_gb
-                FROM ml_resource_reservations""")
+                FROM "{schema}".ml_resource_reservations""")
             assert reservations["jobs"]==2
             assert reservations["cpu"]==8
             assert reservations["ram_gb"]==8
