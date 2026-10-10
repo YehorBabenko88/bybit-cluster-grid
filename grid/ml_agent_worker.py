@@ -120,7 +120,16 @@ async def ml_agent_loop(client,stop_event=None,poll_seconds=5,can_claim=None):
             try:await asyncio.wait_for(stop_event.wait(),timeout=float(poll_seconds))
             except asyncio.TimeoutError:pass
             continue
-        job=await client.claim()
+        try:
+            job=await client.claim()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # Transient CONTROL/network failures must not permanently kill the
+            # ML poller. No lease has been acquired at this point.
+            try:await asyncio.wait_for(stop_event.wait(),timeout=max(1.0,float(poll_seconds)))
+            except asyncio.TimeoutError:pass
+            continue
         if not job:
             try:await asyncio.wait_for(stop_event.wait(),timeout=float(poll_seconds))
             except asyncio.TimeoutError:pass
