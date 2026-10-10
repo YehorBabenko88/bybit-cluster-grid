@@ -112,9 +112,23 @@ try {
             $entry.Value -cnotmatch '^[0-9a-fA-F]{64}$') {
             throw 'Recovery target entry point checksum missing; manual recovery required'
         }
-        $actualHash = (Get-FileHash -LiteralPath (Join-Path $targetDir $required) -Algorithm SHA256).Hash
-        if ($actualHash -cne $entry.Value.ToUpperInvariant()) {
-            throw 'Recovery target entry point checksum mismatch; manual recovery required'
+        $targetFull = [IO.Path]::GetFullPath($targetDir).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+        foreach ($fileEntry in $targetManifest.files.PSObject.Properties) {
+            $relative = [string]$fileEntry.Name
+            if ([IO.Path]::IsPathRooted($relative) -or $relative -match '(^|[\\/])\.\.([\\/]|$)' -or
+                $relative -match '^[a-zA-Z]:' -or $fileEntry.Value -isnot [string] -or
+                $fileEntry.Value -cnotmatch '^[0-9a-fA-F]{64}$') {
+                throw 'Invalid recovery manifest file entry; manual recovery required'
+            }
+            $filePath = [IO.Path]::GetFullPath((Join-Path $targetDir ($relative.Replace('/', [IO.Path]::DirectorySeparatorChar))))
+            if (-not $filePath.StartsWith($targetFull, [StringComparison]::OrdinalIgnoreCase) -or
+                -not (Test-Path -LiteralPath $filePath -PathType Leaf)) {
+                throw 'Recovery manifest file missing or outside release; manual recovery required'
+            }
+            $fileHash = (Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash
+            if ($fileHash -cne $fileEntry.Value.ToUpperInvariant()) {
+                throw 'Recovery manifest file checksum mismatch; manual recovery required'
+            }
         }
     }
     Write-Output "RECOVERY_PHASE=$($j.phase)"
