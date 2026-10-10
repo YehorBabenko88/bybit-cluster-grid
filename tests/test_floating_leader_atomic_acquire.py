@@ -340,3 +340,54 @@ def test_stop_interrupts_renewal_wait_without_waiting_for_timeout():
         assert leader.epoch is None
 
     asyncio.run(scenario())
+
+
+def test_shutdown_stops_services_before_releasing_fenced_lease():
+    async def scenario():
+        events = []
+
+        class StoppableLeader(FloatingLeader):
+            async def release(self, epoch):
+                events.append(("release", epoch))
+                return "UPDATE 1"
+
+        async def on_loss():
+            events.append(("loss", None))
+
+        leader = StoppableLeader(pool=None)
+        leader.is_leader = True
+        leader.epoch = 901
+        await leader.shutdown(on_loss=on_loss)
+        assert events == [("loss", None), ("release", 901)]
+        assert leader.stop_event.is_set()
+        assert not leader.is_leader and leader.epoch is None
+        await leader.shutdown(on_loss=on_loss)
+        assert len(events) == 2
+
+    asyncio.run(scenario())
+
+
+def test_shutdown_releases_lease_even_if_cleanup_fails():
+    import pytest
+
+    async def scenario():
+        events = []
+
+        class StoppableLeader(FloatingLeader):
+            async def release(self, epoch):
+                events.append(("release", epoch))
+                return "UPDATE 1"
+
+        async def on_loss():
+            events.append(("loss", None))
+            raise RuntimeError("cleanup failed")
+
+        leader = StoppableLeader(pool=None)
+        leader.is_leader = True
+        leader.epoch = 902
+        with pytest.raises(RuntimeError, match="cleanup failed"):
+            await leader.shutdown(on_loss=on_loss)
+        assert events == [("loss", None), ("release", 902)]
+        assert not leader.is_leader and leader.epoch is None
+
+    asyncio.run(scenario())
