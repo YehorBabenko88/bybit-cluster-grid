@@ -391,3 +391,46 @@ def test_shutdown_retains_lease_if_cleanup_fails():
         assert not leader.is_leader and leader.epoch is None
 
     asyncio.run(scenario())
+
+
+def test_shutdown_without_leadership_does_not_release_or_call_loss():
+    async def scenario():
+        events = []
+
+        class StoppableLeader(FloatingLeader):
+            async def release(self, epoch):
+                events.append(("release", epoch))
+
+        async def on_loss():
+            events.append(("loss", None))
+
+        leader = StoppableLeader(pool=None)
+        leader.epoch = 77
+        leader.is_leader = False
+        await leader.shutdown(on_loss=on_loss)
+        assert events == []
+        assert leader.epoch is None
+        assert leader.stop_event.is_set()
+
+    asyncio.run(scenario())
+
+
+def test_shutdown_release_error_keeps_local_leadership_disabled():
+    import pytest
+
+    async def scenario():
+        class StoppableLeader(FloatingLeader):
+            async def release(self, epoch):
+                assert epoch == 99
+                raise ConnectionError("database unavailable")
+
+        leader = StoppableLeader(pool=None)
+        leader.is_leader = True
+        leader.epoch = 99
+        with pytest.raises(ConnectionError, match="database unavailable"):
+            await leader.shutdown()
+        assert not leader.is_leader
+        assert leader.epoch is None
+        assert leader.stop_event.is_set()
+
+    asyncio.run(scenario())
