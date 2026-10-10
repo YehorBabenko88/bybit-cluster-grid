@@ -54,7 +54,7 @@ $CoreReq=Join-Path $ReleaseDir "requirements.txt"
 if(!(Test-Path $CoreReq)){throw "Missing core requirements for ML environment"}
 $CoreHash=(Get-FileHash -Algorithm SHA256 $CoreReq).Hash.ToLowerInvariant()
 $Hash=("{0}:{1}" -f $CoreHash,$Hash)
-$Need=($Hash -ne $Old)
+$Need=($Hash -ne $Old) -or $Recreate
 if(!$Need){
   # A cached ML environment must also contain the worker protocol dependencies.
   & $Python -c "import aiohttp,asyncpg,psutil,pydantic,httpx,websockets,numpy,scipy,sklearn,joblib,xgboost,lightgbm" 2>$null
