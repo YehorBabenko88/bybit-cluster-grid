@@ -20,7 +20,9 @@ class FloatingLeader:
                   VALUES('control-plane-leader',$1,now()+($2*interval '1 second'),now(),jsonb_build_object('epoch',$3))
                   ON CONFLICT(service_key) DO UPDATE SET owner=EXCLUDED.owner,lease_until=EXCLUDED.lease_until,
                   heartbeat_at=now(),metadata=EXCLUDED.metadata""",self.node_id,self.lease_seconds,epoch)
-                self.epoch=epoch; self.is_leader=True; return True
+        # Leadership becomes visible only after transaction commit succeeds.
+        self.epoch=epoch; self.is_leader=True
+        return True
 
     async def renew(self):
         if not self.is_leader:return False
