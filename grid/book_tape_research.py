@@ -49,11 +49,13 @@ class BookTapeResearch:
         if not isinstance(payload,dict):
             return {"version":VERSION,"eligible":False,"reason":"invalid_payload"}
         ts=event.get("event_ts")
-        if hasattr(ts,"timestamp"):
-            ts=int(ts.timestamp()*1000)
-        else:
-            try:ts=None if isinstance(ts,bool) else int(ts)
-            except (ValueError,TypeError,OverflowError):ts=None
+        try:
+            if hasattr(ts,"timestamp"):
+                ts=int(ts.timestamp()*1000)
+            else:
+                ts=None if isinstance(ts,bool) else int(ts)
+        except (ValueError,TypeError,OverflowError,OSError):
+            ts=None
         close=_positive(payload.get("close"))
         buy=_nonnegative(payload.get("buy_volume"))
         sell=_nonnegative(payload.get("sell_volume"))
