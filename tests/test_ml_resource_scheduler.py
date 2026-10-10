@@ -97,3 +97,14 @@ def test_dispatch_refreshes_node_telemetry_after_lock():
     telemetry=source.index("reported=await self.node_provider()")
     reservations=source.index("reservations=await reserved_by_node(c)")
     assert lock<telemetry<reservations
+
+
+def test_dispatch_payload_decodes_asyncpg_jsonb_text():
+    import pytest
+    from grid.ml_dispatcher import _job_payload
+    assert _job_payload('{"cpu":4,"ram_gb":4}')=={"cpu":4,"ram_gb":4}
+    assert _job_payload({"cpu":2})=={"cpu":2}
+    assert _job_payload(None)=={}
+    for invalid in ('[]','null','"text"','{invalid',[]):
+        with pytest.raises((ValueError,TypeError)):
+            _job_payload(invalid)
