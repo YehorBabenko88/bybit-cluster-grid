@@ -13,6 +13,10 @@ async def route_market_event(orchestrator,pool,symbol,ts_ms,event_type,payload,s
         price=_num(p.get("close"))
         volume=_num(p.get("buy_volume"),0.0)+_num(p.get("sell_volume"),0.0)
         delta=_num(p.get("delta"),0.0)
+        if price is None or price<=0:
+            return {"processed":False,"reason":"invalid_trade_price","scheduled":0}
+        if volume<0:
+            return {"processed":False,"reason":"invalid_trade_volume","scheduled":0}
         if price is not None and price>0:
             orchestrator.latest_trade[symbol]=(ts,price)
             matured=await orchestrator.observe_price(pool,symbol,ts,price)
