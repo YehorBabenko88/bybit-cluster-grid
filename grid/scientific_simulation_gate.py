@@ -54,7 +54,7 @@ class ScientificSimulationGate:
         if not h or str(h["status"])!="VALIDATED":
             return await self._fail(run_id,attempt_id,"hypothesis is no longer VALIDATED")
         if str(h["method"])!="combinatorial-v1":
-            return await self._waiting(run_id,f"exact simulation matcher unavailable for method {h['method']}")
+            return await self._waiting(run_id,attempt_id,f"exact simulation matcher unavailable for method {h['method']}")
         definition=_dict(h["definition"]);params=definition.get("parameters") or {}
         wanted=set(str(x) for x in params.get("tokens") or ())
         rows=await self.pool.fetch("""SELECT symbol,event_ts_ms,return_bps,payload
@@ -80,7 +80,7 @@ class ScientificSimulationGate:
             matched.append({"symbol":o.symbol,"event_ts_ms":o.event_ts_ms,"split_key":o.split_key,
                             "return_bps":o.return_bps})
         if len(matched)<self.config.min_trades:
-            return await self._waiting(run_id,f"insufficient OOS trades: {len(matched)}/{self.config.min_trades}")
+            return await self._waiting(run_id,attempt_id,f"insufficient OOS trades: {len(matched)}/{self.config.min_trades}")
         base=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.0)
         stress=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.75)
         mc=deterministic_bootstrap_drawdowns(
