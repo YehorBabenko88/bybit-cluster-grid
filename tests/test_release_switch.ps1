@@ -85,7 +85,7 @@ try {
     & $recover -InstallRoot $root -Role WORKER -Apply | Out-Null
     Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $b) 'Committed recovery reverted promoted release'
     Assert (((Get-Content (Join-Path $root 'previous.version') -Raw).Trim()) -eq $a) 'Committed recovery lost rollback pointer'
-    Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Committed recovery left pending marker'
+    Assert (((Get-Content (Join-Path $root 'pending.version') -Raw).Trim()) -eq $b) 'Committed recovery lost unconfirmed pending release'
     Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Committed recovery left journal'
     $secondRecovery = & $recover -InstallRoot $root -Role WORKER -Apply
     Assert ($secondRecovery -contains 'NO_JOURNAL=true') 'Repeated recovery was not idempotent'
