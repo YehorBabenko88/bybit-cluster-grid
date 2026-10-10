@@ -62,11 +62,14 @@ def ml_runtime_ready():
     python=os.path.join(root,"ml-venv","Scripts","python.exe")
     journal=os.path.join(root,"ml-bootstrap.json")
     if not os.path.isfile(python) or not os.path.isfile(journal):
+        _ML_READY_CACHE.update(at=now,value=False)
         return False
     try:
         with open(journal,encoding="utf-8-sig") as f:
             state=json.load(f)
-        if state.get("status")!="ready":return False
+        if state.get("status")!="ready":
+            _ML_READY_CACHE.update(at=now,value=False)
+            return False
         result=subprocess.run([python,"-c","import numpy,scipy,sklearn,joblib,xgboost,lightgbm"],
                               capture_output=True,timeout=20,check=False)
         ready=result.returncode==0
