@@ -140,6 +140,24 @@ try {
         }
         Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Missing-pointer recovery retained journal'
     }
+    # A journal left by a committed switch must preserve its candidate on
+    # repeated recovery, even when previous.version is stale or missing.
+    foreach ($previousState in @('missing','stale')) {
+        Journal 'committed'
+        Set-Content -LiteralPath $current -Value $b
+        Set-Content -LiteralPath $pending -Value $b
+        $previousPath = Join-Path $root 'previous.version'
+        if ($previousState -eq 'missing') {
+            if (Test-Path -LiteralPath $previousPath) { Remove-Item -LiteralPath $previousPath -Force }
+        } else {
+            Set-Content -LiteralPath $previousPath -Value ('c' * 40)
+        }
+        & $script -InstallRoot $root -Role WORKER -Apply | Out-Null
+        Assert (((Get-Content $previousPath -Raw).Trim()) -ceq $a) 'Committed recovery did not repair rollback pointer'
+        Assert (((Get-Content $current -Raw).Trim()) -ceq $b) 'Committed recovery changed active candidate'
+        Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Committed recovery changed pending candidate'
+        Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Committed recovery retained journal'
+    }
     # Missing rollback entry point must fail closed for both roles and phases.
     foreach ($roleCase in @(
         @{ Role='WORKER'; Entry='run_worker.py' },
