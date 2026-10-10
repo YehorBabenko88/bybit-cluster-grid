@@ -42,13 +42,22 @@ class MLDispatcher:
     def __init__(self,pool,node_provider):
         self.pool=pool; self.node_provider=node_provider
 
-    async def __call__(self,slots,health=None):
+    async def __call__(self,slots,health=None,leader_owner=None):
         # Read node telemetry after acquiring the dispatch lock, so a waiting
         # coordinator does not schedule against a pre-lock snapshot.
         dispatched=[]
         async with self.pool.acquire() as c:
             async with c.transaction():
                 await c.execute("SELECT pg_advisory_xact_lock($1)",DISPATCH_LOCK_KEY)
+                if leader_owner is not None:
+                    # Lock the leadership row until this dispatch transaction
+                    # commits. A takeover must wait; an expired leader cannot
+                    # assign any work after the row lock becomes available.
+                    leader=await c.fetchval("""SELECT 1 FROM service_leases
+                      WHERE service_key='ml-orchestrator-leader' AND owner=$1
+                        AND lease_until>clock_timestamp() FOR UPDATE""",leader_owner)
+                    if leader!=1:
+                        return []
                 reported=await self.node_provider()
                 reservations=await reserved_by_node(c)
                 nodes=_adjust_nodes(reported,reservations)
@@ -82,12 +91,12 @@ class MLDispatcher:
                     if not job:break
                     _,node_id,why=pick
                     changed=await c.execute("""UPDATE ml_jobs SET status='assigned',lease_owner=$2,
-                      lease_until=now()+interval '2 minutes' WHERE id=$1 AND status='queued'""",
+                      lease_until=clock_timestamp()+interval '2 minutes' WHERE id=$1 AND status='queued'""",
                       job["id"],node_id)
                     if not changed.endswith(" 1"):continue
                     await c.execute("""INSERT INTO ml_resource_reservations
                       (job_id,node_id,cpu,ram_gb,scratch_gb,gpu,expires_at)
-                      VALUES($1,$2,$3,$4,$5,$6,now()+interval '2 minutes')
+                      VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '2 minutes')
                       ON CONFLICT(job_id) DO UPDATE SET node_id=EXCLUDED.node_id,cpu=EXCLUDED.cpu,
                       ram_gb=EXCLUDED.ram_gb,scratch_gb=EXCLUDED.scratch_gb,gpu=EXCLUDED.gpu,
                       expires_at=EXCLUDED.expires_at""",job["id"],node_id,w.cpu,w.ram_gb,w.scratch_gb,w.gpu)
