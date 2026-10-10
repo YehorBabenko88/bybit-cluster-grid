@@ -56,6 +56,25 @@ try {
     try { & $script -InstallRoot $root -Role CONTROL -Apply | Out-Null } catch { $missingBlocked = $true }
     Assert $missingBlocked 'Missing committed CONTROL candidate must fail closed'
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Missing candidate removed journal'
+    # Simulate power loss at each pointer-write boundary of a prepared switch.
+    foreach ($currentValue in @($a,$b)) {
+        foreach ($pendingExists in @($false,$true)) {
+            Set-Content -LiteralPath $current -Value $currentValue
+            Set-Content -LiteralPath (Join-Path $root 'previous.version') -Value $a
+            if ($pendingExists) {
+                Set-Content -LiteralPath $pending -Value $b
+            } elseif (Test-Path -LiteralPath $pending) {
+                Remove-Item -LiteralPath $pending -Force
+            }
+            Journal 'prepared'
+            & $script -InstallRoot $root -Role WORKER -Apply | Out-Null
+            Assert (((Get-Content $current -Raw).Trim()) -eq $a) 'Prepared partial switch did not restore old release'
+            Assert (-not (Test-Path $pending)) 'Prepared partial switch retained pending marker'
+            Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Prepared partial switch retained journal'
+            & $script -InstallRoot $root -Role WORKER -Apply | Out-Null
+            Assert (((Get-Content $current -Raw).Trim()) -eq $a) 'Repeated recovery changed restored pointer'
+        }
+    }
     Journal 'invalid'
     $blocked = $false
     try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $blocked = $true }
