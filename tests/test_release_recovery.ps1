@@ -171,6 +171,7 @@ try {
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Unlisted module removed journal'
     Remove-Item -LiteralPath $unlistedSource -Force
     Remove-Item -LiteralPath $candidateManifest -Force
+    Write-Host 'RECOVERY_TEST_STAGE=1'
     # Prepared recovery must validate the previous release, not the candidate.
     Journal 'prepared'
     Set-Content -LiteralPath $current -Value $b
@@ -192,6 +193,7 @@ try {
     [IO.File]::WriteAllText($previousEntry, $previousOriginal)
     Remove-Item -LiteralPath $previousManifest -Force
 
+    Write-Host 'RECOVERY_TEST_STAGE=2'
     # Committed recovery must not retain a corrupted rollback entry point.
     Journal 'committed'
     Set-Content -LiteralPath $current -Value $a
@@ -206,6 +208,7 @@ try {
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Corrupt rollback removed journal'
     [IO.File]::WriteAllText($previousEntry, $previousOriginal)
     Remove-Item -LiteralPath $previousManifest -Force
+    Write-Host 'RECOVERY_TEST_STAGE=3'
     # Committed recovery must validate every manifest-listed rollback support file.
     Journal 'committed'
     Set-Content -LiteralPath $current -Value $a
@@ -223,6 +226,7 @@ try {
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Corrupted rollback support removed journal'
     Remove-Item -LiteralPath $rollbackSupport -Force
     Remove-Item -LiteralPath $previousManifest -Force
+    Write-Host 'RECOVERY_TEST_STAGE=4'
     # Committed recovery must reject Python sources omitted from rollback manifest.
     Journal 'committed'
     Set-Content -LiteralPath $current -Value $a
@@ -238,6 +242,7 @@ try {
     Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Unlisted rollback source removed journal'
     Remove-Item -LiteralPath $unlistedRollback -Force
     Remove-Item -LiteralPath $previousManifest -Force
+    Write-Host 'RECOVERY_TEST_STAGE=5'
     # A journal path occupied by a directory is corruption, not NO_JOURNAL.
     $journalMarker = Join-Path $root 'switch-journal.json'
     if (Test-Path -LiteralPath $journalMarker) { Remove-Item -LiteralPath $journalMarker -Force }
