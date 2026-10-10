@@ -158,6 +158,17 @@ try {
         Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Committed recovery changed pending candidate'
         Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Committed recovery retained journal'
     }
+    # An absent pointer is recoverable, but an existing empty file indicates
+    # corruption and must not be silently treated as a missing pointer.
+    foreach ($phaseCase in @('prepared','committed')) {
+        Journal $phaseCase
+        Set-Content -LiteralPath $current -Value ''
+        $emptyPointerRejected = $false
+        try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $emptyPointerRejected = $true }
+        Assert $emptyPointerRejected 'Empty current.version must fail closed'
+        Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Empty pointer recovery erased journal'
+        Assert (((Get-Content $current -Raw).Trim()) -ceq '') 'Empty pointer recovery changed current'
+    }
     # Missing rollback entry point must fail closed for both roles and phases.
     foreach ($roleCase in @(
         @{ Role='WORKER'; Entry='run_worker.py' },
