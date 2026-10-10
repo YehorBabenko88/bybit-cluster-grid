@@ -172,8 +172,7 @@ def test_leader_run_recovers_after_temporary_database_outage():
                 return True
 
         leader = RecoveringLeader()
-        gained = []
-        await asyncio.wait_for(leader.run(on_gain=lambda epoch: record_gain(epoch)), 2)
+        await asyncio.wait_for(leader.run(on_gain=record_gain), 2)
 
     async def record_gain(epoch):
         gained.append(epoch)
