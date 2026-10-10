@@ -19,6 +19,18 @@ try {
     Assert ($output -contains 'PLAN_ONLY=true; no files changed') 'Default mode must be plan-only'
     Assert (((Get-Content (Join-Path $root 'current.version') -Raw).Trim()) -eq $a) 'Plan changed current'
     Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Plan created pending marker'
+    # CONTROL manifests use forward slashes while its required path uses Windows separators.
+    $controlFile = Join-Path $root "releases\$b\grid\coordinator.py"
+    New-Item -ItemType Directory -Force -Path (Split-Path $controlFile -Parent) | Out-Null
+    Set-Content -LiteralPath $controlFile -Value '# control test'
+    $controlHash = (Get-FileHash -LiteralPath $controlFile -Algorithm SHA256).Hash.ToLowerInvariant()
+    $controlManifest = Join-Path $root "releases\$b\release-manifest.json"
+    $workerManifest = Get-Content -LiteralPath $controlManifest -Raw
+    [IO.File]::WriteAllText($controlManifest, ('{"version":"' + $b + '","files":{"grid/coordinator.py":"' + $controlHash + '"}}'))
+    $controlPlan = & $script -Version $b -InstallRoot $root -Role CONTROL
+    Assert ($controlPlan -contains 'PLAN_ONLY=true; no files changed') 'Valid CONTROL manifest must be accepted'
+    Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'CONTROL plan created pending'
+    [IO.File]::WriteAllText($controlManifest, $workerManifest)
     $invalid = $false
     try { & $script -Version ('c' * 40) -InstallRoot $root -Role WORKER | Out-Null }
     catch { $invalid = $true }
