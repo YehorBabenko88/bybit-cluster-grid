@@ -60,7 +60,16 @@ class BookTapePaperLearner:
             stat=self.stats[(symbol,trade["pattern"],trade["direction"])]
             stat["count"]+=1
             stat["wins"]+=int(net>0)
-            stat["net_bps_sum"]+=net
+            next_sum=stat["net_bps_sum"]+net
+            if not isfinite(next_sum):
+                expired.append({"pattern":trade["pattern"],
+                                "entry_ts_ms":trade["entry_ts_ms"],
+                                "due_ms":trade["due_ms"],"observed_ts_ms":ts,
+                                "reason":"paper_return_accumulator_overflow"})
+                stat["count"]-=1
+                stat["wins"]-=int(net>0)
+                continue
+            stat["net_bps_sum"]=next_sum
             settled.append({"pattern":trade["pattern"],"entry_ts_ms":trade["entry_ts_ms"],
                             "exit_ts_ms":ts,"net_bps":round(net,6),
                             "direction":trade["direction"]})
