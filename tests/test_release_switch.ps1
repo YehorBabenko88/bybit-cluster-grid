@@ -23,6 +23,16 @@ try {
     try { & $script -Version ('c' * 40) -InstallRoot $root -Role WORKER | Out-Null }
     catch { $invalid = $true }
     Assert $invalid 'Missing release must fail'
+    # The current pointer must be a lowercase hexadecimal SHA.
+    foreach ($badCurrent in @( ('A' * 40), ('g' * 40), '../../bad' )) {
+        Set-Content -LiteralPath (Join-Path $root 'current.version') -Value $badCurrent
+        $rejectedCurrent = $false
+        try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null } catch { $rejectedCurrent = $true }
+        Assert $rejectedCurrent "Invalid current.version must fail closed: $badCurrent"
+        Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Invalid current created pending marker'
+        Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Invalid current created journal'
+    }
+    Set-Content -LiteralPath (Join-Path $root 'current.version') -Value $a
     $manifestPath = Join-Path $root "releases\$b\release-manifest.json"
     $hash = (Get-FileHash -LiteralPath (Join-Path $root "releases\$b\run_worker.py") -Algorithm SHA256).Hash.ToLowerInvariant()
     Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $a + '","files":{"run_worker.py":"' + $hash + '"}}')
