@@ -434,3 +434,31 @@ def test_shutdown_release_error_keeps_local_leadership_disabled():
         assert leader.stop_event.is_set()
 
     asyncio.run(scenario())
+
+
+def test_shutdown_during_pending_campaign_is_not_a_safe_automatic_release():
+    """Document that a stopped loop must not publish a new leader after shutdown."""
+    async def scenario():
+        started = asyncio.Event()
+        resume = asyncio.Event()
+
+        class SlowCampaignLeader(FloatingLeader):
+            async def campaign(self):
+                started.set()
+                await resume.wait()
+                if self.stop_event.is_set():
+                    return False
+                self.is_leader = True
+                self.epoch = 300
+                return True
+
+        leader = SlowCampaignLeader(pool=None, renew_seconds=0.001)
+        task = asyncio.create_task(leader.run())
+        await asyncio.wait_for(started.wait(), 1)
+        await leader.shutdown()
+        resume.set()
+        await asyncio.wait_for(task, 1)
+        assert not leader.is_leader
+        assert leader.epoch is None
+
+    asyncio.run(scenario())
