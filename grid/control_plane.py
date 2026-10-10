@@ -52,6 +52,7 @@ async def command_result(pool,command_id,ok,result=None,error=None,*,node_id=Non
         row=await c.fetchrow("""UPDATE agent_commands SET status=$2,completed_at=now(),
           lease_until=NULL,result=$3::jsonb,error=$4 WHERE id=$1
           AND ($5::text IS NULL OR node_id=$5)
-          AND status='delivered' AND lease_until>=now() RETURNING id""",uuid.UUID(str(command_id)),
+          AND ($5::text IS NULL OR (status='delivered' AND lease_until>=now()))
+          AND status NOT IN ('done','failed') RETURNING id""",uuid.UUID(str(command_id)),
           "done" if ok else "failed",json.dumps(result or {}),error,node_id)
         return row is not None
