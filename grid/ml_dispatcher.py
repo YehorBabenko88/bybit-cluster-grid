@@ -1,4 +1,5 @@
 import json
+import asyncio
 from .ml_resource_scheduler import Workload,choose_node
 from .ml_reservations import reserved_by_node
 
@@ -47,7 +48,8 @@ class MLDispatcher:
         # coordinator does not schedule against a pre-lock snapshot.
         # External telemetry may be slow. Collect it without holding the
         # advisory lock, leader row lock, or a database transaction.
-        reported=await self.node_provider()
+        # Do not let a hung telemetry provider stall the orchestration loop.
+        reported=await asyncio.wait_for(self.node_provider(),timeout=10)
         dispatched=[]
         async with self.pool.acquire() as c:
             async with c.transaction():
