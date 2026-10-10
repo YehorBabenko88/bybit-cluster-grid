@@ -82,3 +82,13 @@ def test_supervisor_rejects_nonpositive_timeout():
         with pytest.raises(ValueError):
             await run_supervised_process([sys.executable,"-c","pass"],timeout_seconds=0)
     asyncio.run(run())
+
+
+def test_supervisor_keeps_exact_last_bytes_across_chunk_boundaries():
+    async def run():
+        code = "import sys; sys.stdout.buffer.write(b'a'*5000+b'b'*5000); sys.stdout.flush()"
+        out = await run_supervised_process(
+            [sys.executable, "-c", code], timeout_seconds=5, poll_seconds=.02
+        )
+        assert out == b"a"*3192 + b"b"*5000
+    asyncio.run(run())
