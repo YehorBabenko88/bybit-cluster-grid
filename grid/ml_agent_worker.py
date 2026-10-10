@@ -126,6 +126,8 @@ async def execute_remote_job(client,job):
             return await run_supervised_process(argv,timeout_seconds=timeout,ram_limit_mb=ram,
                                                 poll_seconds=.5,grace_seconds=5,env=os.environ.copy())
         await run_remote_lease(client,job,work,renew_every=30)
+        if await client.renew(job) is None:
+            raise RuntimeError("remote ML lease lost before artifact upload")
         sha=_file_sha256(artifact)
         uploaded=await client.artifact_file(job,artifact,sha)
         if uploaded is None:raise RuntimeError("remote ML lease lost before artifact upload")
