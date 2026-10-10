@@ -195,7 +195,7 @@ def test_stale_telemetry_is_rejected_after_dispatch_lock_wait():
                 ram_gb double precision,scratch_gb double precision,gpu boolean,expires_at timestamptz)''')
             job_id=uuid.uuid4()
             await admin.execute(f'''INSERT INTO "{schema}".ml_jobs(id,status,job_type,payload)
-                VALUES($1,'queued','train','{"cpu":1}'::jsonb)''',job_id)
+                VALUES($1,'queued','train',$2::jsonb)''',job_id,'{"cpu":1}')
             pool=await asyncpg.create_pool(os.environ["POSTGRES_DSN"],min_size=2,max_size=2,setup=setup)
             started=asyncio.Event()
             async def nodes():
