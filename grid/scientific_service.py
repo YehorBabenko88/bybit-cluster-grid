@@ -31,7 +31,7 @@ class ScientificResearchService:
             capabilities={"research_only":True,"live_orders":False,
                           "input_events":["trade_tape_250ms"],
                           "profile_kind":"bucket_close_proxy"}))
-        self.last_mining_check=0.0;self.mining_runs=0;self.simulation_runs=0
+        self.last_mining_check=0.0;self.last_simulation_check=0.0;self.mining_runs=0;self.simulation_runs=0
 
     async def start(self):
         if self.started:return
@@ -150,8 +150,11 @@ class ScientificResearchService:
                     self.last_mining_check=now
                 # Drain queued/recoverable simulations independently of mining.
                 # A temporary mining failure must not strand simulation work.
-                simulated=await self.simulation.run_queued(limit=2)
-                self.simulation_runs+=len(simulated)
+                if now-self.last_simulation_check>=30:
+                    # Cap background work to avoid monopolizing the event loop.
+                    self.last_simulation_check=now
+                    simulated=await self.simulation.run_queued(limit=1)
+                    self.simulation_runs+=len(simulated)
                 if not n:await asyncio.sleep(self.poll_seconds)
             except asyncio.CancelledError:
                 raise
