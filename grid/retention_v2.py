@@ -15,14 +15,6 @@ async def cleanup_dataset_safe(pool,dataset,retention_days,batch_size=10000,max_
     if int(retention_days)<0 or int(batch_size)<1 or int(max_batches)<1:
         raise ValueError("retention_days must be nonnegative; batch_size and max_batches positive")
     ts=TABLE_TS[dataset]; deleted=0
-    # No active required-consumer registry => fail closed. This prevents a fresh
-    # installation from deleting data before downstream consumers announce themselves.
-    required=await pool.fetchval("""SELECT count(*) FROM retention_consumers
-      WHERE dataset=$1 AND required=true AND active=true""",dataset)
-    if not required:
-        log.info("retention blocked: no required consumers registered",
-                 extra={"event":"retention_blocked","dataset":dataset})
-        return 0
     sql=f"""WITH safe AS (
       SELECT t.symbol,min(cw.consumed_through) AS safe_through
       FROM {dataset} t
@@ -53,6 +45,14 @@ async def cleanup_dataset_safe(pool,dataset,retention_days,batch_size=10000,max_
                 await c.execute(
                     "LOCK TABLE retention_consumers, consumer_watermarks, retention_holds IN SHARE MODE"
                 )
+                required = await c.fetchval(
+                    "SELECT count(*) FROM retention_consumers "
+                    "WHERE dataset=$1 AND required=true AND active=true", dataset
+                )
+                if not required:
+                    log.info("retention blocked: no required consumers registered",
+                             extra={"event":"retention_blocked","dataset":dataset})
+                    break
                 r=await c.execute(sql,int(retention_days),int(batch_size),dataset)
             n=int(r.split()[-1]);deleted+=n
             if n<int(batch_size):break
