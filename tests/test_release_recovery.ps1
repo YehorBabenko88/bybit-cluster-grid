@@ -126,6 +126,20 @@ try {
     Assert (((Get-Content $pending -Raw).Trim()) -ceq $b) 'Directory pointer recovery modified pending'
     Remove-Item -LiteralPath $current -Recurse -Force
     Set-Content -LiteralPath $current -Value $a
+    # A pending.version directory must block both transaction phases without mutation.
+    foreach ($pendingPhase in @('prepared','committed')) {
+        Journal $pendingPhase
+        Set-Content -LiteralPath $current -Value $a
+        if (Test-Path -LiteralPath $pending) { Remove-Item -LiteralPath $pending -Force }
+        New-Item -ItemType Directory -Path $pending | Out-Null
+        $pendingDirectoryRejected = $false
+        try { & $script -InstallRoot $root -Role WORKER -Apply | Out-Null } catch { $pendingDirectoryRejected = $true }
+        Assert $pendingDirectoryRejected 'Directory pending.version must block recovery'
+        Assert (Test-Path -LiteralPath $pending -PathType Container) 'Recovery modified pending.version directory'
+        Assert (((Get-Content $current -Raw).Trim()) -ceq $a) 'Directory pending.version changed current'
+        Assert (Test-Path (Join-Path $root 'switch-journal.json')) 'Directory pending.version removed journal'
+        Remove-Item -LiteralPath $pending -Recurse -Force
+    }
     # A directory at previous.version must fail before changing any pointer.
     Journal 'committed'
     Set-Content -LiteralPath $current -Value $a
