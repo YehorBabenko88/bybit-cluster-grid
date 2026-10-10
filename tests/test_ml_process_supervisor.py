@@ -92,3 +92,13 @@ def test_supervisor_keeps_exact_last_bytes_across_chunk_boundaries():
         )
         assert out == b"a"*3192 + b"b"*5000
     asyncio.run(run())
+
+
+def test_supervisor_rejects_nonpositive_ram_limit():
+    async def run():
+        with pytest.raises(ValueError, match="ram_limit_mb must be positive"):
+            await run_supervised_process(
+                [sys.executable, "-c", "pass"],
+                timeout_seconds=5, ram_limit_mb=0,
+            )
+    asyncio.run(run())
