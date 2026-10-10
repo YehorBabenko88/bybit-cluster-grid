@@ -143,6 +143,30 @@ try {
             }
         }
     }
+    # In a committed switch, previous.version remains the rollback fallback.
+    # Reject a known-corrupt rollback entry point when its manifest is available.
+    if ($j.phase -eq 'committed') {
+        $previousManifestPath = Join-Path $previousDir 'release-manifest.json'
+        if (Test-Path -LiteralPath $previousManifestPath) {
+            if (-not (Test-Path -LiteralPath $previousManifestPath -PathType Leaf)) {
+                throw 'Rollback manifest is not a file; manual recovery required'
+            }
+            $previousManifest = Get-Content -LiteralPath $previousManifestPath -Raw | ConvertFrom-Json
+            $previousKey = $required.Replace([char]92, '/')
+            if ($null -eq $previousManifest -or $previousManifest -isnot [pscustomobject] -or
+                $previousManifest.version -cne $j.previous -or
+                $null -eq $previousManifest.files -or $previousManifest.files -isnot [pscustomobject]) {
+                throw 'Invalid rollback manifest; manual recovery required'
+            }
+            $previousHash = $previousManifest.files.PSObject.Properties[$previousKey]
+            if ($null -eq $previousHash -or $previousHash.Value -isnot [string] -or
+                $previousHash.Value -cnotmatch '^[0-9a-fA-F]{64}$' -or
+                (Get-FileHash -LiteralPath (Join-Path $previousDir $required) -Algorithm SHA256).Hash -cne
+                    $previousHash.Value.ToUpperInvariant()) {
+                throw 'Rollback entry point checksum mismatch; manual recovery required'
+            }
+        }
+    }
     Write-Output "RECOVERY_PHASE=$($j.phase)"
     Write-Output "RECOVERY_TARGET=$target"
     if (-not $Apply) { Write-Output 'PLAN_ONLY=true'; return }
