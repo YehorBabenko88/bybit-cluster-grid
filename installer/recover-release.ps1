@@ -51,11 +51,11 @@ try {
         throw 'Rollback target missing; manual recovery required'
     }
     $currentPath = Join-Path $InstallRoot 'current.version'
-    $current = if (Test-Path -LiteralPath $currentPath) { (Get-Content -LiteralPath $currentPath -Raw).Trim() } else { '' }
     if ((Test-Path -LiteralPath $currentPath) -and
         -not (Test-Path -LiteralPath $currentPath -PathType Leaf)) {
         throw 'Invalid current release pointer type; manual recovery required'
     }
+    $current = if (Test-Path -LiteralPath $currentPath) { (Get-Content -LiteralPath $currentPath -Raw).Trim() } else { '' }
     if ((Test-Path -LiteralPath $currentPath) -and -not $current) {
         throw 'Empty current release pointer; manual recovery required'
     }
