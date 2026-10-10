@@ -66,5 +66,15 @@ class MLDispatcher:
                       ON CONFLICT(job_id) DO UPDATE SET node_id=EXCLUDED.node_id,cpu=EXCLUDED.cpu,
                       ram_gb=EXCLUDED.ram_gb,scratch_gb=EXCLUDED.scratch_gb,gpu=EXCLUDED.gpu,
                       expires_at=EXCLUDED.expires_at""",job["id"],node_id,w.cpu,w.ram_gb,w.scratch_gb,w.gpu)
+                    # Account for this dispatch immediately. The reservation query
+                    # above is a point-in-time snapshot and would otherwise allow
+                    # later jobs in the same batch to overcommit the same node.
+                    selected=nodes[node_id]
+                    selected["ram_available"]=max(0.0,float(selected.get("ram_available",0))-w.ram_gb*1024**3)
+                    selected["disk_free"]=max(0.0,float(selected.get("disk_free",0))-w.scratch_gb*1024**3)
+                    cores=max(1,int(selected.get("cpu_count",1)))
+                    selected["cpu_pct"]=min(100.0,float(selected.get("cpu_pct",0))+100.0*w.cpu/cores)
+                    if w.gpu:
+                        selected["gpu_available"]=False
                     dispatched.append({"job_id":str(job["id"]),"node_id":node_id,"placement":why})
         return dispatched
