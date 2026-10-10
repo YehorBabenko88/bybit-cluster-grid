@@ -57,6 +57,9 @@ $manifestPath = Join-Path $release 'release-manifest.json'
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
     throw 'Candidate release manifest missing'
 }
+if ((Get-Item -LiteralPath $manifestPath -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+    throw 'Candidate release manifest is a reparse point'
+}
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($manifest.version -cne $Version) { throw 'Candidate release manifest version mismatch' }
 # Validate manifest paths and hashes before any pointer changes.
@@ -82,6 +85,9 @@ foreach ($entry in $manifest.files.PSObject.Properties) {
     }
     if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
         throw "Manifest file missing: $relative"
+    }
+    if ((Get-Item -LiteralPath $target -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        throw "Manifest file is a reparse point: $relative"
     }
     $actualHash = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
     if ($actualHash -ne $expectedHash) {
