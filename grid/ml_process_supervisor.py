@@ -71,11 +71,13 @@ async def terminate_process_tree(proc,grace_seconds=5):
 async def run_supervised_process(argv,*,timeout_seconds,ram_limit_mb=None,
                                  poll_seconds=.5,grace_seconds=5,
                                  env=None,cwd=None):
-    """Run heavy compute out-of-process with hard timeout/RAM/output containment."""
+    """Run heavy compute in a child process with polled RAM/time limits and bounded output."""
     if not argv:
         raise ValueError("argv is required")
     if float(timeout_seconds)<=0:
         raise ValueError("timeout_seconds must be positive")
+    if ram_limit_mb is not None and float(ram_limit_mb)<=0:
+        raise ValueError("ram_limit_mb must be positive")
     proc=await asyncio.create_subprocess_exec(
         *[str(x) for x in argv],
         stdout=asyncio.subprocess.PIPE,
