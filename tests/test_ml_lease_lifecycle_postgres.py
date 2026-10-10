@@ -6,6 +6,7 @@ import uuid
 import asyncpg
 
 from grid.ml_concurrency import renew_ml_job, finish_ml_job
+from grid.ml_retry import fail_or_retry
 from grid.ml_orchestrator_service import MLOrchestratorService
 
 
@@ -54,6 +55,17 @@ def test_ml_reservations_renew_finish_and_recovery_postgres():
             assert await finish_ml_job(pool,live,"worker-a",3)
             assert await reservation(live) is None
             assert await admin.fetchval(f'SELECT status FROM "{schema}".ml_jobs WHERE id=$1',live)=="done"
+
+            retry_job=await add_job("running","retry-owner",4,60,60)
+            assert await fail_or_retry(pool,retry_job,"old-owner",3,"stale")=="stale"
+            assert await reservation(retry_job) is not None
+            assert await fail_or_retry(pool,retry_job,"retry-owner",4,"transient")=="retry"
+            assert await reservation(retry_job) is None
+            assert await admin.fetchval(
+                f'SELECT status FROM "{schema}".ml_jobs WHERE id=$1',retry_job)=="queued"
+            permanent_job=await add_job("running","permanent-owner",5,60,60)
+            assert await fail_or_retry(pool,permanent_job,"permanent-owner",5,"bad data","permanent")=="failed"
+            assert await reservation(permanent_job) is None
 
             expired=await add_job("running","worker-old",1,-30,600)
             exhausted=await add_job("assigned","pilot",1,-30,600,3,3)
