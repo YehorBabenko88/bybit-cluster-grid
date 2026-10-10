@@ -49,6 +49,10 @@ def test_supervised_process_ram_limit_kills_worker():
 def test_lease_loss_propagates_cancel_into_subprocess_supervisor():
     async def run():
         class LeasePool:
+            def acquire(self): return self
+            def transaction(self): return self
+            async def __aenter__(self): return self
+            async def __aexit__(self,*args): pass
             async def execute(self,sql,*args):
                 if "UPDATE ml_jobs SET lease_until" in sql:
                     return "UPDATE 0"
