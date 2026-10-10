@@ -81,22 +81,27 @@ class ScientificSimulationGate:
             [x["net_return_bps"] for x in base["trades"]],self.config.monte_carlo_paths,str(run_id),
             float(self.config.position_risk_fraction)/.005)
         passed,checks,p95=promotion_decision(base["metrics"],stress["metrics"],mc,self.config)
-        for t in base["trades"]:
-            await self.pool.execute("""INSERT INTO scientific_simulation_trades(
-              run_id,ordinal,symbol,event_ts_ms,split_key,raw_return_bps,net_return_bps,
-              fill_fraction,fee_bps,spread_bps,slippage_bps,latency_bps,funding_bps,equity_after)
-              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-              ON CONFLICT(run_id,ordinal) DO NOTHING""",run_id,t["ordinal"],t["symbol"],
-              t["event_ts_ms"],t["split_key"],t["raw_return_bps"],t["net_return_bps"],
-              t["fill_fraction"],t["fee_bps"],t["spread_bps"],t["slippage_bps"],t["latency_bps"],
-              t["funding_bps"],t["equity_after"])
         metrics={**base["metrics"],"checks":checks,"monte_carlo_max_dd_p95":p95}
         status="SIMULATION_PASSED" if passed else "SIMULATION_FAILED"
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status=$2,
-          metrics=$3::jsonb,stress_metrics=$4::jsonb,reason=$5,completed_at=now() WHERE id=$1""",
-          run_id,status,json.dumps(metrics,separators=(",",":")),
-          json.dumps(stress["metrics"],separators=(",",":")),
-          None if passed else "one or more promotion checks failed")
+        # Persist all trade rows and the final run status as one atomic unit.
+        # A crash or SQL error must not expose a completed run with partial trades.
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                for t in base["trades"]:
+                    await conn.execute("""INSERT INTO scientific_simulation_trades(
+                      run_id,ordinal,symbol,event_ts_ms,split_key,raw_return_bps,net_return_bps,
+                      fill_fraction,fee_bps,spread_bps,slippage_bps,latency_bps,funding_bps,equity_after)
+                      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+                      ON CONFLICT(run_id,ordinal) DO NOTHING""",run_id,t["ordinal"],t["symbol"],
+                      t["event_ts_ms"],t["split_key"],t["raw_return_bps"],t["net_return_bps"],
+                      t["fill_fraction"],t["fee_bps"],t["spread_bps"],t["slippage_bps"],t["latency_bps"],
+                      t["funding_bps"],t["equity_after"])
+                await conn.execute("""UPDATE scientific_simulation_runs SET status=$2,
+                  metrics=$3::jsonb,stress_metrics=$4::jsonb,reason=$5,completed_at=now()
+                  WHERE id=$1 AND status='RUNNING'""",
+                  run_id,status,json.dumps(metrics,separators=(",",":")),
+                  json.dumps(stress["metrics"],separators=(",",":")),
+                  None if passed else "one or more promotion checks failed")
         return {"run_id":str(run_id),"status":status,"metrics":metrics,"stress":stress["metrics"]}
 
     async def _waiting(self,run_id,reason):
