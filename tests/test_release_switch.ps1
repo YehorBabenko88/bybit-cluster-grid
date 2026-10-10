@@ -71,6 +71,15 @@ try {
         Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Bad manifest created journal'
     }
     Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
+    # Reject a manifest that references a nonexistent file, even if the hash is valid.
+    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"missing.py":"' + $hash + '"}}')
+    $missingManifestFileRejected = $false
+    try { & $script -Version $b -InstallRoot $root -Role WORKER | Out-Null } catch { $missingManifestFileRejected = $true }
+    Assert $missingManifestFileRejected 'Missing manifest file must block promotion'
+    Assert (-not (Test-Path (Join-Path $root 'pending.version'))) 'Missing manifest file created pending'
+    Assert (-not (Test-Path (Join-Path $root 'switch-journal.json'))) 'Missing manifest file created journal'
+    Set-Content -LiteralPath $manifestPath -Value ('{"version":"' + $b + '","files":{"run_worker.py":"' + $hash + '"}}')
+
 
     Set-Content -LiteralPath (Join-Path $root "releases\$b\run_worker.py") -Value '# tampered'
     $blocked = $false
