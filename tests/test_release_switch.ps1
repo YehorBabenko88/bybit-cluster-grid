@@ -23,6 +23,12 @@ try {
     $previousControl = Join-Path $root "releases\$a\grid\coordinator.py"
     New-Item -ItemType Directory -Force -Path (Split-Path $previousControl -Parent) | Out-Null
     Set-Content -LiteralPath $previousControl -Value '# previous control rollback'
+    # The previous release is also validated by committed recovery.
+    $previousControlHash = (Get-FileHash -LiteralPath $previousControl -Algorithm SHA256).Hash.ToLowerInvariant()
+    $previousWorkerHash = (Get-FileHash -LiteralPath (Join-Path $root "releases\$a\run_worker.py") -Algorithm SHA256).Hash.ToLowerInvariant()
+    $previousManifestPath = Join-Path $root "releases\$a\release-manifest.json"
+    [IO.File]::WriteAllText($previousManifestPath, ('{"version":"' + $a + '","files":{"run_worker.py":"' + $previousWorkerHash + '","grid/coordinator.py":"' + $previousControlHash + '"}}'))
+
     $controlFile = Join-Path $root "releases\$b\grid\coordinator.py"
     New-Item -ItemType Directory -Force -Path (Split-Path $controlFile -Parent) | Out-Null
     Set-Content -LiteralPath $controlFile -Value '# control test'
