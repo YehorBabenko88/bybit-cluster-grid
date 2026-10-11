@@ -51,3 +51,14 @@ class PressureController:
         fraction=.5 if self.state==CRITICAL else .25
         count=max(1,int(len(assigned)*fraction))
         return sorted(assigned,key=lambda s:(self.symbol_cost.get(s,0),s),reverse=True)[:count]
+
+    def desired_drained_symbols(self, assigned):
+        """Return the complete drain set for the current pressure state.
+
+        This is intentionally a fresh calculation from the full assignment.
+        Callers must replace their previous drain set with this result rather
+        than accumulate additional symbols across heartbeats.
+        """
+        if self.state in (NORMAL, SOFT_PRESSURE):
+            return set()
+        return set(self.symbols_to_drain(assigned))
