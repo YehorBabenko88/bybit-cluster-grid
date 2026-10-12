@@ -171,6 +171,9 @@ class Worker:
                         if r.status==200:
                             mark_coordinator_success()
                             reply=await r.json()
+                            # Commands and metadata discovery may take longer than an
+                            # assignment lease. Do not renew it from an old response.
+                            response_received_at=time.monotonic()
                             # DEV/OBSERVER remains manageable and visible but is fail-closed
                             # for market workload even if an older/misconfigured CONTROL
                             # accidentally returns assignments.
@@ -228,6 +231,11 @@ class Worker:
                             requested_micro=set(reply.get("micro_symbols",[]))
                             recovering=bool(dbm.get("replay_active",False) or microm.get("replay_active",False))
                             async with self.assignment_lock:
+                                response_age=time.monotonic()-response_received_at
+                                if response_age >= max(1.0,3.0*settings.heartbeat_seconds):
+                                    log.warning("discarding stale CONTROL heartbeat assignments",
+                                                extra={"event":"stale_control_heartbeat","age_seconds":round(response_age,2)})
+                                    continue
                                 # Keep pressure shedding and assignment renewal atomic
                                 # against the local watchdog and offline pressure loop.
                                 self.pressure_drained=desired_drained_symbols(self.pressure,assigned)
