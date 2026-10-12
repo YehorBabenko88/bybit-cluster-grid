@@ -5,7 +5,12 @@ class LeaderBoundService:
     async def gain(self,epoch):
         if self.running:return
         self.epoch=epoch
-        await self.start(epoch)
+        try:
+            await self.start(epoch)
+        except BaseException:
+            # Failed or cancelled startup must not leave a phantom epoch.
+            self.epoch=None
+            raise
         self.running=True
     async def lose(self):
         if not self.running:return
