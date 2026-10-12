@@ -97,3 +97,20 @@ def test_concurrent_assignment_expiry_reconciles_only_once():
         worker.reconcile.assert_awaited_once()
 
     asyncio.run(run())
+
+
+
+def test_expired_lease_clears_pressure_drained_assignments():
+    async def run():
+        worker = Worker()
+        worker.last_assignment_heartbeat = 100.0
+        worker.wanted = set()
+        worker.micro_wanted = set()
+        worker.pressure_drained = {"BTCUSDT"}
+        worker.reconcile = AsyncMock()
+        assert await worker.expire_stale_assignments(now=1000.0)
+        assert worker.pressure_drained == set()
+        worker.reconcile.assert_awaited_once()
+        assert not await worker.expire_stale_assignments(now=1000.0)
+
+    asyncio.run(run())
