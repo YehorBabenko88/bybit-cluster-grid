@@ -13,14 +13,19 @@ def test_command_receipt_survives_restart_and_prevents_reexecution(tmp_path):
     assert row["result"]["version"]=="v2"
 
 
-def test_command_receipts_are_bounded(tmp_path):
+def test_command_receipts_refuse_unsafe_eviction(tmp_path):
+    import pytest
+
     path=tmp_path/"receipts.json"
     store=CommandReceiptStore(path,max_entries=100)
-    for i in range(140):
+    for i in range(100):
         store.put(f"cmd-{i}",True,{"n":i},None)
+    with pytest.raises(RuntimeError,match="capacity reached"):
+        store.put("cmd-100",True,{"n":100},None)
     rows=store._load()
     assert len(rows)==100
-    assert store.get("cmd-139") is not None
+    assert store.get("cmd-0") is not None
+    assert store.get("cmd-100") is None
 
 
 def test_restart_commands_request_graceful_worker_shutdown():
