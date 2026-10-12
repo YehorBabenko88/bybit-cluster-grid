@@ -206,6 +206,9 @@ class Worker:
                                     error=receipt.get("error")
                                     log.info("replayed durable command receipt",extra={"event":"command_receipt_replay"})
                                 else:
+                                    # A full journal must reject a new command BEFORE
+                                    # side effects; otherwise its receipt cannot be persisted.
+                                    self.command_receipts.ensure_capacity(cmd["id"])
                                     try:
                                         result=await execute_command(self,cmd)
                                     except Exception as e:
