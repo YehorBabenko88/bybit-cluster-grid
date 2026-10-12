@@ -11,6 +11,7 @@ class BoundedWriteQueue:
         self.writes=0
         self.failures=0
         self.last_failure_at=None
+        self.retrying_workers=0
         self.total_latency=0.0
         self.started=time.monotonic()
         self.retry_base_seconds=float(retry_base_seconds)
@@ -46,6 +47,9 @@ class BoundedWriteQueue:
             "queue_ratio":self.q.qsize()/max(1,self.q.maxsize),
             "writes_per_sec":self.writes/elapsed,
             "write_failures":self.failures,
+            "inflight_writes":self.q._unfinished_tasks,
+            "worker_tasks_alive":sum(not task.done() for task in self.tasks),
+            "retrying_workers":self.retrying_workers,
             "seconds_since_last_failure":(max(0.0,time.monotonic()-self.last_failure_at)
                                           if self.last_failure_at is not None else None),
             "avg_write_latency_ms":(self.total_latency/max(1,self.writes))*1000,
@@ -55,11 +59,15 @@ class BoundedWriteQueue:
         delay=self.retry_base_seconds
         while True:
             item=await self.q.get()
+            retrying=False
             try:
                 while True:
                     started=time.monotonic()
                     try:
                         await self.writer(*item)
+                        if retrying:
+                            self.retrying_workers-=1
+                            retrying=False
                         self.total_latency+=time.monotonic()-started
                         self.writes+=1
                         delay=self.retry_base_seconds
@@ -68,11 +76,16 @@ class BoundedWriteQueue:
                         raise
                     except Exception:
                         self.failures+=1
+                        if not retrying:
+                            self.retrying_workers+=1
+                            retrying=True
                         self.last_failure_at=time.monotonic()
                         log.exception("database write failed; retrying",extra={"event":"db_retry","delay":delay})
                         await asyncio.sleep(delay)
                         delay=min(self.retry_max_seconds,delay*2)
             finally:
+                if retrying:
+                    self.retrying_workers-=1
                 self.q.task_done()
 
 # Compatibility alias; despite the historic name this queue is memory-bounded, not disk durable.

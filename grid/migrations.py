@@ -482,7 +482,14 @@ async def apply_migrations(pool):
         try:
             await c.execute("""CREATE TABLE IF NOT EXISTS schema_migrations(
             version bigint PRIMARY KEY,name text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())""")
-            rows=await c.fetch("SELECT version FROM schema_migrations")
+            rows=await c.fetch("SELECT version, name FROM schema_migrations")
+            registered = {version: name for version, name, _ in MIGRATIONS}
+            for row in rows:
+                version, applied_name = row["version"], row["name"]
+                if version not in registered:
+                    raise RuntimeError(f"unknown database schema version {version}")
+                if registered[version] != applied_name:
+                    raise RuntimeError(f"migration {version} name mismatch: expected {registered[version]!r}, found {applied_name!r}")
             done={r["version"] for r in rows}
             for version,name,sqls in MIGRATIONS:
                 if version in done: continue

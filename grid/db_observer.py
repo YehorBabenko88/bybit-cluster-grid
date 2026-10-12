@@ -16,11 +16,13 @@ class DatabaseObserver:
 
     async def run(self):
         while True:
+            # Clear before reconciliation so a notification arriving while it
+            # runs remains latched for the next pass rather than getting lost.
+            self.wakeup.clear()
             try:
                 await self.reconcile()
             except Exception:
                 log.exception("ml observer reconciliation failed")
-            self.wakeup.clear()
             try:
                 await asyncio.wait_for(self.wakeup.wait(),timeout=self.poll_seconds)
             except asyncio.TimeoutError:

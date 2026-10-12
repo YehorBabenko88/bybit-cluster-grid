@@ -376,6 +376,16 @@ async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_c
     event_payload=payload.get("payload")
     if not symbol or not event_type or event_ts is None or not isinstance(event_payload,dict):
         raise HTTPException(400,"invalid micro-event payload")
+    # Reject malformed timestamps at the HTTP boundary instead of returning a
+    # retryable 500 that can permanently stall the ordered worker WAL.
+    if isinstance(event_ts,bool):
+        raise HTTPException(400,"invalid micro-event timestamp")
+    try:
+        event_ts=int(event_ts)
+    except (ValueError,TypeError,OverflowError):
+        raise HTTPException(400,"invalid micro-event timestamp")
+    if event_ts<0 or event_ts>253402300799999:
+        raise HTTPException(400,"invalid micro-event timestamp")
     if control_disk_state()["state"]!="NORMAL":
         # Micro events are shed already at SOFT pressure because they are the
         # highest-rate, least essential live stream.
