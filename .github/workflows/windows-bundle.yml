@@ -5,15 +5,6 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths:
-      - "grid/**"
-      - "installer/**"
-      - "strategies/**"
-      - "run_worker.py"
-      - "run_coordinator.py"
-      - "requirements.txt"
-      - "requirements-ml.txt"
-      - ".github/workflows/windows-bundle.yml"
 
 permissions:
   contents: read
