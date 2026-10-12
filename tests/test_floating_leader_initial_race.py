@@ -57,7 +57,8 @@ def test_concurrent_first_campaign_loser_does_not_claim_leadership():
         assert not await leader.campaign()
         assert leader.is_leader is False
         assert leader.epoch is None
-        assert "WHERE service_leases.lease_until IS NULL" in conn.sql
+        assert "service_leases.lease_until IS NULL OR service_leases.lease_until <= now()" in conn.sql
+        assert "RETURNING (metadata->>'epoch')::bigint" in conn.sql
 
     asyncio.run(scenario())
 
