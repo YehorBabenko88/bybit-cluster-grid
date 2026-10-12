@@ -19,7 +19,7 @@ class ControlCandidate:
             await sync_control_to_local(self.pool,self.journal)
             leader=await (self.election.renew() if self.election.is_leader else self.election.campaign())
         except Exception:
-            db_ok=False;leader=False;self.election.is_leader=False
+            db_ok=False;leader=False;self.election.is_leader=False;self.election.epoch=None
         peers=self.peers_provider() or []
         decision=self.policy.decide(db_ok,peers)
         if db_ok and leader:
