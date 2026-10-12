@@ -1,5 +1,7 @@
 import ast
+import asyncio
 from pathlib import Path
+from types import SimpleNamespace
 
 
 COORDINATOR = Path(__file__).resolve().parents[1] / "grid" / "coordinator.py"
@@ -42,22 +44,21 @@ def _awaited_call_name(stmt):
     return None
 
 
-def test_command_result_reconciles_fleet_after_persisting_ack():
-    tree = _tree()
-    fn = _async_function(tree, "post_command_result")
-
-    calls = [
-        name
-        for stmt in fn.body
-        if (name := _awaited_call_name(stmt)) is not None
-    ]
-
-    assert "command_result" in calls
-    assert "reconcile_fleet_operation" in calls
-
-    assert calls.index("command_result") < calls.index(
-        "reconcile_fleet_operation"
-    )
+def test_command_result_reconciles_fleet_after_persisting_ack(monkeypatch):
+    from grid import coordinator
+    calls=[]
+    async def persist(*args,**kwargs):
+        calls.append('persist')
+        return True
+    async def reconcile(pool):
+        assert calls==['persist']
+        calls.append('reconcile')
+    monkeypatch.setattr(coordinator,'db',SimpleNamespace(pool=object()))
+    monkeypatch.setattr(coordinator,'auth',lambda token:None)
+    monkeypatch.setattr(coordinator,'command_result',persist)
+    monkeypatch.setattr(coordinator,'reconcile_fleet_operation',reconcile)
+    asyncio.run(coordinator.post_command_result('00000000-0000-0000-0000-000000000001',{'ok':True},'admin',''))
+    assert calls==['persist','reconcile']
 
 
 def test_recovery_loop_reconciles_before_runtime_gate_check():
