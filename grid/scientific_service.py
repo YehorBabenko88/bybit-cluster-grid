@@ -1,6 +1,7 @@
 """Background CONTROL consumer for the scientific research layer."""
 from __future__ import annotations
 import asyncio,datetime,json,logging,time
+from dataclasses import replace
 from .scientific_orchestrator import ScientificResearchOrchestrator
 from .scientific_event_router import route_market_event
 from .retention_v2 import register_consumer
@@ -31,7 +32,7 @@ class ScientificResearchService:
             capabilities={"research_only":True,"live_orders":False,
                           "input_events":["trade_tape_250ms"],
                           "profile_kind":"bucket_close_proxy"}))
-        self.last_mining_check=0.0;self.mining_runs=0;self.simulation_runs=0
+        self.last_mining_check=0.0;self.last_simulation_check=0.0;self.mining_runs=0;self.simulation_runs=0
 
     async def start(self):
         if self.started:return
@@ -41,10 +42,26 @@ class ScientificResearchService:
           WHERE observer='scientific_research' AND symbol='*'""")
         if row:
             state=_dict(row["state"]);self.last_id=int(state.get("last_id") or 0);self.last_event_ts=row["last_ts"]
+            # A retention purge may remove all older events, so MAX(id) is
+            # not proof that the checkpoint is corrupt. Only reject an invalid
+            # negative cursor; a restored database may legitimately be empty.
+            if self.last_id<0:
+                raise RuntimeError("scientific checkpoint contains a negative event id")
         else:
             self.last_id=int(await self.pool.fetchval("SELECT COALESCE(max(id),0) FROM market_events") or 0)
             self.last_event_ts=await self.pool.fetchval("SELECT max(event_ts) FROM market_events")
             await self._checkpoint()
+        # Recreate volatile state on every startup attempt. Reusing agents
+        # after a failed batch would mix uncheckpointed observations with
+        # restored history and could distort subsequent scientific signals.
+        self.orchestrator=ScientificResearchOrchestrator()
+        # The built-in observational learner also holds mutable history.
+        # Replace its bound handler on retry without discarding third-party
+        # scientific methods registered on the existing registry.
+        self.book_tape=BookTapePaperLearner()
+        method=self.methods.methods["book_tape_research"]
+        self.methods.methods["book_tape_research"]=replace(
+            method,handler=self.book_tape.observe)
         # Hydrate only state known to be at-or-before the durable source checkpoint.
         await self._hydrate_features()
         await self._hydrate_micro_agents()
@@ -55,9 +72,11 @@ class ScientificResearchService:
           SELECT symbol,event_ts,agent,state,score,direction,features,
                  row_number() OVER(PARTITION BY symbol,agent ORDER BY event_ts DESC) rn
           FROM micro_agent_signals WHERE event_ts>now()-interval '7 days'
-            AND (source_event_id IS NULL OR source_event_id<=$1))
+            AND (source_event_id IS NULL OR source_event_id<=$1)
+            AND ($2::timestamptz IS NULL OR event_ts<=$2))
           SELECT symbol,event_ts,agent,state,score,direction,features
-          FROM ranked WHERE rn<=600 ORDER BY symbol,agent,event_ts""",int(self.last_id))
+          FROM ranked WHERE rn<=600 ORDER BY symbol,agent,event_ts""",
+          int(self.last_id),self.last_event_ts)
         groups={}
         latest={}
         for r in rows:
@@ -89,9 +108,11 @@ class ScientificResearchService:
         rows=await self.pool.fetch("""WITH ranked AS (
           SELECT symbol,ts,quality_status,features,
                  row_number() OVER(PARTITION BY symbol ORDER BY ts DESC) rn
-          FROM market_features_1m WHERE eligible=true AND quality_status='GOOD')
+          FROM market_features_1m
+          WHERE eligible=true AND quality_status='GOOD'
+            AND ($1::timestamptz IS NULL OR ts<=$1))
           SELECT symbol,ts,quality_status,features FROM ranked WHERE rn<=128
-          ORDER BY symbol,ts""")
+          ORDER BY symbol,ts""",self.last_event_ts)
         for r in rows:
             features=_dict(r["features"])
             ts_ms=int(r["ts"].timestamp()*1000)
@@ -118,20 +139,33 @@ class ScientificResearchService:
           WHERE id>$1 ORDER BY id LIMIT $2""",int(self.last_id),int(self.batch_size))
         if not rows:return 0
         watermarks={}
-        for r in rows:
-            payload=_dict(r["payload"]);ts_ms=int(r["event_ts"].timestamp()*1000)
-            split_key=_split_key(r["event_ts"])
-            result=await route_market_event(
-                self.orchestrator,self.pool,r["symbol"],ts_ms,r["event_type"],payload,split_key,int(r["id"]))
-            # Optional scientific plugins are fault-isolated: their failure is
-            # journaled/quarantined and cannot block the core event checkpoint.
-            await self.methods.dispatch(self.pool,{
-                "source_event_id":int(r["id"]),"symbol":r["symbol"],"event_ts":r["event_ts"],
-                "event_type":r["event_type"],"payload":payload,"split_key":split_key})
-            self.processed+=1;self.scheduled+=int(result.get("scheduled") or 0)
-            self.last_id=int(r["id"]);self.last_event_ts=r["event_ts"]
-            watermarks[r["symbol"]]=r["event_ts"]
-        await self._checkpoint()
+        try:
+            for r in rows:
+                payload=_dict(r["payload"]);ts_ms=int(r["event_ts"].timestamp()*1000)
+                split_key=_split_key(r["event_ts"])
+                result=await route_market_event(
+                    self.orchestrator,self.pool,r["symbol"],ts_ms,r["event_type"],payload,split_key,int(r["id"]))
+                # Optional scientific plugins are fault-isolated: their failure is
+                # journaled/quarantined and cannot block the core event checkpoint.
+                await self.methods.dispatch(self.pool,{
+                    "source_event_id":int(r["id"]),"symbol":r["symbol"],"event_ts":r["event_ts"],
+                    "event_type":r["event_type"],"payload":payload,"split_key":split_key})
+                self.processed+=1;self.scheduled+=int(result.get("scheduled") or 0)
+                self.last_id=int(r["id"]);self.last_event_ts=r["event_ts"]
+                watermarks[r["symbol"]]=r["event_ts"]
+        except BaseException:
+            # Invalidate all volatile state if any event in the batch fails.
+            # The next run reloads the durable cursor and rebuilds agents.
+            self.started=False
+            raise
+        try:
+            await self._checkpoint()
+        except BaseException:
+            # The database may still be unavailable: avoid a second query
+            # that could mask the original checkpoint failure. start() will
+            # reload the durable cursor and rebuild volatile agents on retry.
+            self.started=False
+            raise
         await set_consumer_watermarks(self.pool,[
             ("market_events","scientific_research",sym,ts,False) for sym,ts in watermarks.items()])
         return len(rows)
@@ -143,13 +177,29 @@ class ScientificResearchService:
                 n=await self.run_once()
                 now=time.monotonic()
                 if now-self.last_mining_check>=3600:
-                    mined=await self.mining.run_closed_split_once()
-                    self.mining_runs+=len(mined.get("runs") or [])
-                    cutoff=mined["dataset_cutoff"]
-                    await self.simulation.enqueue_validated(cutoff)
-                    simulated=await self.simulation.run_queued(limit=2)
-                    self.simulation_runs+=len(simulated)
+                    # Isolate research failures from the independent simulation queue.
+                    # Back off a failed mining attempt rather than retrying in a hot loop.
                     self.last_mining_check=now
+                    try:
+                        mined=await self.mining.run_closed_split_once()
+                        self.mining_runs+=len(mined.get("runs") or [])
+                        cutoff=mined["dataset_cutoff"]
+                        await self.simulation.enqueue_validated(cutoff)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        self.errors+=1
+                        log.exception("scientific mining failed",extra={"event":"scientific_mining_failed"})
+                if now-self.last_simulation_check>=30:
+                    self.last_simulation_check=now
+                    try:
+                        simulated=await self.simulation.run_queued(limit=1)
+                        self.simulation_runs+=len(simulated)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        self.errors+=1
+                        log.exception("scientific simulation queue failed",extra={"event":"scientific_simulation_queue_failed"})
                 if not n:await asyncio.sleep(self.poll_seconds)
             except asyncio.CancelledError:
                 raise
