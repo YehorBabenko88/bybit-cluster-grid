@@ -43,8 +43,10 @@ class CommandReceiptStore:
             "ok":bool(ok),"result":result,"error":error,"completed_at":time.time()
         }
         if len(rows)>self.max_entries:
-            ordered=sorted(rows.items(),key=lambda kv:float(kv[1].get("completed_at",0)),reverse=True)
-            rows=dict(ordered[:self.max_entries])
+            # Dropping a receipt solely because newer commands arrived can
+            # allow a still-deliverable CONTROL command to execute twice.
+            # Fail closed until CONTROL/Worker agree on safe pruning.
+            raise RuntimeError("command receipt journal capacity reached; refusing unsafe eviction")
         self.path.parent.mkdir(parents=True,exist_ok=True)
         fd,tmp=tempfile.mkstemp(prefix=self.path.name+".",suffix=".tmp",dir=str(self.path.parent))
         try:
