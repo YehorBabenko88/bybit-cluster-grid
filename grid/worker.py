@@ -68,12 +68,15 @@ class Worker:
             current=time.monotonic() if now is None else now
             if current-self.last_assignment_heartbeat < max(1.0,3.0*settings.heartbeat_seconds):
                 return False
-            if not (self.wanted or self.micro_wanted):
+            if not (self.wanted or self.micro_wanted or self.pressure_drained):
                 return False
             log.error("CONTROL assignment lease expired; stopping collectors",
                       extra={"event":"assignment_lease_expired"})
             self.wanted=set()
             self.micro_wanted=set()
+            # Never retain drained symbols as implicit assignments after
+            # CONTROL has stopped renewing the lease.
+            self.pressure_drained=set()
             await self.reconcile()
             return True
 
