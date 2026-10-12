@@ -208,7 +208,7 @@ class Worker:
                                 else:
                                     # A full journal must reject a new command BEFORE
                                     # side effects; otherwise its receipt cannot be persisted.
-                                    self.command_receipts.ensure_capacity(cmd["id"])
+                                    self.command_receipts.reserve(cmd["id"])
                                     try:
                                         result=await execute_command(self,cmd)
                                     except Exception as e:
