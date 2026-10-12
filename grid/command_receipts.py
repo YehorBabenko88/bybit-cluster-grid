@@ -31,6 +31,8 @@ class CommandReceiptStore:
         if key not in rows:
             return None
         row=rows[key]
+        if isinstance(row,dict) and row.get("state")=="pending":
+            raise RuntimeError("command execution outcome unknown after interruption; refusing replay")
         if not isinstance(row,dict) or not isinstance(row.get("ok"),bool):
             raise RuntimeError("command receipt entry is invalid; refusing command execution")
         return row
@@ -40,6 +42,29 @@ class CommandReceiptStore:
         rows=self._load()
         if str(command_id) not in rows and len(rows)>=self.max_entries:
             raise RuntimeError("command receipt journal capacity reached; refusing command execution")
+
+    def reserve(self,command_id):
+        """Durably mark a command as potentially executing before side effects."""
+        rows=self._load()
+        key=str(command_id)
+        if key in rows:
+            raise RuntimeError("command receipt already exists; refusing duplicate execution")
+        if len(rows)>=self.max_entries:
+            raise RuntimeError("command receipt journal capacity reached; refusing command execution")
+        rows[key]={"state":"pending","started_at":time.time()}
+        self._write(rows)
+
+    def _write(self,rows):
+        self.path.parent.mkdir(parents=True,exist_ok=True)
+        fd,tmp=tempfile.mkstemp(prefix=self.path.name+".",suffix=".tmp",dir=str(self.path.parent))
+        try:
+            with os.fdopen(fd,"w",encoding="utf-8") as f:
+                json.dump(rows,f,separators=(",",":"),ensure_ascii=False)
+                f.flush(); os.fsync(f.fileno())
+            os.replace(tmp,self.path)
+        finally:
+            try: os.unlink(tmp)
+            except FileNotFoundError: pass
 
     def put(self,command_id,ok,result=None,error=None):
         if not command_id:
@@ -53,13 +78,4 @@ class CommandReceiptStore:
             # allow a still-deliverable CONTROL command to execute twice.
             # Fail closed until CONTROL/Worker agree on safe pruning.
             raise RuntimeError("command receipt journal capacity reached; refusing unsafe eviction")
-        self.path.parent.mkdir(parents=True,exist_ok=True)
-        fd,tmp=tempfile.mkstemp(prefix=self.path.name+".",suffix=".tmp",dir=str(self.path.parent))
-        try:
-            with os.fdopen(fd,"w",encoding="utf-8") as f:
-                json.dump(rows,f,separators=(",",":"),ensure_ascii=False)
-                f.flush(); os.fsync(f.fileno())
-            os.replace(tmp,self.path)
-        finally:
-            try: os.unlink(tmp)
-            except FileNotFoundError: pass
+        self._write(rows)
