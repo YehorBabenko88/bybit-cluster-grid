@@ -74,3 +74,16 @@ def test_invalid_receipt_journal_format_fails_closed(tmp_path):
     path.write_text("[]",encoding="utf-8")
     with pytest.raises(RuntimeError,match="invalid format"):
         CommandReceiptStore(path).get("cmd-1")
+
+
+
+def test_invalid_individual_receipt_fails_closed(tmp_path):
+    import pytest
+
+    path=tmp_path/"receipts.json"
+    path.write_text('{"cmd-1":null,"cmd-2":{"ok":"yes"}}',encoding="utf-8")
+    store=CommandReceiptStore(path)
+    for command_id in ("cmd-1","cmd-2"):
+        with pytest.raises(RuntimeError,match="entry is invalid"):
+            store.get(command_id)
+    assert store.get("never-seen") is None

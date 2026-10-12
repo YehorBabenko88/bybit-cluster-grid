@@ -26,8 +26,14 @@ class CommandReceiptStore:
     def get(self,command_id):
         if not command_id:
             return None
-        row=self._load().get(str(command_id))
-        return row if isinstance(row,dict) else None
+        rows=self._load()
+        key=str(command_id)
+        if key not in rows:
+            return None
+        row=rows[key]
+        if not isinstance(row,dict) or not isinstance(row.get("ok"),bool):
+            raise RuntimeError("command receipt entry is invalid; refusing command execution")
+        return row
 
     def put(self,command_id,ok,result=None,error=None):
         if not command_id:
