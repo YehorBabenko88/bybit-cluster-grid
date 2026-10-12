@@ -30,6 +30,15 @@ from .ml_agent_worker import ml_agent_loop
 
 log=logging.getLogger("worker")
 
+def _valid_control_command_id(value):
+    """Accept only canonical UUIDs emitted by CONTROL, never arbitrary URL paths."""
+    import uuid
+    try:
+        return isinstance(value,str) and str(uuid.UUID(value)) == value
+    except (ValueError,AttributeError,TypeError):
+        return False
+
+
 class Worker:
     def __init__(self):
         self.wanted=set()
@@ -194,7 +203,7 @@ class Worker:
                             for cmd in reply.get("commands",[]):
                                 # Never execute a command that cannot be durably
                                 # deduplicated and acknowledged by CONTROL.
-                                if not isinstance(cmd,dict) or not isinstance(cmd.get("id"),str) or not cmd["id"].strip():
+                                if not isinstance(cmd,dict) or not isinstance(cmd.get("id"),str) or not _valid_control_command_id(cmd["id"]):
                                     log.error("rejecting CONTROL command without valid id",
                                               extra={"event":"invalid_control_command_id"})
                                     continue
