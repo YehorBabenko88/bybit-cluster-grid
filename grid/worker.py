@@ -225,12 +225,14 @@ class Worker:
                             self.db.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
                             self.micro_storage.set_replay_rate(recovery.get("micro_per_second",settings.replay_micro_per_second))
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
-                            self.pressure_drained=desired_drained_symbols(self.pressure,assigned)
-                            new=assigned-self.pressure_drained
                             requested_micro=set(reply.get("micro_symbols",[]))
                             recovering=bool(dbm.get("replay_active",False) or microm.get("replay_active",False))
-                            new_micro=(requested_micro & new) if not recovering else set()
                             async with self.assignment_lock:
+                                # Keep pressure shedding and assignment renewal atomic
+                                # against the local watchdog and offline pressure loop.
+                                self.pressure_drained=desired_drained_symbols(self.pressure,assigned)
+                                new=assigned-self.pressure_drained
+                                new_micro=(requested_micro & new) if not recovering else set()
                                 self.last_assignment_heartbeat=time.monotonic()
                                 assignments_changed=(new != self.wanted or new_micro != self.micro_wanted)
                                 dead_trade_tasks=any(task.done() for task in self.trade_tasks.values())
