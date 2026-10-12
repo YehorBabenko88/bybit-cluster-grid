@@ -131,3 +131,28 @@ def test_reserve_rejects_full_journal_without_creating_pending_record(tmp_path):
     with pytest.raises(RuntimeError,match="capacity reached"):
         store.reserve("cmd-new")
     assert store.get("cmd-new") is None
+
+
+def test_failed_result_serialization_preserves_pending_after_restart(tmp_path):
+    import pytest
+
+    path=tmp_path/"receipts.json"
+    store=CommandReceiptStore(path)
+    store.reserve("cmd-serialization")
+    with pytest.raises(TypeError):
+        store.put("cmd-serialization",True,{"invalid":object()})
+    restarted=CommandReceiptStore(path)
+    with pytest.raises(RuntimeError,match="outcome unknown"):
+        restarted.get("cmd-serialization")
+
+
+def test_failed_reservation_write_does_not_authorize_execution(tmp_path,monkeypatch):
+    import pytest
+
+    store=CommandReceiptStore(tmp_path/"receipts.json")
+    def fail_write(_rows):
+        raise OSError("disk unavailable")
+    monkeypatch.setattr(store,"_write",fail_write)
+    with pytest.raises(OSError,match="disk unavailable"):
+        store.reserve("cmd-unwritten")
+    assert store.get("cmd-unwritten") is None
