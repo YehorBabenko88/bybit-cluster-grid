@@ -46,17 +46,32 @@ def test_command_result_reconciles_fleet_after_persisting_ack():
     tree = _tree()
     fn = _async_function(tree, "post_command_result")
 
+    # The authenticated ACK is persisted inside a try block so malformed
+    # command IDs can be translated into HTTP 400. Inspect nested awaits too.
     calls = [
-        name
-        for stmt in fn.body
-        if (name := _awaited_call_name(stmt)) is not None
+        node.value.func.id
+        for node in ast.walk(fn)
+        if isinstance(node, ast.Await)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id in {"command_result", "reconcile_fleet_operation"}
     ]
 
-    assert "command_result" in calls
-    assert "reconcile_fleet_operation" in calls
+    assert calls.count("command_result") == 1
+    assert calls.count("reconcile_fleet_operation") == 1
 
-    assert calls.index("command_result") < calls.index(
-        "reconcile_fleet_operation"
+    # Verify ordering in the actual endpoint body, including nested try body.
+    try_node = next(stmt for stmt in fn.body if isinstance(stmt, ast.Try))
+    assert any(
+        isinstance(node, ast.Await)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "command_result"
+        for stmt in try_node.body for node in ast.walk(stmt)
+    )
+    assert fn.body.index(try_node) < next(
+        i for i, stmt in enumerate(fn.body)
+        if _awaited_call_name(stmt) == "reconcile_fleet_operation"
     )
 
 
