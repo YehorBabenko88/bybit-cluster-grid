@@ -192,6 +192,12 @@ class Worker:
                                 except Exception:
                                     log.exception("control replica apply failed",extra={"event":"control_replica_failed"})
                             for cmd in reply.get("commands",[]):
+                                # Never execute a command that cannot be durably
+                                # deduplicated and acknowledged by CONTROL.
+                                if not isinstance(cmd,dict) or not isinstance(cmd.get("id"),str) or not cmd["id"].strip():
+                                    log.error("rejecting CONTROL command without valid id",
+                                              extra={"event":"invalid_control_command_id"})
+                                    continue
                                 ok=True; result=None; error=None
                                 receipt=self.command_receipts.get(cmd.get("id"))
                                 if receipt is not None:
