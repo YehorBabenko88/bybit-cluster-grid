@@ -35,6 +35,12 @@ class CommandReceiptStore:
             raise RuntimeError("command receipt entry is invalid; refusing command execution")
         return row
 
+    def ensure_capacity(self,command_id):
+        """Refuse a new command before execution if its receipt cannot fit."""
+        rows=self._load()
+        if str(command_id) not in rows and len(rows)>=self.max_entries:
+            raise RuntimeError("command receipt journal capacity reached; refusing command execution")
+
     def put(self,command_id,ok,result=None,error=None):
         if not command_id:
             return

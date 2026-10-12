@@ -92,3 +92,16 @@ def test_invalid_individual_receipt_fails_closed(tmp_path):
         with pytest.raises(RuntimeError,match="entry is invalid"):
             store.get(command_id)
     assert store.get("never-seen") is None
+
+
+def test_receipt_capacity_preflight_rejects_new_commands(tmp_path):
+    import pytest
+
+    store=CommandReceiptStore(tmp_path/"receipts.json",max_entries=100)
+    for i in range(100):
+        store.put(f"cmd-{i}",True)
+    store.ensure_capacity("cmd-0")
+    with pytest.raises(RuntimeError,match="capacity reached"):
+        store.ensure_capacity("cmd-new")
+    assert store.get("cmd-0") is not None
+    assert store.get("cmd-new") is None
