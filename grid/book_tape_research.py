@@ -12,6 +12,7 @@ VERSION="book-tape-research-v1"
 
 
 def _positive(value):
+    if isinstance(value,bool):return None
     try:
         number=float(value)
     except (ValueError,TypeError,OverflowError):
@@ -20,6 +21,7 @@ def _positive(value):
 
 
 def _nonnegative(value):
+    if isinstance(value,bool):return None
     try:
         number=float(value)
     except (ValueError,TypeError,OverflowError):
@@ -47,30 +49,39 @@ class BookTapeResearch:
         if not isinstance(payload,dict):
             return {"version":VERSION,"eligible":False,"reason":"invalid_payload"}
         ts=event.get("event_ts")
-        if hasattr(ts,"timestamp"):
-            ts=int(ts.timestamp()*1000)
-        else:
-            try:ts=int(ts)
-            except (ValueError,TypeError,OverflowError):ts=None
+        try:
+            if hasattr(ts,"timestamp"):
+                ts=int(ts.timestamp()*1000)
+            else:
+                ts=None if isinstance(ts,bool) else int(ts)
+        except (ValueError,TypeError,OverflowError,OSError):
+            ts=None
         close=_positive(payload.get("close"))
         buy=_nonnegative(payload.get("buy_volume"))
         sell=_nonnegative(payload.get("sell_volume"))
-        if ts is None or ts<=0 or close is None or buy is None or sell is None or buy+sell<=0:
+        if (ts is None or ts<=0 or close is None or buy is None or sell is None
+            or not isfinite(buy+sell) or buy+sell<=0):
             return {"version":VERSION,"eligible":False,"reason":"invalid_trade_bucket"}
         if ts<=self.last_ts.get(symbol,-1):
             return {"version":VERSION,"eligible":False,"reason":"replayed_or_out_of_order"}
-        self.last_ts[symbol]=ts
         volume=buy+sell
         history=self.history[symbol]
         past=list(history)
-        history.append((ts,close,volume,buy-sell))
         if len(past)<self.min_history:
+            self.last_ts[symbol]=ts
+            history.append((ts,close,volume,buy-sell))
             return {"version":VERSION,"eligible":False,"reason":"warmup","samples":len(history)}
         volumes=[x[2] for x in past]
         prices=[x[1] for x in past]
         avg_volume=sum(volumes)/len(volumes)
         relative_volume=volume/avg_volume if avg_volume>0 else 0.0
+        if not isfinite(relative_volume):
+            return {"version":VERSION,"eligible":False,"reason":"invalid_relative_volume"}
         delta_ratio=(buy-sell)/volume
+        if not isfinite(delta_ratio):
+            return {"version":VERSION,"eligible":False,"reason":"invalid_delta_ratio"}
+        self.last_ts[symbol]=ts
+        history.append((ts,close,volume,buy-sell))
         previous=prices[-1]
         high=max(prices)
         low=min(prices)

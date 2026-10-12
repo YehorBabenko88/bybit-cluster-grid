@@ -1,14 +1,24 @@
 """Route persisted market events into scientific micro agents."""
 from __future__ import annotations
-import json
+import json,math
 
 async def route_market_event(orchestrator,pool,symbol,ts_ms,event_type,payload,split_key,source_event_id=None):
     symbol=str(symbol);ts=int(ts_ms);p=dict(payload or {})
+    # Reject invalid timestamps before they can mutate agent state or be
+    # persisted as PostgreSQL timestamps.
+    if ts<0:
+        return {"processed":False,"reason":"invalid_event_timestamp","scheduled":0}
     signals=[];matured={"labels":[],"hypothesis_updates":[]}
     if event_type=="trade_tape_250ms":
         price=_num(p.get("close"))
-        volume=_num(p.get("buy_volume"),0.0)+_num(p.get("sell_volume"),0.0)
+        buy_volume=_num(p.get("buy_volume"),0.0)
+        sell_volume=_num(p.get("sell_volume"),0.0)
+        volume=buy_volume+sell_volume
         delta=_num(p.get("delta"),0.0)
+        if price is None or price<=0:
+            return {"processed":False,"reason":"invalid_trade_price","scheduled":0}
+        if buy_volume<0 or sell_volume<0 or not math.isfinite(volume):
+            return {"processed":False,"reason":"invalid_trade_volume","scheduled":0}
         if price is not None and price>0:
             orchestrator.latest_trade[symbol]=(ts,price)
             matured=await orchestrator.observe_price(pool,symbol,ts,price)
@@ -28,7 +38,7 @@ async def route_market_event(orchestrator,pool,symbol,ts_ms,event_type,payload,s
         return {"processed":False,"reason":"event_type_not_research_input","scheduled":0}
 
     ref=orchestrator.latest_trade.get(symbol)
-    fresh_ref=ref is not None and ts-int(ref[0])<=3000
+    fresh_ref=ref is not None and 0<=ts-int(ref[0])<=3000
     scheduled=0;hypotheses=[]
     for signal in signals:
         await _persist_signal(pool,signal,source_event_id)
@@ -53,5 +63,9 @@ async def _persist_signal(pool,signal,source_event_id=None):
       int(source_event_id) if source_event_id is not None else None)
 
 def _num(v,default=None):
-    try:return float(v) if v is not None else default
-    except (TypeError,ValueError):return default
+    if isinstance(v,bool):
+        return default
+    try:
+        value=float(v) if v is not None else default
+        return value if value is None or math.isfinite(value) else default
+    except (TypeError,ValueError,OverflowError):return default

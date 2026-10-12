@@ -22,29 +22,42 @@ class ScientificSimulationGate:
               ON CONFLICT(hypothesis_id,simulation_version,dataset_cutoff) DO NOTHING""",
               uuid.uuid4(),r["id"],SIMULATION_VERSION,config_json(self.config),dataset_cutoff)
             if str(tag).endswith("1"):made+=1
+        # A new dataset cutoff gets a distinct run; keep older WAITING_OOS
+        # records immutable for reproducibility and auditability.
         return made
 
     async def run_queued(self,limit=4):
         rows=await self.pool.fetch("""SELECT id,hypothesis_id,dataset_cutoff FROM scientific_simulation_runs
-          WHERE status='QUEUED' ORDER BY created_at LIMIT $1""",max(1,int(limit)))
+          WHERE status='QUEUED' OR
+            (status='RUNNING' AND started_at < now() - interval '24 hours')
+          ORDER BY created_at LIMIT $1""",max(1,int(limit)))
         out=[]
         for r in rows:out.append(await self.run_one(r["id"],r["hypothesis_id"],r["dataset_cutoff"]))
         return out
 
     async def run_one(self,run_id,hypothesis_id,dataset_cutoff):
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status='RUNNING',
-          started_at=now() WHERE id=$1 AND status='QUEUED'""",run_id)
+        # Reclaim an abandoned run only after its prior owner has had a
+        # generous opportunity to finish. Attempt fencing rejects stale writes.
+        # The 24-hour timeout is a recovery backstop, not a heartbeat lease.
+        attempt_id=uuid.uuid4()
+        claimed=await self.pool.fetchval("""UPDATE scientific_simulation_runs
+          SET status='RUNNING',started_at=now(),completed_at=NULL,attempt_id=$2
+          WHERE id=$1 AND (status='QUEUED' OR
+            (status='RUNNING' AND started_at < now() - interval '24 hours'))
+          RETURNING id""",run_id,attempt_id)
+        if claimed is None:
+            return {"run_id":str(run_id),"status":"SKIPPED_NOT_QUEUED"}
         oos_start=await self.pool.fetchval("""SELECT max(dataset_cutoff)
           FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1 AND passed=true""",hypothesis_id)
         if oos_start is None:
-            return await self._waiting(run_id,"validated hypothesis has no fixed evidence cutoff")
-        await self.pool.execute("UPDATE scientific_simulation_runs SET oos_start=$2 WHERE id=$1",run_id,oos_start)
+            return await self._waiting(run_id,attempt_id,"validated hypothesis has no fixed evidence cutoff")
+        await self.pool.execute("UPDATE scientific_simulation_runs SET oos_start=$2 WHERE id=$1 AND attempt_id=$3",run_id,oos_start,attempt_id)
         h=await self.pool.fetchrow("""SELECT method,pattern,horizon_ms,direction,definition,status
           FROM scientific_hypotheses WHERE id=$1""",hypothesis_id)
         if not h or str(h["status"])!="VALIDATED":
-            return await self._fail(run_id,"hypothesis is no longer VALIDATED")
+            return await self._fail(run_id,attempt_id,"hypothesis is no longer VALIDATED")
         if str(h["method"])!="combinatorial-v1":
-            return await self._waiting(run_id,f"exact simulation matcher unavailable for method {h['method']}")
+            return await self._waiting(run_id,attempt_id,f"exact simulation matcher unavailable for method {h['method']}")
         definition=_dict(h["definition"]);params=definition.get("parameters") or {}
         wanted=set(str(x) for x in params.get("tokens") or ())
         rows=await self.pool.fetch("""SELECT symbol,event_ts_ms,return_bps,payload
@@ -70,39 +83,54 @@ class ScientificSimulationGate:
             matched.append({"symbol":o.symbol,"event_ts_ms":o.event_ts_ms,"split_key":o.split_key,
                             "return_bps":o.return_bps})
         if len(matched)<self.config.min_trades:
-            return await self._waiting(run_id,f"insufficient OOS trades: {len(matched)}/{self.config.min_trades}")
+            return await self._waiting(run_id,attempt_id,f"insufficient OOS trades: {len(matched)}/{self.config.min_trades}")
         base=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.0)
         stress=simulate_rows(matched,int(h["direction"]),int(h["horizon_ms"]),self.config,1.75)
         mc=deterministic_bootstrap_drawdowns(
             [x["net_return_bps"] for x in base["trades"]],self.config.monte_carlo_paths,str(run_id),
             float(self.config.position_risk_fraction)/.005)
         passed,checks,p95=promotion_decision(base["metrics"],stress["metrics"],mc,self.config)
-        for t in base["trades"]:
-            await self.pool.execute("""INSERT INTO scientific_simulation_trades(
-              run_id,ordinal,symbol,event_ts_ms,split_key,raw_return_bps,net_return_bps,
-              fill_fraction,fee_bps,spread_bps,slippage_bps,latency_bps,funding_bps,equity_after)
-              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-              ON CONFLICT(run_id,ordinal) DO NOTHING""",run_id,t["ordinal"],t["symbol"],
-              t["event_ts_ms"],t["split_key"],t["raw_return_bps"],t["net_return_bps"],
-              t["fill_fraction"],t["fee_bps"],t["spread_bps"],t["slippage_bps"],t["latency_bps"],
-              t["funding_bps"],t["equity_after"])
         metrics={**base["metrics"],"checks":checks,"monte_carlo_max_dd_p95":p95}
         status="SIMULATION_PASSED" if passed else "SIMULATION_FAILED"
-        await self.pool.execute("""UPDATE scientific_simulation_runs SET status=$2,
-          metrics=$3::jsonb,stress_metrics=$4::jsonb,reason=$5,completed_at=now() WHERE id=$1""",
-          run_id,status,json.dumps(metrics,separators=(",",":")),
-          json.dumps(stress["metrics"],separators=(",",":")),
-          None if passed else "one or more promotion checks failed")
+        # Persist all trade rows and the final run status as one atomic unit.
+        # A crash or SQL error must not expose a completed run with partial trades.
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                # Lock and fence the current attempt before writing any results.
+                owner=await conn.fetchval("""SELECT id FROM scientific_simulation_runs
+                  WHERE id=$1 AND status='RUNNING' AND attempt_id=$2 FOR UPDATE""",
+                  run_id,attempt_id)
+                if owner is None:
+                    return {"run_id":str(run_id),"status":"SKIPPED_STALE_ATTEMPT"}
+                # A reclaimed run must replace, never mix, old and new results.
+                await conn.execute("DELETE FROM scientific_simulation_trades WHERE run_id=$1",run_id)
+                for t in base["trades"]:
+                    await conn.execute("""INSERT INTO scientific_simulation_trades(
+                      run_id,ordinal,symbol,event_ts_ms,split_key,raw_return_bps,net_return_bps,
+                      fill_fraction,fee_bps,spread_bps,slippage_bps,latency_bps,funding_bps,equity_after)
+                      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+                      ON CONFLICT(run_id,ordinal) DO NOTHING""",run_id,t["ordinal"],t["symbol"],
+                      t["event_ts_ms"],t["split_key"],t["raw_return_bps"],t["net_return_bps"],
+                      t["fill_fraction"],t["fee_bps"],t["spread_bps"],t["slippage_bps"],t["latency_bps"],
+                      t["funding_bps"],t["equity_after"])
+                await conn.execute("""UPDATE scientific_simulation_runs SET status=$2,
+                  metrics=$3::jsonb,stress_metrics=$4::jsonb,reason=$5,completed_at=now()
+                  WHERE id=$1 AND status='RUNNING' AND attempt_id=$6""",
+                  run_id,status,json.dumps(metrics,separators=(",",":")),
+                  json.dumps(stress["metrics"],separators=(",",":")),
+                  None if passed else "one or more promotion checks failed",attempt_id)
         return {"run_id":str(run_id),"status":status,"metrics":metrics,"stress":stress["metrics"]}
 
-    async def _waiting(self,run_id,reason):
+    async def _waiting(self,run_id,attempt_id,reason):
         await self.pool.execute("""UPDATE scientific_simulation_runs SET status='WAITING_OOS',
-          reason=$2,completed_at=now() WHERE id=$1""",run_id,str(reason))
+          reason=$2,completed_at=now() WHERE id=$1 AND attempt_id=$3
+          AND status='RUNNING'""",run_id,str(reason),attempt_id)
         return {"run_id":str(run_id),"status":"WAITING_OOS","reason":str(reason)}
 
-    async def _fail(self,run_id,reason):
+    async def _fail(self,run_id,attempt_id,reason):
         await self.pool.execute("""UPDATE scientific_simulation_runs SET status='SIMULATION_FAILED',
-          reason=$2,completed_at=now() WHERE id=$1""",run_id,str(reason))
+          reason=$2,completed_at=now() WHERE id=$1 AND attempt_id=$3
+          AND status='RUNNING'""",run_id,str(reason),attempt_id)
         return {"run_id":str(run_id),"status":"SIMULATION_FAILED","reason":str(reason)}
 
 def _dict(v):
