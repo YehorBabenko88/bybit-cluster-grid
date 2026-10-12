@@ -9,6 +9,7 @@ def test_single_assignment_recovers_after_being_fully_drained_offline():
         worker=object.__new__(Worker)
         worker.wanted={'BTCUSDT'};worker.micro_wanted={'BTCUSDT'}
         worker.pressure_drained=set();worker.operator_stopped=False;worker.bootstrap_paused=False
+        worker.assignment_lock=asyncio.Lock();worker.last_assignment_heartbeat=None
         worker.pressure=PressureController(state=CRITICAL)
         reconciles=[]
         async def reconcile(): reconciles.append(set(worker.wanted))
@@ -27,6 +28,7 @@ def test_offline_recovery_preserves_an_operator_stop():
         worker=object.__new__(Worker)
         worker.wanted=set();worker.micro_wanted=set();worker.pressure_drained={'BTCUSDT'}
         worker.operator_stopped=True;worker.bootstrap_paused=False
+        worker.assignment_lock=asyncio.Lock();worker.last_assignment_heartbeat=None
         worker.pressure=PressureController(state=NORMAL)
         async def reconcile(): raise AssertionError('operator STOP must not resume streams')
         worker.reconcile=reconcile
