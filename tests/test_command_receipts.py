@@ -105,3 +105,29 @@ def test_receipt_capacity_preflight_rejects_new_commands(tmp_path):
         store.ensure_capacity("cmd-new")
     assert store.get("cmd-0") is not None
     assert store.get("cmd-new") is None
+
+
+def test_interrupted_command_is_not_executed_again(tmp_path):
+    import pytest
+
+    path=tmp_path/"receipts.json"
+    first=CommandReceiptStore(path)
+    first.reserve("cmd-1")
+    restarted=CommandReceiptStore(path)
+    with pytest.raises(RuntimeError,match="outcome unknown"):
+        restarted.get("cmd-1")
+    with pytest.raises(RuntimeError,match="already exists"):
+        restarted.reserve("cmd-1")
+    restarted.put("cmd-1",True,{"state":"done"})
+    assert CommandReceiptStore(path).get("cmd-1")["ok"] is True
+
+
+def test_reserve_rejects_full_journal_without_creating_pending_record(tmp_path):
+    import pytest
+
+    store=CommandReceiptStore(tmp_path/"receipts.json",max_entries=100)
+    for i in range(100):
+        store.put(f"cmd-{i}",True)
+    with pytest.raises(RuntimeError,match="capacity reached"):
+        store.reserve("cmd-new")
+    assert store.get("cmd-new") is None
