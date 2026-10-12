@@ -15,9 +15,13 @@ class CommandReceiptStore:
     def _load(self):
         try:
             raw=json.loads(self.path.read_text(encoding="utf-8"))
-            return raw if isinstance(raw,dict) else {}
-        except (OSError,ValueError,TypeError):
+        except FileNotFoundError:
             return {}
+        except (OSError,ValueError,TypeError) as exc:
+            raise RuntimeError("command receipt journal is unreadable; refusing command execution") from exc
+        if not isinstance(raw,dict):
+            raise RuntimeError("command receipt journal has invalid format; refusing command execution")
+        return raw
 
     def get(self,command_id):
         if not command_id:
