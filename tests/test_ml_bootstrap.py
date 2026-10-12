@@ -55,7 +55,9 @@ def test_windows_bundle_contains_ml_requirements_and_checks_presence():
     workflow = Path(".github/workflows/windows-bundle.yml").read_text(encoding="utf-8")
     assert "run_worker.py,run_coordinator.py,requirements.txt,requirements-ml.txt" in workflow
     assert 'if(!(Test-Path (Join-Path $bundle "requirements-ml.txt")))' in workflow
-    assert '      - "requirements-ml.txt"' in workflow
+    # All main pushes now build the Windows bundle, regardless of changed paths.
+    assert "  push:\n    branches: [main]" in workflow
+    assert "    paths:" not in workflow.split("permissions:",1)[0]
 
 
 def test_pilot_and_control_preflight_fail_without_ml_requirements():
