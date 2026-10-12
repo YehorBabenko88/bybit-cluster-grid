@@ -51,3 +51,26 @@ def test_worker_has_no_hard_exit_in_lifecycle_paths():
     source=Path("grid/worker.py").read_text(encoding="utf-8")
     assert "os._exit(" not in source
     assert "self_decommission_shutdown" in source
+
+
+
+def test_corrupt_receipt_journal_fails_closed(tmp_path):
+    import pytest
+
+    path=tmp_path/"receipts.json"
+    path.write_text("{corrupt",encoding="utf-8")
+    store=CommandReceiptStore(path)
+    with pytest.raises(RuntimeError,match="unreadable"):
+        store.get("cmd-1")
+    with pytest.raises(RuntimeError,match="unreadable"):
+        store.put("cmd-2",True)
+    assert path.read_text(encoding="utf-8")=="{corrupt"
+
+
+def test_invalid_receipt_journal_format_fails_closed(tmp_path):
+    import pytest
+
+    path=tmp_path/"receipts.json"
+    path.write_text("[]",encoding="utf-8")
+    with pytest.raises(RuntimeError,match="invalid format"):
+        CommandReceiptStore(path).get("cmd-1")
