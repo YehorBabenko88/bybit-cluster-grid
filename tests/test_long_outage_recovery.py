@@ -42,8 +42,12 @@ def test_worker_can_shed_load_without_successful_control_heartbeat():
     post=s.index("async with s.post(",pressure)
     assert pressure < post
     block=s[pressure:post]
-    assert "symbols_to_drain" in block
-    assert "await self.reconcile()" in block
+    # The heartbeat must apply local pressure before attempting CONTROL.
+    # The helper owns the bounded drain calculation and reconciliation.
+    assert "await self._apply_local_pressure()" in block
+    helper=s[s.index("    async def _apply_local_pressure("):s.index("    async def heartbeat(")]
+    assert "desired_drained_symbols(self.pressure,assigned)" in helper
+    assert "await self.reconcile()" in helper
 
 
 def test_replay_is_paced_and_staggered_across_nodes():
