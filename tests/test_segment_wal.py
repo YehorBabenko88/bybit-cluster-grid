@@ -1,4 +1,5 @@
 import asyncio,json
+import pytest
 from grid.segment_wal import SegmentWAL
 
 def test_wal_append_recover_checkpoint(tmp_path):
@@ -21,7 +22,8 @@ def test_wal_crc_rejects_corrupt_record(tmp_path):
         obj=json.loads(seg.read_text().splitlines()[0])
         obj["payload"]={"ok":999}
         seg.write_text(json.dumps(obj)+"\n",encoding="utf-8")
-        assert w.recover()==[]
+        with pytest.raises(RuntimeError,match="corrupt WAL record"):
+            w.recover()
     asyncio.run(run())
 
 def test_wal_rotates_segments(tmp_path):

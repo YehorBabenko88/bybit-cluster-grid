@@ -30,6 +30,7 @@ def test_restart_replays_only_uncheckpointed_records(tmp_path):
         ids=[]
         for n in range(4):
             ids.append(await wal.append({"n":n}))
+        await wal.ack(ids[0])
         await wal.ack(ids[1])
         # Simulate process death: construct a new WAL object from the same directory.
         recovered=SegmentWAL(tmp_path,max_bytes=100000).recover()
