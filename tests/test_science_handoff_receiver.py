@@ -228,3 +228,12 @@ def test_corrupt_package_is_rejected_before_ledger_lookup(tmp_path):
     science.write_bytes(b"tampered")
     with pytest.raises(ScienceHandoffError, match="checksum mismatch"):
         check_science_handoff_seen(manifest, ledger)
+
+
+def test_duplicate_import_ledger_entries_fail_closed(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    identity = science_handoff_identity(manifest)
+    ledger = tmp_path / "imported.json"
+    ledger.write_text(json.dumps({"schema": 1, "imported": [identity, identity]}), encoding="utf-8")
+    with pytest.raises(ScienceHandoffError, match="duplicate handoff ledger entries"):
+        check_science_handoff_seen(manifest, ledger)
