@@ -5,7 +5,7 @@ import pytest
 
 from grid.science_handoff_receiver import ScienceHandoffError
 from grid.science_handoff_registry import claim_science_handoff
-from tests.test_science_handoff_receiver import make_package
+from test_science_handoff_receiver import make_package
 
 
 def test_claim_once_and_keep_durable_reservation(tmp_path):
