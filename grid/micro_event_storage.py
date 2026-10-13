@@ -122,10 +122,13 @@ class MicroEventStorage:
         }
         if self.http is None:
             raise RuntimeError("micro-event ingest session is not started")
+        from .active_control import active_control_url
+        address=await active_control_url()
         async with self.http.post(
-            settings.coordinator_url+"/ingest/event",
+            address+"/ingest/event",
             json=row,
             headers=headers,
+            allow_redirects=False,
         ) as resp:
             receipt=await check_receipt(resp,row)
             if receipt['disposition']=='QUARANTINED':
