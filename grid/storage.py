@@ -101,6 +101,14 @@ class Storage:
         if self.pool is not None:
             await self.pool.close(); self.pool=None
 
+    async def reset_analytical_state(self,pool):
+        """Resolve uncertain COMMIT responses from authoritative persisted state."""
+        builder=UnifiedFeatureBuilder()
+        await builder.start(pool)
+        derived=DerivedPipeline(pool)
+        await derived.start()
+        self.feature_builder=builder;self.derived=derived;self.cache_dirty=False
+
     def metrics(self):
         m=self.write_queue.metrics()
         m['spool_bytes']=self.spool.bytes_used()

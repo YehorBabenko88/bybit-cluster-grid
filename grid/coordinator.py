@@ -373,9 +373,13 @@ async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_no
     if not live_collection_allowed(control_disk_state()["state"]):
         raise HTTPException(507,"CONTROL disk pressure")
     async with ingest_lock:
+        storage=ingest_storage
+        if storage is None:raise HTTPException(503,'ingestion leadership changed')
+        if getattr(storage,'cache_dirty',False):
+            await storage.reset_analytical_state(db.pool)
         # Publish analytical state only after the fenced outer transaction commits.
-        staged=copy.copy(ingest_storage)
-        staged.feature_builder=copy.deepcopy(ingest_storage.feature_builder)
+        staged=copy.copy(storage)
+        staged.feature_builder=copy.deepcopy(storage.feature_builder)
         staged.derived=None
         notifications=[]
         staged.scientific=SimpleNamespace(ingest_feature_row=lambda *args:notifications.append(args))
@@ -383,20 +387,23 @@ async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_no
         async def persist(pool,row):
             nonlocal persisted
             staged.pool=pool
-            staged.derived=copy.deepcopy(ingest_storage.derived,{id(ingest_storage.derived.pool):pool})
+            staged.derived=copy.deepcopy(storage.derived,{id(storage.derived.pool):pool})
             await staged._save_direct(row)
             persisted=True
         try:
             result=await ingest_owned(db.pool,x_node_id,'minute',payload,persist)
-        except (ValueError,TypeError) as exc:
-            raise HTTPException(409 if isinstance(exc,OwnershipExpired) else 400,str(exc))
-        if persisted:
+        except BaseException as exc:
+            if persisted:storage.cache_dirty=True
+            if isinstance(exc,(ValueError,TypeError)):
+                raise HTTPException(409 if isinstance(exc,OwnershipExpired) else 400,str(exc))
+            raise
+        if persisted and ingest_storage is storage:
             staged.derived.pool=db.pool;staged.derived.levels.pool=db.pool
-            ingest_storage.feature_builder=staged.feature_builder
-            ingest_storage.derived=staged.derived
-            if ingest_storage.scientific is not None:
+            storage.feature_builder=staged.feature_builder
+            storage.derived=staged.derived
+            if storage.scientific is not None:
                 for args in notifications:
-                    try:ingest_storage.scientific.ingest_feature_row(*args)
+                    try:storage.scientific.ingest_feature_row(*args)
                     except Exception:log.exception('scientific notification failed after fenced commit')
         return result
 
