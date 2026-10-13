@@ -32,3 +32,16 @@ def test_expired_collector_cannot_append_live_data():
             await sink.save({"symbol":"BTCUSDT"})
         storage.save.assert_not_awaited()
     asyncio.run(run())
+
+
+def test_new_ownership_does_not_label_a_partial_start_minute_good():
+    async def run():
+        storage=type('Storage',(),{'save':AsyncMock()})()
+        sink=OwnedSink(storage,{'BTCUSDT':{'generation':2,'session':'s','deadline':time.monotonic()+10}})
+        row={'symbol':'BTCUSDT','start_ms':0,'quality_status':'GOOD','quality_reasons':[]}
+        await sink.save(row)
+        saved=storage.save.call_args.args[0]
+        assert saved['quality_status']=='DEGRADED'
+        assert 'ownership_partial_start' in saved['quality_reasons']
+        assert row['quality_status']=='GOOD'  # no mutation of caller's buffer
+    asyncio.run(run())
