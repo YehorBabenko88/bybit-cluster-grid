@@ -46,17 +46,22 @@ async def strategy_worker(db,poll_seconds=None):
             # Re-check immediately before expensive work.
             ok,_,reasons=strategy_allowed(settings)
             if not ok:
-                await requeue_job(db.pool,job["id"],"resource pressure: "+",".join(reasons))
+                await requeue_job(db.pool,job["id"],"resource pressure: "+",".join(reasons),
+                                  assigned_node=job['assigned_node'],attempts=job['attempts'])
                 job=None
                 await asyncio.sleep(max(3,poll_seconds)); continue
 
             await execute_job_subprocess(db,job)
-            await finish_job(db.pool,job["id"])
+            completed=await finish_job(db.pool,job["id"],assigned_node=job['assigned_node'],attempts=job['attempts'])
+            if not completed:
+                log.warning('strategy completion rejected by ownership deadline',extra={
+                    'event':'strategy_completion_rejected','component':str(job['id'])})
+                continue
             log.info("strategy job completed",extra={"event":"strategy_job_done","component":str(job["id"])})
         except asyncio.CancelledError:
             raise
         except Exception as e:
             log.exception("strategy job failed",extra={"event":"strategy_job_failed"})
             if job:
-                await finish_job(db.pool,job["id"],str(e))
+                await finish_job(db.pool,job["id"],str(e),assigned_node=job['assigned_node'],attempts=job['attempts'])
             await asyncio.sleep(1)
