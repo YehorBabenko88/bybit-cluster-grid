@@ -6,6 +6,10 @@ class Database:
     def __init__(self): self.pool=None
     async def connect(self):
         self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=10,command_timeout=30)
+    async def close(self):
+        if self.pool is not None:
+            await self.pool.close()
+            self.pool=None
     async def ensure_schema(self):
         async with self.pool.acquire() as c:
             await c.execute("""
