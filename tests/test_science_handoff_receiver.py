@@ -256,3 +256,12 @@ def test_directory_ledger_is_rejected(tmp_path):
     ledger.mkdir()
     with pytest.raises(ScienceHandoffError, match="regular file"):
         check_science_handoff_seen(manifest, ledger)
+
+
+def test_oversized_ledger_rejected_before_json_parsing(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    ledger = tmp_path / "imported.json"
+    with ledger.open("wb") as stream:
+        stream.truncate(4 * 1024 * 1024 + 1)
+    with pytest.raises(ScienceHandoffError, match="exceeds size limit"):
+        check_science_handoff_seen(manifest, ledger)
