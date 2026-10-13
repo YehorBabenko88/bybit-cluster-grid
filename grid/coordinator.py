@@ -126,10 +126,11 @@ async def health():
         leader=False
         if control_runtime and control_runtime.ready and control_runtime.token:
             token=control_runtime.token
-            leader=bool(token.active and await pool.fetchval("""SELECT EXISTS(
+            matches=await pool.fetchval("""SELECT EXISTS(
               SELECT 1 FROM service_leases WHERE service_key='control-plane-leader'
               AND owner=$1 AND (metadata->>'epoch')::bigint=$2 AND lease_until>clock_timestamp())""",
-              token.owner,token.generation))
+              token.owner,token.generation)
+            leader=bool(matches and control_runtime.ready and control_runtime.token is token and token.active)
     except Exception:
         log.exception("health probe failed",extra={"event":"health_failed","component":"coordinator"})
         raise HTTPException(503,"database unavailable")
@@ -139,8 +140,8 @@ async def health():
         "service": "Bybit Cluster Grid Coordinator",
         "runtime_state": str(fleet_state.get("state","UNKNOWN")),
         "control_leader": leader,
-        "control_epoch": control_runtime.token.generation if leader else None,
-        "control_owner": control_runtime.token.owner if leader else None,
+        "control_epoch": token.generation if leader else None,
+        "control_owner": token.owner if leader else None,
     }
 
 @app.post("/bootstrap/envelope")
