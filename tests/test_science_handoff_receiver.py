@@ -6,9 +6,22 @@ import pytest
 from grid.science_handoff_receiver import ScienceHandoffError, verify_science_handoff
 
 
+def science_bytes(symbols=None):
+    payload = {
+        "schema": 1,
+        "source": "strattester",
+        "research_scope": "HISTORICAL_BOOTSTRAP_ONLY",
+        "capabilities": {"candles": True, "true_l2_orderbook": False},
+        "symbols": [] if symbols is None else symbols,
+    }
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    payload["sha256"] = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    return json.dumps(payload, sort_keys=True).encode("utf-8")
+
+
 def make_package(tmp_path):
     science = tmp_path / "science_bundle.json"
-    science.write_text('{"symbols":[]}', encoding="utf-8")
+    science.write_bytes(science_bytes())
     manifest = tmp_path / "grid-handoff.json"
     manifest.write_text(json.dumps({
         "schema": 1,
@@ -55,7 +68,7 @@ def test_accepts_relocated_package_with_optional_strategy_database(tmp_path):
     original = tmp_path / "original"
     original.mkdir()
     science = original / "science_bundle.json"
-    science.write_text('{"symbols":["BTCUSDT"]}', encoding="utf-8")
+    science.write_bytes(science_bytes([{"symbol": "BTCUSDT", "status": "READY"}]))
     strategy = original / "strategy_results.sqlite3"
     strategy.write_bytes(b"portable-test-strategy-results")
     manifest = original / "grid-handoff.json"
@@ -112,4 +125,27 @@ def test_rejects_science_symlink_to_outside_package(tmp_path):
     except (OSError, NotImplementedError):
         pytest.skip("symlinks unavailable on this runner")
     with pytest.raises(ScienceHandoffError, match="science_bundle escapes"):
+        verify_science_handoff(manifest)
+
+
+def test_rejects_valid_outer_hash_but_invalid_science_schema(tmp_path):
+    manifest, science = make_package(tmp_path)
+    invalid = {"schema": 999, "source": "strattester", "symbols": []}
+    science.write_text(json.dumps(invalid), encoding="utf-8")
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    data["science_bundle"]["sha256"] = hashlib.sha256(science.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ScienceHandoffError, match="unsupported science bundle schema"):
+        verify_science_handoff(manifest)
+
+
+def test_rejects_valid_outer_hash_but_corrupted_internal_science_checksum(tmp_path):
+    manifest, science = make_package(tmp_path)
+    data = json.loads(science.read_text(encoding="utf-8"))
+    data["symbols"].append({"symbol": "ETHUSDT", "status": "READY"})
+    science.write_text(json.dumps(data), encoding="utf-8")
+    outer = json.loads(manifest.read_text(encoding="utf-8"))
+    outer["science_bundle"]["sha256"] = hashlib.sha256(science.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps(outer), encoding="utf-8")
+    with pytest.raises(ScienceHandoffError, match="internal checksum mismatch"):
         verify_science_handoff(manifest)
