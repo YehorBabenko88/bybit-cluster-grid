@@ -56,15 +56,27 @@ async def _ingest_owned(pool,node_id,kind,payload,persist,deadline):
                 live=bool(row and lease_live and row['owner']==node_id and session is not None
                           and row['session']==session and type(generation) is int
                           and row['generation']==generation)
+                # Source evidence is durable reconciliation input, never a
+                # canonical observation or permission to repair live statistics.
+                if kind=='event' and payload.get('event_type') in (
+                    'public_trade_capture_evidence','orderbook_capture_evidence'):
+                    live=False
                 disposition='LIVE' if live else 'QUARANTINED'
                 if live:
+                    sampled_at=asyncio.get_running_loop().time()
                     ttl=await c.fetchval("SELECT extract(epoch from lease_until-clock_timestamp()) FROM collection_ownership WHERE symbol=$1",symbol)
-                    if ttl<=0:raise OwnershipExpired('collection lease expired before persistence')
-                    deadline.reschedule(asyncio.get_running_loop().time()+float(ttl))
+                    expires_at=sampled_at+float(ttl)
+                    if ttl<=0 or asyncio.get_running_loop().time()>=expires_at:
+                        raise OwnershipExpired('collection lease expired before persistence')
+                    deadline.reschedule(expires_at)
                     await persist(ConnectionPool(c),payload)
                     # now() is transaction-start time and is unsafe after a stall.
                     if not await c.fetchval("SELECT lease_until>clock_timestamp() FROM collection_ownership WHERE symbol=$1",symbol):
                         raise OwnershipExpired('collection lease expired during persistence')
                 await c.execute("""UPDATE collection_ingest_receipts SET disposition=$4
                   WHERE node_id=$1 AND kind=$2 AND record_id=$3""",node_id,kind,record_id,disposition)
-    return {'ok':True,'ownership_protocol':1,'disposition':disposition,'sha256':digest}
+    result={'ok':True,'ownership_protocol':1,'disposition':disposition,'sha256':digest}
+    if kind=='event' and payload.get('event_type') in (
+        'public_trade_capture_evidence','orderbook_capture_evidence'):
+        result['capture_evidence_protocol']=1
+    return result

@@ -6,13 +6,19 @@ from .archive_discovery_service import seed_discovery
 from .market_backfill import seed_backfill,run_backfill_worker
 from .archive_pipeline_service import run_discovery_worker,run_archive_worker
 from .background_guard import background_work_allowed
+from .control_runtime import FencedPool,LeaderFenceError
 
 log=logging.getLogger("archive_service")
 
-async def service_loop(stop_event=None):
+async def service_loop(stop_event=None,db=None):
+    # A separate Task Scheduler process cannot inherit CONTROL's epoch. Never
+    # bootstrap a writable raw pool and materialize canonical data independently.
+    # A separately reviewed caller may inject the existing fenced DB/context.
+    if db is None or not isinstance(db.pool,FencedPool):
+        raise LeaderFenceError('ArchivePipeline requires a CONTROL-fenced database and epoch context')
     stop_event=stop_event or asyncio.Event()
-    db=await prepare_database()
-    os.makedirs(settings.archive_root,exist_ok=True)
+    async with db.pool.effect_guard():
+        os.makedirs(settings.archive_root,exist_ok=True)
     while not stop_event.is_set():
         try:
             allowed,reasons=await background_work_allowed(db.pool)

@@ -102,6 +102,9 @@ class OwnedSink:
         await self.sink.insert_event(symbol,event_ts,event_type,payload,
                                      ownership=self.token(symbol))
 
+    async def capture_event(self,symbol,event_ts,event_type,payload):
+        await self.insert_event(symbol,event_ts,event_type,payload)
+
 
 def wal_envelope(row,ownership=None):
     # Stamp exactly once before durable append, never on replay/send.
@@ -109,7 +112,9 @@ def wal_envelope(row,ownership=None):
     result['delivery_id']=str(uuid.uuid4())
     if ownership is not None:
         result['ownership']=dict(ownership)
-    return result
+    # Queue delivery must use exactly the JSON snapshot admitted to WAL, not
+    # caller-owned nested lists/dicts which may change before the HTTP sender.
+    return json.loads(json.dumps(result,ensure_ascii=False,allow_nan=False))
 
 
 async def check_receipt(resp,payload):

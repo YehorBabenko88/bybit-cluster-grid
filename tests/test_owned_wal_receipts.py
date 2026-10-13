@@ -21,7 +21,8 @@ class Response:
 class HTTP:
     def __init__(self,disposition):self.response=Response(disposition);self.rows=[]
     @asynccontextmanager
-    async def post(self,url,json,headers):
+    async def post(self,url,json,headers,allow_redirects):
+        assert allow_redirects is False
         self.rows.append(json)
         import json as codec
         self.response.sha256=hashlib.sha256(codec.dumps(json,sort_keys=True,separators=(',',':')).encode()).hexdigest()

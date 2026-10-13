@@ -32,6 +32,8 @@ async def execute_job_subprocess(db,job):
     env=os.environ.copy()
     env["GRID_STRATEGY_PLUGIN"]=str(plugin_path.resolve())
     env["GRID_STRATEGY_JOB_ID"]=str(job["id"])
+    env['GRID_STRATEGY_ATTEMPT']=str(job['attempts'])
+    env['GRID_STRATEGY_NODE']=job['assigned_node']
     env["POSTGRES_DSN"]=settings.postgres_dsn
     ram_limit_mb=max(256,int(float(getattr(settings,"strategy_ram_limit_mb",4096))))
     stdout=await run_supervised_process(

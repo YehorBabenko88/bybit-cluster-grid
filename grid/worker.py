@@ -29,6 +29,7 @@ from .integrity_guard import verify_manifest
 from .command_receipts import CommandReceiptStore
 from .ml_transport_client import MLTransportClient
 from .ml_agent_worker import ml_agent_loop
+from .active_control import active_control_url
 
 log=logging.getLogger("worker")
 
@@ -41,7 +42,6 @@ class Worker:
         self.micro_wanted=set()
         self.storage=Storage()
         self.micro_storage=MicroEventStorage()
-        self.micro_tape=MicroTapeAggregator(settings.micro_tape_bucket_ms)
         self.db=None
         self.meta={}
         self.enabled=True
@@ -135,6 +135,10 @@ class Worker:
                     snap.update({'control_generation':0,'control_checksum':'CORRUPT'})
                 dbm=self.storage.metrics()
                 microm=self.micro_storage.metrics()
+                if dbm.get('spool_faulted') or microm.get('spool_faulted'):
+                    log.critical('WAL IO is uncertain; restarting for exclusive recovery',extra={'event':'wal_restart_required'})
+                    self.restart_requested=True
+                    return
                 combined_pressure=max(
                     dbm["queue_ratio"],dbm.get("spool_ratio",0.0),
                     microm["queue_ratio"],microm.get("spool_ratio",0.0),
@@ -179,15 +183,16 @@ class Worker:
                 snap['collector_session']=self.collector_session
                 snap['ownership_protocol']=1
                 try:
+                    address=await active_control_url()
                     assignment_request_started=time.monotonic()
                     async with s.post(
-                        settings.coordinator_url+"/heartbeat",
+                        address+"/heartbeat",
                         json=snap,
                         headers={
                             "X-Grid-Token":settings.grid_shared_token,
                             "X-Node-Credential":node_credential(),
                         },
-                        timeout=10
+                        timeout=10,allow_redirects=False
                     ) as r:
                         if r.status==200:
                             mark_coordinator_success()
@@ -237,12 +242,12 @@ class Worker:
                                     self.command_receipts.put(cmd.get("id"),ok,result,error)
                                 try:
                                     async with s.post(
-                                        settings.coordinator_url+f"/commands/{cmd['id']}/result",
+                                        address+f"/commands/{cmd['id']}/result",
                                         json={"node_id":snap["node_id"],"ok":ok,"result":result,"error":error},
                                         headers={
                                             "X-Grid-Token":settings.grid_shared_token,
                                             "X-Node-Credential":node_credential(),
-                                        },timeout=10
+                                        },timeout=10,allow_redirects=False
                                     ) as ack_response:
                                         ack_response.raise_for_status()
                                 except Exception:
@@ -258,7 +263,9 @@ class Worker:
                             self.db.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
                             self.micro_storage.set_replay_rate(recovery.get("micro_per_second",settings.replay_micro_per_second))
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
-                            granted=local_grants(reply,self.collector_session,assignment_request_started)
+                            granted=(local_grants(reply,self.collector_session,assignment_request_started)
+                                     if type(reply.get('capture_evidence_protocol')) is int
+                                     and reply['capture_evidence_protocol']==1 else {})
                             granted={s:g for s,g in granted.items()
                                      if g['generation']>=self.ownership_generations.get(s,0)}
                             assigned.intersection_update(granted)
@@ -381,6 +388,9 @@ class Worker:
             log.info("microstructure assignment reconciled",extra={"event":"micro_assignment","component":f"{len(symbols)} symbols"})
 
     async def trade_stream(self,symbol):
+        # A task owns one immutable collector generation. Never carry a bucket
+        # or cumulative delta from a stopped task into its successor's token.
+        tape=None
         minute_sink=OwnedSink(self.storage,self.ownership,self.ownership)
         micro_sink=OwnedSink(self.micro_storage,self.ownership,self.ownership)
         tick=self.meta[symbol]["tick_size"]
@@ -423,9 +433,20 @@ class Worker:
                     while True:
                         raw=await asyncio.wait_for(ws.recv(),timeout=45)
                         msg=json.loads(raw)
-                        if not msg.get("topic","").startswith("publicTrade."):
+                        if msg.get("topic")!=subscription_topic:
                             continue
                         batch=msg.get("data",[])
+                        # Persist each received frame before mutating either
+                        # the minute footprint or the open micro-tape bucket.
+                        # This evidence is never replayed into live aggregates.
+                        if batch:
+                            receive_ts=int(time.time()*1000)
+                            await micro_sink.insert_event(symbol,receive_ts,'public_trade_capture_evidence',{
+                                'symbol':symbol,'capture_stage':'PRE_AGGREGATION',
+                                'messages':[{'system_ts':msg.get('ts'),'receive_ts':receive_ts,'trades':batch}],
+                                'message_count':1,'event_count':len(batch),
+                                'first_receive_ts':receive_ts,'last_receive_ts':receive_ts,
+                            })
                         self.pressure.observe_symbol(symbol,events=len(batch))
                         for x in batch:
                             trade_ts=int(x["T"])
@@ -444,7 +465,8 @@ class Worker:
                                 # feed it into micro tape or any downstream feature path.
                                 continue
                             if symbol in self.micro_wanted:
-                                tape_row=self.micro_tape.add(trade)
+                                if tape is None:tape=MicroTapeAggregator(settings.micro_tape_bucket_ms)
+                                tape_row=tape.add(trade)
                                 if tape_row is not None:
                                     await micro_sink.insert_event(
                                         symbol,
@@ -452,6 +474,8 @@ class Worker:
                                         "trade_tape_250ms",
                                         tape_row,
                                     )
+                            else:
+                                tape=None
                             if suspect_gap:
                                 fp.mark_degraded(symbol,trade_ts,"trade_time_gap")
                         for row in fp.pop_closed(int(time.time()*1000)):

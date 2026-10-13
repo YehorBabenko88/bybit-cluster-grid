@@ -126,10 +126,11 @@ async def health():
         leader=False
         if control_runtime and control_runtime.ready and control_runtime.token:
             token=control_runtime.token
-            leader=bool(token.active and await pool.fetchval("""SELECT EXISTS(
+            matches=await pool.fetchval("""SELECT EXISTS(
               SELECT 1 FROM service_leases WHERE service_key='control-plane-leader'
               AND owner=$1 AND (metadata->>'epoch')::bigint=$2 AND lease_until>clock_timestamp())""",
-              token.owner,token.generation))
+              token.owner,token.generation)
+            leader=bool(matches and control_runtime.ready and control_runtime.token is token and token.active)
     except Exception:
         log.exception("health probe failed",extra={"event":"health_failed","component":"coordinator"})
         raise HTTPException(503,"database unavailable")
@@ -139,6 +140,8 @@ async def health():
         "service": "Bybit Cluster Grid Coordinator",
         "runtime_state": str(fleet_state.get("state","UNKNOWN")),
         "control_leader": leader,
+        "control_epoch": token.generation if leader else None,
+        "control_owner": token.owner if leader else None,
     }
 
 @app.post("/bootstrap/envelope")
@@ -236,7 +239,7 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
             "install_mode":install_mode,"control_disk_state":control_disk["state"],
             "recovery_profile":replay,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled,
-            "ownership_protocol":1,"ownership":ownership}
+            "ownership_protocol":1,"ownership":ownership,"capture_evidence_protocol":1}
 
 @app.get("/nodes/{node_id}/acceptance")
 async def node_acceptance(node_id:str,x_node_credential:str=Header(default="")):
@@ -460,6 +463,13 @@ async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_c
         return await ingest_owned(db.pool,x_node_id,'event',payload,persist)
     except (ValueError,TypeError) as exc:
         raise HTTPException(409 if isinstance(exc,OwnershipExpired) else 400,str(exc))
+
+
+@app.post('/ingest/capture')
+async def ingest_capture(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
+    if payload.get('event_type') not in ('public_trade_capture_evidence','orderbook_capture_evidence'):
+        raise HTTPException(400,'capture endpoint accepts source evidence only')
+    return await ingest_event(payload,x_grid_token,x_node_credential,x_node_id)
 
 
 @app.post("/ml/claim")
@@ -802,6 +812,8 @@ async def stop_leader_services():
             close=getattr(derived,"close",None)
             if close is not None:
                 await close()
+        spool=getattr(ingest_storage,'spool',None)
+        if spool is not None:spool.close()
         ingest_storage = None
     assignments={};instruments={};nodes={}
     ml_orchestrator=None;scientific_service=None
