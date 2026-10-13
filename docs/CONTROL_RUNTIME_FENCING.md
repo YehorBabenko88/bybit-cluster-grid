@@ -46,6 +46,12 @@ uncommitted successful response is used.
   have not been production-certified.
 - Quarantined WAL remains durable and explicitly excluded from live statistics.
   Automatic historical reconciliation/garbage collection is not enabled.
+- Filesystem maintenance checks its conservative local epoch deadline immediately
+  before each unlink/rmdir, so a blocked event loop cannot admit subsequent deletes
+  after expiry. One already admitted OS syscall may finish after the deadline;
+  takeover stays blocked by the lease-row lock until its guard exits. Recursive
+  release-tree cleanup has no per-file cancellation boundary and is deferred to
+  the stopped-service/offline update path while CONTROL runs.
 
 Tests cover two election runtimes, takeover, revoked and stale task epochs,
 synthetic PostgreSQL transport outage/recovery, long transactions, deferred COMMIT,

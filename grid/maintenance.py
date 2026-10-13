@@ -11,6 +11,7 @@ from .ml_artifact_store import LocalArtifactStore
 from .ml_artifact_gc import drain_owned_artifacts
 from .schema_audit import schema_type_audit
 from .update_manager import cleanup_release_storage
+from .control_runtime import pool_effect,assert_effect_permission,FencedPool
 
 log=logging.getLogger("maintenance")
 
@@ -24,7 +25,7 @@ def cleanup_owned_temp_files(root,older_than_seconds=86400):
         for p in root.rglob(pattern):
             try:
                 if p.is_file() and p.stat().st_mtime<cutoff:
-                    p.unlink();removed+=1
+                    assert_effect_permission();p.unlink();removed+=1
             except OSError:
                 pass
     return removed
@@ -38,11 +39,11 @@ def cleanup_strategy_cache(root,older_than_seconds=7*86400):
     for p in root.rglob("strategy.py"):
         try:
             if p.is_file() and p.stat().st_mtime<cutoff:
-                p.unlink();removed+=1
+                assert_effect_permission();p.unlink();removed+=1
         except OSError:pass
     # Remove empty hash/version/name directories bottom-up.
     for p in sorted((x for x in root.rglob("*") if x.is_dir()),key=lambda x:len(x.parts),reverse=True):
-        try:p.rmdir()
+        try:assert_effect_permission();p.rmdir()
         except OSError:pass
     return removed
 
@@ -55,7 +56,7 @@ def cleanup_orphan_archive_files(root,older_than_seconds=86400):
     for p in root.glob("grid-archive-*"):
         try:
             if p.is_file() and not p.name.endswith(".part") and p.stat().st_mtime<cutoff:
-                p.unlink();removed+=1
+                assert_effect_permission();p.unlink();removed+=1
         except OSError:pass
     return removed
 
@@ -84,7 +85,7 @@ def cleanup_owned_postgres_logs(data_root,older_than_seconds=14*86400):
     for p in log_root.glob("*.log"):
         try:
             if p.is_file() and p.stat().st_mtime<cutoff:
-                p.unlink();removed+=1
+                assert_effect_permission();p.unlink();removed+=1
         except OSError:pass
     return removed
 
@@ -157,16 +158,20 @@ async def maintenance_scheduler(pool,settings):
             aggressive=disk["state"]!="NORMAL"
             meta=await cleanup_control_metadata(pool)
             artifact_gc=await drain_owned_artifacts(pool,LocalArtifactStore(settings.ml_artifact_root))
-            temps=cleanup_owned_temp_files(root,3600 if aggressive else 86400)
-            strategy=cleanup_strategy_cache(pathlib.Path(settings.strategy_cache_dir),
-                                            86400 if aggressive else 7*86400)
-            archive=cleanup_orphan_archive_files(pathlib.Path(settings.archive_root),
-                                                 3600 if aggressive else 86400)
-            install_root=pathlib.Path(os.environ.get("ProgramFiles",r"C:\\Program Files"))/"BybitClusterGrid"
-            # Keep current + rollback target protected; bound reproducible release/update debris.
-            releases=cleanup_release_storage(install_root,root,keep_recent=2,
-                                             older_than_seconds=3600 if aggressive else 86400)
-            pglogs=cleanup_owned_postgres_logs(root,3*86400 if aggressive else 14*86400)
+            async with pool_effect(pool):
+                temps=cleanup_owned_temp_files(root,3600 if aggressive else 86400)
+                strategy=cleanup_strategy_cache(pathlib.Path(settings.strategy_cache_dir),
+                                                86400 if aggressive else 7*86400)
+                archive=cleanup_orphan_archive_files(pathlib.Path(settings.archive_root),
+                                                     3600 if aggressive else 86400)
+                install_root=pathlib.Path(os.environ.get("ProgramFiles",r"C:\\Program Files"))/"BybitClusterGrid"
+                # Keep current + rollback target protected; bound reproducible release/update debris.
+                # shutil.rmtree has no per-file lease checks. Keep that
+                # maintenance on the stopped-service/offline update path.
+                releases=({'deferred':'offline release cleanup required'} if isinstance(pool,FencedPool) else
+                          cleanup_release_storage(install_root,root,keep_recent=2,
+                                                  older_than_seconds=3600 if aggressive else 86400))
+                pglogs=cleanup_owned_postgres_logs(root,3*86400 if aggressive else 14*86400)
             pgstats=await maintain_postgres_statistics(pool)
             bloated=[{"table":x["relname"],"dead_ratio":x["dead_ratio"],
                       "total_bytes":int(x["total_bytes"])}

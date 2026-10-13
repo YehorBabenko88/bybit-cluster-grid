@@ -37,7 +37,7 @@ from .scientific_service import ScientificResearchService
 from .historical_science_import import import_historical_science
 from .collection_ownership import grant_assignments
 from .fenced_ingest import ingest_owned,OwnershipExpired
-from .control_runtime import ControlRuntime,FencedPool,EpochMiddleware
+from .control_runtime import ControlRuntime,FencedPool,EpochMiddleware,assert_effect_permission
 import copy
 from types import SimpleNamespace
 from .system_lifecycle import get_phase,advance_phase,phase_capabilities,PHASES
@@ -313,6 +313,7 @@ async def control_update(payload:dict,x_grid_token:str=Header(default="")):
     log_path.parent.mkdir(parents=True,exist_ok=True)
     out=open(log_path,"ab",buffering=0)
     try:
+        assert_effect_permission()
         subprocess.Popen([str(python),"-m","grid.control_self_update",
                           "--version",version,"--url",url,"--sha256",sha],
                          cwd=str(pathlib.Path(__file__).resolve().parents[1]),

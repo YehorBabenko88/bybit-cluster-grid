@@ -38,6 +38,29 @@ def leader_effect(function):
     return guarded
 
 
+@asynccontextmanager
+async def pool_effect(pool):
+    if isinstance(pool,FencedPool):
+        async with pool.effect_guard():yield
+    else:yield
+
+
+def leader_pool_effect(function):
+    @wraps(function)
+    async def guarded(pool,*args,**kwargs):
+        async with pool_effect(pool):return await function(pool,*args,**kwargs)
+    return guarded
+
+
+def assert_effect_permission():
+    """Synchronous effects must check before each syscall, even if the loop stalls."""
+    actor=_epoch.get();state=_scope.get()
+    if actor is None and state is None:return  # standalone offline maintenance
+    if (actor is None or not actor.active or state is None or not state['active']
+            or asyncio.get_running_loop().time()>=state['deadline']):
+        raise LeaderFenceError('filesystem effect epoch expired')
+
+
 class EpochMiddleware:
     """Pure ASGI: route cancellation and transaction run on the same task.
 
@@ -101,9 +124,11 @@ class FencedPool:
                 async with self.raw.acquire() as c:
                     async with c.transaction():
                         await c.fetchrow("SELECT service_key FROM service_leases WHERE service_key='control-plane-leader' FOR SHARE")
+                        sampled_at=asyncio.get_running_loop().time()
                         ttl=await self.remaining(c,actor)
-                        lease_timeout.reschedule(asyncio.get_running_loop().time()+ttl)
-                        state={'pool':self,'connection':c,'owner':None if effect else task,'active':True,'actor':actor}
+                        deadline=sampled_at+ttl  # subtract the clock-query round trip
+                        lease_timeout.reschedule(deadline)
+                        state={'pool':self,'connection':c,'owner':None if effect else task,'active':True,'actor':actor,'deadline':deadline}
                         marker=_scope.set(state)
                         try:
                             yield c

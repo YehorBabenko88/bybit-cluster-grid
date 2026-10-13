@@ -48,5 +48,7 @@ class LocalArtifactStore:
         p=self._path(aid).resolve()
         if os.path.commonpath([str(p),str(self.root)])!=str(self.root):
             raise ValueError("artifact path escaped owned root")
+        from .control_runtime import assert_effect_permission
+        assert_effect_permission()
         try:p.unlink();return True
         except FileNotFoundError:return False
