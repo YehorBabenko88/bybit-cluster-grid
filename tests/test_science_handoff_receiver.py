@@ -237,3 +237,22 @@ def test_duplicate_import_ledger_entries_fail_closed(tmp_path):
     ledger.write_text(json.dumps({"schema": 1, "imported": [identity, identity]}), encoding="utf-8")
     with pytest.raises(ScienceHandoffError, match="duplicate handoff ledger entries"):
         check_science_handoff_seen(manifest, ledger)
+
+
+def test_dangling_symlink_ledger_is_not_treated_as_absent(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    ledger = tmp_path / "imported.json"
+    try:
+        ledger.symlink_to(tmp_path / "missing.json")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink creation unavailable")
+    with pytest.raises(ScienceHandoffError, match="symlinks are not allowed"):
+        check_science_handoff_seen(manifest, ledger)
+
+
+def test_directory_ledger_is_rejected(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    ledger = tmp_path / "imported.json"
+    ledger.mkdir()
+    with pytest.raises(ScienceHandoffError, match="regular file"):
+        check_science_handoff_seen(manifest, ledger)
