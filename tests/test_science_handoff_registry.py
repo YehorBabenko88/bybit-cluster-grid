@@ -79,3 +79,33 @@ def test_registry_parent_directory_must_exist(tmp_path):
     with pytest.raises(ScienceHandoffError, match="directory is missing"):
         claim_science_handoff(manifest, db)
     assert not db.parent.exists()
+
+
+def test_failed_claim_transaction_rolls_back_without_reservation(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    db = tmp_path / "claims.sqlite3"
+    # Inject a database-side failure after table creation but before insertion.
+    with sqlite3.connect(db) as connection:
+        connection.execute("CREATE TABLE handoff_claims (identity TEXT PRIMARY KEY, status TEXT)")
+        connection.execute(
+            "CREATE TRIGGER reject_claim BEFORE INSERT ON handoff_claims "
+            "BEGIN SELECT RAISE(ABORT, 'simulated interruption'); END"
+        )
+    with pytest.raises(ScienceHandoffError, match="registry error"):
+        claim_science_handoff(manifest, db)
+    with sqlite3.connect(db) as connection:
+        assert connection.execute("SELECT count(*) FROM handoff_claims").fetchone()[0] == 0
+        connection.execute("DROP TRIGGER reject_claim")
+    assert claim_science_handoff(manifest, db)["claimed"] is True
+
+
+def test_existing_claim_is_not_changed_by_repeat_request(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    db = tmp_path / "claims.sqlite3"
+    first = claim_science_handoff(manifest, db)
+    with sqlite3.connect(db) as connection:
+        before = connection.execute("SELECT identity, status FROM handoff_claims").fetchall()
+    assert claim_science_handoff(manifest, db)["claimed"] is False
+    with sqlite3.connect(db) as connection:
+        after = connection.execute("SELECT identity, status FROM handoff_claims").fetchall()
+    assert before == after == [(first["identity"], "CLAIMED")]
