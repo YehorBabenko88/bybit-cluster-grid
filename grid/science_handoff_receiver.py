@@ -109,8 +109,14 @@ def check_science_handoff_seen(manifest_path, ledger_path):
     """
     identity = science_handoff_identity(manifest_path)
     ledger_path = Path(ledger_path)
+    # A dangling symlink must not masquerade as a missing ledger; an attacker
+    # could otherwise bypass a previously recorded import identity.
+    if ledger_path.is_symlink():
+        raise ScienceHandoffError("handoff ledger symlinks are not allowed")
     if not ledger_path.exists():
         return {"identity": identity, "seen": False}
+    if not ledger_path.is_file():
+        raise ScienceHandoffError("handoff ledger must be a regular file")
     try:
         ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, ValueError) as exc:
