@@ -16,6 +16,9 @@ async def mark_deleted(pool,artifact_id):
 async def touch_artifact(pool,artifact_id):
     await pool.execute("UPDATE ml_artifacts SET last_used_at=now() WHERE id=$1 AND status='ACTIVE'",artifact_id)
 
+from .control_runtime import leader_pool_effect
+
+@leader_pool_effect
 async def delete_owned_artifacts(pool,store,limit=200):
     """Two-phase, retry-safe physical GC for local artifacts only."""
     rows=await pool.fetch("""SELECT a.* FROM ml_artifacts a

@@ -77,7 +77,7 @@ def test_command_result_reconciles_fleet_after_persisting_ack():
 
 def test_recovery_loop_reconciles_before_runtime_gate_check():
     tree = _tree()
-    startup = _async_function(tree, "startup")
+    startup = _async_function(tree, "start_leader_services")
 
     loop_fn = None
 

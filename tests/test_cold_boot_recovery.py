@@ -17,8 +17,19 @@ def test_control_launchers_wait_only_for_grid_owned_postgres():
     assert "wait-grid-postgres.ps1" in archive
 
 
-def test_coordinator_closes_database_pool_on_shutdown():
-    s=Path("grid/coordinator.py").read_text(encoding="utf-8")
-    shutdown=s.split('@app.on_event("shutdown")',1)[1]
-    assert "await db.pool.close()" in shutdown
-    assert "db.pool=None" in shutdown
+def test_coordinator_closes_database_pool_on_shutdown(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from grid import coordinator
+    async def run():
+        raw=SimpleNamespace(close=AsyncMock())
+        db=SimpleNamespace(pool=object(),raw_pool=raw)
+        runtime=SimpleNamespace(stop=AsyncMock())
+        monkeypatch.setattr(coordinator,'db',db)
+        monkeypatch.setattr(coordinator,'control_runtime',runtime)
+        await coordinator.shutdown()
+        runtime.stop.assert_awaited_once()
+        raw.close.assert_awaited_once()
+        assert db.pool is None
+    asyncio.run(run())

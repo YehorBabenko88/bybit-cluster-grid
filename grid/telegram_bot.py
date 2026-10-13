@@ -132,6 +132,9 @@ def _healthy_canary(nodes):
         candidates.append((cpu+ram,nid))
     return min(candidates)[1] if candidates else None
 
+from .control_runtime import leader_effect,assert_effect_permission
+
+@leader_effect
 async def handle_command(db,session,chat_id,text,nodes):
     parts=text.strip().split()
     cmd=parts[0].lower()
@@ -485,6 +488,7 @@ async def handle_command(db,session,chat_id,text,nodes):
         log_path=data_root/"logs"/"control-self-update.log";log_path.parent.mkdir(parents=True,exist_ok=True)
         out=open(log_path,"ab",buffering=0)
         try:
+            assert_effect_permission()
             subprocess.Popen([str(python),"-m","grid.control_self_update",
                 "--version",str(rel["version"]),"--url",str(rel["package_url"]),"--sha256",str(rel["sha256"])],
                 cwd=str(pathlib.Path(__file__).resolve().parents[1]),stdout=out,stderr=subprocess.STDOUT,
@@ -514,6 +518,7 @@ async def handle_command(db,session,chat_id,text,nodes):
     else:
         await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db /controlupdate VERSION /controlupdatestatus")
 
+@leader_effect
 async def _maybe_finalize_fleet_delete(db,session):
     op=await latest_operation(db.pool,"DELETE")
     if not op or op["status"] not in ("WAITING","READY_CONTROL_PURGE"):
@@ -539,6 +544,7 @@ async def _maybe_finalize_fleet_delete(db,session):
         await db.pool.execute("UPDATE fleet_operations SET status='FAILED',details=details || $2::jsonb WHERE id=$1",
                               op["id"],'{"control_error":"local uninstall script missing"}')
         return
+    assert_effect_permission()
     subprocess.Popen(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(script),"-PurgeData"],
                      creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
 
