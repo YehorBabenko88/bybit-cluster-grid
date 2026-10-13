@@ -35,6 +35,10 @@ from .disk_guard import DiskWatermarks,disk_state,live_collection_allowed
 from .tailscale_provisioning import create_one_time_auth_key,TailscaleProvisioningError
 from .scientific_service import ScientificResearchService
 from .historical_science_import import import_historical_science
+from .collection_ownership import grant_assignments
+from .fenced_ingest import ingest_owned,OwnershipExpired
+import copy
+from types import SimpleNamespace
 from .system_lifecycle import get_phase,advance_phase,phase_capabilities,PHASES
 
 log=logging.getLogger("coordinator")
@@ -46,6 +50,7 @@ background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
 ml_orchestrator=None
 scientific_service=None
+ingest_lock=asyncio.Lock()
 
 
 
@@ -205,6 +210,9 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
     control_disk=control_disk_state()
     if not live_collection_allowed(control_disk["state"]):
         symbols=[]
+    ownership=await grant_assignments(db.pool,nid,payload.get('collector_session'),symbols,
+                                     max(3,3*settings.heartbeat_seconds))
+    symbols=[s for s in symbols if s in ownership]
     # High-rate microstructure capture remains pilot-only until the volatility
     # selector is implemented; disk SOFT pressure also disables it first.
     micro_symbols=symbols if install_mode=="PILOT" and control_disk["state"]=="NORMAL" else []
@@ -213,7 +221,8 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
             "live_assignments_enabled":bool(symbols),"live_mode":live_mode,
             "install_mode":install_mode,"control_disk_state":control_disk["state"],
             "recovery_profile":replay,
-            "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled}
+            "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled,
+            "ownership_protocol":1,"ownership":ownership}
 
 @app.get("/nodes/{node_id}/acceptance")
 async def node_acceptance(node_id:str,x_node_credential:str=Header(default="")):
@@ -363,8 +372,33 @@ async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_no
         raise HTTPException(503,"ingestion unavailable")
     if not live_collection_allowed(control_disk_state()["state"]):
         raise HTTPException(507,"CONTROL disk pressure")
-    await ingest_storage._save_direct(payload)
-    return {"ok":True}
+    async with ingest_lock:
+        # Publish analytical state only after the fenced outer transaction commits.
+        staged=copy.copy(ingest_storage)
+        staged.feature_builder=copy.deepcopy(ingest_storage.feature_builder)
+        staged.derived=None
+        notifications=[]
+        staged.scientific=SimpleNamespace(ingest_feature_row=lambda *args:notifications.append(args))
+        persisted=False
+        async def persist(pool,row):
+            nonlocal persisted
+            staged.pool=pool
+            staged.derived=copy.deepcopy(ingest_storage.derived,{id(ingest_storage.derived.pool):pool})
+            await staged._save_direct(row)
+            persisted=True
+        try:
+            result=await ingest_owned(db.pool,x_node_id,'minute',payload,persist)
+        except (ValueError,TypeError) as exc:
+            raise HTTPException(409 if isinstance(exc,OwnershipExpired) else 400,str(exc))
+        if persisted:
+            staged.derived.pool=db.pool;staged.derived.levels.pool=db.pool
+            ingest_storage.feature_builder=staged.feature_builder
+            ingest_storage.derived=staged.derived
+            if ingest_storage.scientific is not None:
+                for args in notifications:
+                    try:ingest_storage.scientific.ingest_feature_row(*args)
+                    except Exception:log.exception('scientific notification failed after fenced commit')
+        return result
 
 @app.post("/ingest/event")
 async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
@@ -396,8 +430,14 @@ async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_c
         # Micro events are shed already at SOFT pressure because they are the
         # highest-rate, least essential live stream.
         raise HTTPException(507,"CONTROL disk pressure")
-    await db.insert_event(symbol,int(event_ts),event_type,event_payload)
-    return {"ok":True}
+    async def persist(pool,row):
+        await pool.execute("""INSERT INTO market_events(symbol,event_ts,event_type,payload)
+          VALUES($1,to_timestamp($2/1000.0),$3,$4::jsonb) ON CONFLICT DO NOTHING""",
+          symbol,event_ts,event_type,json.dumps(event_payload))
+    try:
+        return await ingest_owned(db.pool,x_node_id,'event',payload,persist)
+    except (ValueError,TypeError) as exc:
+        raise HTTPException(409 if isinstance(exc,OwnershipExpired) else 400,str(exc))
 
 
 @app.post("/ml/claim")
