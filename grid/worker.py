@@ -42,7 +42,6 @@ class Worker:
         self.micro_wanted=set()
         self.storage=Storage()
         self.micro_storage=MicroEventStorage()
-        self.micro_tape=MicroTapeAggregator(settings.micro_tape_bucket_ms)
         self.db=None
         self.meta={}
         self.enabled=True
@@ -389,6 +388,9 @@ class Worker:
             log.info("microstructure assignment reconciled",extra={"event":"micro_assignment","component":f"{len(symbols)} symbols"})
 
     async def trade_stream(self,symbol):
+        # A task owns one immutable collector generation. Never carry a bucket
+        # or cumulative delta from a stopped task into its successor's token.
+        tape=None
         minute_sink=OwnedSink(self.storage,self.ownership,self.ownership)
         micro_sink=OwnedSink(self.micro_storage,self.ownership,self.ownership)
         tick=self.meta[symbol]["tick_size"]
@@ -463,7 +465,8 @@ class Worker:
                                 # feed it into micro tape or any downstream feature path.
                                 continue
                             if symbol in self.micro_wanted:
-                                tape_row=self.micro_tape.add(trade)
+                                if tape is None:tape=MicroTapeAggregator(settings.micro_tape_bucket_ms)
+                                tape_row=tape.add(trade)
                                 if tape_row is not None:
                                     await micro_sink.insert_event(
                                         symbol,
@@ -471,6 +474,8 @@ class Worker:
                                         "trade_tape_250ms",
                                         tape_row,
                                     )
+                            else:
+                                tape=None
                             if suspect_gap:
                                 fp.mark_degraded(symbol,trade_ts,"trade_time_gap")
                         for row in fp.pop_closed(int(time.time()*1000)):

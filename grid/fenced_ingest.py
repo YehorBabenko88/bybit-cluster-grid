@@ -63,9 +63,12 @@ async def _ingest_owned(pool,node_id,kind,payload,persist,deadline):
                     live=False
                 disposition='LIVE' if live else 'QUARANTINED'
                 if live:
+                    sampled_at=asyncio.get_running_loop().time()
                     ttl=await c.fetchval("SELECT extract(epoch from lease_until-clock_timestamp()) FROM collection_ownership WHERE symbol=$1",symbol)
-                    if ttl<=0:raise OwnershipExpired('collection lease expired before persistence')
-                    deadline.reschedule(asyncio.get_running_loop().time()+float(ttl))
+                    expires_at=sampled_at+float(ttl)
+                    if ttl<=0 or asyncio.get_running_loop().time()>=expires_at:
+                        raise OwnershipExpired('collection lease expired before persistence')
+                    deadline.reschedule(expires_at)
                     await persist(ConnectionPool(c),payload)
                     # now() is transaction-start time and is unsafe after a stall.
                     if not await c.fetchval("SELECT lease_until>clock_timestamp() FROM collection_ownership WHERE symbol=$1",symbol):

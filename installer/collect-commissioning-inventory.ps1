@@ -4,7 +4,7 @@
 [CmdletBinding()]
 param(
     [string]$OutputPath = "",
-    [string]$GridRoot = "C:\ProgramData\BybitClusterGrid"
+    [string]$GridRoot = "$env:ProgramFiles\BybitClusterGrid"
 )
 $ErrorActionPreference = "Stop"
 function Read-Marker([string]$Path) {
@@ -45,8 +45,8 @@ $report = [ordered]@{
     os = [Environment]::OSVersion.VersionString
     powershell_version = $PSVersionTable.PSVersion.ToString()
     grid_root_exists = Test-Path -LiteralPath $GridRoot
-    grid_current_sha = Read-Marker (Join-Path $GridRoot "current")
-    grid_previous_sha = Read-Marker (Join-Path $GridRoot "previous")
+    grid_current_sha = Read-Marker (Join-Path $GridRoot "current.version")
+    grid_previous_sha = Read-Marker (Join-Path $GridRoot "previous.version")
     disk = Drive-Info $GridRoot
     processes = $processes
     scheduled_tasks = $tasks
@@ -59,7 +59,15 @@ if ($OutputPath) {
     $dir = Split-Path -Parent $full
     if (-not (Test-Path -LiteralPath $dir -PathType Container)) { throw "Output directory must exist: $dir" }
     if (Test-Path -LiteralPath $full) { throw "Refusing to overwrite existing inventory: $full" }
-    [System.IO.File]::WriteAllText($full, $json, (New-Object System.Text.UTF8Encoding($false)))
+    # Exclusive creation closes the Test-Path/write race; another inventory
+    # writer's file is never overwritten, including case-insensitive aliases.
+    $stream=[System.IO.File]::Open($full,[System.IO.FileMode]::CreateNew,
+                                 [System.IO.FileAccess]::Write,[System.IO.FileShare]::None)
+    try {
+        $bytes=(New-Object System.Text.UTF8Encoding($false)).GetBytes($json)
+        $stream.Write($bytes,0,$bytes.Length)
+        $stream.Flush($true)
+    } finally { $stream.Dispose() }
     Write-Output "Inventory saved: $full"
 } else {
     Write-Output $json

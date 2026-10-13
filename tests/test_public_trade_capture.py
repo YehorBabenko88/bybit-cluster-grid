@@ -33,6 +33,7 @@ class Tape(MicroTapeAggregator):
         row=super().add(trade)
         (root/'ready').write_text('aggregated')
         return row
+module.MicroTapeAggregator=Tape
 class Socket:
     def __init__(self):self.counter=0
     async def send(self,*args):pass

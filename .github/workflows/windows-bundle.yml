@@ -116,6 +116,14 @@ jobs:
             if($errors.Count -gt 0){ throw ("PowerShell parse failed for "+$file+": "+(($errors | ForEach-Object {$_.Message}) -join '; ')) }
           }
 
+      - name: Synthetic commissioning inventory PowerShell 7
+        shell: pwsh
+        run: ./installer/tests/test-commissioning-inventory.ps1
+
+      - name: Synthetic commissioning inventory Windows PowerShell 5.1
+        shell: powershell
+        run: ./installer/tests/test-commissioning-inventory.ps1
+
       - name: Test launcher marker validation
         shell: pwsh
         run: |
