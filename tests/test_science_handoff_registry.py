@@ -46,3 +46,36 @@ def test_registry_symlink_rejected(tmp_path):
         pytest.skip("symlinks unavailable")
     with pytest.raises(ScienceHandoffError, match="invalid scientific handoff registry"):
         claim_science_handoff(manifest, db)
+
+
+def test_claim_survives_reopening_database_after_simulated_restart(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    db = tmp_path / "claims.sqlite3"
+    initial = claim_science_handoff(manifest, db)
+    assert initial["claimed"] is True
+    # A fresh connection simulates the next process after the original exits.
+    with sqlite3.connect(db) as connection:
+        assert connection.execute(
+            "SELECT status FROM handoff_claims WHERE identity = ?",
+            (initial["identity"],),
+        ).fetchone() == ("CLAIMED",)
+    assert claim_science_handoff(manifest, db) == {
+        "identity": initial["identity"], "claimed": False,
+    }
+
+
+def test_corrupt_registry_fails_closed_without_replacing_it(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    db = tmp_path / "claims.sqlite3"
+    db.write_bytes(b"not-a-sqlite-database")
+    with pytest.raises(ScienceHandoffError, match="registry error"):
+        claim_science_handoff(manifest, db)
+    assert db.read_bytes() == b"not-a-sqlite-database"
+
+
+def test_registry_parent_directory_must_exist(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    db = tmp_path / "missing" / "claims.sqlite3"
+    with pytest.raises(ScienceHandoffError, match="directory is missing"):
+        claim_science_handoff(manifest, db)
+    assert not db.parent.exists()
