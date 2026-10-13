@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from grid.science_handoff_receiver import ScienceHandoffError, verify_science_handoff
+from grid.science_handoff_receiver import ScienceHandoffError, verify_science_handoff, science_handoff_identity
 
 
 def science_bytes(symbols=None):
@@ -149,3 +149,28 @@ def test_rejects_valid_outer_hash_but_corrupted_internal_science_checksum(tmp_pa
     manifest.write_text(json.dumps(outer), encoding="utf-8")
     with pytest.raises(ScienceHandoffError, match="internal checksum mismatch"):
         verify_science_handoff(manifest)
+
+
+def test_science_identity_ignores_package_location_and_creation_metadata(tmp_path):
+    import shutil
+    first = tmp_path / "first"
+    first.mkdir()
+    manifest, _ = make_package(first)
+    initial = science_handoff_identity(manifest)
+    second = tmp_path / "second"
+    shutil.copytree(first, second)
+    moved = second / "grid-handoff.json"
+    data = json.loads(moved.read_text(encoding="utf-8"))
+    data["created_at"] = 9999999999
+    moved.write_text(json.dumps(data), encoding="utf-8")
+    assert science_handoff_identity(moved) == initial
+
+
+def test_science_identity_changes_with_verified_science_content(tmp_path):
+    manifest, science = make_package(tmp_path)
+    initial = science_handoff_identity(manifest)
+    science.write_bytes(science_bytes([{"symbol": "ETHUSDT", "status": "INSUFFICIENT"}]))
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    data["science_bundle"]["sha256"] = hashlib.sha256(science.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    assert science_handoff_identity(manifest) != initial
