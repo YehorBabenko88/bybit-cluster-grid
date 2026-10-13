@@ -28,7 +28,8 @@ def claim_science_handoff(manifest_path, registry_path):
                 "status TEXT NOT NULL CHECK(status='CLAIMED'))"
             )
             cursor = connection.execute(
-                "INSERT OR IGNORE INTO handoff_claims(identity,status) VALUES (?, 'CLAIMED')",
+                "INSERT INTO handoff_claims(identity,status) VALUES (?, 'CLAIMED') "
+                "ON CONFLICT(identity) DO NOTHING",
                 (identity,),
             )
             claimed = cursor.rowcount == 1
