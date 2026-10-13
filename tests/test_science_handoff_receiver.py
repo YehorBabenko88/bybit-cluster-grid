@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from grid.science_handoff_receiver import ScienceHandoffError, verify_science_handoff, science_handoff_identity
+from grid.science_handoff_receiver import ScienceHandoffError, verify_science_handoff, science_handoff_identity, check_science_handoff_seen
 
 
 def science_bytes(symbols=None):
@@ -200,3 +200,31 @@ def test_science_identity_rejects_invalid_package_instead_of_deduplicating(tmp_p
     science.write_bytes(b"tampered")
     with pytest.raises(ScienceHandoffError, match="checksum mismatch"):
         science_handoff_identity(manifest)
+
+
+def test_read_only_handoff_ledger_lookup(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    ledger = tmp_path / "imported.json"
+    first = check_science_handoff_seen(manifest, ledger)
+    assert first["seen"] is False
+    assert not ledger.exists()
+    ledger.write_text(json.dumps({"schema": 1, "imported": [first["identity"]]}), encoding="utf-8")
+    assert check_science_handoff_seen(manifest, ledger)["seen"] is True
+    assert json.loads(ledger.read_text(encoding="utf-8"))["imported"] == [first["identity"]]
+
+
+def test_corrupt_ledger_fails_closed(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    ledger = tmp_path / "imported.json"
+    ledger.write_text("{bad-json", encoding="utf-8")
+    with pytest.raises(ScienceHandoffError, match="invalid handoff ledger"):
+        check_science_handoff_seen(manifest, ledger)
+
+
+def test_corrupt_package_is_rejected_before_ledger_lookup(tmp_path):
+    manifest, science = make_package(tmp_path)
+    ledger = tmp_path / "imported.json"
+    ledger.write_text(json.dumps({"schema": 1, "imported": []}), encoding="utf-8")
+    science.write_bytes(b"tampered")
+    with pytest.raises(ScienceHandoffError, match="checksum mismatch"):
+        check_science_handoff_seen(manifest, ledger)
