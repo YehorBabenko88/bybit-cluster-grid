@@ -135,6 +135,10 @@ class Worker:
                     snap.update({'control_generation':0,'control_checksum':'CORRUPT'})
                 dbm=self.storage.metrics()
                 microm=self.micro_storage.metrics()
+                if dbm.get('spool_faulted') or microm.get('spool_faulted'):
+                    log.critical('WAL IO is uncertain; restarting for exclusive recovery',extra={'event':'wal_restart_required'})
+                    self.restart_requested=True
+                    return
                 combined_pressure=max(
                     dbm["queue_ratio"],dbm.get("spool_ratio",0.0),
                     microm["queue_ratio"],microm.get("spool_ratio",0.0),

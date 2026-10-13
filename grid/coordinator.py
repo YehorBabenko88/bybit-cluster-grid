@@ -802,6 +802,8 @@ async def stop_leader_services():
             close=getattr(derived,"close",None)
             if close is not None:
                 await close()
+        spool=getattr(ingest_storage,'spool',None)
+        if spool is not None:spool.close()
         ingest_storage = None
     assignments={};instruments={};nodes={}
     ml_orchestrator=None;scientific_service=None
