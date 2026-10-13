@@ -54,4 +54,33 @@ def verify_science_handoff(manifest_path):
                 digest.update(chunk)
         if digest.hexdigest() != expected:
             raise ScienceHandoffError(f"{key} checksum mismatch")
+        if key == "science_bundle":
+            try:
+                bundle = json.loads(resolved.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, ValueError) as exc:
+                raise ScienceHandoffError(f"invalid science bundle JSON: {exc}") from exc
+            if not isinstance(bundle, dict):
+                raise ScienceHandoffError("science bundle must be a JSON object")
+            if bundle.get("schema") != 1 or bundle.get("source") != "strattester":
+                raise ScienceHandoffError("unsupported science bundle schema or source")
+            if bundle.get("research_scope") != "HISTORICAL_BOOTSTRAP_ONLY":
+                raise ScienceHandoffError("unsupported science research scope")
+            if not isinstance(bundle.get("capabilities"), dict):
+                raise ScienceHandoffError("science capabilities must be an object")
+            if not isinstance(bundle.get("symbols"), list):
+                raise ScienceHandoffError("science symbols must be a list")
+            for row in bundle["symbols"]:
+                if (not isinstance(row, dict)
+                        or not isinstance(row.get("symbol"), str)
+                        or not row["symbol"]
+                        or row.get("status") not in ("READY", "INSUFFICIENT")):
+                    raise ScienceHandoffError("invalid science symbol record")
+            inner_sha = bundle.get("sha256")
+            if not isinstance(inner_sha, str):
+                raise ScienceHandoffError("science bundle fingerprint is missing")
+            unsigned = dict(bundle)
+            unsigned.pop("sha256")
+            canonical = json.dumps(unsigned, sort_keys=True, separators=(",", ":"), default=str)
+            if hashlib.sha256(canonical.encode("utf-8")).hexdigest() != inner_sha:
+                raise ScienceHandoffError("science bundle internal checksum mismatch")
     return manifest
