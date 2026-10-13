@@ -22,7 +22,7 @@ def verify_science_handoff(manifest_path):
         raise ScienceHandoffError(f"cannot read handoff: {exc}") from exc
     if not isinstance(manifest, dict):
         raise ScienceHandoffError("handoff must be a JSON object")
-    if manifest.get("schema") is not 1 or manifest.get("source") != "strattester":
+    if type(manifest.get("schema")) is not int or manifest.get("schema") != 1 or manifest.get("source") != "strattester":
         raise ScienceHandoffError("unsupported scientific handoff schema or source")
     if manifest.get("ready_for_grid_import") is not True:
         raise ScienceHandoffError("scientific handoff is not ready")
@@ -61,7 +61,7 @@ def verify_science_handoff(manifest_path):
                 raise ScienceHandoffError(f"invalid science bundle JSON: {exc}") from exc
             if not isinstance(bundle, dict):
                 raise ScienceHandoffError("science bundle must be a JSON object")
-            if bundle.get("schema") is not 1 or bundle.get("source") != "strattester":
+            if type(bundle.get("schema")) is not int or bundle.get("schema") != 1 or bundle.get("source") != "strattester":
                 raise ScienceHandoffError("unsupported science bundle schema or source")
             if bundle.get("research_scope") != "HISTORICAL_BOOTSTRAP_ONLY":
                 raise ScienceHandoffError("unsupported science research scope")
@@ -125,7 +125,7 @@ def check_science_handoff_seen(manifest_path, ledger_path):
         ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, ValueError) as exc:
         raise ScienceHandoffError(f"invalid handoff ledger: {exc}") from exc
-    if not isinstance(ledger, dict) or ledger.get("schema") is not 1:
+    if not isinstance(ledger, dict) or type(ledger.get("schema")) is not int or ledger.get("schema") != 1:
         raise ScienceHandoffError("unsupported handoff ledger schema")
     entries = ledger.get("imported")
     if not isinstance(entries, list) or any(
