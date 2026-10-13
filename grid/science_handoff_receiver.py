@@ -99,3 +99,29 @@ def science_handoff_identity(manifest_path):
     }
     raw = json.dumps(components, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def check_science_handoff_seen(manifest_path, ledger_path):
+    """Read-only deduplication lookup; never treats an invalid package as seen.
+
+    Ledger schema is intentionally minimal and independent of any trading DB.
+    A future importer must own atomic commit/rollback of its processing state.
+    """
+    identity = science_handoff_identity(manifest_path)
+    ledger_path = Path(ledger_path)
+    if not ledger_path.exists():
+        return {"identity": identity, "seen": False}
+    try:
+        ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise ScienceHandoffError(f"invalid handoff ledger: {exc}") from exc
+    if not isinstance(ledger, dict) or ledger.get("schema") != 1:
+        raise ScienceHandoffError("unsupported handoff ledger schema")
+    entries = ledger.get("imported")
+    if not isinstance(entries, list) or any(
+        not isinstance(value, str) or len(value) != 64
+        or any(c not in "0123456789abcdef" for c in value)
+        for value in entries
+    ):
+        raise ScienceHandoffError("invalid handoff ledger entries")
+    return {"identity": identity, "seen": identity in entries}
