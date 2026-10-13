@@ -37,13 +37,14 @@ async def ingest_owned(pool,node_id,kind,payload,persist):
                 raise ValueError('delivery ID reused with different bytes')
             disposition=receipt['disposition']
             if disposition=='PENDING':
-                row=await c.fetchrow("SELECT *,lease_until>clock_timestamp() AS live FROM collection_ownership WHERE symbol=$1 FOR UPDATE",symbol)
+                row=await c.fetchrow("SELECT * FROM collection_ownership WHERE symbol=$1 FOR UPDATE",symbol)
+                lease_live=bool(row and await c.fetchval("SELECT lease_until>clock_timestamp() FROM collection_ownership WHERE symbol=$1",symbol))
                 token=payload.get('ownership')
                 token=token if isinstance(token,dict) else {}
                 try:session=uuid.UUID(str(token.get('session')))
                 except (ValueError,TypeError,AttributeError):session=None
                 generation=token.get('generation')
-                live=bool(row and row['live'] and row['owner']==node_id and session is not None
+                live=bool(row and lease_live and row['owner']==node_id and session is not None
                           and row['session']==session and type(generation) is int
                           and row['generation']==generation)
                 disposition='LIVE' if live else 'QUARANTINED'

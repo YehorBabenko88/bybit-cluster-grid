@@ -34,11 +34,14 @@ async def grant_assignments(pool,node_id,session,symbols,lease_seconds=30):
         async with c.transaction():
             for symbol in sorted(set(symbols)):
                 await c.execute("INSERT INTO collection_ownership(symbol) VALUES($1) ON CONFLICT DO NOTHING",symbol)
-                row=await c.fetchrow("SELECT *,lease_until>clock_timestamp() AS live FROM collection_ownership WHERE symbol=$1 FOR UPDATE",symbol)
+                row=await c.fetchrow("SELECT * FROM collection_ownership WHERE symbol=$1 FOR UPDATE",symbol)
+                # SELECT expressions may run before the row-lock wait. Obtain
+                # the database clock only after the lock has actually arrived.
+                live=await c.fetchval("SELECT lease_until>clock_timestamp() FROM collection_ownership WHERE symbol=$1",symbol)
                 same=row['owner']==node_id and row['session']==session
-                if row['live'] and not same:
+                if live and not same:
                     continue
-                generation=row['generation'] if row['live'] and same else row['generation']+1
+                generation=row['generation'] if live and same else row['generation']+1
                 if generation>=2**63:
                     raise ValueError("collection generation exhausted")
                 updated=await c.fetchrow("""UPDATE collection_ownership

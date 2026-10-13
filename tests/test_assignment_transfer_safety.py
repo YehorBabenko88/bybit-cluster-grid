@@ -35,6 +35,7 @@ class LeaseStore:
             self.row.update(owner=args[1],session=args[2],generation=args[3],live=True)
             return {'generation':args[3],'ttl':30}
         return self.row.copy()
+    async def fetchval(self,sql,*args):return self.row['live']
 
 
 def test_healthy_transfer_does_not_start_new_owner_before_old_owner_stops(monkeypatch, tmp_path):
