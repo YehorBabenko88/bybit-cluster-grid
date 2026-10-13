@@ -9,6 +9,7 @@ from grid.micro_event_storage import MicroEventStorage
 @pytest.mark.parametrize('disposition,protocol,status,accepted',[
     ('LIVE',None,200,False),('QUARANTINED',None,200,False),
     ('QUARANTINED',1,404,False),('LIVE',1,200,False),
+    ('QUARANTINED',True,200,False),
     ('QUARANTINED',1,200,True)])
 def test_capture_replay_requires_dedicated_route_and_protocol_receipt(monkeypatch,disposition,protocol,status,accepted):
     from grid import credential_store

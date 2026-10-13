@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import aiohttp
 import os
+import json
 
 from .config import settings
 from .resources import NODE_ID
@@ -86,6 +87,9 @@ class MicroEventStorage:
         }
         async with self._enqueue_lock:
             row=wal_envelope(row,ownership)
+            # Ingest requires strict JSON. Refuse non-finite source/derived
+            # values before durable admission rather than poisoning ordered replay.
+            json.dumps(row,allow_nan=False)
             record_id=await self.spool.append(row)
             await self.write_queue.put(record_id,row)
 
@@ -133,7 +137,8 @@ class MicroEventStorage:
             headers=headers,
         ) as resp:
             receipt=await check_receipt(resp,row)
-            if evidence and (receipt.get('capture_evidence_protocol')!=1
+            if evidence and (type(receipt.get('capture_evidence_protocol')) is not int
+                             or receipt.get('capture_evidence_protocol')!=1
                              or receipt['disposition']!='QUARANTINED'):
                 raise RuntimeError('CONTROL does not acknowledge evidence-only capture protocol')
             if receipt['disposition']=='QUARANTINED':

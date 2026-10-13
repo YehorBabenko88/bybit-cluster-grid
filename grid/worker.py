@@ -263,7 +263,8 @@ class Worker:
                             self.micro_storage.set_replay_rate(recovery.get("micro_per_second",settings.replay_micro_per_second))
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
                             granted=(local_grants(reply,self.collector_session,assignment_request_started)
-                                     if reply.get('capture_evidence_protocol')==1 else {})
+                                     if type(reply.get('capture_evidence_protocol')) is int
+                                     and reply['capture_evidence_protocol']==1 else {})
                             granted={s:g for s,g in granted.items()
                                      if g['generation']>=self.ownership_generations.get(s,0)}
                             assigned.intersection_update(granted)
