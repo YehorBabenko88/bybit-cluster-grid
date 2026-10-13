@@ -84,3 +84,18 @@ def verify_science_handoff(manifest_path):
             if hashlib.sha256(canonical.encode("utf-8")).hexdigest() != inner_sha:
                 raise ScienceHandoffError("science bundle internal checksum mismatch")
     return manifest
+
+
+def science_handoff_identity(manifest_path):
+    """Stable content identity for deduplication planning; no state is written.
+
+    Repacking the same scientific results at a different path or time must
+    not create a different identity. This is not an import ledger.
+    """
+    manifest = verify_science_handoff(manifest_path)
+    components = {
+        key: (manifest.get(key) or {}).get("sha256")
+        for key in ("science_bundle", "strategy_results", "phase_manifest")
+    }
+    raw = json.dumps(components, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
