@@ -174,3 +174,29 @@ def test_science_identity_changes_with_verified_science_content(tmp_path):
     data["science_bundle"]["sha256"] = hashlib.sha256(science.read_bytes()).hexdigest()
     manifest.write_text(json.dumps(data), encoding="utf-8")
     assert science_handoff_identity(manifest) != initial
+
+
+def test_science_identity_includes_optional_strategy_results(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    baseline = science_handoff_identity(manifest)
+    strategy = tmp_path / "strategy_results.sqlite3"
+    strategy.write_bytes(b"research-result-version-1")
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    data["strategy_results"] = {
+        "path": strategy.name,
+        "sha256": hashlib.sha256(strategy.read_bytes()).hexdigest(),
+    }
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    with_strategy = science_handoff_identity(manifest)
+    assert with_strategy != baseline
+    strategy.write_bytes(b"research-result-version-2")
+    data["strategy_results"]["sha256"] = hashlib.sha256(strategy.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    assert science_handoff_identity(manifest) != with_strategy
+
+
+def test_science_identity_rejects_invalid_package_instead_of_deduplicating(tmp_path):
+    manifest, science = make_package(tmp_path)
+    science.write_bytes(b"tampered")
+    with pytest.raises(ScienceHandoffError, match="checksum mismatch"):
+        science_handoff_identity(manifest)
