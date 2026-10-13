@@ -123,12 +123,19 @@ class MicroEventStorage:
         }
         if self.http is None:
             raise RuntimeError("micro-event ingest session is not started")
+        evidence=row.get('event_type') in ('public_trade_capture_evidence','orderbook_capture_evidence')
+        # Older CONTROL has no capture endpoint: 404 retains the WAL without
+        # contaminating its canonical market_events before negotiation.
+        path='/ingest/capture' if evidence else '/ingest/event'
         async with self.http.post(
-            settings.coordinator_url+"/ingest/event",
+            settings.coordinator_url+path,
             json=row,
             headers=headers,
         ) as resp:
             receipt=await check_receipt(resp,row)
+            if evidence and (receipt.get('capture_evidence_protocol')!=1
+                             or receipt['disposition']!='QUARANTINED'):
+                raise RuntimeError('CONTROL does not acknowledge evidence-only capture protocol')
             if receipt['disposition']=='QUARANTINED':
                 import logging
                 logging.getLogger('micro_storage').warning('WAL durably quarantined; excluded from live statistics',extra={'event':'wal_quarantined','symbol':row.get('symbol')})

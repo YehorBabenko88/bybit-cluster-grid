@@ -23,6 +23,11 @@ payload reuses the message/event field structure examined in older Draft #11;
 its buffered raw-capture approach is not copied because buffering still leaves
 a crash gap before WAL.
 
+The sender uses /ingest/capture and requires capture_evidence_protocol=1 plus
+QUARANTINED before WAL ACK. Older CONTROL returns 404 on this dedicated endpoint.
+This protects startup replay before heartbeat and rollback between heartbeat and
+send, which capability negotiation alone cannot protect.
+
 Deterministic synthetic tests kill actual collector subprocesses with an open
 minute/micro bucket, after append but before queue admission, and after a book
 snapshot. Before the fix, open trade and book tests recovered zero source

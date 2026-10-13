@@ -72,4 +72,8 @@ async def _ingest_owned(pool,node_id,kind,payload,persist,deadline):
                         raise OwnershipExpired('collection lease expired during persistence')
                 await c.execute("""UPDATE collection_ingest_receipts SET disposition=$4
                   WHERE node_id=$1 AND kind=$2 AND record_id=$3""",node_id,kind,record_id,disposition)
-    return {'ok':True,'ownership_protocol':1,'disposition':disposition,'sha256':digest}
+    result={'ok':True,'ownership_protocol':1,'disposition':disposition,'sha256':digest}
+    if kind=='event' and payload.get('event_type') in (
+        'public_trade_capture_evidence','orderbook_capture_evidence'):
+        result['capture_evidence_protocol']=1
+    return result

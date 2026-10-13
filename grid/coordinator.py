@@ -462,6 +462,13 @@ async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_c
         raise HTTPException(409 if isinstance(exc,OwnershipExpired) else 400,str(exc))
 
 
+@app.post('/ingest/capture')
+async def ingest_capture(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
+    if payload.get('event_type') not in ('public_trade_capture_evidence','orderbook_capture_evidence'):
+        raise HTTPException(400,'capture endpoint accepts source evidence only')
+    return await ingest_event(payload,x_grid_token,x_node_credential,x_node_id)
+
+
 @app.post("/ml/claim")
 async def claim_ml_job(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
     node_id=str(payload.get("node_id",""))
