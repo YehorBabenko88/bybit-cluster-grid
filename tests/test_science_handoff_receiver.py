@@ -265,3 +265,36 @@ def test_oversized_ledger_rejected_before_json_parsing(tmp_path):
         stream.truncate(4 * 1024 * 1024 + 1)
     with pytest.raises(ScienceHandoffError, match="exceeds size limit"):
         check_science_handoff_seen(manifest, ledger)
+
+
+def test_boolean_manifest_schema_is_not_accepted_as_integer_one(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    data["schema"] = True
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ScienceHandoffError, match="unsupported scientific handoff schema"):
+        verify_science_handoff(manifest)
+
+
+def test_boolean_ledger_schema_is_rejected(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    ledger = tmp_path / "imported.json"
+    ledger.write_text(json.dumps({"schema": True, "imported": []}), encoding="utf-8")
+    with pytest.raises(ScienceHandoffError, match="unsupported handoff ledger schema"):
+        check_science_handoff_seen(manifest, ledger)
+
+
+def test_boolean_science_schema_rejected_with_matching_checksums(tmp_path):
+    manifest, science = make_package(tmp_path)
+    bundle = json.loads(science.read_text(encoding="utf-8"))
+    bundle["schema"] = True
+    unsigned = dict(bundle)
+    unsigned.pop("sha256")
+    raw = json.dumps(unsigned, sort_keys=True, separators=(",", ":"), default=str)
+    bundle["sha256"] = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    science.write_text(json.dumps(bundle), encoding="utf-8")
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    data["science_bundle"]["sha256"] = hashlib.sha256(science.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ScienceHandoffError, match="unsupported science bundle schema"):
+        verify_science_handoff(manifest)
