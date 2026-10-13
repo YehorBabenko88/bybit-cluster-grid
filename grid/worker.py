@@ -262,7 +262,9 @@ class Worker:
                             self.db.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
                             self.micro_storage.set_replay_rate(recovery.get("micro_per_second",settings.replay_micro_per_second))
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
-                            granted=local_grants(reply,self.collector_session,assignment_request_started)
+                            granted=(local_grants(reply,self.collector_session,assignment_request_started)
+                                     if type(reply.get('capture_evidence_protocol')) is int
+                                     and reply['capture_evidence_protocol']==1 else {})
                             granted={s:g for s,g in granted.items()
                                      if g['generation']>=self.ownership_generations.get(s,0)}
                             assigned.intersection_update(granted)
@@ -427,9 +429,20 @@ class Worker:
                     while True:
                         raw=await asyncio.wait_for(ws.recv(),timeout=45)
                         msg=json.loads(raw)
-                        if not msg.get("topic","").startswith("publicTrade."):
+                        if msg.get("topic")!=subscription_topic:
                             continue
                         batch=msg.get("data",[])
+                        # Persist each received frame before mutating either
+                        # the minute footprint or the open micro-tape bucket.
+                        # This evidence is never replayed into live aggregates.
+                        if batch:
+                            receive_ts=int(time.time()*1000)
+                            await micro_sink.insert_event(symbol,receive_ts,'public_trade_capture_evidence',{
+                                'symbol':symbol,'capture_stage':'PRE_AGGREGATION',
+                                'messages':[{'system_ts':msg.get('ts'),'receive_ts':receive_ts,'trades':batch}],
+                                'message_count':1,'event_count':len(batch),
+                                'first_receive_ts':receive_ts,'last_receive_ts':receive_ts,
+                            })
                         self.pressure.observe_symbol(symbol,events=len(batch))
                         for x in batch:
                             trade_ts=int(x["T"])

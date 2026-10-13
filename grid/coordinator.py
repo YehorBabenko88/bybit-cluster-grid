@@ -236,7 +236,7 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
             "install_mode":install_mode,"control_disk_state":control_disk["state"],
             "recovery_profile":replay,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled,
-            "ownership_protocol":1,"ownership":ownership}
+            "ownership_protocol":1,"ownership":ownership,"capture_evidence_protocol":1}
 
 @app.get("/nodes/{node_id}/acceptance")
 async def node_acceptance(node_id:str,x_node_credential:str=Header(default="")):
@@ -460,6 +460,13 @@ async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_c
         return await ingest_owned(db.pool,x_node_id,'event',payload,persist)
     except (ValueError,TypeError) as exc:
         raise HTTPException(409 if isinstance(exc,OwnershipExpired) else 400,str(exc))
+
+
+@app.post('/ingest/capture')
+async def ingest_capture(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default=""),x_node_id:str=Header(default="")):
+    if payload.get('event_type') not in ('public_trade_capture_evidence','orderbook_capture_evidence'):
+        raise HTTPException(400,'capture endpoint accepts source evidence only')
+    return await ingest_event(payload,x_grid_token,x_node_credential,x_node_id)
 
 
 @app.post("/ml/claim")
