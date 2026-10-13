@@ -124,4 +124,6 @@ def check_science_handoff_seen(manifest_path, ledger_path):
         for value in entries
     ):
         raise ScienceHandoffError("invalid handoff ledger entries")
+    if len(set(entries)) != len(entries):
+        raise ScienceHandoffError("duplicate handoff ledger entries")
     return {"identity": identity, "seen": identity in entries}
