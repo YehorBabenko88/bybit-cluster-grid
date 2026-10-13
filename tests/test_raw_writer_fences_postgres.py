@@ -74,6 +74,17 @@ def test_strategy_deferred_commit_exceeding_attempt_deadline_is_rolled_back(monk
     asyncio.run(run())
 
 
+def test_strategy_expired_attempt_cannot_report_done():
+    async def run():
+        async with database() as pool:
+            await ensure_strategy_schema(pool);jid=uuid.uuid4()
+            await pool.execute("""INSERT INTO strategy_jobs(id,strategy_name,status,assigned_node,attempts,started_at)
+              VALUES($1,'test','running','node',1,clock_timestamp()-interval '1 day')""",jid)
+            await finish_job(pool,jid,assigned_node='node',attempts=1)
+            assert await pool.fetchval('SELECT status FROM strategy_jobs WHERE id=$1',jid)=='running'
+    asyncio.run(run())
+
+
 def test_raw_training_deadline_covers_deferred_commit():
     async def run():
         async with database() as pool:
