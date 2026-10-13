@@ -109,3 +109,18 @@ def test_existing_claim_is_not_changed_by_repeat_request(tmp_path):
     with sqlite3.connect(db) as connection:
         after = connection.execute("SELECT identity, status FROM handoff_claims").fetchall()
     assert before == after == [(first["identity"], "CLAIMED")]
+
+
+def test_non_identity_constraint_failure_is_not_silently_ignored(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    db = tmp_path / "claims.sqlite3"
+    with sqlite3.connect(db) as connection:
+        connection.execute(
+            "CREATE TABLE handoff_claims ("
+            "identity TEXT PRIMARY KEY, "
+            "status TEXT NOT NULL CHECK(status='IMPORTED'))"
+        )
+    with pytest.raises(ScienceHandoffError, match="registry error"):
+        claim_science_handoff(manifest, db)
+    with sqlite3.connect(db) as connection:
+        assert connection.execute("SELECT count(*) FROM handoff_claims").fetchone()[0] == 0
