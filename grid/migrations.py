@@ -482,6 +482,10 @@ WHERE source_event_id IS NOT NULL"""
 ])
 ]
 
+# Additive protocol migration. Existing market/read-only schemas are untouched.
+from .collection_ownership import SCHEMA as COLLECTION_OWNERSHIP_SCHEMA
+MIGRATIONS.append((47,"collection_ownership_fencing",COLLECTION_OWNERSHIP_SCHEMA))
+
 async def apply_migrations(pool):
     async with pool.acquire() as c:
         # Coordinator and ArchivePipeline can cold-start together. Serialize

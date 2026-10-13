@@ -1,5 +1,7 @@
 import asyncio, json, time, logging, os, pathlib
 import aiohttp, websockets
+import uuid
+from .collection_ownership import local_grants,OwnedSink
 from .config import settings
 from .resources import snapshot,NODE_ID,ml_runtime_ready
 from .models import Trade
@@ -59,10 +61,23 @@ class Worker:
         # heartbeat expiry window when the network is partitioned.
         self.last_assignment_heartbeat=None
         self.assignment_lock=asyncio.Lock()
+        self.collector_session=str(uuid.uuid4())
+        self.ownership={}
+        self.ownership_generations={}
 
     async def expire_stale_assignments(self, now=None):
         """Revoke collectors when CONTROL stops renewing the assignment lease."""
         async with self.assignment_lock:
+            if self.ownership:
+                current=time.monotonic() if now is None else now
+                expired={s for s,g in self.ownership.items() if current>=g['deadline']}
+                if expired:
+                    for symbol in expired:self.ownership.pop(symbol,None)
+                    self.wanted.difference_update(expired)
+                    self.micro_wanted.difference_update(expired)
+                    self.pressure_drained.difference_update(expired)
+                    await self.reconcile()
+                    return True
             if self.last_assignment_heartbeat is None:
                 return False
             current=time.monotonic() if now is None else now
@@ -161,7 +176,10 @@ class Worker:
                 snap['pressure_drained']=len(self.pressure_drained)
                 snap['drained_symbols']=sorted(self.pressure_drained)
                 snap['symbol_cost']={k:round(v,3) for k,v in self.pressure.symbol_cost.items() if k in self.wanted}
+                snap['collector_session']=self.collector_session
+                snap['ownership_protocol']=1
                 try:
+                    assignment_request_started=time.monotonic()
                     async with s.post(
                         settings.coordinator_url+"/heartbeat",
                         json=snap,
@@ -240,6 +258,10 @@ class Worker:
                             self.db.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
                             self.micro_storage.set_replay_rate(recovery.get("micro_per_second",settings.replay_micro_per_second))
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
+                            granted=local_grants(reply,self.collector_session,assignment_request_started)
+                            granted={s:g for s,g in granted.items()
+                                     if g['generation']>=self.ownership_generations.get(s,0)}
+                            assigned.intersection_update(granted)
                             requested_micro=set(reply.get("micro_symbols",[]))
                             recovering=bool(dbm.get("replay_active",False) or microm.get("replay_active",False))
                             async with self.assignment_lock:
@@ -251,6 +273,17 @@ class Worker:
                                 # Keep pressure shedding and assignment renewal atomic
                                 # against the local watchdog and offline pressure loop.
                                 self.pressure_drained=desired_drained_symbols(self.pressure,assigned)
+                                replaced={s for s in self.ownership if s in granted and
+                                          self.ownership[s]['generation']!=granted[s]['generation']}
+                                for symbol in replaced:
+                                    task=self.trade_tasks.pop(symbol,None)
+                                    if task:
+                                        task.cancel()
+                                        await asyncio.gather(task,return_exceptions=True)
+                                if replaced:self.micro_signature=None
+                                self.ownership.clear();self.ownership.update(granted)
+                                for symbol,grant in granted.items():
+                                    self.ownership_generations[symbol]=grant['generation']
                                 new=assigned-self.pressure_drained
                                 new_micro=(requested_micro & new) if not recovering else set()
                                 self.last_assignment_heartbeat=time.monotonic()
@@ -337,7 +370,7 @@ class Worker:
                 await asyncio.gather(*self.micro_tasks,return_exceptions=True)
             self.micro_tasks=[]
             collector=MicrostructureCollector(
-                self.micro_storage,
+                OwnedSink(self.micro_storage,self.ownership,self.ownership),
                 snapshot_ms=settings.microstructure_snapshot_ms,
             )
             symbols=list(signature)
@@ -348,6 +381,8 @@ class Worker:
             log.info("microstructure assignment reconciled",extra={"event":"micro_assignment","component":f"{len(symbols)} symbols"})
 
     async def trade_stream(self,symbol):
+        minute_sink=OwnedSink(self.storage,self.ownership,self.ownership)
+        micro_sink=OwnedSink(self.micro_storage,self.ownership,self.ownership)
         tick=self.meta[symbol]["tick_size"]
         fp=FootprintBuilder(tick,settings.cluster_interval_seconds,finalization_delay_ms=2000)
         delays=backoff_delays()
@@ -411,7 +446,7 @@ class Worker:
                             if symbol in self.micro_wanted:
                                 tape_row=self.micro_tape.add(trade)
                                 if tape_row is not None:
-                                    await self.micro_storage.insert_event(
+                                    await micro_sink.insert_event(
                                         symbol,
                                         tape_row["start_ms"],
                                         "trade_tape_250ms",
@@ -420,7 +455,7 @@ class Worker:
                             if suspect_gap:
                                 fp.mark_degraded(symbol,trade_ts,"trade_time_gap")
                         for row in fp.pop_closed(int(time.time()*1000)):
-                            await self.storage.save(row)
+                            await minute_sink.save(row)
                             self.pressure.observe_symbol(symbol,db_writes=1)
             except asyncio.CancelledError:
                 raise

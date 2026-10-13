@@ -7,6 +7,7 @@ from .config import settings
 from .resources import NODE_ID
 from .segment_wal import SegmentWAL
 from .write_queue import BoundedWriteQueue
+from .collection_ownership import wal_envelope,check_receipt
 
 
 class MicroEventStorage:
@@ -73,7 +74,7 @@ class MicroEventStorage:
         else:
             self.replay_done.set()
 
-    async def insert_event(self,symbol,event_ts,event_type,payload):
+    async def insert_event(self,symbol,event_ts,event_type,payload,ownership=None):
         await self.replay_done.wait()
         if self.spool.ratio()>=settings.spool_critical_ratio:
             raise BufferError("Grid micro-event WAL critical threshold reached; load shedding required")
@@ -84,6 +85,7 @@ class MicroEventStorage:
             "payload":payload,
         }
         async with self._enqueue_lock:
+            row=wal_envelope(row,ownership)
             record_id=await self.spool.append(row)
             await self.write_queue.put(record_id,row)
 
@@ -125,10 +127,10 @@ class MicroEventStorage:
             json=row,
             headers=headers,
         ) as resp:
-            if resp.status!=200:
-                raise RuntimeError(
-                    "CONTROL micro-event ingest rejected: "+str(resp.status)
-                )
+            receipt=await check_receipt(resp,row)
+            if receipt['disposition']=='QUARANTINED':
+                import logging
+                logging.getLogger('micro_storage').warning('WAL durably quarantined; excluded from live statistics',extra={'event':'wal_quarantined','symbol':row.get('symbol')})
         await self.spool.ack(record_id)
         if record_id in self.replay_ids:
             self.replay_sent+=1

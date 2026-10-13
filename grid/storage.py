@@ -11,6 +11,7 @@ from .derived_pipeline import DerivedPipeline
 from .resources import NODE_ID
 import os
 import aiohttp
+from .collection_ownership import wal_envelope,check_receipt
 
 
 def ingest_headers():
@@ -80,11 +81,12 @@ class Storage:
         else:
             self.replay_done.set()
 
-    async def save(self,row):
+    async def save(self,row,ownership=None):
         await self.replay_done.wait()
         if self.spool.ratio()>=settings.spool_critical_ratio:
             raise BufferError("Grid WAL critical threshold reached; load shedding required")
         async with self._enqueue_lock:
+            row=wal_envelope(row,ownership)
             record_id=await self.spool.append(row)
             await self.write_queue.put(record_id,row)
 
@@ -98,6 +100,14 @@ class Storage:
             await self.http.close(); self.http=None
         if self.pool is not None:
             await self.pool.close(); self.pool=None
+
+    async def reset_analytical_state(self,pool):
+        """Resolve uncertain COMMIT responses from authoritative persisted state."""
+        builder=UnifiedFeatureBuilder()
+        await builder.start(pool)
+        derived=DerivedPipeline(pool)
+        await derived.start()
+        self.feature_builder=builder;self.derived=derived;self.cache_dirty=False
 
     def metrics(self):
         m=self.write_queue.metrics()
@@ -132,10 +142,15 @@ class Storage:
                 raise RuntimeError("remote ingest session is not started")
             async with self.http.post(settings.coordinator_url+"/ingest/minute",
                 json=row,headers=ingest_headers()) as resp:
-                if resp.status!=200:
-                    raise RuntimeError("CONTROL ingest rejected: "+str(resp.status))
+                receipt=await check_receipt(resp,row)
+                if receipt['disposition']=='QUARANTINED':
+                    import logging
+                    logging.getLogger('storage').warning('WAL durably quarantined; excluded from live statistics',extra={'event':'wal_quarantined','symbol':row.get('symbol')})
         else:
-            await self._save_direct(row)
+            # CONTROL persistence is invoked only through fenced HTTP ingest.
+            # An accidentally enabled local replay must retain WAL, not bypass
+            # the ownership/receipt boundary.
+            raise RuntimeError("unfenced coordinator-local WAL replay is disabled")
         await self.spool.ack(record_id)
         if record_id in self.replay_ids:
             self.replay_sent+=1
