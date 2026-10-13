@@ -12,7 +12,7 @@ REPOSITORIES = {
     "strattester": "YehorBabenko88/strattester",
     "terminan": "YehorBabenko88/Terminan",
 }
-SHA = re.compile(r"[0-9a-f]{40}\\Z")
+SHA = re.compile(r"[0-9a-f]{40}\Z")
 
 
 def validate(data):
