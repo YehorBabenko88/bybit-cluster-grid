@@ -73,7 +73,24 @@ class FloatingLeader:
 
     async def run(self,on_gain=None,on_loss=None):
         previous=False
+        cleanup_pending=False
         while not self.stop_event.is_set():
+            # A failed stop may leave the old singleton running. Finish its
+            # cleanup before acquiring another epoch or invoking on_gain.
+            if cleanup_pending:
+                try:
+                    await on_loss()
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    log.exception("leader loss cleanup retry failed",
+                                  extra={"event":"leader_loss_retry_failed"})
+                    try: await asyncio.wait_for(self.stop_event.wait(),timeout=self.renew_seconds)
+                    except asyncio.TimeoutError: pass
+                    continue
+                cleanup_pending=False
+                if self.stop_event.is_set():
+                    break
             try:
                 current=await (self.renew() if self.is_leader else self.campaign())
             except asyncio.CancelledError:
@@ -131,6 +148,7 @@ class FloatingLeader:
                     raise
                 except Exception:
                     log.exception("leader loss callback failed",extra={"event":"leader_loss_failed"})
+                    cleanup_pending=True
             previous=current
             try: await asyncio.wait_for(self.stop_event.wait(),timeout=self.renew_seconds)
             except asyncio.TimeoutError: pass
@@ -154,4 +172,5 @@ class FloatingLeader:
         if on_loss is not None:
             await on_loss()
         await self.release(held_epoch)
+
 
