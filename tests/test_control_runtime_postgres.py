@@ -33,7 +33,7 @@ def test_two_control_runtimes_start_only_one_singleton_then_take_over():
             b=ControlRuntime(pool,*callbacks('b'),node_id='b',lease_seconds=3,renew_seconds=.1)
             a.start();b.start()
             try:
-                for _ in range(100):
+                for _ in range(250):
                     if starts:break
                     await asyncio.sleep(.02)
                 assert len(starts)==1 and sum([a.ready,b.ready])==1
@@ -41,7 +41,10 @@ def test_two_control_runtimes_start_only_one_singleton_then_take_over():
                 old=winner.token
                 await winner.stop()
                 assert not old.active
-                for _ in range(100):
+                # A campaign COMMIT can succeed on PostgreSQL while its client
+                # times out. The unknown epoch must expire before takeover.
+                # Cover the complete three-second lease, not just two seconds.
+                for _ in range(250):
                     if loser.ready:break
                     await asyncio.sleep(.02)
                 assert loser.ready and len(starts)==2

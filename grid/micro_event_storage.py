@@ -102,6 +102,7 @@ class MicroEventStorage:
         await self.write_queue.close(drain_timeout)
         if self.http is not None:
             await self.http.close(); self.http=None
+        self.spool.close()
 
     async def _save_spooled(self,record_id,row):
         from .credential_store import node_credential
@@ -140,6 +141,7 @@ class MicroEventStorage:
         m=self.write_queue.metrics()
         m["spool_bytes"]=self.spool.bytes_used()
         m["spool_ratio"]=self.spool.ratio()
+        m['spool_faulted']=self.spool.faulted
         m["replay_active"]=not self.replay_done.is_set()
         m["replay_backlog_bytes"]=m["spool_bytes"] if m["replay_active"] else 0
         m["replay_rate_per_second"]=float(self.replay_rate)
