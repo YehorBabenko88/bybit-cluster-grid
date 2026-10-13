@@ -162,3 +162,21 @@ def test_real_minute_features_and_derived_state_roll_back_together(monkeypatch):
                 assert await pool.fetchval('SELECT count(*) FROM poc_lifecycle')==1
                 assert 'BTCUSDT' in storage.feature_builder.last_ts
     asyncio.run(run())
+
+
+def test_symbol_lease_timeout_covers_deferred_commit():
+    async def run():
+        async with database() as pool:
+            grant=(await grant_assignments(pool,'old',str(uuid.uuid4()),['BTCUSDT']))['BTCUSDT']
+            await pool.execute("""CREATE FUNCTION slow_commit() RETURNS trigger LANGUAGE plpgsql AS $$
+              BEGIN PERFORM pg_sleep(.5);RETURN NEW;END $$""")
+            await pool.execute("""CREATE CONSTRAINT TRIGGER slow_commit_trigger AFTER INSERT ON canonical_writes
+              DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION slow_commit()""")
+            await pool.execute("UPDATE collection_ownership SET lease_until=clock_timestamp()+interval '250 milliseconds'")
+            async def persist(c,row):await c.execute("INSERT INTO canonical_writes VALUES('BTCUSDT',1)")
+            with pytest.raises(OwnershipExpired):
+                await ingest_owned(pool,'old','event',wal_envelope({'symbol':'BTCUSDT'},grant),persist)
+            assert await pool.fetchval('SELECT count(*) FROM canonical_writes')==0
+            assert await pool.fetchval('SELECT count(*) FROM collection_ingest_receipts')==0
+    asyncio.run(run())
+
