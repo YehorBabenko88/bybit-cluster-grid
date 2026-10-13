@@ -30,14 +30,14 @@ def test_import_rollback_and_concurrent_redelivery_postgres():
                     for sql in statements:
                         await pool.execute(sql)
             await pool.execute("ALTER TABLE historical_scientific_symbol_state "
-                               "ADD CONSTRAINT nonnegative_samples CHECK(samples >= 0)")
+                               "ADD CONSTRAINT reject_eth CHECK(symbol <> 'ETHUSDT')")
             value = {
                 "schema": 1, "source": "strattester", "created_at": 1.0,
                 "research_scope": "HISTORICAL_BOOTSTRAP_ONLY",
                 "capabilities": {"candles": True, "open_interest": True,
                                  "public_trade_aggregates": True},
                 "symbols": [{"symbol": "BTCUSDT", "samples": 2},
-                            {"symbol": "ETHUSDT", "samples": -1}],
+                            {"symbol": "ETHUSDT", "samples": 3}],
             }
             value["sha256"] = hashlib.sha256(canonical_payload(value).encode()).hexdigest()
             with pytest.raises(asyncpg.CheckViolationError):
@@ -45,8 +45,7 @@ def test_import_rollback_and_concurrent_redelivery_postgres():
             assert await pool.fetchval("SELECT count(*) FROM historical_scientific_bundles") == 0
             assert await pool.fetchval("SELECT count(*) FROM historical_scientific_symbol_state") == 0
 
-            value["symbols"][1]["samples"] = 3
-            value["sha256"] = hashlib.sha256(canonical_payload(value).encode()).hexdigest()
+            await pool.execute("ALTER TABLE historical_scientific_symbol_state DROP CONSTRAINT reject_eth")
             first, repeated = await asyncio.wait_for(asyncio.gather(
                 import_historical_science(pool, value),
                 import_historical_science(pool, value)), 10)
