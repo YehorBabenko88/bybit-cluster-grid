@@ -1,6 +1,7 @@
 import json,uuid,hashlib
 from datetime import datetime,timezone,timedelta
 from .ml_splits import walk_forward
+from .job_write_fence import job_write, StaleJobWrite
 
 
 class StaleTrainingLease(RuntimeError):
@@ -47,18 +48,15 @@ class TrainingWorker:
             return
         if lease_owner is None or lease_generation is None:
             raise ValueError("leased training publication requires owner and generation")
-        async with self.pool.acquire() as c:
-            async with c.transaction():
-                current=await c.fetchrow("""SELECT id FROM ml_jobs WHERE id=$1 AND status='running'
-                  AND lease_owner=$2 AND lease_generation=$3 AND lease_until>=now()
-                  FOR UPDATE""",job_id,lease_owner,int(lease_generation))
-                if not current:
-                    raise StaleTrainingLease("ML lease lost before model publication")
+        try:
+            async with job_write(self.pool,'ml',job_id,lease_owner,lease_generation) as c:
                 await c.execute("""INSERT INTO model_registry
                   (id,model_family,dataset_id,status,artifact_id,code_version,feature_version,hyperparameters)
                   VALUES($1,$2,$3,'CANDIDATE',$4,$5,$6,$7::jsonb)""",
                   mid,model_family,dataset_id,artifact,self.code_version,feature_version,
                   json.dumps(hyperparameters or {}))
+        except StaleJobWrite as exc:
+            raise StaleTrainingLease(str(exc)) from exc
 
     async def train(self,dataset_id,model_family="global",hyperparameters=None,
                     job_id=None,lease_owner=None,lease_generation=None):
