@@ -269,7 +269,7 @@ def test_failed_gain_callback_releases_its_epoch_and_retries():
     asyncio.run(scenario())
 
 
-def test_on_loss_failure_does_not_prevent_future_leader_election():
+def test_transient_on_loss_failure_recovers_before_future_leader_election():
     async def scenario():
         events = []
 
@@ -297,11 +297,12 @@ def test_on_loss_failure_does_not_prevent_future_leader_election():
 
         async def on_loss():
             events.append(("loss", None))
-            raise RuntimeError("cleanup failed")
+            if events.count(("loss", None)) == 1:
+                raise RuntimeError("cleanup failed")
 
         leader = Leader()
         await asyncio.wait_for(leader.run(on_gain=on_gain, on_loss=on_loss), 2)
-        assert events == [("gain", 1), ("loss", None), ("gain", 2)]
+        assert events == [("gain", 1), ("loss", None), ("loss", None), ("gain", 2)]
         assert leader.epoch is None
         assert leader.is_leader is False
 
