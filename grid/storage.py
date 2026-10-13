@@ -142,8 +142,10 @@ class Storage:
         if self.remote:
             if self.http is None:
                 raise RuntimeError("remote ingest session is not started")
-            async with self.http.post(settings.coordinator_url+"/ingest/minute",
-                json=row,headers=ingest_headers()) as resp:
+            from .active_control import active_control_url
+            address=await active_control_url()
+            async with self.http.post(address+"/ingest/minute",
+                json=row,headers=ingest_headers(),allow_redirects=False) as resp:
                 receipt=await check_receipt(resp,row)
                 if receipt['disposition']=='QUARANTINED':
                     import logging

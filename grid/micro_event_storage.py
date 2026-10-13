@@ -127,14 +127,17 @@ class MicroEventStorage:
         }
         if self.http is None:
             raise RuntimeError("micro-event ingest session is not started")
+        from .active_control import active_control_url
+        address=await active_control_url()
         evidence=row.get('event_type') in ('public_trade_capture_evidence','orderbook_capture_evidence')
         # Older CONTROL has no capture endpoint: 404 retains the WAL without
         # contaminating its canonical market_events before negotiation.
         path='/ingest/capture' if evidence else '/ingest/event'
         async with self.http.post(
-            settings.coordinator_url+path,
+            address+path,
             json=row,
             headers=headers,
+            allow_redirects=False,
         ) as resp:
             receipt=await check_receipt(resp,row)
             if evidence and (type(receipt.get('capture_evidence_protocol')) is not int
