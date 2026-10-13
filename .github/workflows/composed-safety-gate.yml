@@ -1,0 +1,22 @@
+name: composed-safety-gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  composed-source-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Require complete composed integration
+        env:
+          GRID_REQUIRE_COMPOSED_GATES: '1'
+        run: python -m unittest discover -s tests -p test_composed_safety_gate.py -v
