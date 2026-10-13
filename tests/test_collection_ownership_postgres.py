@@ -175,6 +175,7 @@ def test_real_minute_features_and_derived_state_roll_back_together(monkeypatch):
             monkeypatch.setattr(coordinator,'control_disk_state',lambda:{'state':'NORMAL'})
             session=str(uuid.uuid4());grant=(await grant_assignments(pool,'worker',session,['BTCUSDT']))['BTCUSDT']
             payload=wal_envelope({'symbol':'BTCUSDT','start_ms':1700000000000,'open':100,'high':101,'low':99,'close':100,
+                       'quality_status':'GOOD','quality_reasons':[],
                        'buy_volume':1,'sell_volume':0,'delta':1,'trade_count':1,'poc_price':100,
                        'levels':[{'price':100,'buy_volume':1,'sell_volume':0,'delta':1,'volume':1,'buy_count':1,'sell_count':0}]},grant)
             await pool.execute("ALTER TABLE poc_lifecycle ADD CONSTRAINT inject_failure CHECK(symbol <> 'BTCUSDT')")
@@ -192,4 +193,27 @@ def test_real_minute_features_and_derived_state_roll_back_together(monkeypatch):
                 assert await pool.fetchval('SELECT count(*) FROM market_features_1m')==1
                 assert await pool.fetchval('SELECT count(*) FROM poc_lifecycle')==1
                 assert 'BTCUSDT' in storage.feature_builder.last_ts
+                # The server may commit even when its acknowledgement is lost.
+                # Do not keep the old volatile cache when replay sees a receipt.
+                class LostCommitResponse:
+                    lose=True
+                    def __getattr__(self,name):return getattr(pool,name)
+                    @asynccontextmanager
+                    async def acquire(self):
+                        async with pool.acquire() as c:yield c
+                        if self.lose:
+                            self.lose=False
+                            raise ConnectionError('synthetic lost COMMIT response')
+                transport=LostCommitResponse()
+                db.pool=FencedPool(transport)
+                later=wal_envelope({**payload,'start_ms':payload['start_ms']+60000},grant)
+                with pytest.raises(ConnectionError):
+                    await client.post('/ingest/minute',json=later,headers=headers)
+                assert await pool.fetchval('SELECT count(*) FROM candles_1m')==2
+                assert storage.cache_dirty is True
+                result=await client.post('/ingest/minute',json=later,headers=headers)
+                assert result.status_code==200 and result.json()['disposition']=='LIVE'
+                assert storage.cache_dirty is False
+                assert int(storage.feature_builder.last_ts['BTCUSDT'].timestamp()*1000)==later['start_ms']
+                assert await pool.fetchval('SELECT count(*) FROM candles_1m')==2
     asyncio.run(run())

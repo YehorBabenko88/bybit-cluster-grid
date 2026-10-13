@@ -12,7 +12,8 @@ from grid.storage import Storage
 from grid.fenced_ingest import ConnectionPool
 
 
-def test_minute_analytical_state_is_not_published_on_rollback(monkeypatch):
+@pytest.mark.parametrize('fault',['rollback','replaced_instance'])
+def test_minute_analytical_state_is_not_published_on_rollback(monkeypatch,fault):
     async def run():
         class Builder:
             def __init__(self):self.count=0
@@ -25,6 +26,8 @@ def test_minute_analytical_state_is_not_published_on_rollback(monkeypatch):
                 await self.pool.execute('derived-write')
         storage=Storage.__new__(Storage)
         storage.pool=object();storage.feature_builder=Builder();storage.derived=Derived(storage.pool);storage.scientific=None
+        replacement=Storage.__new__(Storage)
+        replacement.pool=storage.pool;replacement.feature_builder=Builder();replacement.derived=Derived(storage.pool);replacement.scientific=None
         rows=[]
         class Connection:
             @asynccontextmanager
@@ -34,6 +37,9 @@ def test_minute_analytical_state_is_not_published_on_rollback(monkeypatch):
             async def executemany(self,sql,*args):rows.append(sql)
         async def failing_gate(pool,node,kind,payload,persist):
             await persist(ConnectionPool(Connection()),payload)
+            if fault=='replaced_instance':
+                monkeypatch.setattr(coordinator,'ingest_storage',replacement)
+                return {'ok':True,'disposition':'LIVE'}
             raise ConnectionError('commit lost')
         monkeypatch.setattr(coordinator,'ingest_storage',storage)
         monkeypatch.setattr(coordinator,'db',SimpleNamespace(pool=storage.pool))
@@ -45,7 +51,11 @@ def test_minute_analytical_state_is_not_published_on_rollback(monkeypatch):
         payload={'symbol':'BTCUSDT','start_ms':0,'open':100,'high':101,'low':99,'close':100,
                  'buy_volume':1,'sell_volume':0,'delta':1,'trade_count':1,'poc_price':100,'levels':[]}
         request=SimpleNamespace(json=AsyncMock(return_value=payload))
-        with pytest.raises(ConnectionError):await coordinator.ingest_minute(request,x_node_id='worker',x_node_credential='test')
+        if fault=='rollback':
+            with pytest.raises(ConnectionError):await coordinator.ingest_minute(request,x_node_id='worker',x_node_credential='test')
+        else:await coordinator.ingest_minute(request,x_node_id='worker',x_node_credential='test')
         assert storage.feature_builder.count==0 and storage.derived.count==0
+        assert replacement.feature_builder.count==0 and replacement.derived.count==0
+        if fault=='rollback':assert storage.cache_dirty is True
         assert 'feature-write' in rows and 'derived-write' in rows
     asyncio.run(run())
