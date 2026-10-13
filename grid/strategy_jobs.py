@@ -62,20 +62,22 @@ async def claim_job(pool,node_id):
             # A previous crashed attempt may have emitted only a prefix. Never
             # mix partial results from different attempts under one job id.
             await c.execute("DELETE FROM strategy_results WHERE job_id=$1",row["id"])
-            await c.execute("""UPDATE strategy_jobs
+            claimed=await c.fetchrow("""UPDATE strategy_jobs
               SET status='running',assigned_node=$2,started_at=now(),attempts=attempts+1,error=NULL
-              WHERE id=$1""",row["id"],node_id)
-            row=dict(row); row["assigned_node"]=node_id; return row
+              WHERE id=$1 RETURNING *""",row["id"],node_id)
+            return dict(claimed)
 
-async def requeue_job(pool,job_id,reason):
+async def requeue_job(pool,job_id,reason,*,assigned_node,attempts):
     async with pool.acquire() as c:
         await c.execute("""UPDATE strategy_jobs SET status='queued',assigned_node=NULL,started_at=NULL,error=$2
-                           WHERE id=$1""",job_id,reason)
+                           WHERE id=$1 AND status='running' AND assigned_node=$3 AND attempts=$4""",
+                        job_id,reason,assigned_node,attempts)
 
-async def finish_job(pool,job_id,error=None):
+async def finish_job(pool,job_id,error=None,*,assigned_node,attempts):
     async with pool.acquire() as c:
-        await c.execute("""UPDATE strategy_jobs SET status=$2,finished_at=now(),error=$3 WHERE id=$1""",
-                        job_id,"failed" if error else "done",error)
+        await c.execute("""UPDATE strategy_jobs SET status=$2,finished_at=now(),error=$3
+          WHERE id=$1 AND status='running' AND assigned_node=$4 AND attempts=$5""",
+                        job_id,"failed" if error else "done",error,assigned_node,attempts)
 
 
 async def recover_stale_jobs(pool,stale_seconds,max_attempts=5):

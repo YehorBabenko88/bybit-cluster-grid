@@ -4,21 +4,30 @@ from grid.ml_training_worker import TrainingWorker,StaleTrainingLease
 
 
 class Tx:
-    async def __aenter__(self): return self
-    async def __aexit__(self,*args): return False
+    def __init__(self,c):self.c=c
+    async def __aenter__(self):self.c.in_transaction=True;return self
+    async def __aexit__(self,*args):self.c.in_transaction=False;return False
 
 
 class Conn:
     def __init__(self,valid):
         self.valid=valid
         self.inserts=0
-    def transaction(self): return Tx()
+        self.in_transaction=False
+        self.clock_checks=0
+    def transaction(self): return Tx(self)
+    async def fetchval(self,sql,*args):
+        assert self.in_transaction
+        assert 'clock_timestamp()' in sql
+        self.clock_checks+=1
+        return 5 if self.valid else None
     async def fetchrow(self,sql,*args):
         if "FROM ml_jobs" in sql:
             return {"id":args[0]} if self.valid else None
         raise AssertionError(sql)
     async def execute(self,sql,*args):
         if "INSERT INTO model_registry" in sql:
+            assert self.in_transaction
             self.inserts+=1
             return "INSERT 0 1"
         raise AssertionError(sql)
@@ -57,14 +66,18 @@ def test_current_generation_can_publish_candidate():
         await w._publish_candidate("model","global","dataset","artifact","v1",{},
             job_id="job",lease_owner="node-b",lease_generation=8)
         assert p.conn.inserts==1
+        assert p.conn.clock_checks==2
     asyncio.run(run())
 
 
-def test_publication_fence_is_in_same_transaction_as_registry_insert():
-    from pathlib import Path
-    s=Path("grid/ml_training_worker.py").read_text(encoding="utf-8")
-    block=s.split("async def _publish_candidate",1)[1].split("async def train",1)[0]
-    assert "async with c.transaction()" in block
-    assert "lease_generation=$3" in block
-    assert "lease_until>=now()" in block
-    assert "FOR UPDATE" in block
+def test_expired_after_row_lock_is_rejected():
+    async def run():
+        p=Pool(True)
+        async def expired(*args):return None
+        p.conn.fetchval=expired
+        with pytest.raises(StaleTrainingLease):
+            await TrainingWorker(p,Backend(),'test')._publish_candidate(
+                'model','global','dataset','artifact','v1',{},job_id='job',
+                lease_owner='node',lease_generation=1)
+        assert p.conn.inserts==0
+    asyncio.run(run())
