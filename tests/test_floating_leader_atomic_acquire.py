@@ -469,4 +469,3 @@ def test_shutdown_during_pending_campaign_releases_late_acquisition():
         assert released == [300]
 
     asyncio.run(scenario())
-

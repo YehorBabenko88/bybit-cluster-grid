@@ -83,4 +83,3 @@ def test_persistent_cleanup_failure_blocks_new_campaigns():
         assert not leader.is_leader and leader.epoch is None
 
     asyncio.run(scenario())
-

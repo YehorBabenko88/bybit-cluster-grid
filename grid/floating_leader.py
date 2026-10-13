@@ -173,4 +173,3 @@ class FloatingLeader:
             await on_loss()
         await self.release(held_epoch)
 
-
