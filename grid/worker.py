@@ -29,6 +29,7 @@ from .integrity_guard import verify_manifest
 from .command_receipts import CommandReceiptStore
 from .ml_transport_client import MLTransportClient
 from .ml_agent_worker import ml_agent_loop
+from .active_control import active_control_url
 
 log=logging.getLogger("worker")
 
@@ -179,15 +180,16 @@ class Worker:
                 snap['collector_session']=self.collector_session
                 snap['ownership_protocol']=1
                 try:
+                    address=await active_control_url()
                     assignment_request_started=time.monotonic()
                     async with s.post(
-                        settings.coordinator_url+"/heartbeat",
+                        address+"/heartbeat",
                         json=snap,
                         headers={
                             "X-Grid-Token":settings.grid_shared_token,
                             "X-Node-Credential":node_credential(),
                         },
-                        timeout=10
+                        timeout=10,allow_redirects=False
                     ) as r:
                         if r.status==200:
                             mark_coordinator_success()
@@ -237,12 +239,12 @@ class Worker:
                                     self.command_receipts.put(cmd.get("id"),ok,result,error)
                                 try:
                                     async with s.post(
-                                        settings.coordinator_url+f"/commands/{cmd['id']}/result",
+                                        address+f"/commands/{cmd['id']}/result",
                                         json={"node_id":snap["node_id"],"ok":ok,"result":result,"error":error},
                                         headers={
                                             "X-Grid-Token":settings.grid_shared_token,
                                             "X-Node-Credential":node_credential(),
-                                        },timeout=10
+                                        },timeout=10,allow_redirects=False
                                     ) as ack_response:
                                         ack_response.raise_for_status()
                                 except Exception:

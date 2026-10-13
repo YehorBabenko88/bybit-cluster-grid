@@ -139,6 +139,8 @@ async def health():
         "service": "Bybit Cluster Grid Coordinator",
         "runtime_state": str(fleet_state.get("state","UNKNOWN")),
         "control_leader": leader,
+        "control_epoch": control_runtime.token.generation if leader else None,
+        "control_owner": control_runtime.token.owner if leader else None,
     }
 
 @app.post("/bootstrap/envelope")

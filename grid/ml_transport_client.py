@@ -2,6 +2,7 @@ import aiohttp
 import os
 from .config import settings
 from .credential_store import node_credential
+from .active_control import active_control_url
 
 class MLTransportClient:
     def __init__(self,node_id,session=None):
@@ -15,8 +16,9 @@ class MLTransportClient:
         owned=self.session is None
         session=self.session or aiohttp.ClientSession()
         try:
-            async with session.request(method,settings.coordinator_url+path,
-                                       headers=self.headers(),timeout=30,**kwargs) as r:
+            address=await active_control_url()
+            async with session.request(method,address+path,
+                                       headers=self.headers(),timeout=30,allow_redirects=False,**kwargs) as r:
                 if r.status==409:return None
                 r.raise_for_status()
                 return await r.json()
@@ -58,9 +60,10 @@ class MLTransportClient:
         params={"node_id":self.node_id,"lease_generation":job["lease_generation"],"sha256":sha256}
         async with aiohttp.ClientSession() as session:
             with open(path,"rb") as f:
-                async with session.post(settings.coordinator_url+f"/ml/jobs/{job['id']}/artifact",
+                address=await active_control_url()
+                async with session.post(address+f"/ml/jobs/{job['id']}/artifact",
                   params=params,data=f,headers=self.headers(),
-                  timeout=aiohttp.ClientTimeout(total=300)) as r:
+                  timeout=aiohttp.ClientTimeout(total=300),allow_redirects=False) as r:
                     if r.status==409:return None
                     r.raise_for_status()
                     return await r.json()
