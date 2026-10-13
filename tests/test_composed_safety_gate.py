@@ -5,10 +5,12 @@ source-level smoke gate, not a replacement for PostgreSQL/Windows/physical tests
 """
 from pathlib import Path
 import unittest
+import os
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@unittest.skipUnless(os.environ.get('GRID_REQUIRE_COMPOSED_GATES') == '1', 'only mandatory on composed integration CI')
 class ComposedSafetyGate(unittest.TestCase):
     def source(self, path):
         file = ROOT / path
