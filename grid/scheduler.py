@@ -7,7 +7,7 @@ def learned_symbol_cost(nodes, default=1.0):
         for symbol,cost in (node.get("symbol_cost") or {}).items():
             try:
                 value=float(cost)
-            except (TypeError,ValueError):
+            except (TypeError,ValueError,OverflowError):
                 continue
             if math.isfinite(value) and value>0:
                 samples.setdefault(symbol,[]).append(value)
