@@ -117,6 +117,10 @@ def check_science_handoff_seen(manifest_path, ledger_path):
         return {"identity": identity, "seen": False}
     if not ledger_path.is_file():
         raise ScienceHandoffError("handoff ledger must be a regular file")
+    # A ledger is metadata, not a bulk data store. Bound the read to prevent
+    # accidental or hostile memory exhaustion during verification.
+    if ledger_path.stat().st_size > 4 * 1024 * 1024:
+        raise ScienceHandoffError("handoff ledger exceeds size limit")
     try:
         ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, ValueError) as exc:
