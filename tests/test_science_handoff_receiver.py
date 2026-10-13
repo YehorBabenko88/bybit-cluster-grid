@@ -80,3 +80,36 @@ def test_accepts_relocated_package_with_optional_strategy_database(tmp_path):
     (moved / strategy.name).write_bytes(b"tampered")
     with pytest.raises(ScienceHandoffError, match="strategy_results checksum mismatch"):
         verify_science_handoff(moved / "grid-handoff.json")
+
+
+def test_rejects_missing_optional_strategy_results(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    data["strategy_results"] = {"path": "missing.sqlite3", "sha256": "0" * 64}
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ScienceHandoffError, match="missing or empty strategy_results"):
+        verify_science_handoff(manifest)
+
+
+def test_rejects_optional_strategy_results_path_escape(tmp_path):
+    manifest, _ = make_package(tmp_path)
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    data["strategy_results"] = {"path": "../external.sqlite3", "sha256": "0" * 64}
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ScienceHandoffError, match="strategy_results escapes"):
+        verify_science_handoff(manifest)
+
+
+def test_rejects_science_symlink_to_outside_package(tmp_path):
+    package = tmp_path / "package"
+    package.mkdir()
+    manifest, science = make_package(package)
+    outside = tmp_path / "external.json"
+    outside.write_bytes(science.read_bytes())
+    science.unlink()
+    try:
+        science.symlink_to(outside)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable on this runner")
+    with pytest.raises(ScienceHandoffError, match="science_bundle escapes"):
+        verify_science_handoff(manifest)
