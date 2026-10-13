@@ -56,6 +56,11 @@ async def _ingest_owned(pool,node_id,kind,payload,persist,deadline):
                 live=bool(row and lease_live and row['owner']==node_id and session is not None
                           and row['session']==session and type(generation) is int
                           and row['generation']==generation)
+                # Source evidence is durable reconciliation input, never a
+                # canonical observation or permission to repair live statistics.
+                if kind=='event' and payload.get('event_type') in (
+                    'public_trade_capture_evidence','orderbook_capture_evidence'):
+                    live=False
                 disposition='LIVE' if live else 'QUARANTINED'
                 if live:
                     ttl=await c.fetchval("SELECT extract(epoch from lease_until-clock_timestamp()) FROM collection_ownership WHERE symbol=$1",symbol)

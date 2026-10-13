@@ -236,7 +236,7 @@ async def heartbeat(payload:dict,x_grid_token:str=Header(default=""),x_node_cred
             "install_mode":install_mode,"control_disk_state":control_disk["state"],
             "recovery_profile":replay,
             "runtime_state":fleet_state["state"],"market_work_enabled":market_enabled,
-            "ownership_protocol":1,"ownership":ownership}
+            "ownership_protocol":1,"ownership":ownership,"capture_evidence_protocol":1}
 
 @app.get("/nodes/{node_id}/acceptance")
 async def node_acceptance(node_id:str,x_node_credential:str=Header(default="")):
