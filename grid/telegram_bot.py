@@ -132,6 +132,9 @@ def _healthy_canary(nodes):
         candidates.append((cpu+ram,nid))
     return min(candidates)[1] if candidates else None
 
+from .control_runtime import leader_effect
+
+@leader_effect
 async def handle_command(db,session,chat_id,text,nodes):
     parts=text.strip().split()
     cmd=parts[0].lower()
@@ -514,6 +517,7 @@ async def handle_command(db,session,chat_id,text,nodes):
     else:
         await tg_send(session,chat_id,"Commands: /menu /system /joinpilot [LABEL] /joinagent [LABEL] /begin /fleetstop /fleetresume /fleetdelete /pilot /pilot [NODE] /pilotvalidate NODE /health /nodes /node NODE /status [NODE] /update VERSION /rollout /errors /logs NODE /logresult ID /pause NODE /resume NODE /stop NODE /start NODE /restart NODE /rollback NODE /uninstall NODE /cleanupplan /cleanup /db /controlupdate VERSION /controlupdatestatus")
 
+@leader_effect
 async def _maybe_finalize_fleet_delete(db,session):
     op=await latest_operation(db.pool,"DELETE")
     if not op or op["status"] not in ("WAITING","READY_CONTROL_PURGE"):

@@ -13,8 +13,19 @@ from unittest.mock import AsyncMock
 
 from grid.collection_ownership import SCHEMA,grant_assignments,wal_envelope
 from grid.fenced_ingest import ingest_owned,OwnershipExpired
+from grid.control_runtime import Epoch,FencedPool
 
 pytestmark=pytest.mark.skipif(not os.environ.get('POSTGRES_DSN'),reason='isolated PostgreSQL required')
+
+
+async def http_leader(monkeypatch,coordinator,db,pool):
+    await pool.execute("""CREATE TABLE IF NOT EXISTS service_leases(service_key text PRIMARY KEY,
+      owner text NOT NULL,lease_until timestamptz NOT NULL,heartbeat_at timestamptz,
+      metadata jsonb NOT NULL DEFAULT '{}'::jsonb)""")
+    await pool.execute("""INSERT INTO service_leases(service_key,owner,lease_until,metadata)
+      VALUES('control-plane-leader','test-control',clock_timestamp()+interval '30 seconds','{"epoch":1}')""")
+    db.raw_pool=pool;db.pool=FencedPool(pool)
+    monkeypatch.setattr(coordinator,'control_runtime',SimpleNamespace(ready=True,token=Epoch('test-control',1)))
 
 
 @asynccontextmanager
@@ -73,6 +84,23 @@ def test_expiry_session_restart_receipts_and_quarantine():
     asyncio.run(run())
 
 
+def test_symbol_lease_timeout_covers_deferred_commit():
+    async def run():
+        async with database() as pool:
+            grant=(await grant_assignments(pool,'old',str(uuid.uuid4()),['BTCUSDT']))['BTCUSDT']
+            await pool.execute("""CREATE FUNCTION slow_commit() RETURNS trigger LANGUAGE plpgsql AS $$
+              BEGIN PERFORM pg_sleep(.5);RETURN NEW;END $$""")
+            await pool.execute("""CREATE CONSTRAINT TRIGGER slow_commit_trigger AFTER INSERT ON canonical_writes
+              DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION slow_commit()""")
+            await pool.execute("UPDATE collection_ownership SET lease_until=clock_timestamp()+interval '250 milliseconds'")
+            async def persist(c,row):await c.execute("INSERT INTO canonical_writes VALUES('BTCUSDT',1)")
+            with pytest.raises(OwnershipExpired):
+                await ingest_owned(pool,'old','event',wal_envelope({'symbol':'BTCUSDT'},grant),persist)
+            assert await pool.fetchval('SELECT count(*) FROM canonical_writes')==0
+            assert await pool.fetchval('SELECT count(*) FROM collection_ingest_receipts')==0
+    asyncio.run(run())
+
+
 def test_delayed_transaction_blocks_takeover_then_rolls_back():
     async def run():
         async with database() as pool:
@@ -103,7 +131,9 @@ def test_actual_http_ingest_is_fenced_on_postgres_write(monkeypatch):
             await pool.execute('CREATE TABLE market_events(symbol text,event_ts timestamptz,event_type text,payload jsonb)')
             session=str(uuid.uuid4())
             grant=(await grant_assignments(pool,'worker',session,['BTCUSDT']))['BTCUSDT']
-            monkeypatch.setattr(coordinator,'db',SimpleNamespace(pool=pool))
+            db=SimpleNamespace(pool=pool)
+            await http_leader(monkeypatch,coordinator,db,pool)
+            monkeypatch.setattr(coordinator,'db',db)
             monkeypatch.setattr(coordinator,'authenticate_agent',AsyncMock(return_value=True))
             monkeypatch.setattr(coordinator,'runtime_state',AsyncMock(return_value={'state':'ACTIVE'}))
             monkeypatch.setattr(coordinator,'control_disk_state',lambda:{'state':'NORMAL'})
@@ -136,6 +166,7 @@ def test_real_minute_features_and_derived_state_roll_back_together(monkeypatch):
             await storage.feature_builder.start(pool)
             storage.derived=DerivedPipeline(pool);await storage.derived.start()
             storage.scientific=None
+            await http_leader(monkeypatch,coordinator,db,pool)
             monkeypatch.setattr(coordinator,'db',db)
             monkeypatch.setattr(coordinator,'ingest_storage',storage)
             monkeypatch.setattr(coordinator,'ingest_lock',asyncio.Lock())
@@ -162,21 +193,3 @@ def test_real_minute_features_and_derived_state_roll_back_together(monkeypatch):
                 assert await pool.fetchval('SELECT count(*) FROM poc_lifecycle')==1
                 assert 'BTCUSDT' in storage.feature_builder.last_ts
     asyncio.run(run())
-
-
-def test_symbol_lease_timeout_covers_deferred_commit():
-    async def run():
-        async with database() as pool:
-            grant=(await grant_assignments(pool,'old',str(uuid.uuid4()),['BTCUSDT']))['BTCUSDT']
-            await pool.execute("""CREATE FUNCTION slow_commit() RETURNS trigger LANGUAGE plpgsql AS $$
-              BEGIN PERFORM pg_sleep(.5);RETURN NEW;END $$""")
-            await pool.execute("""CREATE CONSTRAINT TRIGGER slow_commit_trigger AFTER INSERT ON canonical_writes
-              DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION slow_commit()""")
-            await pool.execute("UPDATE collection_ownership SET lease_until=clock_timestamp()+interval '250 milliseconds'")
-            async def persist(c,row):await c.execute("INSERT INTO canonical_writes VALUES('BTCUSDT',1)")
-            with pytest.raises(OwnershipExpired):
-                await ingest_owned(pool,'old','event',wal_envelope({'symbol':'BTCUSDT'},grant),persist)
-            assert await pool.fetchval('SELECT count(*) FROM canonical_writes')==0
-            assert await pool.fetchval('SELECT count(*) FROM collection_ingest_receipts')==0
-    asyncio.run(run())
-

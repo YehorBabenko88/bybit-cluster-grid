@@ -50,7 +50,7 @@ def test_coordinator_ingest_storage_has_module_lifecycle():
         node
         for node in tree.body
         if isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef))
-        and node.name == "startup"
+        and node.name == "start_leader_services"
     )
 
     global_names = {
@@ -60,7 +60,7 @@ def test_coordinator_ingest_storage_has_module_lifecycle():
         for name in node.names
     }
 
-    assert "db" in global_names
+    assert "scientific_service" in global_names
     assert "ingest_storage" in global_names
 
 def test_coordinator_background_tasks_have_shutdown_lifecycle():
@@ -93,11 +93,11 @@ def test_coordinator_background_tasks_have_shutdown_lifecycle():
 
     startup_source = ast.get_source_segment(
         source,
-        functions["startup"],
+        functions["start_leader_services"],
     )
     shutdown_source = ast.get_source_segment(
         source,
-        functions["shutdown"],
+        functions["stop_leader_services"],
     )
 
     assert startup_source.count("asyncio.create_task(") >= 2
@@ -106,5 +106,5 @@ def test_coordinator_background_tasks_have_shutdown_lifecycle():
     assert "task.cancel()" in shutdown_source
     assert "asyncio.gather(" in shutdown_source
     assert "return_exceptions=True" in shutdown_source
-    assert "background_tasks = []" in shutdown_source
+    assert "background_tasks=[]" in shutdown_source
     assert "ingest_storage = None" in shutdown_source

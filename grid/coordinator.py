@@ -37,6 +37,7 @@ from .scientific_service import ScientificResearchService
 from .historical_science_import import import_historical_science
 from .collection_ownership import grant_assignments
 from .fenced_ingest import ingest_owned,OwnershipExpired
+from .control_runtime import ControlRuntime,FencedPool,EpochMiddleware
 import copy
 from types import SimpleNamespace
 from .system_lifecycle import get_phase,advance_phase,phase_capabilities,PHASES
@@ -51,6 +52,10 @@ repair_breaker=RepairCircuitBreaker()
 ml_orchestrator=None
 scientific_service=None
 ingest_lock=asyncio.Lock()
+control_runtime=None
+
+
+app.add_middleware(EpochMiddleware,runtime=lambda:control_runtime,pool=lambda:db.pool)
 
 
 
@@ -115,8 +120,16 @@ async def health():
     if db is None or getattr(db,"pool",None) is None:
         raise HTTPException(503,"database not ready")
     try:
-        await db.pool.fetchval("SELECT 1")
-        fleet_state=await runtime_state(db.pool)
+        pool=getattr(db,'raw_pool',db.pool)
+        await pool.fetchval("SELECT 1")
+        fleet_state=await runtime_state(pool)
+        leader=False
+        if control_runtime and control_runtime.ready and control_runtime.token:
+            token=control_runtime.token
+            leader=bool(token.active and await pool.fetchval("""SELECT EXISTS(
+              SELECT 1 FROM service_leases WHERE service_key='control-plane-leader'
+              AND owner=$1 AND (metadata->>'epoch')::bigint=$2 AND lease_until>clock_timestamp())""",
+              token.owner,token.generation))
     except Exception:
         log.exception("health probe failed",extra={"event":"health_failed","component":"coordinator"})
         raise HTTPException(503,"database unavailable")
@@ -125,6 +138,7 @@ async def health():
         "pid": __import__("os").getpid(),
         "service": "Bybit Cluster Grid Coordinator",
         "runtime_state": str(fleet_state.get("state","UNKNOWN")),
+        "control_leader": leader,
     }
 
 @app.post("/bootstrap/envelope")
@@ -661,7 +675,7 @@ async def rebalance():
 
 @app.on_event("startup")
 async def startup():
-    global db, ingest_storage, background_tasks, ml_orchestrator, scientific_service
+    global db,control_runtime
     bootstrap_logging()
     install_asyncio_exception_filter(asyncio.get_running_loop())
     log.info(
@@ -669,6 +683,14 @@ async def startup():
         extra={"event": "coordinator_startup", "component": "coordinator"},
     )
     db=await prepare_database()
+    db.raw_pool=db.pool
+    db.pool=FencedPool(db.raw_pool)
+    control_runtime=ControlRuntime(db.raw_pool,start_leader_services,stop_leader_services)
+    control_runtime.start()
+
+
+async def start_leader_services(epoch):
+    global ingest_storage,background_tasks,ml_orchestrator,scientific_service
     await ensure_instrument_schema(db.pool)
     await ensure_strategy_schema(db.pool)
     await ensure_plugin_schema(db.pool)
@@ -747,22 +769,21 @@ async def startup():
         asyncio.create_task(scientific_service.run()),
     ]
 
-@app.on_event("shutdown")
-async def shutdown():
-    global ingest_storage, background_tasks, ml_orchestrator, scientific_service
+async def stop_leader_services():
+    global ingest_storage,background_tasks,ml_orchestrator,scientific_service,assignments,instruments,nodes
 
     if ml_orchestrator is not None:
         ml_orchestrator.stop()
     if scientific_service is not None:
         scientific_service.stop()
     tasks = list(background_tasks)
-    background_tasks = []
 
     for task in tasks:
         task.cancel()
 
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)
+    background_tasks=[]
 
     if ingest_storage is not None:
         # CONTROL borrows the Database pool for direct ingest. Stop the derived
@@ -774,7 +795,15 @@ async def shutdown():
             if close is not None:
                 await close()
         ingest_storage = None
+    assignments={};instruments={};nodes={}
+    ml_orchestrator=None;scientific_service=None
 
+@app.on_event("shutdown")
+async def shutdown():
+    global control_runtime
+    if control_runtime is not None:
+        await control_runtime.stop()
+        control_runtime=None
     if db is not None and db.pool is not None:
-        await db.pool.close()
+        await db.raw_pool.close()
         db.pool=None
