@@ -1,6 +1,6 @@
 """Import Strattester historical scientific bootstrap without promoting it to live evidence."""
 from __future__ import annotations
-import hashlib,json,uuid
+import hashlib,json,math,uuid
 
 REQUIRED_CAPABILITIES=("candles","open_interest","public_trade_aggregates")
 FORBIDDEN_AS_HISTORICAL=("true_l2_orderbook","liquidations","true_l2_absorption")
@@ -10,17 +10,57 @@ def canonical_payload(bundle):
     return json.dumps(x,sort_keys=True,separators=(",",":"),default=str)
 
 def verify_bundle(bundle):
-    b=dict(bundle or {})
+    if not isinstance(bundle, dict):
+        return False,"invalid bundle object"
+    b=dict(bundle)
+    if type(b.get("schema")) is not int or b["schema"] != 1:
+        return False,"unsupported historical bundle schema"
+    created=b.get("created_at")
+    try:
+        valid_created=type(created) in (int,float) and math.isfinite(created) and created>=0
+    except OverflowError:
+        valid_created=False
+    if not valid_created:
+        return False,"invalid source timestamp"
+    try:
+        json.dumps(b,allow_nan=False)
+    except (TypeError,ValueError,OverflowError):
+        return False,"invalid historical JSON values"
     expected=str(b.get("sha256") or "")
     actual=hashlib.sha256(canonical_payload(b).encode()).hexdigest()
     if expected!=actual:return False,"sha256 mismatch"
     if str(b.get("research_scope"))!="HISTORICAL_BOOTSTRAP_ONLY":
         return False,"invalid research scope"
-    caps=dict(b.get("capabilities") or {})
-    if not all(bool(caps.get(k)) for k in REQUIRED_CAPABILITIES):
+    caps=b.get("capabilities")
+    if not isinstance(caps,dict):
+        return False,"invalid historical capabilities"
+    if not all(caps.get(k) is True for k in REQUIRED_CAPABILITIES):
         return False,"required historical capability missing"
-    if any(bool(caps.get(k)) for k in FORBIDDEN_AS_HISTORICAL):
+    if any(caps.get(k,False) is not False for k in FORBIDDEN_AS_HISTORICAL):
         return False,"fabricated historical live-only capability"
+    symbols=b.get("symbols")
+    if not isinstance(symbols,list):
+        return False,"invalid historical symbol list"
+    seen=set()
+    for item in symbols:
+        if not isinstance(item,dict):
+            return False,"invalid historical symbol state"
+        symbol=item.get("symbol")
+        if not isinstance(symbol,str) or not symbol or symbol in seen:
+            return False,"invalid or duplicate historical symbol"
+        seen.add(symbol)
+        samples=item.get("samples",0)
+        if type(samples) is not int or not 0<=samples<2**63:
+            return False,"invalid historical sample count"
+        for field in ("from_ms","through_ms"):
+            value=item.get(field)
+            if value is not None and (type(value) is not int or not 0<=value<2**63):
+                return False,"invalid historical millisecond timestamp"
+        start,end=item.get("from_ms"),item.get("through_ms")
+        if start is not None and end is not None and start>end:
+            return False,"reversed historical time range"
+        if not all(isinstance(item.get(field,{}),dict) for field in ("summary","features")):
+            return False,"invalid historical symbol JSON object"
     return True,None
 
 async def import_historical_science(pool,bundle):
