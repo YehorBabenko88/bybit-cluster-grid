@@ -1,4 +1,5 @@
 import json, logging, uuid
+from .config import settings
 log=logging.getLogger("strategy_jobs")
 
 async def ensure_strategy_schema(pool):
@@ -75,9 +76,12 @@ async def requeue_job(pool,job_id,reason,*,assigned_node,attempts):
 
 async def finish_job(pool,job_id,error=None,*,assigned_node,attempts):
     async with pool.acquire() as c:
-        await c.execute("""UPDATE strategy_jobs SET status=$2,finished_at=now(),error=$3
-          WHERE id=$1 AND status='running' AND assigned_node=$4 AND attempts=$5""",
-                        job_id,"failed" if error else "done",error,assigned_node,attempts)
+        result=await c.execute("""UPDATE strategy_jobs SET status=$2,finished_at=now(),error=$3
+          WHERE id=$1 AND status='running' AND assigned_node=$4 AND attempts=$5
+          AND started_at+($6*interval '1 second')>clock_timestamp()""",
+                        job_id,"failed" if error else "done",error,assigned_node,attempts,
+                        float(settings.strategy_job_timeout_seconds))
+        return result.endswith(' 1')
 
 
 async def recover_stale_jobs(pool,stale_seconds,max_attempts=5):

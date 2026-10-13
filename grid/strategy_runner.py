@@ -52,7 +52,11 @@ async def strategy_worker(db,poll_seconds=None):
                 await asyncio.sleep(max(3,poll_seconds)); continue
 
             await execute_job_subprocess(db,job)
-            await finish_job(db.pool,job["id"],assigned_node=job['assigned_node'],attempts=job['attempts'])
+            completed=await finish_job(db.pool,job["id"],assigned_node=job['assigned_node'],attempts=job['attempts'])
+            if not completed:
+                log.warning('strategy completion rejected by ownership deadline',extra={
+                    'event':'strategy_completion_rejected','component':str(job['id'])})
+                continue
             log.info("strategy job completed",extra={"event":"strategy_job_done","component":str(job["id"])})
         except asyncio.CancelledError:
             raise
