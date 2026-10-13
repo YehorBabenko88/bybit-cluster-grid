@@ -79,6 +79,7 @@ class OwnedSink:
     """A collector's grant cannot change when a later heartbeat takes over."""
     def __init__(self,sink,grants,renewals=None):
         self.sink=sink;self.grants=copy.deepcopy(grants);self.renewals=renewals
+        self.started_ms=int(time.time()*1000)
 
     def token(self,symbol):
         grant=self.grants.get(symbol)
@@ -92,6 +93,9 @@ class OwnedSink:
         return {"generation":grant['generation'],"session":grant['session']}
 
     async def save(self,row):
+        if type(row.get('start_ms')) is int and row['start_ms']<self.started_ms:
+            row={**row,'quality_status':'DEGRADED',
+                 'quality_reasons':list(dict.fromkeys([*row.get('quality_reasons',[]),'ownership_partial_start']))}
         await self.sink.save(row,ownership=self.token(row['symbol']))
 
     async def insert_event(self,symbol,event_ts,event_type,payload):
