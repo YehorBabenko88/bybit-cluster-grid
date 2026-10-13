@@ -270,6 +270,18 @@ class MicrostructureCollector:
                                 q.mark("orderbook",MISSING,"malformed orderbook levels")
                                 log.warning("malformed orderbook levels",extra={"event":"orderbook_bad_levels","component":sym})
                                 continue
+                            capture=getattr(self.db,'capture_event',None)
+                            if capture is not None:
+                                receive_ts=int(time.time()*1000)
+                                await capture(sym,receive_ts,'orderbook_capture_evidence',{
+                                    'symbol':sym,'capture_stage':'PRE_AGGREGATION',
+                                    'events':[{'type':'snapshot' if is_snapshot else 'delta',
+                                      'system_ts':ts,'receive_ts':receive_ts,'cts':data.get('cts'),
+                                      'u':data.get('u'),'seq':data.get('seq'),
+                                      'b':data.get('b',[]),'a':data.get('a',[])}],
+                                    'event_count':1,'first_system_ts':ts,'last_system_ts':ts,
+                                    'first_receive_ts':receive_ts,'last_receive_ts':receive_ts,
+                                })
                             if is_snapshot:
                                 if not guard.valid:
                                     velocity.state.pop(sym,None)

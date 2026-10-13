@@ -102,6 +102,9 @@ class OwnedSink:
         await self.sink.insert_event(symbol,event_ts,event_type,payload,
                                      ownership=self.token(symbol))
 
+    async def capture_event(self,symbol,event_ts,event_type,payload):
+        await self.insert_event(symbol,event_ts,event_type,payload)
+
 
 def wal_envelope(row,ownership=None):
     # Stamp exactly once before durable append, never on replay/send.

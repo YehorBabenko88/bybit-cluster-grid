@@ -56,6 +56,11 @@ async def _ingest_owned(pool,node_id,kind,payload,persist,deadline):
                 live=bool(row and lease_live and row['owner']==node_id and session is not None
                           and row['session']==session and type(generation) is int
                           and row['generation']==generation)
+                # Source evidence is durable reconciliation input, never a
+                # canonical observation or permission to repair live statistics.
+                if kind=='event' and payload.get('event_type') in (
+                    'public_trade_capture_evidence','orderbook_capture_evidence'):
+                    live=False
                 disposition='LIVE' if live else 'QUARANTINED'
                 if live:
                     ttl=await c.fetchval("SELECT extract(epoch from lease_until-clock_timestamp()) FROM collection_ownership WHERE symbol=$1",symbol)
@@ -67,4 +72,8 @@ async def _ingest_owned(pool,node_id,kind,payload,persist,deadline):
                         raise OwnershipExpired('collection lease expired during persistence')
                 await c.execute("""UPDATE collection_ingest_receipts SET disposition=$4
                   WHERE node_id=$1 AND kind=$2 AND record_id=$3""",node_id,kind,record_id,disposition)
-    return {'ok':True,'ownership_protocol':1,'disposition':disposition,'sha256':digest}
+    result={'ok':True,'ownership_protocol':1,'disposition':disposition,'sha256':digest}
+    if kind=='event' and payload.get('event_type') in (
+        'public_trade_capture_evidence','orderbook_capture_evidence'):
+        result['capture_evidence_protocol']=1
+    return result

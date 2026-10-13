@@ -100,6 +100,7 @@ class Storage:
             await self.http.close(); self.http=None
         if self.pool is not None:
             await self.pool.close(); self.pool=None
+        self.spool.close()
 
     async def reset_analytical_state(self,pool):
         """Resolve uncertain COMMIT responses from authoritative persisted state."""
@@ -113,6 +114,7 @@ class Storage:
         m=self.write_queue.metrics()
         m['spool_bytes']=self.spool.bytes_used()
         m['spool_ratio']=self.spool.ratio()
+        m['spool_faulted']=self.spool.faulted
         m["replay_active"]=not self.replay_done.is_set()
         m["replay_backlog_bytes"]=m["spool_bytes"] if m["replay_active"] else 0
         m["replay_rate_per_second"]=float(self.replay_rate)

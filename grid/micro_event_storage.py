@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import aiohttp
 import os
+import json
 
 from .config import settings
 from .resources import NODE_ID
@@ -86,6 +87,9 @@ class MicroEventStorage:
         }
         async with self._enqueue_lock:
             row=wal_envelope(row,ownership)
+            # Ingest requires strict JSON. Refuse non-finite source/derived
+            # values before durable admission rather than poisoning ordered replay.
+            json.dumps(row,allow_nan=False)
             record_id=await self.spool.append(row)
             await self.write_queue.put(record_id,row)
 
@@ -102,6 +106,7 @@ class MicroEventStorage:
         await self.write_queue.close(drain_timeout)
         if self.http is not None:
             await self.http.close(); self.http=None
+        self.spool.close()
 
     async def _save_spooled(self,record_id,row):
         from .credential_store import node_credential
@@ -122,12 +127,20 @@ class MicroEventStorage:
         }
         if self.http is None:
             raise RuntimeError("micro-event ingest session is not started")
+        evidence=row.get('event_type') in ('public_trade_capture_evidence','orderbook_capture_evidence')
+        # Older CONTROL has no capture endpoint: 404 retains the WAL without
+        # contaminating its canonical market_events before negotiation.
+        path='/ingest/capture' if evidence else '/ingest/event'
         async with self.http.post(
-            settings.coordinator_url+"/ingest/event",
+            settings.coordinator_url+path,
             json=row,
             headers=headers,
         ) as resp:
             receipt=await check_receipt(resp,row)
+            if evidence and (type(receipt.get('capture_evidence_protocol')) is not int
+                             or receipt.get('capture_evidence_protocol')!=1
+                             or receipt['disposition']!='QUARANTINED'):
+                raise RuntimeError('CONTROL does not acknowledge evidence-only capture protocol')
             if receipt['disposition']=='QUARANTINED':
                 import logging
                 logging.getLogger('micro_storage').warning('WAL durably quarantined; excluded from live statistics',extra={'event':'wal_quarantined','symbol':row.get('symbol')})
@@ -140,6 +153,7 @@ class MicroEventStorage:
         m=self.write_queue.metrics()
         m["spool_bytes"]=self.spool.bytes_used()
         m["spool_ratio"]=self.spool.ratio()
+        m['spool_faulted']=self.spool.faulted
         m["replay_active"]=not self.replay_done.is_set()
         m["replay_backlog_bytes"]=m["spool_bytes"] if m["replay_active"] else 0
         m["replay_rate_per_second"]=float(self.replay_rate)
