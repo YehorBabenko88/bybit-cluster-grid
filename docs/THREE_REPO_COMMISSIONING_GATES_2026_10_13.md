@@ -75,3 +75,13 @@ Any dual leader, stale writer accepted, ACK before durable evidence, unexpected 
 ## Current evidence / limitations
 
 Codex's local composition reported 1,130 offline passed, 26 skipped and 9 synthetic cross-repository tests; five mandatory PostgreSQL modules were excluded from that local run. Separate PR CI success does not establish composed-head CI. Physical Windows reboot, power loss, full-fleet inventory, real network, capture capacity, durable quarantine reconciliation and production HA remain unverified. This document makes no claim that any physical gate has passed.
+
+## First non-destructive operator command
+
+Run on **one test PC** using PowerShell; review output locally before sharing because hostnames, process IDs and service names are operational metadata:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\installer\collect-commissioning-inventory.ps1 -OutputPath "$env:TEMP\grid-inventory-$env:COMPUTERNAME.json"
+```
+
+The inventory collector only reads local Windows metadata, excludes command lines and secrets, refuses to overwrite an existing output file, and leaves unknown infrastructure fields explicitly UNKNOWN. It does not inspect other PCs, open SSH sessions, modify PostgreSQL, start or stop services, or deploy releases. A full fleet inventory requires an independently reviewed collection process on each node. **Do not run from an unverified working directory**; inspect the script from the reviewed PR SHA first.
