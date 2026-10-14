@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from installer import windows_preflight as w
 from grid.migrations import MIGRATIONS
@@ -41,6 +42,12 @@ class Evidence:
 async def fake_probe(dsn,**kwargs):
     if dsn != 'postgresql://fixture/bybit_cluster_grid':raise AssertionError('fixture DSN required')
     return await w.database_status(Evidence(),'bybit_cluster_grid',**kwargs)
+# Disk capacity is an external host property too: isolate the fixture from
+# runner C: headroom while keeping production disk validation unchanged.
+real_free_gb=w.shutil.disk_usage(Path(sys.argv[sys.argv.index('--release-dir')+1])).free/1024**3
+if real_free_gb < 35:
+    print('TEST_FIXTURE_HOST_DISK_BELOW_PRODUCTION_35GB_THRESHOLD',file=sys.stderr)
+w.shutil.disk_usage=lambda path:SimpleNamespace(free=64*1024**3)
 w.probe_database=fake_probe
 w.check_dependencies=lambda:{'status':'PASS','code':'TEST_DEPENDENCY_SUBPROCESS_OMITTED'}
 for key in ('TELEGRAM_BOT_TOKEN','BYBIT_API_KEY','BYBIT_API_SECRET'):os.environ.pop(key,None)

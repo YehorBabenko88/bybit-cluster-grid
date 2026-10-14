@@ -12,8 +12,15 @@ function Get-ScheduledTask {[CmdletBinding()]param() $global:LegacyTasks}
 function Get-CimInstance {[CmdletBinding()]param($ClassName,$OperationTimeoutSec) $global:LegacyProcesses}
 function Invoke-LegacyPreflight {
  # Preserve all actual CLI flags. Only external DB/dependency boundary is synthetic.
- & $global:LegacyPython -B $global:LegacyDriver @($args | Select-Object -Skip 2)
- $global:LASTEXITCODE=$LASTEXITCODE
+ $output=& $global:LegacyPython -B $global:LegacyDriver @($args | Select-Object -Skip 2)
+ $code=$LASTEXITCODE
+ $global:LegacyLastCodes='PRECHECK_REPORT_UNAVAILABLE'
+ try {
+  $parsed=($output -join "`n")|ConvertFrom-Json
+  $global:LegacyLastCodes=@($parsed.checks.PSObject.Properties|Where-Object {$_.Value.status -ne 'PASS'}|ForEach-Object {$_.Value.code}) -join ','
+ } catch {}
+ $global:LASTEXITCODE=$code
+ $output
 }
 function Snapshot($p){
  @(Get-ChildItem -LiteralPath $p -Recurse -File|Sort-Object FullName|ForEach-Object{
@@ -45,7 +52,7 @@ foreach($sha in @('9ab1f5b85ec471ea21ec89f1b76740c0b01537b6','2017ed4fd16b0b2221
    if($case -in @('schema','corrupt','process','task','explicit')){
     if(!$rejected -or (Snapshot $p) -cne $before){throw "Legacy rollback failed closed invariant: $case/$role/$sha"}
    } else {
-    if($rejected){throw "Legacy rollback unexpectedly blocked: $case/$role/$sha"}
+    if($rejected){throw "Legacy rollback unexpectedly blocked: $case/$role/$sha; codes=$global:LegacyLastCodes"}
     if($case -eq 'plan'){
      if((Snapshot $p) -cne $before){throw 'Default plan modified files'}
     } else {
