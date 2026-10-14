@@ -34,7 +34,7 @@
 
 * Проверяет release manifest, точный SHA, SHA-256 файлов, coverage Python source и обязательные fencing-файлы; отказывает при traversal/junction/symlink, дубликатах путей, неизвестном runtime Python. Hash-цикл ограничен 60 секундами, manifest — 32 MiB; timeout означает BLOCKED, а не частичный успех.
 * Python 3.11/3.12: изолированные import smoke и `pip check`, stdout/stderr дочерних процессов не публикуются. Импорт Coordinator не запускает startup/службы. Checker запускается с `-B`, не компилирует установленные source-файлы.
-* Проверяет наличие credentials своей роли, отсутствие настроенного Telegram/trading credentials и явное `RETENTION_ENABLED=false` для commissioning. Ничего не исправляет в `.env` автоматически.
+* Проверяет наличие credentials своей роли (worker: env либо штатный secrets/node.credential, без вывода содержимого), отсутствие настроенного Telegram/trading credentials и явное `RETENTION_ENABLED=false` для commissioning. Ничего не исправляет в `.env` автоматически.
 * `--check-db` допускает URL только базы `bybit_cluster_grid`, подключается с `default_transaction_read_only=on`, statement/lock/connect timeout, явной read-only транзакцией. Проверяет полный каталог 1–47, наличие retention/ownership таблиц и ключевых типов колонок, gate только INFRA_ONLY/PAUSED/STOPPED. Нет DDL, migration apply, очистки, reset gate или запросов к чужим базам.
 * `--smoke-url` делает только GET `/health`, без redirects, bounded body/timeout. Требует действующий quiescent CONTROL leader. ACTIVE, follower, missing/unknown gate и недоступность блокируют проверку; `/start` не вызывается.
 * Исключения представлены code + class; DSN, пароли, токены, текст исключений, сырые HTTP bodies, environment и командные строки процессов не выводятся.
@@ -148,3 +148,11 @@ $Tailnet.Peer.PSObject.Properties.Value | Select-Object HostName,Online,Tailscal
 * Legacy bootstrap/provisioning остаются запрещёнными entrypoints для текущего сценария; полноценное автоматическое обновление существующей LS5 установки нельзя считать проверенным до закрытия access/schema/config/backup blockers.
 
 Никакого merge, deployment, реального task start, изменения Telegram или торговли в этом этапе нет.
+
+## Review и первый цикл CI
+
+Независимый read-only reviewer подтвердил P2: file-only credential штатно enrolled worker ошибочно считался отсутствующим. Исправлено; тест был красным до изменения, после изменения проверяет непустой/пустой/отсутствующий файл и отсутствие секрета в JSON.
+
+Первый HEAD `4aad0370b2b8e3acc5957c2e0dca2edb72832fe4`: preflight 38594309706, windows-bundle 38594309773, commissioning-manifest 38594309869 и composed-safety-gate 38594309819 прошли. Новый workflow 38594255270 был отклонён до запуска jobs: `matrix` недопустим в steps.shell. Диагностика actionlint v1.7.12 подтвердила точную строку 18; исправлено на отдельные literal-shell PS7/PS5.1 шаги, без удаления fixture. Повторный actionlint проходит.
+
+Добавлен настоящий Apply-path fixture для elevated Windows CI: fake preflight failure не пишет файлы/задачи; success регистрирует только disabled CONTROL task; повторная подготовка не перезаписывает existing task. Все Scheduler cmdlets mocked, файлы только в новом fixture. Локально этот fixture не запускался: LOCAL_ELEVATED=False; его фактический результат проверяется в CI. Новая итоговая проверка обязательна на новом HEAD — перечисленные выше четыре зелёных run её не заменяют.

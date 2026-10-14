@@ -120,3 +120,18 @@ def test_retention_failure_prevents_coordinator_services_and_tasks(monkeypatch):
     monkeypatch.setattr(c,'Storage',forbidden)
     with pytest.raises(RuntimeError,match='injected retention failure'):
         asyncio.run(c.start_leader_services(1))
+
+
+@pytest.mark.parametrize('credential,expected',[('enrolled-secret','PASS'),('','BLOCKED'),(None,'BLOCKED')])
+def test_file_only_enrolled_worker_credentials(monkeypatch,tmp_path,capsys,credential,expected):
+    import installer.windows_preflight as w
+    monkeypatch.delenv('NODE_CREDENTIAL',raising=False)
+    env=tmp_path/'.env';env.write_text('RETENTION_ENABLED=false\n')
+    if credential is not None:
+        (tmp_path/'secrets').mkdir()
+        (tmp_path/'secrets'/'node.credential').write_text(credential)
+    monkeypatch.setattr(w,'check_dependencies',lambda:{'status':'PASS'})
+    w.main(['--release-dir',str(tmp_path),'--expected-sha','a'*40,'--role','WORKER','--env-file',str(env)])
+    output=capsys.readouterr().out
+    assert 'enrolled-secret' not in output
+    assert json.loads(output)['checks']['credentials']['status']==expected

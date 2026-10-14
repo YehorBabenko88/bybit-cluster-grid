@@ -43,6 +43,19 @@ def safe_failure(code, exc):
     return {**blocked(code), 'error_type': type(exc).__name__}
 
 
+def role_credential_present(env, role, data_root=None):
+    name = 'GRID_SHARED_TOKEN' if role == 'CONTROL' else 'NODE_CREDENTIAL'
+    if str(env.get(name) or '').strip(): return True
+    if role == 'CONTROL': return False
+    base = data_root or (Path(env['PROGRAMDATA']) / 'BybitClusterGrid' if env.get('PROGRAMDATA') else None)
+    if base is None: return False
+    try:
+        p = Path(base) / 'secrets' / 'node.credential'
+        if not physical(p) or p.stat().st_size > 16384: return False
+        return bool(p.read_text(encoding='ascii').strip())
+    except (OSError, UnicodeError): return False
+
+
 def physical(path):
     # Windows junctions and POSIX symlinks, including ancestors.
     for p in (path, *path.parents):
@@ -180,9 +193,9 @@ def main(argv=None):
         if args.env_file:
             if not args.env_file.is_file(): raise FileNotFoundError()
             env.update(dotenv_values(args.env_file, interpolate=False))
-        credential = 'GRID_SHARED_TOKEN' if args.role == 'CONTROL' else 'NODE_CREDENTIAL'
         checks['credentials'] = ({'status': 'PASS', 'code': 'ROLE_CREDENTIAL_PRESENT'}
-            if str(env.get(credential) or '').strip() else blocked('ROLE_CREDENTIAL_MISSING'))
+            if role_credential_present(env, args.role, args.env_file.parent if args.env_file else None)
+            else blocked('ROLE_CREDENTIAL_MISSING'))
         checks['telegram'] = (blocked('TELEGRAM_CONFIGURED') if env.get('TELEGRAM_BOT_TOKEN') else {'status': 'PASS', 'code': 'TELEGRAM_DISABLED'})
         checks['retention'] = ({'status': 'PASS', 'code': 'RETENTION_DISABLED_FOR_COMMISSIONING'}
             if str(env.get('RETENTION_ENABLED', '')).lower() in {'false', '0', 'no', 'off'}
