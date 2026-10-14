@@ -226,13 +226,6 @@ try {
     Write-Output "RECOVERY_PHASE=$($j.phase)"
     Write-Output "RECOVERY_TARGET=$target"
     if (-not $Apply) { Write-Output 'PLAN_ONLY=true'; return }
-    $processes = @(Get-CimInstance Win32_Process -Filter "Name = 'python.exe' OR Name = 'pythonw.exe'" |
-        Where-Object { $_.CommandLine -and (
-            $_.CommandLine -match 'grid\.release_supervisor' -or
-            $_.CommandLine -match 'BybitClusterGrid.*run_worker\.py' -or
-            $_.CommandLine -match 'uvicorn grid\.coordinator:app'
-        ) })
-    if ($processes.Count -gt 0) { throw 'Grid process is active; refusing recovery' }
     function Write-Atomic([string]$Path,[string]$Value) {
         $tmp = "$Path.$([guid]::NewGuid().ToString('N')).tmp"
         try {
@@ -251,6 +244,8 @@ try {
             if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
         }
     }
+    . (Join-Path $PSScriptRoot 'release-runtime-guard.ps1')
+    Assert-GridRuntimeStopped
     Write-Atomic (Join-Path $InstallRoot 'previous.version') $j.previous
     if ($j.phase -eq 'prepared') {
         Write-Atomic $currentPath $j.previous

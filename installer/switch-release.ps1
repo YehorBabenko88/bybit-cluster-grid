@@ -160,17 +160,6 @@ if (-not $Apply) {
     Write-Output 'PLAN_ONLY=true; no files changed'
     return
 }
-# Fail closed: an updater must stop the owning service first. Refuse to
-# change pointers while Grid processes are active on this host.
-$gridProcesses = @(Get-CimInstance Win32_Process -Filter "Name = 'python.exe' OR Name = 'pythonw.exe'" |
-    Where-Object {
-        $_.CommandLine -and (
-            $_.CommandLine -match 'grid\.release_supervisor' -or
-            $_.CommandLine -match 'BybitClusterGrid.*run_worker\.py' -or
-            $_.CommandLine -match 'uvicorn grid\.coordinator:app'
-        )
-    })
-if ($gridProcesses.Count -gt 0) { throw 'Grid service process still running; refusing switch' }
 function Write-Atomic([string]$Path,[string]$Value) {
     $tmp = "$Path.$([guid]::NewGuid().ToString('N')).tmp"
     try {
@@ -198,6 +187,8 @@ if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
     throw 'Unresolved switch journal exists; recovery required before promotion'
 }
 $journal = [ordered]@{ schema=1; previous=$current; candidate=$Version; phase='prepared' } | ConvertTo-Json -Compress
+. (Join-Path $PSScriptRoot 'release-runtime-guard.ps1')
+Assert-GridRuntimeStopped
 Write-Atomic $journalPath $journal
 # Preserve rollback before promoting the new current pointer.
 Write-Atomic (Join-Path $InstallRoot 'previous.version') $current

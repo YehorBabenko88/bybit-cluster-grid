@@ -1,3 +1,6 @@
+# Isolated providers: these fixtures never inspect the host runtime.
+function Get-ScheduledTask { [CmdletBinding()]param() @() }
+function Get-CimInstance { [CmdletBinding()]param($ClassName,$Filter,$OperationTimeoutSec) [pscustomobject]@{Name='System';CommandLine=$null} }
 $ErrorActionPreference = 'Stop'
 $script = Join-Path $PSScriptRoot '..\installer\switch-release.ps1'
 $root = Join-Path ([IO.Path]::GetTempPath()) ("grid-release-test-" + [guid]::NewGuid().ToString('N'))
