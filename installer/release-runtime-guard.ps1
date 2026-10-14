@@ -36,7 +36,7 @@ function Assert-GridRuntimeStopped {
             [string]::IsNullOrWhiteSpace($command)) {
             throw 'GRID_RUNTIME_PROCESS_IDENTITY_UNKNOWN'
         }
-        if ($command -match '(?i)(\bgrid[.](worker|coordinator|archive_service|release_supervisor)\b|\bgrid[.][a-z_][a-z0-9_]*|\brun_(worker|coordinator)[.]py\b|\bgrid[\\/][a-z_][a-z0-9_]*[.]py\b|\b(from\s+grid\s+import|import\s+grid\b)|\b(coordinator-launcher|archive-launcher|launcher)[.]ps1\b)') {
+        if ($command -match '(?i)(\bgrid[.](worker|coordinator|archive_service|release_supervisor)\b|\bgrid[.][a-z_][a-z0-9_]*|\brun_(worker|coordinator)([.]py)?\b|\bgrid[\\/][a-z_][a-z0-9_]*[.]py\b|\b(from\s+grid\s+import|import\s+grid\b)|\b(coordinator-launcher|archive-launcher|launcher)[.]ps1\b)') {
             throw 'GRID_RUNTIME_PROCESS_ACTIVE'
         }
     }

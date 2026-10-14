@@ -69,7 +69,7 @@ function Operation($kind,$p,$role,[bool]$apply=$true){
  if($kind -eq 'switch'){& (Join-Path $scripts 'switch-release.ps1') -InstallRoot $p -Version $b -Role $role -Apply:$apply | Out-Null}
  else {& (Join-Path $scripts 'recover-release.ps1') -InstallRoot $p -Role $role -Apply:$apply | Out-Null}
 }
-$cases=@('task-running','task-ready','task-queued','task-unknown','task-inventory-error','process-inventory-error','empty-process-inventory','python-unknown','pythonw-unknown','python-version-unknown','entry-module','entry-script','entry-path','entry-uvicorn','entry-archive','entry-import','entry-launcher','shell-unknown','task-partial','process-partial','task-malformed','process-malformed','command-malformed','python-free-threaded-unknown','task-enabled-conflict')
+$cases=@('task-running','task-ready','task-queued','task-unknown','task-inventory-error','process-inventory-error','empty-process-inventory','python-unknown','pythonw-unknown','python-version-unknown','entry-module','entry-script-module','entry-script','entry-path','entry-uvicorn','entry-archive','entry-import','entry-launcher','shell-unknown','task-partial','process-partial','task-malformed','process-malformed','command-malformed','python-free-threaded-unknown','task-enabled-conflict')
 $count=0
 foreach($kind in @('switch','recover')){foreach($role in @('WORKER','CONTROL')){foreach($phase in $(if($kind -eq 'recover'){@('prepared','committed')}else{@('prepared')})){foreach($case in $cases){
  if($OnlyCase -and $OnlyCase -ne $case){continue}
@@ -86,6 +86,7 @@ foreach($kind in @('switch','recover')){foreach($role in @('WORKER','CONTROL')){
   'pythonw-unknown' {$global:GuardProcessRows=@([pscustomobject]@{Name='pythonw.exe';CommandLine=' '})}
   'python-version-unknown' {$global:GuardProcessRows=@([pscustomobject]@{Name='python3.12.exe';CommandLine=$null})}
   'entry-module' {$global:GuardProcessRows=@([pscustomobject]@{Name='python.exe';CommandLine='python -m grid.worker'})}
+  'entry-script-module' {$global:GuardProcessRows=@([pscustomobject]@{Name='python.exe';CommandLine='python -m run_worker'})}
   'entry-script' {$global:GuardProcessRows=@([pscustomobject]@{Name='python.exe';CommandLine='python C:\alternate\run_coordinator.py'})}
   'entry-path' {$global:GuardProcessRows=@([pscustomobject]@{Name='python.exe';CommandLine='python C:\alternate\grid\worker.py'})}
   'entry-uvicorn' {$global:GuardProcessRows=@([pscustomobject]@{Name='uvicorn.exe';CommandLine='uvicorn grid.coordinator:app'})}
