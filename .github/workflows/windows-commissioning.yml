@@ -1,0 +1,32 @@
+name: windows-commissioning
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safe-script-fixtures:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Plan, ownership, idempotence and rollback fixtures in PowerShell 7
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          & ./installer/tests/test-safe-postgres-config.ps1
+          & ./installer/tests/test-install-plan.ps1
+          & ./installer/tests/test-rollback-plan.ps1
+          & ./installer/tests/test-audit-stage.ps1
+          & ./installer/tests/test-install-apply.ps1
+      - name: Plan, ownership, idempotence and rollback fixtures in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & ./installer/tests/test-safe-postgres-config.ps1
+          & ./installer/tests/test-install-plan.ps1
+          & ./installer/tests/test-rollback-plan.ps1
+          & ./installer/tests/test-audit-stage.ps1
+          & ./installer/tests/test-install-apply.ps1
