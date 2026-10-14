@@ -125,6 +125,14 @@ try {
     # Legacy installed releases without a manifest remain supported.
     $targetDir = Join-Path (Join-Path $InstallRoot 'releases') $target
     $targetManifestPath = Join-Path $targetDir 'release-manifest.json'
+    # Reviewed historical rollbacks require integrity evidence too. Do not fall
+    # back to the older manifest-less recovery path for these identities.
+    $reviewedLegacy = @('9ab1f5b85ec471ea21ec89f1b76740c0b01537b6','2017ed4fd16b0b222173a6d42b5bf24b2beb73ac')
+    foreach ($verifiedVersion in @($target, $j.previous)) {
+        if ($verifiedVersion -in $reviewedLegacy -and -not (Test-Path -LiteralPath (Join-Path (Join-Path (Join-Path $InstallRoot 'releases') $verifiedVersion) 'release-manifest.json') -PathType Leaf)) {
+            throw 'Reviewed legacy recovery manifest required; manual recovery required'
+        }
+    }
     if (Test-Path -LiteralPath $targetManifestPath) {
         if (-not (Test-Path -LiteralPath $targetManifestPath -PathType Leaf)) {
             throw 'Recovery target manifest is not a file; manual recovery required'
