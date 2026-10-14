@@ -48,3 +48,14 @@ Legacy rollback here restores only the offline release pointer. Old code lacks t
 Nothing was deployed, so abandoning this change means closing the Draft PR. Retain PR183 runtime guard and all releases/WAL/schema47. After any future separately approved pointer operation, use existing guarded recovery before another switch; use the reviewed wrapper and reviewed prior compatible SHA to restore a pointer. Do not downgrade migrations, delete data, weaken guard or enable tasks to bypass a refusal.
 
 CI investigation: initial Windows commissioning run38615117269 failed in the positive plan fixture. Added stable blocked-code diagnostics and isolated test-only disk capacity from runner host capacity; production35GB check is unchanged. Final results and confirmed cause will be appended to exported report.
+
+
+## Built Windows bundle packaging follow-up
+
+User-reported LS5 verification found the8125-file bundle intact and195 Runtime Guard cases passing PS5.1, but the shipped LegacyRollback integration could not find tests/fixtures/legacy_rollback_migrations.txt. The bundle workflow copied grid/installer/strategies but omitted the external test fixture. Checkout-only tests did not exercise that boundary. This follow-up changes only PR184 branch; it performs no production LS5 verification or state change.
+
+The workflow now copies that exact fixture at its driver-relative path before either manifest is generated. A mandatory Windows PowerShell5.1 step runs installer/tests/test-built-bundle.ps1 from the built bundle, after manifests and before ZIP/upload. It requires the fixture, bundled runtime/python.exe, integration script, driver and Runtime Guard test, verifies each SHA256 in both manifests, then runs all36 LegacyRollback cases with explicit absolute bundled Python and all195 Runtime Guard cases. No checkout script/runtime fallback is used. Existing gates remain intact.
+
+LegacyRollback test default now resolves bundled runtime/python.exe; missing runtime or fixture fails before test setup. Checkout CI explicitly supplies its own Python. New10-case isolated contract test covers positive manifest validation, every missing required dependency, wrong fixture hash and absent fixture entry in either manifest. It executes no binary/OS provider. PS5.1/7 both run it.
+
+CI logs the inner Windows ZIP SHA256 and writes the same value to the shipped .zip.sha256. Artifact name/checksum, exact final HEAD and all Actions results are recorded in PR184 and the exported follow-up report. This does not change production runtime guards, schema/migration validation, release pointer logic or historical manifests; no merge/deployment is performed.

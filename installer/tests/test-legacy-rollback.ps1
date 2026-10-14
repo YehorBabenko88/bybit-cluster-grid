@@ -1,6 +1,8 @@
 #Requires -Version 5.1
-param([string]$Python='python')
+param([string]$Python=(Join-Path $PSScriptRoot '..\..\runtime\python.exe'))
 $ErrorActionPreference='Stop'
+if(!(Test-Path -LiteralPath $Python -PathType Leaf)){throw 'Explicit or bundled Python executable required'}
+if(!(Test-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\tests\fixtures\legacy_rollback_migrations.txt') -PathType Leaf)){throw 'Bundled legacy migration fixture missing'}
 $global:LegacyPython=$Python
 $global:LegacyDriver=Join-Path $PSScriptRoot 'legacy_rollback_driver.py'
 $root=Join-Path ([IO.Path]::GetTempPath()) ('grid-legacy-rollback-'+[guid]::NewGuid().ToString('N'))

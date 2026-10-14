@@ -71,6 +71,11 @@ jobs:
           $bundle=Join-Path $env:RUNNER_TEMP "BybitClusterGrid"
           New-Item -ItemType Directory -Force $bundle | Out-Null
           Copy-Item grid,installer,strategies -Destination $bundle -Recurse
+          $fixture='tests/fixtures/legacy_rollback_migrations.txt'
+          if(!(Test-Path -LiteralPath $fixture -PathType Leaf)){throw 'Required legacy fixture missing from checkout'}
+          $fixtureDir=Join-Path $bundle 'tests/fixtures'
+          New-Item -ItemType Directory -Force $fixtureDir | Out-Null
+          Copy-Item -LiteralPath $fixture -Destination $fixtureDir
           Copy-Item run_worker.py,run_coordinator.py,requirements.txt,requirements-ml.txt -Destination $bundle
           $py=(Get-Command python).Source
           $pyRoot=Split-Path $py -Parent
@@ -338,13 +343,29 @@ jobs:
             [System.Text.UTF8Encoding]::new($false)
           )
 
+      - name: Mandatory built-bundle integrations in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $bundle=Join-Path $env:RUNNER_TEMP 'BybitClusterGrid'
+          $gate=Join-Path $bundle 'installer/tests/test-built-bundle.ps1'
+          if(!(Test-Path -LiteralPath $gate -PathType Leaf)){throw 'Built bundle integration gate missing'}
+          & $gate -BundleRoot $bundle
+
+      - name: Archive verified Windows bundle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $bundle=Join-Path $env:RUNNER_TEMP 'BybitClusterGrid'
           $zip=Join-Path $env:RUNNER_TEMP "BybitClusterGrid-${{ github.event.pull_request.head.sha || github.sha }}.zip"
 
           Compress-Archive `
             -Path (Join-Path $bundle "*") `
             -DestinationPath $zip
 
-          (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant() |
+          $zipHash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          Write-Output "WINDOWS_BUNDLE_SHA256=$zipHash"
+          $zipHash |
             Set-Content (Join-Path $env:RUNNER_TEMP "BybitClusterGrid-${{ github.event.pull_request.head.sha || github.sha }}.zip.sha256")
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
