@@ -11,6 +11,9 @@ for the same exact main commit, verifies artifact checksum and embedded manifest
 param(
     [string]$Repository = 'YehorBabenko88/bybit-cluster-grid',
     [string]$StageRoot = "$env:ProgramData\BybitClusterGrid\update-staging",
+    [string]$Branch = 'main',
+    [string]$Commit = '',
+    [switch]$AllowAuditCandidate,
     [switch]$Download
 )
 $ErrorActionPreference = 'Stop'
@@ -18,29 +21,34 @@ $ProgressPreference = 'SilentlyContinue'
 if ($Repository -ne 'YehorBabenko88/bybit-cluster-grid') {
     throw 'Repository is pinned; refusing untrusted source'
 }
+if($Branch -ne 'main' -and (!$AllowAuditCandidate -or $Branch -cnotmatch '^audit/codex-[a-z0-9-]+$' -or $Commit -cnotmatch '^[0-9a-f]{40}$')){
+    throw 'Audit staging requires explicit AllowAuditCandidate, audit/codex branch and exact Commit'
+}
 $gh = Get-Command gh.exe -ErrorAction Stop
 function GitHubJson([string[]]$Arguments) {
     $raw = & $gh.Source @Arguments
     if ($LASTEXITCODE -ne 0) { throw "GitHub CLI failed (exit $LASTEXITCODE)" }
     return ($raw | Out-String | ConvertFrom-Json)
 }
-$branch = GitHubJson -Arguments @('api',"repos/$Repository/branches/main")
-$sha = [string]$branch.commit.sha
+$branchInfo = GitHubJson -Arguments @('api',("repos/$Repository/branches/"+[uri]::EscapeDataString($Branch)))
+$sha = [string]$branchInfo.commit.sha
 if ($sha -notmatch '^[0-9a-f]{40}$') { throw 'Invalid main SHA' }
+if($Commit -and $sha -cne $Commit){throw 'Requested commit is no longer the branch HEAD'}
 $runs = GitHubJson -Arguments @('api',"repos/$Repository/actions/runs?head_sha=$sha&per_page=100")
 $required = @('preflight','windows-bundle')
+if($Branch -ne 'main'){$required+=@('commissioning-manifest','composed-safety-gate','windows-commissioning')}
+$expectedEvent=if($Branch -eq 'main'){'push'}else{'pull_request'}
 foreach ($name in $required) {
     $match = @($runs.workflow_runs | Where-Object {
         $_.name -eq $name -and $_.head_sha -eq $sha -and
-        $_.head_branch -eq 'main' -and $_.event -eq 'push' -and
-        $_.status -eq 'completed' -and $_.conclusion -eq 'success'
+        $_.head_branch -eq $Branch -and $_.event -eq $expectedEvent
     } | Sort-Object run_number -Descending | Select-Object -First 1)
-    if ($match.Count -ne 1) {
-        throw "No successful main push $name run for $sha"
+    if ($match.Count -ne 1 -or $match[0].status -ne 'completed' -or $match[0].conclusion -ne 'success') {
+        throw "Latest exact-head $name run is not successful"
     }
     if ($name -eq 'windows-bundle') { $bundleRun = $match[0] }
 }
-Write-Output "Verified CI gates for main commit $sha"
+Write-Output "Verified CI gates for commit $sha"
 if (-not $Download) {
     Write-Output 'Read-only discovery complete. Pass -Download to stage the verified bundle.'
     return

@@ -1,0 +1,24 @@
+name: windows-commissioning
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safe-script-fixtures:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [pwsh, powershell]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Plan, ownership, idempotence and rollback under mocked OS providers
+        shell: ${{ matrix.shell }}
+        run: |
+          $ErrorActionPreference='Stop'
+          & ./installer/tests/test-safe-postgres-config.ps1
+          & ./installer/tests/test-install-plan.ps1
+          & ./installer/tests/test-rollback-plan.ps1
+          & ./installer/tests/test-audit-stage.ps1
