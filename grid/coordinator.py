@@ -23,7 +23,7 @@ from .live_assignment_policy import guarded_live_symbols,pilot_universe
 from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
-from .retention import retention_scheduler
+from .retention import retention_scheduler,ensure_retention_schema
 from .maintenance import maintenance_scheduler
 from .ml_artifact_store import LocalArtifactStore
 from .ml_transport import claim as ml_claim,renew as ml_renew,dataset_bundle as ml_dataset_bundle,dataset_page as ml_dataset_page,publish_artifact as ml_publish_artifact,register_saved_artifact as ml_register_saved_artifact,finalize_model as ml_finalize_model
@@ -716,6 +716,8 @@ async def start_leader_services(epoch):
     await ensure_update_schema(db.pool)
     await ensure_enrollment_schema(db.pool)
     await ensure_runtime_gate(db.pool)
+    # Retention schema is required by maintenance before background tasks start.
+    await ensure_retention_schema(db.pool)
     ingest_storage=Storage()
     ingest_storage.pool=db.pool
     await ingest_storage.feature_builder.start(db.pool)
