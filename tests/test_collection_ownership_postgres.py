@@ -29,7 +29,14 @@ async def http_leader(monkeypatch,coordinator,db,pool):
 
 
 @asynccontextmanager
-async def database():
+async def database(full_schema=False):
+    if full_schema:
+        from _postgres_test_database import disposable_database
+        async with disposable_database() as pool:
+            for sql in SCHEMA:await pool.execute(sql)
+            await pool.execute('CREATE TABLE canonical_writes(symbol text,value integer)')
+            yield pool
+        return
     schema='collection_test_'+uuid.uuid4().hex
     admin=await asyncpg.connect(os.environ['POSTGRES_DSN'])
     pool=None
@@ -158,7 +165,7 @@ def test_real_minute_features_and_derived_state_roll_back_together(monkeypatch):
     from grid.unified_features import UnifiedFeatureBuilder
     from grid.derived_pipeline import DerivedPipeline
     async def run():
-        async with database() as pool:
+        async with database(full_schema=True) as pool:
             db=Database();db.pool=pool
             await db.ensure_schema();await apply_migrations(pool)
             storage=Storage.__new__(Storage)

@@ -73,7 +73,7 @@ class DatabaseEvidence:
     async def fetch(self,sql,*args):
         if 'information_schema' in sql:
             return [{'table_name':t,'column_name':n,'udt_name':k} for (t,n),k in w.COLUMNS.items() if not (self.kind=='columns' and n=='generation')]
-        rows=[{'version':v,'name':n} for v,n,_ in MIGRATIONS]
+        rows=[{'version':v,'name':n} for v,n,_ in MIGRATIONS if v<=47]
         if self.kind=='old':return rows[:34]
         if self.kind=='future':rows.append({'version':48,'name':'unknown'})
         if self.kind=='renamed':rows[0]['name']='unexpected'

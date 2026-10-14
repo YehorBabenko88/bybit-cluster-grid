@@ -36,7 +36,9 @@ class Evidence:
     async def fetch(self,sql,*args):
         if 'information_schema' in sql:
             return [{'table_name':t,'column_name':n,'udt_name':k} for (t,n),k in w.COLUMNS.items()]
-        catalogue=MIGRATIONS[:34] if os.environ.get('GRID_SYNTHETIC_EVIDENCE')=='old-schema' else MIGRATIONS
+        mode=os.environ.get('GRID_SYNTHETIC_EVIDENCE')
+        catalogue=(MIGRATIONS[:34] if mode=='old-schema' else
+                   MIGRATIONS if mode=='schema48' else [row for row in MIGRATIONS if row[0]<=47])
         return [{'version':v,'name':n} for v,n,_ in catalogue]
 
 async def fake_probe(dsn,**kwargs):

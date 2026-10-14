@@ -20,12 +20,18 @@ from urllib.parse import urlsplit
 if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from grid.migration48_index import model_registry_index_ready
+
 SHA = re.compile(r'[0-9a-f]{40}\Z')
 # Reviewed offline rollback profiles; absence of modules never selects a profile.
 LEGACY_ROLLBACK = {
     '9ab1f5b85ec471ea21ec89f1b76740c0b01537b6': 34,
     '2017ed4fd16b0b222173a6d42b5bf24b2beb73ac': 34,
 }
+# Only this reviewed additive extension is accepted when inspecting historical
+# source from newer tools. Legacy DATABASE compatibility remains exactly47.
+REVIEWED_SCHEMA48_ADDITION = (48, 'model_registry_dataset_lookup_index', [
+    'CREATE INDEX IF NOT EXISTS idx_model_registry_dataset_id ON public.model_registry(dataset_id)'])
 QUIESCENT = {'INFRA_ONLY', 'PAUSED', 'STOPPED'}
 TABLES = ('schema_migrations', 'collection_ownership', 'collection_ingest_receipts',
           'grid_runtime_state', 'retention_runs', 'analysis_watermarks',
@@ -89,7 +95,10 @@ def validate_legacy_catalogue(root, expected):
     limit = LEGACY_ROLLBACK[expected]
     return (isinstance(catalogue, list) and len(catalogue) == limit
             and all(isinstance(row, tuple) and len(row) == 3 and type(row[0]) is int for row in catalogue)
-            and catalogue == MIGRATIONS[:limit] and len(MIGRATIONS) == 47)
+            and catalogue == MIGRATIONS[:limit]
+            and [v for v, _, _ in MIGRATIONS] == list(range(1, len(MIGRATIONS) + 1))
+            and (len(MIGRATIONS) == 47 or
+                 (len(MIGRATIONS) == 48 and MIGRATIONS[47] == REVIEWED_SCHEMA48_ADDITION)))
 
 
 def validate_release(root, expected, role='CONTROL', *, legacy_rollback=False):
@@ -164,7 +173,9 @@ async def database_status(c, expected_database, *, legacy_rollback=False):
                 return blocked('GRID_SCHEMA_INCOMPLETE')
         from grid.migrations import MIGRATIONS
         rows = await c.fetch('SELECT version,name FROM schema_migrations')
-        if {r['version']: r['name'] for r in rows} != {v: n for v, n, _ in MIGRATIONS}:
+        # Legacy schema47 approval does not automatically extend to a DB upgraded48.
+        expected = MIGRATIONS[:47] if legacy_rollback else MIGRATIONS
+        if {r['version']: r['name'] for r in rows} != {v: n for v, n, _ in expected}:
             return blocked('MIGRATION_CATALOGUE_MISMATCH')
         state = await c.fetchval('SELECT state FROM grid_runtime_state WHERE singleton=true')
         if state not in QUIESCENT: return blocked('RUNTIME_NOT_QUIESCENT')
@@ -180,7 +191,8 @@ async def database_status(c, expected_database, *, legacy_rollback=False):
                 EXISTS(SELECT 1 FROM service_leases WHERE lease_until > clock_timestamp())''')
             if live is not False: return blocked('LEGACY_RUNTIME_LEASE_ACTIVE')
             return {'status': 'PASS', 'code': 'LEGACY_SCHEMA47_READY_OFFLINE_ONLY', 'migration': 47, 'runtime_state': state}
-        return {'status': 'PASS', 'code': 'DATABASE_READY', 'migration': 47, 'runtime_state': state}
+        if not await model_registry_index_ready(c): return blocked('MODEL_REGISTRY_INDEX_INVALID')
+        return {'status': 'PASS', 'code': 'DATABASE_READY', 'migration': MIGRATIONS[-1][0], 'runtime_state': state}
 
 
 async def probe_database(dsn, *, legacy_rollback=False):

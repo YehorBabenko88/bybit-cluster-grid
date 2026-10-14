@@ -1,4 +1,5 @@
 import logging
+from .migration48_index import model_registry_index_ready
 log=logging.getLogger("migrations")
 
 MIGRATIONS=[
@@ -486,6 +487,17 @@ WHERE source_event_id IS NOT NULL"""
 from .collection_ownership import SCHEMA as COLLECTION_OWNERSHIP_SCHEMA
 MIGRATIONS.append((47,"collection_ownership_fencing",COLLECTION_OWNERSHIP_SCHEMA))
 
+# Additive index only; preserves the reviewed SQL and public-schema target.
+MIGRATIONS.append((
+    48,
+    "model_registry_dataset_lookup_index",
+    [
+        "CREATE INDEX IF NOT EXISTS "
+        "idx_model_registry_dataset_id "
+        "ON public.model_registry(dataset_id)"
+    ]
+))
+
 async def apply_migrations(pool):
     async with pool.acquire() as c:
         # Coordinator and ArchivePipeline can cold-start together. Serialize
@@ -505,9 +517,14 @@ async def apply_migrations(pool):
                     raise RuntimeError(f"migration {version} name mismatch: expected {registered[version]!r}, found {applied_name!r}")
             done={r["version"] for r in rows}
             for version,name,sqls in MIGRATIONS:
-                if version in done: continue
+                if version in done:
+                    if version == 48 and not await model_registry_index_ready(c):
+                        raise RuntimeError('migration48 index invariant failed')
+                    continue
                 async with c.transaction():
                     for sql in sqls: await c.execute(sql)
+                    if version == 48 and not await model_registry_index_ready(c):
+                        raise RuntimeError('migration48 index invariant failed')
                     await c.execute("INSERT INTO schema_migrations(version,name) VALUES($1,$2)",version,name)
                 log.info("migration applied",extra={"event":"migration","component":name})
         finally:

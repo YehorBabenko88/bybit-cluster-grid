@@ -21,4 +21,4 @@ try {
  & (Join-Path $BundleRoot 'installer/tests/test-legacy-rollback.ps1') -Python $python
  & (Join-Path $BundleRoot 'installer/tests/test-release-runtime-guard.ps1')
 } finally {Pop-Location}
-Write-Output 'Built bundle integrations passed: LegacyRollback36 and RuntimeGuard195'
+Write-Output 'Built bundle integrations passed: LegacyRollback52 and RuntimeGuard195'
