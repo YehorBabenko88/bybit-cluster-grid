@@ -16,8 +16,17 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
+          $files = @(Get-ChildItem installer -Recurse -Filter '*.ps1') + @(Get-ChildItem tests -Filter '*.ps1')
+          foreach($file in $files){
+            $tokens=$null; $parseErrors=$null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$parseErrors)
+            if($parseErrors.Count){throw "PowerShell syntax errors: $($file.Name)"}
+          }
           & ./installer/tests/test-safe-postgres-config.ps1
           & ./installer/tests/test-install-plan.ps1
+          & ./installer/tests/test-release-runtime-guard.ps1
+          & ./tests/test_release_switch.ps1
+          & ./tests/test_release_recovery.ps1
           & ./installer/tests/test-rollback-plan.ps1
           & ./installer/tests/test-audit-stage.ps1
           & ./installer/tests/test-install-apply.ps1
@@ -25,8 +34,17 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
+          $files = @(Get-ChildItem installer -Recurse -Filter '*.ps1') + @(Get-ChildItem tests -Filter '*.ps1')
+          foreach($file in $files){
+            $tokens=$null; $parseErrors=$null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$parseErrors)
+            if($parseErrors.Count){throw "PowerShell syntax errors: $($file.Name)"}
+          }
           & ./installer/tests/test-safe-postgres-config.ps1
           & ./installer/tests/test-install-plan.ps1
+          & ./installer/tests/test-release-runtime-guard.ps1
+          & ./tests/test_release_switch.ps1
+          & ./tests/test_release_recovery.ps1
           & ./installer/tests/test-rollback-plan.ps1
           & ./installer/tests/test-audit-stage.ps1
           & ./installer/tests/test-install-apply.ps1

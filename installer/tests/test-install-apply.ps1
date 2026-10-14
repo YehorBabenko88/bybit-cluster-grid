@@ -6,7 +6,7 @@ if(!$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
 $root=Join-Path ([IO.Path]::GetTempPath()) ('grid-install-apply-'+[guid]::NewGuid().ToString('N'))
 $release=Join-Path $root 'release'
 [void][IO.Directory]::CreateDirectory((Join-Path $release 'installer'))
-foreach($name in @('recover-release.ps1','launcher.ps1','archive-launcher.ps1','uninstall.ps1','preflight.ps1','coordinator-launcher.ps1')){
+foreach($name in @('release-runtime-guard.ps1','recover-release.ps1','launcher.ps1','archive-launcher.ps1','uninstall.ps1','preflight.ps1','coordinator-launcher.ps1')){
  [IO.File]::WriteAllText((Join-Path $release ('installer\'+$name)),'# fixture only')
 }
 [IO.File]::WriteAllText((Join-Path $release 'release-manifest.json'),('{"version":"'+('a'*40)+'"}'))

@@ -49,6 +49,12 @@ $RecoverySource = Join-Path $ReleaseDir "installer\recover-release.ps1"
 if (!(Test-Path -LiteralPath $RecoverySource -PathType Leaf)) {
   throw "Release missing required recovery script: $RecoverySource"
 }
+$GuardSource = Join-Path $ReleaseDir "installer\release-runtime-guard.ps1"
+if (!(Test-Path -LiteralPath $GuardSource -PathType Leaf)) {
+  throw 'Release missing required runtime guard'
+}
+# Stage the dependency before the recovery script that loads it.
+Copy-Item -LiteralPath $GuardSource -Destination (Join-Path $InstallerRoot "release-runtime-guard.ps1") -Force
 Copy-Item -LiteralPath $RecoverySource -Destination (Join-Path $InstallerRoot "recover-release.ps1") -Force
 if (!(Test-Path -LiteralPath (Join-Path $InstallerRoot "recover-release.ps1") -PathType Leaf)) {
   throw "Recovery script staging failed"
