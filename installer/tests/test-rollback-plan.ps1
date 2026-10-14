@@ -26,6 +26,11 @@ $rejected=$false
 try {& $script -ReviewedVersion ('a'*40) -Python Invoke-SyntheticPreflight -InstallRoot $root -DataRoot $root -Apply} catch {$rejected=$true}
 if(!$rejected -or $global:GridSwitchCalls -ne 2){throw 'Old coordinator process did not block rollback'}
 $global:GridSyntheticProcesses=@()
+$global:GridSyntheticProcesses=@([pscustomobject]@{Name='python.exe';CommandLine=$null})
+$rejected=$false
+try {& $script -ReviewedVersion ('a'*40) -Python Invoke-SyntheticPreflight -InstallRoot $root -DataRoot $root -Apply} catch {$rejected=$true}
+if(!$rejected -or $global:GridSwitchCalls -ne 2){throw 'Unreadable Python process identity did not block rollback'}
+$global:GridSyntheticProcesses=@()
 & $script -ReviewedVersion ('a'*40) -Python Invoke-SyntheticPreflight -InstallRoot $root -DataRoot $root -Apply
 if($global:GridSwitchCalls -ne 3 -or !$global:GridSwitchApplied){throw 'Verified explicit pointer switch was not invoked'}
 Write-Output 'Rollback fixture passed; all task/process/switch providers synthetic'

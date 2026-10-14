@@ -76,7 +76,7 @@ Strattester использует Python >=3.11, отдельную среду и
 
 ## Тесты и CI
 
-Локально Windows Python3.12: **1178 passed, 29 skipped, 7 subtests passed**, 4 известных FastAPI deprecation warnings. Пять PG-only модулей исключены локально, другие PG тесты skip без DSN. Это не полный PostgreSQL результат.
+Локально Windows Python3.12: **1181 passed, 29 skipped, 7 subtests passed**, 4 известных FastAPI deprecation warnings. Пять PG-only модулей исключены локально, другие PG тесты skip без DSN. Это не полный PostgreSQL результат.
 
 ```powershell
 $env:TEMP=(Resolve-Path '..').Path
@@ -156,3 +156,5 @@ $Tailnet.Peer.PSObject.Properties.Value | Select-Object HostName,Online,Tailscal
 Первый HEAD `4aad0370b2b8e3acc5957c2e0dca2edb72832fe4`: preflight 38594309706, windows-bundle 38594309773, commissioning-manifest 38594309869 и composed-safety-gate 38594309819 прошли. Новый workflow 38594255270 был отклонён до запуска jobs: `matrix` недопустим в steps.shell. Диагностика actionlint v1.7.12 подтвердила точную строку 18; исправлено на отдельные literal-shell PS7/PS5.1 шаги, без удаления fixture. Повторный actionlint проходит.
 
 Добавлен настоящий Apply-path fixture для elevated Windows CI: fake preflight failure не пишет файлы/задачи; success регистрирует только disabled CONTROL task; повторная подготовка не перезаписывает existing task. Все Scheduler cmdlets mocked, файлы только в новом fixture. Локально этот fixture не запускался: LOCAL_ELEVATED=False; его фактический результат проверяется в CI. Новая итоговая проверка обязательна на новом HEAD — перечисленные выше четыре зелёных run её не заменяют.
+
+Дополнительный rollback regression: CIM с Name=python.exe и недоступной CommandLine раньше давал ложное отсутствие Grid; тест воспроизвёл допуск. Wrapper теперь блокирует план/Apply при неизвестной идентичности Python-процесса. Fixtures зелёные; реальный процесс не останавливался. Для HEAD05ca17f PostgreSQL pytest уже показал 1211 passed / 12 Windows-only skipped / 7 subtests в обоих Linux Python, но новое guard-изменение требует нового полного CI цикла.

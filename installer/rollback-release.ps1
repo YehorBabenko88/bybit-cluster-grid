@@ -20,7 +20,11 @@ if($LASTEXITCODE -ne 0){throw 'Rollback blocked by read-only release/schema/runt
 # Require task state evidence even for plan generation. Never stop/start tasks.
 $tasks=@(Get-ScheduledTask -ErrorAction Stop | Where-Object {$_.TaskName -in @('BybitClusterGridAgent','BybitClusterGridCoordinator','BybitClusterGridArchivePipeline')})
 if(@($tasks | Where-Object {$_.State -ne 'Disabled'}).Count){throw 'Grid tasks must be disabled through a separately approved operation'}
-$processes=@(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object {
+$inventory=@(Get-CimInstance Win32_Process -ErrorAction Stop)
+if(@($inventory | Where-Object {
+ $_.Name -match '^python(w)?(\.exe)?$' -and [string]::IsNullOrWhiteSpace([string]$_.CommandLine)
+}).Count){throw 'Python process identity unavailable; cannot prove Grid is stopped'}
+$processes=@($inventory | Where-Object {
  $_.CommandLine -and $_.CommandLine -match '(grid\.(coordinator|archive_service|release_supervisor)|run_(worker|coordinator)\.py)'
 })
 if($processes.Count){throw 'Grid process is running; rollback refused'}
