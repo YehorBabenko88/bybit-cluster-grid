@@ -61,14 +61,30 @@ async def cleanup_dataset_safe(pool,dataset,retention_days,batch_size=10000,max_
 
 
 async def retention_backlog(pool,dataset,retention_days):
-    """Planner estimate of rows past policy age; avoids a periodic full COUNT scan."""
-    if dataset not in TABLE_TS:raise ValueError("unsupported dataset")
+    """Return a planner estimate only when an overdue row actually exists.
+
+    EXPLAIN Plan Rows has a minimum estimate on empty tables, so it cannot
+    establish whether a retention backlog exists.
+    """
+    if dataset not in TABLE_TS:
+        raise ValueError("unsupported dataset")
     ts=TABLE_TS[dataset]
+    days=int(retention_days)
+    if days<0:
+        raise ValueError("retention_days must be nonnegative")
+    predicate=f"{ts}<now()-($1::int*interval '1 day')"
+    exists=await pool.fetchval(
+        f"SELECT EXISTS(SELECT 1 FROM {dataset} WHERE {predicate} LIMIT 1)",
+        days)
+    if not exists:
+        return 0
     plan=await pool.fetchval(
-        f"EXPLAIN (FORMAT JSON) SELECT 1 FROM {dataset} WHERE {ts}<now()-($1::int*interval '1 day')",
-        int(retention_days))
+        f"EXPLAIN (FORMAT JSON) SELECT 1 FROM {dataset} WHERE {predicate}",
+        days)
     if isinstance(plan,str):
         import json
         plan=json.loads(plan)
-    try:return max(0,int(plan[0]["Plan"]["Plan Rows"]))
-    except (TypeError,KeyError,IndexError,ValueError):return 0
+    try:
+        return max(1,int(plan[0]["Plan"]["Plan Rows"]))
+    except (TypeError,KeyError,IndexError,ValueError):
+        return 1
