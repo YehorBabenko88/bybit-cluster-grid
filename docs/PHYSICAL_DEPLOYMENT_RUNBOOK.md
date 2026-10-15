@@ -106,3 +106,7 @@ pwsh -NoProfile -File installer/tests/test-physical-harness.ps1 -Python <trusted
 ```
 
 The dedicated workflow tests PS 5.1/7 and all eight fault scenarios. Existing Windows packaging also runs the mocked inventory and plan tests from the built bundle using bundled Python. Existing Runtime Guard, LegacyRollback, commissioning, composed contracts and isolated PostgreSQL CI gates remain mandatory. A green workflow is a scoped preparation result, not permission to deploy.
+
+## Isolated preparation adapter
+
+See [ISOLATED_DEPLOYMENT_ADAPTER.md](ISOLATED_DEPLOYMENT_ADAPTER.md) for the separately gated offline layout adapter. It prepares unique paths, ports and task identities without changing install.ps1 or bypassing staging policy. It does not initialize a database, install/activate a release or register tasks. Those physical commissioning gates remain blocked and require separate review and approval.
