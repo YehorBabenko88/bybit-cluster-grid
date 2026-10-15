@@ -114,11 +114,10 @@ class SegmentWAL:
 
     def _read_checkpoint(self,path):
         try:
-            raw=path.read_text(encoding="ascii").strip()
-            # A torn write can leave a valid-looking integer prefix. A
-            # checkpoint is accepted only if the whole file is a single
-            # canonical decimal number, with no leading/trailing junk.
-            if not raw or not raw.isascii() or not raw.isdecimal():
+            raw=path.read_text(encoding="ascii")
+            # Accept only the exact canonical decimal checkpoint: whitespace
+            # or a torn suffix must not be normalized into a valid ACK.
+            if not raw or not raw.isascii() or not raw.isdecimal() or (len(raw)>1 and raw[0]=='0'):
                 return None
             value=int(raw)
             return value if value>=0 else None
