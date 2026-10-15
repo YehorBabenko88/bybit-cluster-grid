@@ -27,7 +27,8 @@ jobs:
           python - <<'PY'
           import subprocess,sys
           subprocess.run(['sudo','-E','unshare','--net',sys.executable,'-B','-m','pytest','-q',
-                          'tests/test_isolated_postgres_plan.py','tests/test_isolated_postgres_preflight.py'],check=True)
+                          'tests/test_isolated_postgres_plan.py','tests/test_isolated_postgres_preflight.py',
+                          'tests/test_isolated_postgres_mapping.py'],check=True)
           PY
   windows-readonly:
     runs-on: windows-latest
@@ -43,7 +44,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install pytest
-      - run: python -B -m pytest -q tests/test_isolated_postgres_plan.py tests/test_isolated_postgres_preflight.py tests/test_isolated_postgres_windows_contract.py
+      - run: python -B -m pytest -q tests/test_isolated_postgres_plan.py tests/test_isolated_postgres_preflight.py tests/test_isolated_postgres_windows_contract.py tests/test_isolated_postgres_mapping.py
       - name: PowerShell 7 mocked read-only snapshot and journal failure fixtures
         shell: pwsh
         run: |

@@ -73,7 +73,7 @@ function Get-Acl {[CmdletBinding()]param($LiteralPath)
 $argsPg=@{DataRoot=$root;RunId=$run;NodeId='LAB01';Port=25432;Commit=('a'*40);PlanSha256=$EvidencePlanHash;OwnerSid=$sid}
 $entry=Join-Path $PSScriptRoot '../isolated-postgres-readonly.ps1'
 $p=(& $entry @argsPg)|ConvertFrom-Json
-if($p.status -ne 'PLAN_ONLY' -or $global:PgProbes -ne 0){throw 'Default mode probed host'}
+if($p.status -ne 'BLOCKED' -or $p.blockers -notcontains 'LEGACY_SCHEMA1_MAPPING_FORBIDDEN' -or $global:PgProbes -ne 0){throw 'Default mode probed host'}
 $r=Get-GridPostgresEvidence @argsPg
 if($r.status -ne 'SNAPSHOT_ONLY' -or !$r.root_absent -or $r.acl.owner_sid -ne $sid -or $r.commit_sha -ne ('a'*40)){throw ('Safe metadata fixture failed: '+$r.code)}
 if($EmitSnapshot){$r|ConvertTo-Json -Depth 10 -Compress;return}
