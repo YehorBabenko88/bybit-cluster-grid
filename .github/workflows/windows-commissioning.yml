@@ -1,5 +1,7 @@
 name: windows-commissioning
 on:
+  push:
+    branches: [audit/migration48-ci-20261014]
   pull_request:
   workflow_dispatch:
 permissions:

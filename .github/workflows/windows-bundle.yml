@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, audit/migration48-ci-20261014]
 
 permissions:
   contents: read

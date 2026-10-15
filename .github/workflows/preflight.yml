@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - audit/migration48-ci-20261014
   pull_request:
 
 permissions:
@@ -85,6 +86,18 @@ jobs:
         run: pip install -r requirements.txt
       - name: Install test dependencies
         run: pip install pytest
+      - name: Mandatory disposable PostgreSQL isolation gate
+        run: |
+          python - <<'PY'
+          import asyncio,sys
+          sys.path.insert(0,'tests')
+          from _postgres_test_database import disposable_database
+          async def verify():
+              async with disposable_database():
+                  pass
+          asyncio.run(verify())
+          print('CI_POSTGRES_ISOLATION_READY')
+          PY
       - name: Compile
         run: python -m compileall -q grid tests run_worker.py run_coordinator.py
       - name: Import smoke test

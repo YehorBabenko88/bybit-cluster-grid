@@ -56,7 +56,11 @@ def test_windows_bundle_contains_ml_requirements_and_checks_presence():
     assert "run_worker.py,run_coordinator.py,requirements.txt,requirements-ml.txt" in workflow
     assert 'if(!(Test-Path (Join-Path $bundle "requirements-ml.txt")))' in workflow
     # All main pushes now build the Windows bundle, regardless of changed paths.
-    assert "  push:\n    branches: [main]" in workflow
+    branch_line = workflow.split("  push:\n    branches: ", 1)[1].splitlines()[0]
+    # The allowlist can add the isolated audit branch; main must stay included.
+    branches = [v.strip() for v in branch_line.strip("[]").split(",")]
+    assert "main" in branches
+    assert "*" not in branches
     assert "    paths:" not in workflow.split("permissions:",1)[0]
 
 
