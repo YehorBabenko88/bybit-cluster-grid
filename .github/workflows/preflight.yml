@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - audit/migration48-ci-20261014
+      - audit/codex-schema48-recovery-plan
   pull_request:
 
 permissions:
