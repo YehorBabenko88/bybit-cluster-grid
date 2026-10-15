@@ -37,3 +37,18 @@ def test_ack_preserves_backup_when_primary_is_corrupt(tmp_path):
         assert wal._read_checkpoint(wal.checkpoint) == 2
 
     asyncio.run(scenario())
+
+
+
+def test_corrupt_primary_whitespace_uses_durable_backup(tmp_path):
+    wal = SegmentWAL(tmp_path)
+    wal.checkpoint.write_text("9  ", encoding="ascii")
+    wal.checkpoint_backup.write_text("7\n", encoding="ascii")
+    assert wal._checkpoint_id() == 7
+
+
+def test_noncanonical_backup_cannot_advance_checkpoint(tmp_path):
+    wal = SegmentWAL(tmp_path)
+    wal.checkpoint.write_text("4\n", encoding="ascii")
+    wal.checkpoint_backup.write_text("09", encoding="ascii")
+    assert wal._checkpoint_id() == 4
