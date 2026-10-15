@@ -4,6 +4,8 @@ import zlib
 
 from grid.segment_wal import SegmentWAL
 
+# Exact bytes preserve canonical LF fixtures on Windows; do not normalize on read.
+
 
 def test_startup_repairs_torn_tail_without_reading_entire_segment(tmp_path, monkeypatch):
     payload={"symbol":"BTCUSDT"}
@@ -38,8 +40,8 @@ def test_startup_repairs_torn_tail_without_reading_entire_segment(tmp_path, monk
 def test_checkpoint_rejects_noncanonical_decimal_bytes(tmp_path):
     wal=SegmentWAL(tmp_path)
     for invalid in (" 7", "7 ", "7\n\n", "07", "+7", "7junk", ""):
-        wal.checkpoint.write_text(invalid, encoding="ascii")
+        wal.checkpoint.write_bytes((invalid).encode("ascii"))
         assert wal._read_checkpoint(wal.checkpoint) is None, repr(invalid)
     for valid in ("0", "7", "123456789", "7\n"):
-        wal.checkpoint.write_text(valid, encoding="ascii")
+        wal.checkpoint.write_bytes((valid).encode("ascii"))
         assert wal._read_checkpoint(wal.checkpoint) == int(valid.rstrip("\n"))
