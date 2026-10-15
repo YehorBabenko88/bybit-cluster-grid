@@ -24,6 +24,10 @@ function Get-GridPostgresEvidence {
   $drive=$DataRoot.Substring(0,2)
   $disks=@(Get-CimInstance -ClassName Win32_LogicalDisk -Filter ("DeviceID='"+$drive+"'") -ErrorAction Stop *>&1)
   if($disks.Count -ne 1 -or [string]$disks[0].DriveType -cne '3'){throw 'PG_READ_ONLY_FIXED_LOCAL_DRIVE_REQUIRED'}
+  # A directory-backed drive-letter alias must not masquerade as a physical volume.
+  $volumes=@(Get-CimInstance -ClassName Win32_Volume -Filter ("DriveLetter='"+$drive+"'") -ErrorAction Stop *>&1)
+  if($volumes.Count -ne 1 -or $volumes[0].DriveLetter -ine $drive -or [string]$volumes[0].DriveType -cne '3' -or
+     $volumes[0].DeviceID -isnot [string] -or $volumes[0].DeviceID -notmatch '^\\\\\?\\Volume\{[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\}\\$'){throw 'PG_READ_ONLY_VOLUME_IDENTITY_UNKNOWN'}
   Assert-GridLabPhysical $parent
   $parentItem=Get-GridLabItem $parent
   if(!$parentItem.PSIsContainer -or $parentItem.LinkType -eq 'HardLink'){throw 'PG_READ_ONLY_PARENT_IDENTITY_INVALID'}

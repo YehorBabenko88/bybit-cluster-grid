@@ -20,6 +20,11 @@ function Get-CimInstance {[CmdletBinding()]param($ClassName,$Filter,$OperationTi
  switch($ClassName){
  'Win32_ComputerSystem' {[pscustomobject]@{Name=$(if($global:PgCase -eq 'wrong-node'){'LS5'}else{'LAB01'})}}
  'Win32_LogicalDisk' {[pscustomobject]@{DriveType=$(if($global:PgCase -eq 'mapped'){4}else{3})}}
+ 'Win32_Volume' {
+  if($global:PgCase -eq 'volume-error'){throw 'PRIVATE_SECRET'}
+  if($global:PgCase -eq 'subst'){return}
+  [pscustomobject]@{DriveLetter='C:';DriveType=3;DeviceID=$(if($global:PgCase -eq 'volume-identity'){'C:\production'}else{'\\?\Volume{12345678-1234-1234-1234-123456789abc}\'})}
+ }
  'Win32_Process' {
   if($global:PgCase -eq 'pg-process'){[pscustomobject]@{Name='postgres.exe';CommandLine='postgres -D C:\unrelated';ProcessId=123}}
   elseif($global:PgCase -eq 'unknown-python'){[pscustomobject]@{Name='python.exe';CommandLine=$null;ProcessId=123}}
@@ -73,7 +78,7 @@ $r=Get-GridPostgresEvidence @argsPg
 if($r.status -ne 'SNAPSHOT_ONLY' -or !$r.root_absent -or $r.acl.owner_sid -ne $sid -or $r.commit_sha -ne ('a'*40)){throw ('Safe metadata fixture failed: '+$r.code)}
 if($EmitSnapshot){$r|ConvertTo-Json -Depth 10 -Compress;return}
 $count=2
-foreach($case in @('task-error','active','task-pg','cim-error','wrong-node','mapped','pg-process','unknown-python','pg-service','unknown-service','service-error','tcp-error','udp-error','port','path-error','existing','hardlink','junction','acl-error','owner','inherited','everyone','generic-write','generic-all','unsupported-right','task-pg-noext','pg-service-noext')){
+foreach($case in @('task-error','active','task-pg','cim-error','wrong-node','mapped','pg-process','unknown-python','pg-service','unknown-service','service-error','tcp-error','udp-error','port','path-error','existing','hardlink','junction','acl-error','owner','inherited','everyone','generic-write','generic-all','unsupported-right','subst','volume-error','volume-identity','task-pg-noext','pg-service-noext')){
  $global:PgCase=$case
  $r=Get-GridPostgresEvidence @argsPg
  if($r.status -ne 'BLOCKED' -or ($r|ConvertTo-Json -Depth 10) -match 'PRIVATE'){throw ('Unsafe snapshot or leaked diagnostic: '+$case)}
