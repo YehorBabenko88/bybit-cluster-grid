@@ -42,4 +42,4 @@ def test_checkpoint_rejects_noncanonical_decimal_bytes(tmp_path):
         assert wal._read_checkpoint(wal.checkpoint) is None, repr(invalid)
     for valid in ("0", "7", "123456789", "7\\n"):
         wal.checkpoint.write_text(valid, encoding="ascii")
-        assert wal._read_checkpoint(wal.checkpoint) == int(valid)
+        assert wal._read_checkpoint(wal.checkpoint) == int(valid.removesuffix("\\n"))
