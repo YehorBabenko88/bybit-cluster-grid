@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [main, audit/migration48-ci-20261014, audit/codex-schema48-recovery-plan]
+    branches: [main, audit/migration48-ci-20261014, audit/codex-schema48-recovery-plan, audit/integration-issue185-wal-20261015]
 
 permissions:
   contents: read
