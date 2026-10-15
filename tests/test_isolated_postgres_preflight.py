@@ -31,7 +31,7 @@ def test_plan_and_preflight_are_idempotent_but_incompatible_layout_is_blocked():
     p=example();saved=copy.deepcopy(p)
     one=assess(p,SHA,adapter_plan=adapter())
     assert one==assess(p,SHA,adapter_plan=adapter()) and p==saved
-    assert one['status']=='PLAN_ONLY' and one['execution_authorized'] is False
+    assert one['status']=='BLOCKED' and one['execution_authorized'] is False
     r=run()
     assert r['status']=='BLOCKED' and r['checks']['host_evidence']=='METADATA_ONLY'
     assert 'ADAPTER_LAYOUT_INCOMPATIBLE' in r['blockers']
@@ -121,7 +121,7 @@ def test_cli_is_readonly_and_emits_exact_identity(tmp_path):
     command=[sys.executable,'-B',str(Path(__file__).resolve().parents[1]/'installer/isolated_postgres_preflight.py'),
              '--plan',str(paths['plan']),'--commit',SHA,'--adapter-plan',str(paths['adapter'])]
     first=subprocess.run(command,capture_output=True,text=True,check=False)
-    assert first.returncode==0 and json.loads(first.stdout)['status']=='PLAN_ONLY'
+    assert first.returncode==2 and json.loads(first.stdout)['status']=='BLOCKED'
     second=subprocess.run(command+['--mode','PreflightReadOnly','--owner-sid',SID,'--evidence',str(paths['evidence'])],capture_output=True,text=True,check=False)
     r=json.loads(second.stdout)
     assert second.returncode==2 and r['checks']['host_evidence']=='METADATA_ONLY'

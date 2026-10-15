@@ -70,6 +70,10 @@ def assess(plan, commit, *, mode='PlanOnly', evidence=None, adapter_plan=None,
         need(type(commit) is str and re.fullmatch('[0-9a-f]{40}',commit) and commit!='0'*40,'COMMIT_INVALID')
         r['commit_sha']=commit
         need(mode in ('PlanOnly','PreflightReadOnly'),'MODE_UNSUPPORTED')
+        # No serialized object can prove local adapter ownership. Schema 2 is
+        # deliberately unavailable until a handle-bound verifier exists.
+        if type(plan) is dict and type(plan.get('schema')) is int and plan['schema']==2:
+            raise ProvisioningBlocked('SCHEMA2_LOCAL_OWNERSHIP_VERIFIER_REQUIRED')
         validated=validate_postgres_plan(plan)
         r['plan_sha256']=digest(plan)
         r['checks']['plan']='VALIDATED_METADATA_ONLY'
@@ -77,6 +81,7 @@ def assess(plan, commit, *, mode='PlanOnly', evidence=None, adapter_plan=None,
     except (ProvisioningBlocked,TypeError,ValueError,OverflowError) as exc:
         r['blockers']=[str(exc) if isinstance(exc,ProvisioningBlocked) else 'PLAN_INVALID']
         return r
+    r['blockers'].append('LEGACY_SCHEMA1_MAPPING_FORBIDDEN')
     r['checks']['adapter']='BLOCKED'
     if type(adapter_plan) is not dict:
         r['blockers'].append('ADAPTER_PLAN_REQUIRED')
@@ -96,7 +101,7 @@ def assess(plan, commit, *, mode='PlanOnly', evidence=None, adapter_plan=None,
         if evidence is not None:
             r['blockers'].append('PLAN_ONLY_EVIDENCE_FORBIDDEN')
         else:
-            r['status']='PLAN_ONLY'
+            r['blockers'].append('LEGACY_SCHEMA1_MAPPING_FORBIDDEN')
     else:
         r['checks']['host_evidence']='BLOCKED'
         try:

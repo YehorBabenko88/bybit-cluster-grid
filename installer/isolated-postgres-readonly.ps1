@@ -13,7 +13,7 @@ if($Commit -cnotmatch '^[0-9a-f]{40}$' -or $PlanSha256 -cnotmatch '^[0-9a-f]{64}
  throw 'PG_READ_ONLY_IDENTITY_INVALID'
 }
 if($Mode -eq 'PlanOnly'){
- [ordered]@{schema=1;status='PLAN_ONLY';execution_authorized=$false;physical_ready=$false;commit_sha=$Commit;asserted_plan_sha256=$PlanSha256;blockers=@('ADAPTER_LAYOUT_INCOMPATIBLE','NO_INITDB_EXECUTOR','FRESH_HOST_INVENTORY_REQUIRED');
+ [ordered]@{schema=1;status='BLOCKED';execution_authorized=$false;physical_ready=$false;commit_sha=$Commit;asserted_plan_sha256=$PlanSha256;blockers=@('LEGACY_SCHEMA1_MAPPING_FORBIDDEN','ADAPTER_LAYOUT_INCOMPATIBLE','NO_INITDB_EXECUTOR','FRESH_HOST_INVENTORY_REQUIRED');
   probes=@('shared Runtime Guard under release mutex','fixed local disk and physical ancestors','absent PGDATA/run/node roots','protected owner ACL','PostgreSQL services/processes/tasks','TCP/UDP observation only; NOT reservation')}|ConvertTo-Json -Depth 5 -Compress
  return
 }
