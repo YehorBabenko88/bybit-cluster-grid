@@ -135,3 +135,37 @@ def test_ack_backup_publish_failure_does_not_advance_checkpoint(tmp_path, monkey
         assert not (tmp_path / "checkpoint.backup.next").exists()
 
     asyncio.run(scenario())
+
+
+
+def test_ack_checkpoint_failure_then_reopen_preserves_pending_record(tmp_path, monkeypatch):
+    import asyncio
+    import os
+    import pytest
+
+    async def scenario():
+        wal = SegmentWAL(tmp_path)
+        first = await wal.append({"minute": 1})
+        real_replace = os.replace
+
+        def fail_primary_publish(src, dst):
+            if str(dst) == str(wal.checkpoint):
+                raise OSError("injected interrupted checkpoint")
+            return real_replace(src, dst)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "replace", fail_primary_publish)
+            with pytest.raises(OSError, match="interrupted checkpoint"):
+                await wal.ack(first)
+
+        wal.close()
+        reopened = SegmentWAL(tmp_path)
+        try:
+            assert [rid for rid, _ in reopened.recover()] == [first]
+            assert reopened._checkpoint_id() == 0
+            await reopened.ack(first)
+            assert reopened.recover() == []
+        finally:
+            reopened.close()
+
+    asyncio.run(scenario())
