@@ -115,12 +115,14 @@ class SegmentWAL:
     def _read_checkpoint(self,path):
         try:
             raw=path.read_text(encoding="ascii")
-            # Accept only the exact canonical decimal checkpoint: whitespace
-            # or a torn suffix must not be normalized into a valid ACK.
-            if not raw or not raw.isascii() or not raw.isdecimal() or (len(raw)>1 and raw[0]=='0'):
+            # A single terminal newline is the legacy checkpoint format.
+            # Reject all other whitespace, junk, and leading zeroes.
+            value=raw[:-1] if raw.endswith("\n") else raw
+            if (not value or not value.isascii() or not value.isdecimal()
+                    or (len(value)>1 and value[0]=='0')):
                 return None
-            value=int(raw)
-            return value if value>=0 else None
+            number=int(value)
+            return number if number>=0 else None
         except (OSError,ValueError,UnicodeError):
             return None
 
