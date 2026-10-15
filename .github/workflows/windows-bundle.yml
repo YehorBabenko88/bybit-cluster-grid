@@ -352,6 +352,8 @@ jobs:
           if(!(Test-Path -LiteralPath $gate -PathType Leaf)){throw 'Built bundle integration gate missing'}
           & $gate -BundleRoot $bundle
           & (Join-Path $bundle 'installer/tests/test-release-repair-plan.ps1') -Python (Join-Path $bundle 'runtime/python.exe')
+          & (Join-Path $bundle 'installer/tests/test-physical-inventory.ps1')
+          & (Join-Path $bundle 'installer/tests/test-physical-harness.ps1') -Python (Join-Path $bundle 'runtime/python.exe')
 
       - name: Archive verified Windows bundle
         shell: pwsh

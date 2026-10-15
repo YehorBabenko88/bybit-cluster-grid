@@ -54,6 +54,8 @@ jobs:
           - "3.12"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Checkout pinned Strattester source for offline contracts
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
