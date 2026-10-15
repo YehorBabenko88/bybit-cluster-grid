@@ -2,7 +2,7 @@ name: composed-safety-gate
 
 on:
   push:
-    branches: [audit/migration48-ci-20261014]
+    branches: [audit/migration48-ci-20261014, audit/codex-schema48-recovery-plan]
   pull_request:
   workflow_dispatch:
 

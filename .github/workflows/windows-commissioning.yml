@@ -1,7 +1,7 @@
 name: windows-commissioning
 on:
   push:
-    branches: [audit/migration48-ci-20261014]
+    branches: [audit/migration48-ci-20261014, audit/codex-schema48-recovery-plan]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -37,6 +37,7 @@ jobs:
           & ./installer/tests/test-rollback-plan.ps1
           & ./installer/tests/test-built-bundle-contract.ps1
           & ./installer/tests/test-legacy-rollback.ps1 -Python (Get-Command python).Source
+          & ./installer/tests/test-release-repair-plan.ps1 -Python (Get-Command python).Source
           & ./installer/tests/test-audit-stage.ps1
           & ./installer/tests/test-install-apply.ps1
       - name: Plan, ownership, idempotence and rollback fixtures in Windows PowerShell 5.1
@@ -57,5 +58,6 @@ jobs:
           & ./installer/tests/test-rollback-plan.ps1
           & ./installer/tests/test-built-bundle-contract.ps1
           & ./installer/tests/test-legacy-rollback.ps1 -Python (Get-Command python).Source
+          & ./installer/tests/test-release-repair-plan.ps1 -Python (Get-Command python).Source
           & ./installer/tests/test-audit-stage.ps1
           & ./installer/tests/test-install-apply.ps1
