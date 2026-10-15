@@ -64,8 +64,11 @@ def attest_ci_container(dsn):
         ephemeral=(info.get('HostConfig',{}).get('Tmpfs',{}).get('/var/lib/postgresql/data')=='rw'
                    and any(p.get('Type')=='tmpfs' and p.get('Destination')=='/var/lib/postgresql/data'
                            for p in info.get('Mounts',[])))
-        if not ephemeral or any(labels.get(k)!=v for k,v in required.items()):
-            raise ValueError('not current-run ephemeral cluster')
+        if not ephemeral:
+            raise ValueError('ephemeral mount proof rejected')
+        stage='current_run_labels'
+        if any(labels.get(k)!=v for k,v in required.items()):
+            raise ValueError('current-run label proof rejected')
         stage='container_port_and_image'
         port=str(urlsplit(dsn).port or 5432)
         mappings=info['NetworkSettings']['Ports']['5432/tcp']
