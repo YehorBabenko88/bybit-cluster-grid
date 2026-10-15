@@ -169,3 +169,40 @@ def test_ack_checkpoint_failure_then_reopen_preserves_pending_record(tmp_path, m
             reopened.close()
 
     asyncio.run(scenario())
+
+
+
+def test_ack_checkpoint_temp_fsync_failure_preserves_recovery(tmp_path, monkeypatch):
+    import asyncio
+    import os
+    import pytest
+
+    async def scenario():
+        wal = SegmentWAL(tmp_path)
+        first = await wal.append({"minute": 1})
+        original_fsync = os.fsync
+        calls = 0
+
+        def fail_once(fd):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise OSError("injected checkpoint fsync failure")
+            return original_fsync(fd)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "fsync", fail_once)
+            with pytest.raises(OSError, match="checkpoint fsync failure"):
+                await wal.ack(first)
+
+        assert wal._checkpoint_id() == 0
+        wal.close()
+        reopened = SegmentWAL(tmp_path)
+        try:
+            assert [rid for rid, _ in reopened.recover()] == [first]
+            await reopened.ack(first)
+            assert reopened.recover() == []
+        finally:
+            reopened.close()
+
+    asyncio.run(scenario())
