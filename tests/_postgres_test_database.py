@@ -41,12 +41,15 @@ def attest_ci_container(dsn):
                               text=True,timeout=10,check=False)
         if result.returncode:raise ValueError('provider failed')
         return result.stdout
+    stage='docker_context'
     try:
         context=json.loads(docker('context','inspect','default'))
         if context[0]['Endpoints']['docker']['Host']!='unix:///var/run/docker.sock':raise ValueError('nonlocal Docker')
+        stage='container_inspect'
         rows=json.loads(docker('inspect',container))
         if len(rows)!=1:raise ValueError('ambiguous container')
         info=rows[0]
+        stage='container_environment'
         settings=info['Config'];values=set(settings.get('Env',[]))
         pgdata='/var/lib/postgresql/data'
         if [v for v in settings.get('Env',[]) if v.startswith('PGDATA=')]!=['PGDATA='+pgdata]:
@@ -57,11 +60,13 @@ def attest_ci_container(dsn):
         required={'grid.audit.disposable':'1','grid.audit.run_id':env['GITHUB_RUN_ID'],
                   'grid.audit.run_attempt':env['GITHUB_RUN_ATTEMPT'],
                   'grid.audit.repository':env['GITHUB_REPOSITORY']}
+        stage='ephemeral_mount_and_labels'
         ephemeral=(info.get('HostConfig',{}).get('Tmpfs',{}).get('/var/lib/postgresql/data')=='rw'
                    and any(p.get('Type')=='tmpfs' and p.get('Destination')=='/var/lib/postgresql/data'
                            for p in info.get('Mounts',[])))
         if not ephemeral or any(labels.get(k)!=v for k,v in required.items()):
             raise ValueError('not current-run ephemeral cluster')
+        stage='container_port_and_image'
         port=str(urlsplit(dsn).port or 5432)
         mappings=info['NetworkSettings']['Ports']['5432/tcp']
         if (info['Id']!=container or info['State']['Running'] is not True
@@ -69,15 +74,17 @@ def attest_ci_container(dsn):
                 or not {'POSTGRES_DB=grid','POSTGRES_USER=grid'}<=values
                 or not mappings or any(p['HostPort']!=port or p['HostIp'] not in {'0.0.0.0','127.0.0.1','::'} for p in mappings)):
             raise ValueError('service mismatch')
+        stage='effective_data_directory'
         directory=docker('exec',container,'psql','-h','/var/run/postgresql','-p','5432','-X','-U','grid','-d','grid','-A','-t','-c','SHOW data_directory').strip()
         if directory!=pgdata:raise ValueError('effective data directory mismatch')
+        stage='container_cluster_identity'
         identity=docker('exec',container,'psql','-h','/var/run/postgresql','-p','5432','-X','-U','grid','-d','grid','-A','-t','-c',
                         'SELECT system_identifier::text FROM pg_catalog.pg_control_system()').strip()
         if not re.fullmatch(r'[0-9]{1,20}',identity):raise ValueError('invalid cluster identity')
         return identity
     except Exception:
-        # Never echo provider output, connection strings, or credentials.
-        raise RuntimeError('disposable CI container attestation failed') from None
+        # Fixed diagnostic stage names only. Never expose provider output, DSNs or credentials.
+        raise RuntimeError('disposable CI container attestation failed at stage: '+stage) from None
 
 
 @asynccontextmanager
