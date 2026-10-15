@@ -1,6 +1,6 @@
 # Physical deployment preparation runbook
 
-Status: PREPARATION ONLY. No physical installation, migration, runtime activation or network fault has been performed by this harness. Synthetic success is not evidence of production HA. The reviewed source is PR #188, commit 342112aa17f119c2db971c602c14587227835a98.
+Status: PREPARATION ONLY. No physical installation, migration, runtime activation or network fault has been performed by this harness. Synthetic success is not evidence of production HA. The reviewed source is PR #188, commit 8b75088487a5f6f378fa449efb7b66aaf9bdadce.
 
 ## Safety boundary
 
