@@ -107,3 +107,31 @@ def test_ack_checkpoint_publish_failure_does_not_skip_unacked_record(tmp_path, m
         assert wal.recover() == []
 
     asyncio.run(scenario())
+
+
+
+def test_ack_backup_publish_failure_does_not_advance_checkpoint(tmp_path, monkeypatch):
+    import asyncio
+    import os
+
+    async def scenario():
+        wal = SegmentWAL(tmp_path)
+        first = await wal.append({"minute": 1})
+        await wal.ack(first)
+        second = await wal.append({"minute": 2})
+        real_replace = os.replace
+
+        def fail_backup_publish(src, dst):
+            if str(dst) == str(wal.checkpoint_backup):
+                raise OSError("injected backup publish failure")
+            return real_replace(src, dst)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "replace", fail_backup_publish)
+            await wal.ack(second)
+
+        assert wal._checkpoint_id() == second
+        assert wal.recover() == []
+        assert not (tmp_path / "checkpoint.backup.next").exists()
+
+    asyncio.run(scenario())
