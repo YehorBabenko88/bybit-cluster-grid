@@ -354,6 +354,7 @@ jobs:
           & (Join-Path $bundle 'installer/tests/test-release-repair-plan.ps1') -Python (Join-Path $bundle 'runtime/python.exe')
           & (Join-Path $bundle 'installer/tests/test-physical-inventory.ps1')
           & (Join-Path $bundle 'installer/tests/test-physical-harness.ps1') -Python (Join-Path $bundle 'runtime/python.exe')
+          & (Join-Path $bundle 'installer/tests/test-isolated-deployment.ps1') -Python (Join-Path $bundle 'runtime/python.exe')
 
       - name: Archive verified Windows bundle
         shell: pwsh
