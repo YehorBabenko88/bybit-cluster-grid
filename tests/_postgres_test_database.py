@@ -71,6 +71,9 @@ def attest_ci_container(dsn):
                           and p.get('RW') is True for p in info.get('Mounts',[]))
         ephemeral=tmpfs_rw and runtime_tmpfs
         if not ephemeral:
+            # A fixed, non-sensitive diagnostic code distinguishes Docker's
+            # HostConfig tmpfs proof from the effective runtime mount proof.
+            stage='ephemeral_hostconfig_tmpfs' if not tmpfs_rw else 'ephemeral_runtime_tmpfs'
             raise ValueError('ephemeral mount proof rejected')
         stage='current_run_labels'
         if any(labels.get(k)!=v for k,v in required.items()):
