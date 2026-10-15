@@ -55,6 +55,9 @@ function Assert-GridLabHost {
  Assert-GridRuntimeStopped
  $systems=@(Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop *>&1)
  if($systems.Count -ne 1 -or $systems[0].Name -cne $Plan.node_id -or $systems[0].Name -in @('LS5','LS7')){throw 'GRID_LAB_HOST_IDENTITY_BLOCKED'}
+ $drive=$Plan.parent.Substring(0,2)
+ $disks=@(Get-CimInstance -ClassName Win32_LogicalDisk -Filter ("DeviceID='"+$drive+"'") -ErrorAction Stop *>&1)
+ if($disks.Count -ne 1 -or $disks[0] -is [Management.Automation.ErrorRecord] -or [string]$disks[0].DriveType -cne '3'){throw 'GRID_LAB_FIXED_LOCAL_DISK_REQUIRED'}
  $tasks=@(Get-ScheduledTask -ErrorAction Stop *>&1)
  foreach($t in $tasks){
   if(!$t.TaskName -or $t -is [Management.Automation.ErrorRecord] -or $t.TaskName -in $Plan.tasks){throw 'GRID_LAB_TASK_COLLISION_OR_UNKNOWN'}
