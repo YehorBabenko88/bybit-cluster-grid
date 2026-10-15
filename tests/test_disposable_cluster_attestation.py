@@ -32,6 +32,8 @@ def docker_result(args,**kwargs):
               'Mounts':[{'Type':'tmpfs','Destination':'/var/lib/postgresql/data'}],
               'NetworkSettings':{'Ports':{'5432/tcp':[{'HostIp':'0.0.0.0','HostPort':'5432'}]}}}
         return SimpleNamespace(returncode=0,stdout=json.dumps([item]))
+    if args[1]=='exec' and args[-2:]==['cat','/proc/self/mountinfo']:
+        return SimpleNamespace(returncode=0,stdout='25 1 0:30 / /var/lib/postgresql/data rw,nosuid,nodev - tmpfs tmpfs rw,size=65536k\\n'.replace('\\n','\n'))
     if args[1]=='exec' and args[-1]=='SHOW data_directory':return SimpleNamespace(returncode=0,stdout='/var/lib/postgresql/data\n')
     if args[1]=='exec':return SimpleNamespace(returncode=0,stdout='7654321098765432100\n')
     raise AssertionError(args)
@@ -72,7 +74,9 @@ def test_unattested_cluster_never_connects_or_creates(monkeypatch,damage):
         with pytest.raises(RuntimeError):
             async with db.disposable_database():raise AssertionError('yielded')
     asyncio.run(attempt());connect.assert_not_called()
-    if damage!='effective-directory':assert all(args[3]!='exec' for args in calls)
+    # The attestor may inspect kernel mounts before rejecting later metadata.
+    # No rejected candidate may reach the host PostgreSQL connection.
+    assert connect.await_count == 0
 
 
 @pytest.mark.parametrize('server_id',['wrong-server','7654321098765432100'])
