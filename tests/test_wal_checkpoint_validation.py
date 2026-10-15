@@ -77,3 +77,33 @@ def test_checkpoint_rejects_double_newline_and_crlf(tmp_path):
     for value in ("8\n\n", "8\r\n", "\n8", "8\t"):
         wal.checkpoint.write_bytes(value.encode("ascii"))
         assert wal._read_checkpoint(wal.checkpoint) is None
+
+
+
+def test_ack_checkpoint_publish_failure_does_not_skip_unacked_record(tmp_path, monkeypatch):
+    import asyncio
+    import os
+    import pytest
+
+    async def scenario():
+        wal = SegmentWAL(tmp_path)
+        first = await wal.append({"minute": 1})
+        real_replace = os.replace
+
+        def fail_primary_publish(src, dst):
+            if str(dst) == str(wal.checkpoint):
+                raise OSError("injected checkpoint publish failure")
+            return real_replace(src, dst)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "replace", fail_primary_publish)
+            with pytest.raises(OSError, match="injected checkpoint"):
+                await wal.ack(first)
+
+        assert wal._checkpoint_id() == 0
+        assert [rid for rid, _ in wal.recover()] == [first]
+        await wal.ack(first)
+        assert wal._checkpoint_id() == first
+        assert wal.recover() == []
+
+    asyncio.run(scenario())
