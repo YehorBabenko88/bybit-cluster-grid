@@ -123,6 +123,8 @@ def results(raw,sha,run_id):
 
 def markdown(r):
     rows=['# Physical deployment preparation', 'Status: '+r['status'], 'Execution authorized: false; physical readiness: false.']
+    for key in ('commit_sha','workflow_run_id','total_cases'):
+        if key in r:rows.append(key+': '+str(r[key]))
     for stage in r.get('sequence',[]):rows.append('- '+stage['stage']+': '+', '.join(stage['nodes'])+' — approval required; NOT RUN')
     for scenario in r.get('scenarios',[]):rows.append('- '+scenario['id']+': '+scenario.get('physical_status','NOT_RUN'))
     if r.get('code'):rows.append('Blocker: '+r['code'])

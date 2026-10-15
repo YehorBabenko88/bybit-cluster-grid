@@ -67,3 +67,8 @@ def test_forged_junit_is_not_evidence(damage):
     if damage=='utf16-dtd':raw=('<?xml version="1.0" encoding="utf-16"?><!DOCTYPE testsuites>'+raw.decode()).encode('utf-16')
     if damage=='false-counters':raw=raw.replace(b'<testsuite>',b'<testsuite failures="1">')
     assert h.results(raw,SHA,'12345')['status']=='BLOCKED'
+
+def test_human_evidence_retains_exact_source_and_run():
+    report=h.markdown(h.results(junit(),SHA,'12345'))
+    assert SHA in report and '12345' in report
+    assert 'SYNTHETIC_PASS' in report and 'NOT_RUN' in report
