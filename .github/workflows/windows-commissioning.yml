@@ -1,7 +1,7 @@
 name: windows-commissioning
 on:
   push:
-    branches: [audit/migration48-ci-20261014, audit/codex-schema48-recovery-plan]
+    branches: [audit/migration48-ci-20261014, audit/codex-schema48-recovery-plan, audit/integration-issue185-wal-20261015]
   pull_request:
   workflow_dispatch:
 permissions:
