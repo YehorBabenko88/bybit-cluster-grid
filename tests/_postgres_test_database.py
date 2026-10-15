@@ -61,9 +61,15 @@ def attest_ci_container(dsn):
                   'grid.audit.run_attempt':env['GITHUB_RUN_ATTEMPT'],
                   'grid.audit.repository':env['GITHUB_REPOSITORY']}
         stage='ephemeral_mount_and_labels'
-        ephemeral=(info.get('HostConfig',{}).get('Tmpfs',{}).get('/var/lib/postgresql/data')=='rw'
-                   and any(p.get('Type')=='tmpfs' and p.get('Destination')=='/var/lib/postgresql/data'
-                           for p in info.get('Mounts',[])))
+        # Docker may normalize --tmpfs options into a comma-separated mount spec.
+        # Require an explicit read-write tmpfs at the exact PGDATA path in BOTH
+        # HostConfig and the runtime mount list; do not accept a bind or volume.
+        tmpfs_options=info.get('HostConfig',{}).get('Tmpfs',{}).get(pgdata)
+        tmpfs_rw=(isinstance(tmpfs_options,str)
+                  and 'rw' in tmpfs_options.split(','))
+        runtime_tmpfs=any(p.get('Type')=='tmpfs' and p.get('Destination')==pgdata
+                          and p.get('RW') is True for p in info.get('Mounts',[]))
+        ephemeral=tmpfs_rw and runtime_tmpfs
         if not ephemeral:
             raise ValueError('ephemeral mount proof rejected')
         stage='current_run_labels'
