@@ -67,8 +67,22 @@ def attest_ci_container(dsn):
         tmpfs_options=info.get('HostConfig',{}).get('Tmpfs',{}).get(pgdata)
         tmpfs_rw=(isinstance(tmpfs_options,str)
                   and 'rw' in tmpfs_options.split(','))
-        runtime_tmpfs=any(p.get('Type')=='tmpfs' and p.get('Destination')==pgdata
-                          and p.get('RW') is True for p in info.get('Mounts',[]))
+        # GitHub Actions service containers can omit --tmpfs entries from
+        # docker inspect Mounts. Independently verify the actual kernel mount
+        # inside the exact attested container; do not trust HostConfig alone.
+        stage='ephemeral_kernel_mount'
+        mountinfo=docker('exec',container,'cat','/proc/self/mountinfo')
+        runtime_tmpfs=False
+        for line in mountinfo.splitlines():
+            parts=line.split(' - ',1)
+            if len(parts)!=2:continue
+            left=parts[0].split()
+            right=parts[1].split()
+            if (len(left)>=6 and len(right)>=1 and left[4]==pgdata
+                    and right[0]=='tmpfs' and 'rw' in left[5].split(',')):
+                runtime_tmpfs=True
+                break
+        stage='ephemeral_mount_and_labels'
         ephemeral=tmpfs_rw and runtime_tmpfs
         if not ephemeral:
             # Docker's tmpfs may be represented in Mounts without an RW field.
@@ -76,15 +90,8 @@ def attest_ci_container(dsn):
             mounts=info.get('Mounts',[])
             if not tmpfs_rw:
                 stage='ephemeral_hostconfig_tmpfs'
-            elif not any(p.get('Destination')==pgdata for p in mounts):
-                stage='ephemeral_runtime_mount_absent'
-            elif not any(p.get('Type')=='tmpfs' and p.get('Destination')==pgdata for p in mounts):
-                stage='ephemeral_runtime_mount_not_tmpfs'
-            elif not any(p.get('Type')=='tmpfs' and p.get('Destination')==pgdata
-                         and 'RW' in p for p in mounts):
-                stage='ephemeral_runtime_rw_field_absent'
             else:
-                stage='ephemeral_runtime_rw_not_true'
+                stage='ephemeral_kernel_mount_not_tmpfs_rw'
             raise ValueError('ephemeral mount proof rejected')
         stage='current_run_labels'
         if any(labels.get(k)!=v for k,v in required.items()):
