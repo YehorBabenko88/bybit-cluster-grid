@@ -25,7 +25,7 @@ function Get-CimInstance {[CmdletBinding()]param($ClassName,$OperationTimeoutSec
  'Win32_ComputerSystem' {[pscustomobject]@{Name= $(if($global:LabCase -eq 'production'){'LS5'}else{'LAB0'})}}
  'Win32_LogicalDisk' {[pscustomobject]@{DriveType=$(if($global:LabCase -eq 'network-drive'){4}else{3})}}
  'Win32_Process' {if($global:LabCase -eq 'unknown'){[pscustomobject]@{Name='postgres.exe';CommandLine=$null}}elseif($global:LabCase -eq 'process'){[pscustomobject]@{Name='python.exe';CommandLine='python -m grid.worker'}}else{[pscustomobject]@{Name='System';CommandLine=$null}}}
- 'Win32_Service' {if($global:LabCase -eq 'service-error'){throw 'PRIVATE_PROVIDER_SECRET'};[pscustomobject]@{Name='UnrelatedService';PathName='C:\unrelated.exe'}}
+ 'Win32_Service' {if($global:LabCase -eq 'service-unknown'){[pscustomobject]@{Name='UnknownService';PathName=$null};return};if($global:LabCase -eq 'service-error'){throw 'PRIVATE_PROVIDER_SECRET'};[pscustomobject]@{Name='UnrelatedService';PathName='C:\unrelated.exe'}}
  default {throw 'UNEXPECTED_CIM'}
  }
 }
@@ -50,7 +50,7 @@ Check ($global:LabProbes -eq 0 -and $global:LabPolicy -eq 0) 'Plan probed host'
 Block {Invoke-GridLabPreparation -Plan $p -Mode Prepare -Approval ''}
 Check (!(Test-Path -LiteralPath $p.root)) 'Unapproved preparation wrote files'
 $count=2
-foreach($case in @('task','active','task-error','cim-error','service-error','unknown','process','production','port','udp-port','tcp-error','udp-error','policy','late-active','alternate-task','unknown-action','network-drive')){
+foreach($case in @('task','active','task-error','cim-error','service-error','unknown','process','production','port','udp-port','tcp-error','udp-error','policy','late-active','alternate-task','unknown-action','network-drive','service-unknown')){
  $global:LabCase=$case;$global:LabTaskCalls=0
  Block {Invoke-GridLabPreparation -Plan $p -Mode Prepare -Approval ('PREPARE:'+$p.plan_sha256)}
  Check (!(Test-Path -LiteralPath $p.root)) ('Negative case wrote files: '+$case);$count++
@@ -95,7 +95,7 @@ $global:CurrentPlan=$p
 Block {Invoke-GridLabPreparation -Plan $p -Mode Rollback -Approval ('RETIRE:'+$p.plan_sha256)}
 $count+=3
 # PlanOnly validates without host probes and binds every effect to exact plan approval.
-foreach($bad in @('branch','same-port','reserved-port','node','parent','mixed-parent','alias-parent','changed-plan')){
+foreach($bad in @('branch','same-port','reserved-port','node','parent','mixed-parent','alias-parent','wildcard-parent','changed-plan')){
  if($bad -eq 'changed-plan'){
   $changed=Plan ('4'*32);$changed.root='C:\ProgramData\BybitClusterGrid'
   Block {Invoke-GridLabPreparation -Plan $changed -Mode Prepare -Approval ('PREPARE:'+$changed.plan_sha256)}
@@ -108,6 +108,7 @@ foreach($bad in @('branch','same-port','reserved-port','node','parent','mixed-pa
   if($bad -eq 'parent'){$argsPlan.LabParent='C:\ProgramData\GridLab'}
   if($bad -eq 'mixed-parent'){$argsPlan.LabParent='C:\safe/../ProgramData/GridLab'}
   if($bad -eq 'alias-parent'){$argsPlan.LabParent='C:\PROGRA~1\GridLab'}
+  if($bad -eq 'wildcard-parent'){$argsPlan.LabParent='C:\ambiguous[12]\GridLab'}
   Block {New-GridLabPlan @argsPlan}
  }
  $count++

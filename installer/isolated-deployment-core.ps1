@@ -13,7 +13,7 @@ function New-GridLabPlan {
  if($Version -cnotmatch '^[0-9a-f]{40}$' -or $Version -eq ('0'*40)){throw 'GRID_LAB_VERSION_INVALID'}
  if($Branch -cne 'main' -and $Branch -cnotmatch '^audit/codex-[a-z0-9-]+$'){throw 'GRID_LAB_STAGING_POLICY_BRANCH_BLOCKED'}
  if($PostgresPort -lt 20000 -or $PostgresPort -gt 49999 -or $CoordinatorPort -lt 20000 -or $CoordinatorPort -gt 49999 -or $PostgresPort -eq $CoordinatorPort){throw 'GRID_LAB_PORTS_INVALID'}
- if($LabParent -cnotmatch '^[A-Za-z]:\\' -or $LabParent -match '[<>"|?*''/~\x00-\x1f]' -or $LabParent.Substring(2).Contains(':')){throw 'GRID_LAB_PARENT_INVALID'}
+ if($LabParent -cnotmatch '^[A-Za-z]:\\' -or $LabParent -match '[<>"|?*''/~\[\]\x00-\x1f]' -or $LabParent.Substring(2).Contains(':')){throw 'GRID_LAB_PARENT_INVALID'}
  foreach($part in $LabParent.Substring(3).Split('\')){
   if(!$part -or $part -match '(^[.]+$|[. ]$|^(?i:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])([.]|$))' -or $part -in @('Windows','Program Files','Program Files (x86)','ProgramData')){throw 'GRID_LAB_PARENT_INVALID'}
  }
@@ -76,7 +76,7 @@ function Assert-GridLabHost {
  }
  $services=@(Get-CimInstance -ClassName Win32_Service -ErrorAction Stop *>&1)
  if(!$services.Count){throw 'GRID_LAB_SERVICE_INVENTORY_EMPTY'}
- foreach($s in $services){if(!$s.Name -or $s -is [Management.Automation.ErrorRecord] -or $s.Name -in $Plan.tasks -or ([string]$s.PathName).IndexOf($Plan.root,[StringComparison]::OrdinalIgnoreCase) -ge 0){throw 'GRID_LAB_SERVICE_COLLISION_OR_UNKNOWN'}}
+ foreach($s in $services){if(!$s.Name -or $s.PathName -isnot [string] -or [string]::IsNullOrWhiteSpace($s.PathName) -or $s -is [Management.Automation.ErrorRecord] -or $s.Name -in $Plan.tasks -or ([string]$s.PathName).IndexOf($Plan.root,[StringComparison]::OrdinalIgnoreCase) -ge 0){throw 'GRID_LAB_SERVICE_COLLISION_OR_UNKNOWN'}}
  $processes=@(Get-CimInstance -ClassName Win32_Process -OperationTimeoutSec 10 -ErrorAction Stop *>&1)
  if(!$processes.Count){throw 'GRID_LAB_PROCESS_INVENTORY_EMPTY'}
  foreach($p in $processes){
