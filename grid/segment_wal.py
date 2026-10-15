@@ -114,14 +114,15 @@ class SegmentWAL:
 
     def _read_checkpoint(self,path):
         try:
-            raw=path.read_text(encoding="ascii").strip()
-            # A torn write can leave a valid-looking integer prefix. A
-            # checkpoint is accepted only if the whole file is a single
-            # canonical decimal number, with no leading/trailing junk.
-            if not raw or not raw.isascii() or not raw.isdecimal():
+            raw=path.read_text(encoding="ascii")
+            # A single terminal newline is the legacy checkpoint format.
+            # Reject all other whitespace, junk, and leading zeroes.
+            value=raw[:-1] if raw.endswith("\n") else raw
+            if (not value or not value.isascii() or not value.isdecimal()
+                    or (len(value)>1 and value[0]=='0')):
                 return None
-            value=int(raw)
-            return value if value>=0 else None
+            number=int(value)
+            return number if number>=0 else None
         except (OSError,ValueError,UnicodeError):
             return None
 
