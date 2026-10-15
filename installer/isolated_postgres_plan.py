@@ -29,17 +29,20 @@ def validate_postgres_plan(plan):
     run_id = plan["run_id"]
     node_id = plan["node_id"]
     _require(type(run_id) is str and re.fullmatch(r"[0-9a-f]{32}", run_id), "RUN_ID_INVALID")
-    _require(type(node_id) is str and re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,15}", node_id), "NODE_INVALID")
+    _require(type(node_id) is str and re.fullmatch(r"[A-Z][A-Z0-9_-]{0,14}", node_id), "NODE_INVALID")
     _require(node_id.upper() not in {"LS5", "LS7"}, "PROTECTED_NODE")
     root = plan["data_root"]
     _require(type(root) is str and len(root) < 240 and not any(ord(c) < 32 for c in root), "ROOT_INVALID")
     _require(not re.search(r"(^|[\\/])\.{1,2}([\\/]|$)", root), "ROOT_TRAVERSAL")
+    _require(re.fullmatch(r"[A-Z]:\\.+", root) and not re.search(r"[/~<>\"|?*\[\]']", root), "ROOT_ALIAS_OR_SYNTAX_INVALID")
+    _require(all(part and not part.endswith((".", " ")) and ":" not in part
+                 and not re.fullmatch(r"(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:[.].*)?", part)
+                 for part in root[3:].split("\\")), "ROOT_ALIAS_OR_SYNTAX_INVALID")
     path = PureWindowsPath(root)
     _require(path.is_absolute() and re.fullmatch(r"[A-Za-z]:", path.drive or ""), "ROOT_NOT_LOCAL_DRIVE")
-    _require(tuple(p.casefold() for p in path.parts[-4:]) ==
-             ("gridlab", run_id, node_id.casefold(), "pgdata"), "ROOT_NOT_ISOLATED")
-    _require(not any(p.casefold() in {"windows", "program files", "programdata"} for p in path.parts[1:]), "ROOT_PROTECTED")
-    _require(type(plan["port"]) is int and 1024 <= plan["port"] <= 65535, "PORT_INVALID")
+    _require(path.parts[-4:] == ("GridLab", run_id, node_id, "pgdata"), "ROOT_NOT_ISOLATED")
+    _require(not any(p.casefold() in {"windows", "program files", "program files (x86)", "programdata"} for p in path.parts[1:]), "ROOT_PROTECTED")
+    _require(type(plan["port"]) is int and 20000 <= plan["port"] <= 49999, "PORT_INVALID")
     _require(type(plan["postgres_major"]) is int and plan["postgres_major"] == 16, "POSTGRES_VERSION_INVALID")
     address = plan["listen_address"]
     _require(type(address) is str, "LISTEN_ADDRESS_INVALID")
@@ -47,7 +50,7 @@ def validate_postgres_plan(plan):
         ip = ipaddress.ip_address(address)
     except ValueError as exc:
         raise ProvisioningBlocked("LISTEN_ADDRESS_INVALID") from exc
-    _require(ip.is_loopback, "LISTEN_ADDRESS_NOT_LOOPBACK")
+    _require(address == "127.0.0.1", "LISTEN_ADDRESS_NOT_LOOPBACK")
     _require(plan["existing_cluster"] is False, "EXISTING_CLUSTER_FORBIDDEN")
     _require(plan["runtime_stopped"] is True, "RUNTIME_NOT_STOPPED")
     # An operator-approved plan is still NOT execution authorization.
@@ -60,4 +63,4 @@ def validate_postgres_plan(plan):
                          "PATH_OWNERSHIP_AND_ACL_NOT_VERIFIED",
                          "BINARY_PROVENANCE_NOT_VERIFIED",
                          "PORT_BIND_NOT_RESERVED",
-                         "NO_INITDB_EXECUTOR"]}
+                         "NO_INITDB_EXECUTOR", "ADAPTER_LAYOUT_INCOMPATIBLE"]}

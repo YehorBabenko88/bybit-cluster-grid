@@ -201,4 +201,33 @@ $before=[IO.File]::ReadAllText($other)
 Block {Invoke-GridLabPreparation -Plan $policyPlan -Mode Rollback -Approval ('RETIRE:'+$policyPlan.plan_sha256)}
 Check ([IO.File]::ReadAllText($other) -ceq $before) 'Rollback changed hardlinked resource'
 $count+=2
+# Disposable fixture-only lifecycle probes. No PG validator layout is translated.
+$lockPlan=Plan ('b'*32);$global:CurrentPlan=$lockPlan
+[void](Invoke-GridLabPreparation -Plan $lockPlan -Mode Prepare -Approval ('PREPARE:'+$lockPlan.plan_sha256))
+$lockRecord=Join-Path $lockPlan.root 'owner.jsonl';$saved=[IO.File]::ReadAllText($lockRecord)
+$exclusive=[IO.FileStream]::new($lockRecord,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+try {Block {Invoke-GridLabPreparation -Plan $lockPlan -Mode Rollback -Approval ('RETIRE:'+$lockPlan.plan_sha256)}}finally{$exclusive.Dispose()}
+Check ([IO.File]::ReadAllText($lockRecord) -ceq $saved) 'Concurrent handle changed receipt'
+$count++
+$nativeIdentity=${function:Assert-GridLabSingleLink};$global:WriterBlocked=$false
+function Assert-GridLabSingleLink {param($Stream)
+ & $nativeIdentity $Stream
+ $otherWriter=$null
+ try {$otherWriter=[IO.FileStream]::new($lockRecord,[IO.FileMode]::Open,[IO.FileAccess]::Write,[IO.FileShare]::None)}
+ catch [IO.IOException] {$global:WriterBlocked=$true}
+ finally {if($null -ne $otherWriter){$otherWriter.Dispose()}}
+}
+$r=Invoke-GridLabPreparation -Plan $lockPlan -Mode Rollback -Approval ('RETIRE:'+$lockPlan.plan_sha256)
+Check ($global:WriterBlocked -and $r.status -eq 'RETIRED_PRESERVED') 'Writer could overlap receipt append'
+Set-Item function:Assert-GridLabSingleLink $nativeIdentity
+$count++
+$powerPlan=Plan ('c'*32);$global:CurrentPlan=$powerPlan
+[void](Invoke-GridLabPreparation -Plan $powerPlan -Mode Prepare -Approval ('PREPARE:'+$powerPlan.plan_sha256))
+$powerRecord=Join-Path $powerPlan.root 'owner.jsonl'
+[IO.File]::WriteAllText($powerRecord,('{"schema":1,"plan_sha256":"'+$powerPlan.plan_sha256+'","state":"PREP'))
+$torn=[IO.File]::ReadAllText($powerRecord)
+Block {Invoke-GridLabPreparation -Plan $powerPlan -Mode Rollback -Approval ('RETIRE:'+$powerPlan.plan_sha256)}
+Block {Invoke-GridLabPreparation -Plan $powerPlan -Mode Prepare -Approval ('PREPARE:'+$powerPlan.plan_sha256)}
+Check ([IO.File]::ReadAllText($powerRecord) -ceq $torn) 'Power-loss receipt was repaired or replaced automatically'
+$count+=2
 Write-Output "Isolated adapter fixtures passed: $count; host providers and staging mocked; files confined to GUID temp fixture; no SQL, tasks, services or runtime started"

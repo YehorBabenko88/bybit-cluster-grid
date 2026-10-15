@@ -55,3 +55,22 @@ def test_unknown_fields_are_rejected():
     plan["execute"] = True
     with pytest.raises(ProvisioningBlocked, match="PLAN_SCHEMA_INVALID"):
         validate_postgres_plan(plan)
+
+@pytest.mark.parametrize('field,value', [
+    ('node_id', 'lab01'), ('node_id', 'ABCDEFGHIJKLMNOP'),
+    ('port', 5432), ('port', 55432), ('port', 55433), ('port', 19999), ('port', 50000),
+    ('listen_address', '::1'), ('listen_address', '127.0.0.2'),
+    ('data_root', 'C:\\GRIDLAB\\' + 'a'*32 + '\\LAB01\\pgdata'),
+    ('data_root', 'C:/GridLab/' + 'a'*32 + '/LAB01/pgdata'),
+    ('data_root', 'C:\\GridLab\\' + 'a'*32 + '\\LAB01\\pgdata.'),
+    ('data_root', 'C:\\safe. \\GridLab\\' + 'a'*32 + '\\LAB01\\pgdata'),
+    ('data_root', 'C:\\PROGRA~1\\GridLab\\' + 'a'*32 + '\\LAB01\\pgdata'),
+    ('data_root', 'C:\\Program Files (x86)\\GridLab\\' + 'a'*32 + '\\LAB01\\pgdata'),
+    ('data_root', 'C:\\NUL\\GridLab\\' + 'a'*32 + '\\LAB01\\pgdata'),
+    ('data_root', 'C:\\ambiguous[12]\\GridLab\\' + 'a'*32 + '\\LAB01\\pgdata'),
+])
+def test_alias_and_adapter_incompatible_parameters_fail_closed(field, value):
+    plan = example()
+    plan[field] = value
+    with pytest.raises(ProvisioningBlocked):
+        validate_postgres_plan(plan)
