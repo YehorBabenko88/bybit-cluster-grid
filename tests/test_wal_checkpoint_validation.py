@@ -37,3 +37,172 @@ def test_ack_preserves_backup_when_primary_is_corrupt(tmp_path):
         assert wal._read_checkpoint(wal.checkpoint) == 2
 
     asyncio.run(scenario())
+
+
+
+def test_corrupt_primary_whitespace_uses_durable_backup(tmp_path):
+    wal = SegmentWAL(tmp_path)
+    wal.checkpoint.write_text("9  ", encoding="ascii")
+    wal.checkpoint_backup.write_text("7\n", encoding="ascii")
+    assert wal._checkpoint_id() == 7
+
+
+def test_noncanonical_backup_cannot_advance_checkpoint(tmp_path):
+    wal = SegmentWAL(tmp_path)
+    wal.checkpoint.write_text("4\n", encoding="ascii")
+    wal.checkpoint_backup.write_text("09", encoding="ascii")
+    assert wal._checkpoint_id() == 4
+
+
+
+def test_ack_rejects_missing_first_record_after_checkpoint(tmp_path):
+    import asyncio
+    import pytest
+
+    async def scenario():
+        wal = SegmentWAL(tmp_path)
+        first = await wal.append({"minute": 1})
+        second = await wal.append({"minute": 2})
+        with pytest.raises(ValueError, match="missing record id"):
+            await wal.ack(second)
+        assert wal._checkpoint_id() == 0
+        await wal.ack(first)
+        assert wal._checkpoint_id() == 1
+
+    asyncio.run(scenario())
+
+
+def test_checkpoint_rejects_double_newline_and_crlf(tmp_path):
+    wal = SegmentWAL(tmp_path)
+    for value in ("8\n\n", "8\r\n", "\n8", "8\t"):
+        wal.checkpoint.write_bytes(value.encode("ascii"))
+        assert wal._read_checkpoint(wal.checkpoint) is None
+
+
+
+def test_ack_checkpoint_publish_failure_does_not_skip_unacked_record(tmp_path, monkeypatch):
+    import asyncio
+    import os
+    import pytest
+
+    async def scenario():
+        wal = SegmentWAL(tmp_path)
+        first = await wal.append({"minute": 1})
+        real_replace = os.replace
+
+        def fail_primary_publish(src, dst):
+            if str(dst) == str(wal.checkpoint):
+                raise OSError("injected checkpoint publish failure")
+            return real_replace(src, dst)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "replace", fail_primary_publish)
+            with pytest.raises(OSError, match="injected checkpoint"):
+                await wal.ack(first)
+
+        assert wal._checkpoint_id() == 0
+        assert [rid for rid, _ in wal.recover()] == [first]
+        await wal.ack(first)
+        assert wal._checkpoint_id() == first
+        assert wal.recover() == []
+
+    asyncio.run(scenario())
+
+
+
+def test_ack_backup_publish_failure_does_not_advance_checkpoint(tmp_path, monkeypatch):
+    import asyncio
+    import os
+
+    async def scenario():
+        wal = SegmentWAL(tmp_path)
+        first = await wal.append({"minute": 1})
+        await wal.ack(first)
+        second = await wal.append({"minute": 2})
+        real_replace = os.replace
+
+        def fail_backup_publish(src, dst):
+            if str(dst) == str(wal.checkpoint_backup):
+                raise OSError("injected backup publish failure")
+            return real_replace(src, dst)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "replace", fail_backup_publish)
+            await wal.ack(second)
+
+        assert wal._checkpoint_id() == second
+        assert wal.recover() == []
+        assert not (tmp_path / "checkpoint.backup.next").exists()
+
+    asyncio.run(scenario())
+
+
+
+def test_ack_checkpoint_failure_then_reopen_preserves_pending_record(tmp_path, monkeypatch):
+    import asyncio
+    import os
+    import pytest
+
+    async def scenario():
+        wal = SegmentWAL(tmp_path)
+        first = await wal.append({"minute": 1})
+        real_replace = os.replace
+
+        def fail_primary_publish(src, dst):
+            if str(dst) == str(wal.checkpoint):
+                raise OSError("injected interrupted checkpoint")
+            return real_replace(src, dst)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "replace", fail_primary_publish)
+            with pytest.raises(OSError, match="interrupted checkpoint"):
+                await wal.ack(first)
+
+        wal.close()
+        reopened = SegmentWAL(tmp_path)
+        try:
+            assert [rid for rid, _ in reopened.recover()] == [first]
+            assert reopened._checkpoint_id() == 0
+            await reopened.ack(first)
+            assert reopened.recover() == []
+        finally:
+            reopened.close()
+
+    asyncio.run(scenario())
+
+
+
+def test_ack_checkpoint_temp_fsync_failure_preserves_recovery(tmp_path, monkeypatch):
+    import asyncio
+    import os
+    import pytest
+
+    async def scenario():
+        wal = SegmentWAL(tmp_path)
+        first = await wal.append({"minute": 1})
+        original_fsync = os.fsync
+        calls = 0
+
+        def fail_once(fd):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise OSError("injected checkpoint fsync failure")
+            return original_fsync(fd)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "fsync", fail_once)
+            with pytest.raises(OSError, match="checkpoint fsync failure"):
+                await wal.ack(first)
+
+        assert wal._checkpoint_id() == 0
+        wal.close()
+        reopened = SegmentWAL(tmp_path)
+        try:
+            assert [rid for rid, _ in reopened.recover()] == [first]
+            await reopened.ack(first)
+            assert reopened.recover() == []
+        finally:
+            reopened.close()
+
+    asyncio.run(scenario())

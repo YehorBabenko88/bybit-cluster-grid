@@ -101,16 +101,18 @@ def test_global_active_is_rejected(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "node, message",
+    "overrides, message",
     [
-        (healthy_node(integrity_ok=False), "integrity"),
-        (healthy_node(operator_stopped=False), "operator-stopped"),
-        (healthy_node(wanted_symbols=1), "wanted symbols"),
-        (healthy_node(active_trade_streams=1), "active trade streams"),
+        ({'integrity_ok': False}, "integrity"),
+        ({'operator_stopped': False}, "operator-stopped"),
+        ({'wanted_symbols': 1}, "wanted symbols"),
+        ({'active_trade_streams': 1}, "active trade streams"),
     ],
 )
-def test_unsafe_node_state_is_rejected(monkeypatch, node, message):
+def test_unsafe_node_state_is_rejected(monkeypatch, overrides, message):
     writes = install_mocks(monkeypatch)
+    # Create heartbeat at execution time, not during test collection.
+    node = healthy_node(**overrides)
     with pytest.raises(ValueError, match=message):
         run(server_pilot.begin_server_pilot_validation(
             FakePool(), "PC4", {"PC4": node}, 10

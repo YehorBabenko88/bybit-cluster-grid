@@ -114,7 +114,7 @@ class SegmentWAL:
 
     def _read_checkpoint(self,path):
         try:
-            raw=path.read_text(encoding="ascii")
+            raw=path.read_bytes().decode("ascii")
             # A single terminal newline is the legacy checkpoint format.
             # Reject all other whitespace, junk, and leading zeroes.
             value=raw[:-1] if raw.endswith("\n") else raw
