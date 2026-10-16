@@ -28,7 +28,7 @@ jobs:
           import subprocess,sys
           subprocess.run(['sudo','-E','unshare','--net',sys.executable,'-B','-m','pytest','-q',
                           'tests/test_isolated_postgres_plan.py','tests/test_isolated_postgres_preflight.py',
-                          'tests/test_isolated_postgres_mapping.py','tests/test_isolated_ownership_contract.py'],check=True)
+                          'tests/test_isolated_postgres_mapping.py','tests/test_isolated_ownership_contract.py','tests/test_ownership_session_prototype.py'],check=True)
           PY
   windows-readonly:
     runs-on: windows-latest
@@ -44,13 +44,14 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install pytest
-      - run: python -B -m pytest -q tests/test_isolated_postgres_plan.py tests/test_isolated_postgres_preflight.py tests/test_isolated_postgres_windows_contract.py tests/test_isolated_postgres_mapping.py tests/test_isolated_ownership_contract.py
+      - run: python -B -m pytest -q tests/test_isolated_postgres_plan.py tests/test_isolated_postgres_preflight.py tests/test_isolated_postgres_windows_contract.py tests/test_isolated_postgres_mapping.py tests/test_isolated_ownership_contract.py tests/test_ownership_session_prototype.py
       - name: PowerShell 7 mocked read-only snapshot and journal failure fixtures
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
           & ./installer/tests/test-isolated-postgres-readonly.ps1
           & ./installer/tests/test-isolated-ownership-contract.ps1
+          & ./installer/tests/test-ownership-session-prototype.ps1 -Python (Get-Command python).Source
           & ./installer/tests/test-isolated-deployment.ps1 -Python (Get-Command python).Source
       - name: PowerShell 5.1 mocked read-only snapshot and journal failure fixtures
         shell: powershell
@@ -58,4 +59,27 @@ jobs:
           $ErrorActionPreference='Stop'
           & ./installer/tests/test-isolated-postgres-readonly.ps1
           & ./installer/tests/test-isolated-ownership-contract.ps1
+          & ./installer/tests/test-ownership-session-prototype.ps1 -Python (Get-Command python).Source
           & ./installer/tests/test-isolated-deployment.ps1 -Python (Get-Command python).Source
+
+      - name: Native handle lifetime in disposable GUID fixtures (17 required)
+        shell: pwsh
+        env:
+          GRID_OWNERSHIP_NATIVE_FIXTURES: '1'
+        run: |
+          $ErrorActionPreference='Stop'
+          $report=Join-Path $env:RUNNER_TEMP 'native-ownership17.xml'
+          python -B -m pytest -q tests/test_ownership_native_fixture.py --junitxml $report
+          if($LASTEXITCODE -ne 0){throw 'Native fixture tests failed'}
+          python -B -c "import sys,xml.etree.ElementTree as E; s=list(E.parse(sys.argv[1]).iter('testsuite')); assert sum(int(x.get('tests',0)) for x in s)==17; assert all(int(x.get(k,0))==0 for x in s for k in ('skipped','errors','failures'))" $report
+          if($LASTEXITCODE -ne 0){throw 'All17 native fixtures must execute without skips'}
+      - name: PS7 native fixture launcher compatibility
+        shell: pwsh
+        env:
+          GRID_OWNERSHIP_NATIVE_FIXTURES: '1'
+        run: ./installer/tests/test-ownership-session-prototype.ps1 -Python (Get-Command python).Source -Native
+      - name: PS5.1 native fixture launcher compatibility
+        shell: powershell
+        env:
+          GRID_OWNERSHIP_NATIVE_FIXTURES: '1'
+        run: ./installer/tests/test-ownership-session-prototype.ps1 -Python (Get-Command python).Source -Native

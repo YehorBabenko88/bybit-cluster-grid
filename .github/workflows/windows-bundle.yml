@@ -357,6 +357,16 @@ jobs:
           & (Join-Path $bundle 'installer/tests/test-isolated-deployment.ps1') -Python (Join-Path $bundle 'runtime/python.exe')
           & (Join-Path $bundle 'installer/tests/test-isolated-postgres-readonly.ps1')
           & (Join-Path $bundle 'installer/tests/test-isolated-ownership-contract.ps1')
+          & (Join-Path $bundle 'installer/tests/test-ownership-session-prototype.ps1') -Python (Join-Path $bundle 'runtime/python.exe')
+
+      - name: Native lifetime prototype in disposable GUID fixture from built bundle
+        shell: powershell
+        env:
+          GRID_OWNERSHIP_NATIVE_FIXTURES: '1'
+        run: |
+          $ErrorActionPreference='Stop'
+          $bundle=Join-Path $env:RUNNER_TEMP 'BybitClusterGrid'
+          & (Join-Path $bundle 'installer/tests/test-ownership-session-prototype.ps1') -Python (Join-Path $bundle 'runtime/python.exe') -Native
 
       - name: Archive verified Windows bundle
         shell: pwsh
