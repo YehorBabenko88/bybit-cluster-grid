@@ -146,3 +146,8 @@ Locally ONLY model/byte/static tests run; native fixtures are intentionally skip
 Rollback is a reviewed source revert; there is no installed state or migration to
 undo. Do not activate or clean a real target in response to prototype results.
 Exact final SHA, workflow IDs and test counts are recorded in the Draft PR body.
+
+Adversarial follow-up and lifecycle fixes:
+[NATIVE_OWNERSHIP_ADVERSARIAL_AUDIT.md](NATIVE_OWNERSHIP_ADVERSARIAL_AUDIT.md).
+Its tested kernel observations and explicitly unproven/ABA outcomes must be kept
+separate; no schema2 or production ownership capability is enabled.

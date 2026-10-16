@@ -51,6 +51,20 @@ def _directory_names(raw):
         raise PrototypeBlocked('NATIVE_DIRECTORY_DATA_INVALID') from None
 
 
+def _ace(raw):
+    # Copy/bound ACE and SID bytes before decoding. Never ask Win32 to follow a
+    # SID beyond the ACE returned by GetAce, even on malformed injected data.
+    if len(raw)<16:raise PrototypeBlocked('NATIVE_ACE_UNSUPPORTED')
+    kind,flags,length,mask=struct.unpack_from('<BBHI',raw)
+    revision,count=raw[8:10]
+    if kind not in (0,1) or length!=len(raw) or revision!=1 or count>15 or length!=16+count*4:
+        raise PrototypeBlocked('NATIVE_ACE_UNSUPPORTED')
+    authority=int.from_bytes(raw[10:16],'big')
+    sub=struct.unpack_from('<'+'I'*count,raw,16) if count else ()
+    sid='S-1-'+str(authority)+''.join('-'+str(n) for n in sub)
+    return kind,flags,mask,sid
+
+
 class _Info(C.Structure):
     _fields_=[(n,W.DWORD) for n in ('attrs','creation_lo','creation_hi','access_lo','access_hi',
                                    'write_lo','write_hi','volume','size_hi','size_lo','links','index_hi','index_lo')]
@@ -121,11 +135,12 @@ class _Native:
             return self.sid(C.c_void_p.from_buffer(buf))
         finally:self.close(token)
 
-    def protect(self,path,*,unsafe=False):
+    def protect(self,path,*,unsafe=False,foreign_writer=False):
         # Only called on freshly factory-created fixture objects, never an input path.
         sd=C.c_void_p()
         dacl='D:' if unsafe else 'D:P'
         sddl=dacl+'(A;;FA;;;'+self.owner+')(A;;FA;;;SY)(A;;FA;;;BA)'
+        if foreign_writer:sddl+='(A;;GW;;;WD)'  # Adversarial fresh-fixture test only.
         self.check(self.a.ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl,1,C.byref(sd),None))
         try:
             flags=0x20000004 if unsafe else 0x80000004  # unprotect/protect DACL
@@ -143,16 +158,19 @@ class _Native:
             if control.value&0x500:raise PrototypeBlocked('NATIVE_INHERITED_ACL')
             size=_AclSize();self.check(self.a.GetAclInformation(dacl,C.byref(size),C.sizeof(size),2))
             if size.count>32:raise PrototypeBlocked('NATIVE_ACL_UNSUPPORTED')
+            header=C.string_at(dacl,8)
+            acl_size=struct.unpack_from('<H',header,2)[0]
+            if not 8<=size.used<=acl_size<=65535:raise PrototypeBlocked('NATIVE_ACL_UNSUPPORTED')
             aces=[]
             for i in range(size.count):
                 ptr=C.c_void_p();self.check(self.a.GetAce(dacl,i,C.byref(ptr)))
-                if not ptr:raise PrototypeBlocked('NATIVE_ACE_UNSUPPORTED')
-                base=ptr.value;kind=C.c_ubyte.from_address(base).value
-                flags=C.c_ubyte.from_address(base+1).value
-                length=C.c_ushort.from_address(base+2).value
-                if kind not in (0,1) or length<16:raise PrototypeBlocked('NATIVE_ACE_UNSUPPORTED')
-                mask=C.c_uint32.from_address(base+4).value
-                aces.append((kind,flags,mask,self.sid(base+8)))
+                base=ptr.value;start=dacl.value
+                if not base or base<start+8 or base+8>start+size.used:
+                    raise PrototypeBlocked('NATIVE_ACE_UNSUPPORTED')
+                length=struct.unpack_from('<H',C.string_at(base,8),2)[0]
+                if length<16 or base+length>start+size.used:
+                    raise PrototypeBlocked('NATIVE_ACE_UNSUPPORTED')
+                aces.append(_ace(C.string_at(base,length)))
             return ACL(self.sid(owner),bool(control.value&0x1000),tuple(aces))
         finally:self.free(sd)
 
@@ -233,7 +251,18 @@ class _WindowsFixture(ModelFixture):
 
     def acquire(self,name):
         h=self._native.mutex(self._mutex_prefix+name)
-        self._mutex_handles[name]={'handle':h,'released':False};self.locks.append(name)
+        try:
+            self._mutex_handles[name]={'handle':h,'released':False}
+            self.locks.append(name)
+        except BaseException:
+            self.poisoned=True
+            try:
+                if not self._native.k.ReleaseMutex(h):
+                    self._native.uncertain=True
+            finally:
+                self._native.close(h)
+                self._mutex_handles.pop(name,None)
+            raise
 
     @property
     def cleanup_uncertain(self):
@@ -254,7 +283,17 @@ class _WindowsFixture(ModelFixture):
 
     def open(self,name,**options):
         raw=self._native.open(self._path(name),options)
-        h=Handle(name,raw);self.live.append(h);self.opened+=1;return h
+        h=None
+        try:
+            h=Handle(name,raw);self.live.append(h);self.opened+=1
+            return h
+        except BaseException:
+            self.poisoned=True
+            self._native.close(raw)
+            if h is not None:
+                h.closed=True
+                if h in self.live:self.live.remove(h)
+            raise
 
     def state(self,h):
         if h.closed:raise PrototypeBlocked('HANDLE_CLOSED')

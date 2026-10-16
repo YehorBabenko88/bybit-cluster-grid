@@ -67,7 +67,7 @@ class ModelFixture:
                                    0 if b is None else len(b),acl),'bytes':b}
                     for i,(n,b) in enumerate(self.expected.items())}
         self.identities={n:(v['state'].volume,v['state'].identity) for n,v in self.nodes.items()}
-        self.guard=threading.Lock();self.poisoned=False
+        self.guard=threading.Lock();self.poisoned=False;self.current_lifetime=None
         self.live=[];self.pinned=[];self.locks=[];self.opened=0;self.closed=0
         self.failure=None;self.open_requests=[]
 
@@ -139,17 +139,22 @@ def valid_state(p,name,s):
             raise PrototypeBlocked('ACL_FOREIGN_WRITER')
 
 
+class _Lifetime:
+    def __init__(self):self.active=True;self.poisoned=False
+
+
 class _BorrowedView:
-    def __init__(self,provider,verify,hook):
-        self._p=provider;self._verify=verify;self._hook=hook
+    def __init__(self,provider,verify,hook,lifetime):
+        self._p=provider;self._verify=verify;self._hook=hook;self._lifetime=lifetime
         self._active=True;self._reading=threading.Lock();self._thread=threading.get_ident()
 
     def read(self,name):
+        if not self._active or not self._lifetime.active:raise PrototypeBlocked('VIEW_EXPIRED')
         if threading.get_ident()!=self._thread:
-            self._p.poisoned=True;raise PrototypeBlocked('VIEW_THREAD_CHANGED')
-        if not self._active or self._p.poisoned:raise PrototypeBlocked('VIEW_EXPIRED')
+            self._lifetime.poisoned=True;raise PrototypeBlocked('VIEW_THREAD_CHANGED')
+        if self._lifetime.poisoned or self._p.poisoned:raise PrototypeBlocked('VIEW_EXPIRED')
         if not self._reading.acquire(False):
-            self._p.poisoned=True;raise PrototypeBlocked('READ_REENTRY')
+            self._lifetime.poisoned=True;raise PrototypeBlocked('READ_REENTRY')
         try:
             if name not in FILES:raise PrototypeBlocked('READ_NOT_ALLOWED')
             self._verify();self._hook('before_read',self._p,name)
@@ -159,11 +164,12 @@ class _BorrowedView:
             if data!=self._p.expected[name]:raise PrototypeBlocked('BYTES_CHANGED')
             return data
         except Exception:
-            self._p.poisoned=True;raise
+            self._lifetime.poisoned=True;raise
         finally:self._reading.release()
 
     def close(self):
-        self._active=False;self._p.poisoned=True
+        if self._lifetime.active:
+            self._active=False;self._lifetime.poisoned=True
 
 
 def run_session(provider,consumer,*,hook=None):
@@ -173,7 +179,13 @@ def run_session(provider,consumer,*,hook=None):
        'synthetic_result':'BLOCKED','execution_authorized':False,'physical_ready':False,
        'code':'SESSION_BLOCKED','resources_released':False,'backend':p.backend}
     if not p.guard.acquire(False):
-        p.poisoned=True;r['code']='SESSION_REENTRY';return r
+        current=p.current_lifetime
+        if current is not None:current.poisoned=True
+        r['code']='SESSION_REENTRY';return r
+    if p.live or p.locks:
+        p.poisoned=True;r['code']='SESSION_PREEXISTING_RESOURCES'
+        p.guard.release();return r
+    lifetime=_Lifetime();p.current_lifetime=lifetime
     locks=[];held=[];view=None;ok=False;cleanup_ok=True;close_failed=[False]
     def close(h):
         try:p.close(h)
@@ -191,7 +203,7 @@ def run_session(provider,consumer,*,hook=None):
             s=p.state(h);valid_state(p,name,s);baseline[name]=s
             fire('after_open',p,name)
         def verify():
-            if p.poisoned or p.locks!=['release','preparation']:raise PrototypeBlocked('SESSION_INVALIDATED')
+            if lifetime.poisoned or p.poisoned or p.locks!=['release','preparation']:raise PrototypeBlocked('SESSION_INVALIDATED')
             if p.tree()!=set(p.expected):raise PrototypeBlocked('TREE_CHANGED')
             for h in held:
                 s=p.state(h);valid_state(p,h.name,s)
@@ -204,7 +216,7 @@ def run_session(provider,consumer,*,hook=None):
                 if wanted is not None and p.read(h)!=wanted:raise PrototypeBlocked('BYTES_CHANGED')
         verify();fire('after_verify',p,None)
         fire('before_consumer',p,None);verify()
-        view=_BorrowedView(p,verify,fire)
+        view=_BorrowedView(p,verify,fire,lifetime)
         consumer(view)
         fire('after_consumer',p,None);verify()
         if not view._active:raise PrototypeBlocked('VIEW_CLOSED')
@@ -214,19 +226,20 @@ def run_session(provider,consumer,*,hook=None):
         if not isinstance(exc,Exception):raise
         r['code']=str(exc) if isinstance(exc,PrototypeBlocked) and str(exc) in _REPORT_CODES else 'SESSION_FAILED'
     finally:
+        lifetime.active=False
         if view is not None:view._active=False
         for h in reversed(held):
+            try:close(h)
+            except Exception:cleanup_ok=False;p.poisoned=True
+        # A failed probe close is also owned by this session, not just its pins.
+        # Retry/drain only this provider registry once; uncertainty never becomes PASS.
+        for h in list(reversed(p.live)):
             try:close(h)
             except Exception:cleanup_ok=False;p.poisoned=True
         for name in reversed(locks):
             try:p.release(name)
             except Exception:
                 cleanup_ok=False;p.poisoned=True;break
-        # A failed probe close is also owned by this session, not just its pins.
-        # Retry/drain only this provider registry once; uncertainty never becomes PASS.
-        for h in list(reversed(p.live)):
-            try:close(h)
-            except Exception:cleanup_ok=False;p.poisoned=True
         for name in list(reversed(p.locks)):
             try:p.release(name)
             except Exception:
@@ -236,5 +249,6 @@ def run_session(provider,consumer,*,hook=None):
         r['resources_released']=cleanup_ok and not p.live and not p.locks
         if ok and r['resources_released']:r.update(synthetic_result='PASS',code='SYNTHETIC_LIFETIME_ONLY')
         if not cleanup_ok:r['code']='CLEANUP_UNCERTAIN'
+        p.current_lifetime=None
         p.guard.release()
     return r
