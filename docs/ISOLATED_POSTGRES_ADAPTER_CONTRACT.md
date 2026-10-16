@@ -73,3 +73,8 @@ inventory errors, reparse/hardlink claims, volume aliases and ACL failures.
 No positive ownership mapping, real provisioning or physical readiness is claimed.
 Rollback is reverting this commit in a new reviewed branch; no data/schema/task
 changes or cleanup are needed. Do not activate legacy plans during rollback.
+
+Revision2 safe-part implementation and native session audit:
+[OWNERSHIP_VERIFIER_ARCHITECTURE.md](OWNERSHIP_VERIFIER_ARCHITECTURE.md).
+Schema2 remains disabled. Matching supplied canonical bytes is not positive
+ownership, freshness or permission to consume a native filesystem resource.
