@@ -133,3 +133,28 @@ def test_builtin_or_reserved_guest_identity_contradicts_nonadmin_plan(rid):
     p = plan(); sid = f'S-1-5-21-100-200-300-{rid}'
     p['accounts'][2]['sid'] = sid; p['accounts'][2]['token_sid'] = sid
     with pytest.raises(ValueError): validate(p)
+
+
+@pytest.mark.parametrize('with_bom', [False, True])
+def test_cli_strict_stdin_and_sanitized_rejection(with_bom):
+    import json, subprocess, sys
+    raw = json.dumps(plan())
+    if with_bom: raw = '\ufeff' + raw
+    result = subprocess.run([sys.executable, '-B', '-m', 'installer.vm_lab_plan'],
+                            input=raw, text=True, encoding='utf-8', capture_output=True, check=False)
+    r = json.loads(result.stdout)
+    assert not r['execution_authorized']
+    assert result.returncode == (2 if with_bom else 0)
+    if with_bom:
+        assert r['reason'] == 'VM_JSON_INVALID' and '11111111' not in result.stdout
+    else:
+        assert len(r['negative_cases']) == 12 and not r['readiness_passed']
+
+
+def test_checked_in_fixture_is_exact_plan_and_strictly_valid():
+    import json
+    from pathlib import Path
+    from installer.vm_lab_plan import parse_vm_lab_plan
+    raw = (Path(__file__).resolve().parents[1]/'installer/tests/vm-lab-plan.example.json').read_text(encoding='utf-8')
+    assert json.loads(raw) == plan()
+    assert parse_vm_lab_plan(raw)['plan_validation'] == 'VALID_METADATA_ONLY'

@@ -12,7 +12,9 @@ try {
     $bad=@('{"schema":1,"schema":1}' | & $Python -B -m installer.vm_lab_plan)
     if($LASTEXITCODE -ne 2 -or ($bad -join "`n") -notmatch 'VM_PLAN_REJECTED'){throw 'VM_PLAN_INVALID_JSON_ACCEPTED'}
     $fixture=Join-Path $PSScriptRoot 'vm-lab-plan.example.json'
-    $lines=@(Get-Content -LiteralPath $fixture -Raw | & $Python -B -m installer.vm_lab_plan)
+    # Fixed checked-in fixture only: avoid PS5.1 multiline native-stdin transport.
+    # The same strict parser reads raw UTF-8; no PowerShell JSON normalization.
+    $lines=@(& $Python -B -c "import json,sys; from pathlib import Path; from installer.vm_lab_plan import parse_vm_lab_plan; print(json.dumps(parse_vm_lab_plan(Path(sys.argv[1]).read_text(encoding='utf-8'))))" $fixture)
     if($LASTEXITCODE -ne 0){
         $reason=(($lines -join "`n")|ConvertFrom-Json).reason
         if($reason -notmatch '^VM_[A-Z_]{1,64}$'){$reason='VM_TRANSPORT_FAILED'}
