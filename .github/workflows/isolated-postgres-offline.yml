@@ -28,7 +28,7 @@ jobs:
           import subprocess,sys
           subprocess.run(['sudo','-E','unshare','--net',sys.executable,'-B','-m','pytest','-q',
                           'tests/test_isolated_postgres_plan.py','tests/test_isolated_postgres_preflight.py',
-                          'tests/test_isolated_postgres_mapping.py','tests/test_isolated_ownership_contract.py','tests/test_ownership_session_prototype.py','tests/test_ownership_adversarial_model.py'],check=True)
+                          'tests/test_isolated_postgres_mapping.py','tests/test_isolated_ownership_contract.py','tests/test_ownership_session_prototype.py','tests/test_ownership_adversarial_model.py','tests/test_ownership_threat_boundary.py'],check=True)
           PY
   windows-readonly:
     runs-on: windows-latest
@@ -44,7 +44,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install pytest
-      - run: python -B -m pytest -q tests/test_isolated_postgres_plan.py tests/test_isolated_postgres_preflight.py tests/test_isolated_postgres_windows_contract.py tests/test_isolated_postgres_mapping.py tests/test_isolated_ownership_contract.py tests/test_ownership_session_prototype.py tests/test_ownership_adversarial_model.py
+      - run: python -B -m pytest -q tests/test_isolated_postgres_plan.py tests/test_isolated_postgres_preflight.py tests/test_isolated_postgres_windows_contract.py tests/test_isolated_postgres_mapping.py tests/test_isolated_ownership_contract.py tests/test_ownership_session_prototype.py tests/test_ownership_adversarial_model.py tests/test_ownership_threat_boundary.py
       - name: PowerShell 7 mocked read-only snapshot and journal failure fixtures
         shell: pwsh
         run: |
@@ -52,6 +52,7 @@ jobs:
           & ./installer/tests/test-isolated-postgres-readonly.ps1
           & ./installer/tests/test-isolated-ownership-contract.ps1
           & ./installer/tests/test-ownership-session-prototype.ps1 -Python (Get-Command python).Source
+          & ./installer/tests/test-ownership-threat-boundary.ps1 -Python (Get-Command python).Source
           & ./installer/tests/test-isolated-deployment.ps1 -Python (Get-Command python).Source
       - name: PowerShell 5.1 mocked read-only snapshot and journal failure fixtures
         shell: powershell
@@ -60,6 +61,7 @@ jobs:
           & ./installer/tests/test-isolated-postgres-readonly.ps1
           & ./installer/tests/test-isolated-ownership-contract.ps1
           & ./installer/tests/test-ownership-session-prototype.ps1 -Python (Get-Command python).Source
+          & ./installer/tests/test-ownership-threat-boundary.ps1 -Python (Get-Command python).Source
           & ./installer/tests/test-isolated-deployment.ps1 -Python (Get-Command python).Source
 
       - name: Native handle lifetime in disposable GUID fixtures (17 required)
