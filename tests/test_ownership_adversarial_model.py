@@ -113,8 +113,8 @@ def test_adversarial_report_never_silently_accepts_skips_or_failures():
             props=E.SubElement(case,'properties')
             E.SubElement(props,'property',name='observed',value=sorted(OBSERVATIONS[name])[0])
         return root
-    r=assess(report(),'a'*40)
-    assert r['status']=='BLOCKED' and r['tested_cases']==17
+    with pytest.raises(ValueError,match='EXHAUSTION_MUST_REMAIN_UNPROVEN'):
+        assess(report(),'a'*40)
     xml=report();E.SubElement(xml[0],'skipped',message='ordinary skipped test')
     with pytest.raises(ValueError):assess(xml,'a'*40)
     xml=report();E.SubElement(xml[0],'failure')

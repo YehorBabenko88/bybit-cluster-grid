@@ -56,6 +56,8 @@ def assess(root,commit):
             if name not in ALLOWED_UNPROVEN or 'BLOCKED_UNPROVEN' not in (skip.get('message','')+(skip.text or '')):
                 raise ValueError('UNACCOUNTED_SKIP')
             outcome='BLOCKED_UNPROVEN';unproven+=1
+        if name=='test_bounded_kernel_exhaustion_unproven' and skip is None:
+            raise ValueError('EXHAUSTION_MUST_REMAIN_UNPROVEN')
         observations={}
         for p in t.findall('./properties/property'):
             key=p.get('name');value=p.get('value','')
@@ -64,9 +66,14 @@ def assess(root,commit):
             observations[key]=value
         if skip is None or name=='test_bounded_kernel_exhaustion_unproven':
             if observations.get('observed') not in OBSERVATIONS[name]:raise ValueError('OBSERVATION_MISSING_OR_WRONG')
-        evidence.append({'case':name,'outcome':outcome,'observations':observations})
+        security='UNPROVEN' if skip is not None else 'OBSERVED_ONLY'
+        if name=='test_real_acl_replace_restore_aba_limit':
+            security=('LIMIT_REPRODUCED' if observations['observed']=='ACL_ABA_UNDETECTED_LIMIT' else 'UNPROVEN')
+        evidence.append({'case':name,'outcome':outcome,'security_outcome':security,'observations':observations})
     return {'schema':1,'status':'BLOCKED','assurance':'SYNTHETIC_ONLY','execution_authorized':False,
-            'physical_ready':False,'commit_sha':commit,'tested_cases':17-unproven,
+            'physical_ready':False,'readiness_passed':False,'verified_safety_cases':0,
+            'unresolved_risks':['ACL_NAMESPACE_ABA','GLOBAL_KERNEL_EXHAUSTION'],
+            'commit_sha':commit,'tested_cases':17-unproven,
             'unproven_cases':unproven,'cases':evidence}
 
 
