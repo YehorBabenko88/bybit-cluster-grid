@@ -368,6 +368,22 @@ jobs:
           $bundle=Join-Path $env:RUNNER_TEMP 'BybitClusterGrid'
           & (Join-Path $bundle 'installer/tests/test-ownership-session-prototype.ps1') -Python (Join-Path $bundle 'runtime/python.exe') -Native
 
+      - name: Test-key-only verifier from built bundle in isolated venv
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $bundle=Join-Path $env:RUNNER_TEMP 'BybitClusterGrid'
+          $crypto=Join-Path $env:RUNNER_TEMP ('bundle-test-crypto-'+[Guid]::NewGuid().ToString('N'))
+          python -m venv $crypto
+          if($LASTEXITCODE -ne 0){throw 'Bundle crypto test venv failed'}
+          $cp=Join-Path $crypto 'Scripts/python.exe'
+          $lock=Join-Path $bundle 'installer/tests/requirements-vm-attestation.txt'
+          if(!(Test-Path -LiteralPath $lock -PathType Leaf)){throw 'Bundled crypto lock missing'}
+          & $cp -m pip install --only-binary=:all: --require-hashes -r $lock
+          if($LASTEXITCODE -ne 0){throw 'Bundled pinned crypto test dependency unavailable'}
+          & (Join-Path $bundle 'installer/tests/test-vm-test-attestation.ps1') -Python $cp
+          if($LASTEXITCODE -ne 0){throw 'Bundled signature fixture failed'}
+
       - name: Archive verified Windows bundle
         shell: pwsh
         run: |
