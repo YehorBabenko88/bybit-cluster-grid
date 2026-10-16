@@ -4,6 +4,7 @@ import re
 import sys
 import uuid
 from pathlib import PureWindowsPath
+from installer.vm_lab_json import check_value, load
 
 CASES = (
     ('write', 'Different adversary token denied file/data/child writes.'),
@@ -47,12 +48,22 @@ def _sid(value):
 
 
 def _path(value):
-    _need(type(value) is str and len(value) <= 220 and re.fullmatch(r'[A-Z]:\\[A-Za-z0-9_.\\-]+', value), 'VM_PATH_INVALID')
-    parts = value[3:].split('\\')
-    _need(all(p and p not in ('.', '..') and not p.endswith('.') and
+    _need(type(value) is str and len(value) <= 220 and re.fullmatch(r'[A-Za-z]:\\[A-Za-z0-9_. \\-]*', value), 'VM_PATH_INVALID')
+    parts = value[3:].split('\\') if len(value)>3 else []
+    _need(all(p and p not in ('.', '..') and p == p.strip() and not p.endswith('.') and
               not re.fullmatch(r'(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?', p)
               for p in parts), 'VM_PATH_INVALID')
     return PureWindowsPath(value)
+
+
+def _alias(value):
+    _need(type(value) is str and 1 <= len(value) <= 100, 'VM_HOST_ALIAS_INVALID')
+    labels=value.split('.')
+    _need(all(re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9])?', label)
+              for label in labels) and not all(label.isdecimal() for label in labels), 'VM_HOST_ALIAS_INVALID')
+    first=re.sub('[-_]', '', labels[0]).upper()
+    _need(not re.fullmatch(r'LS0*[57]', first), 'VM_PROTECTED_HOST')
+    return value.casefold()
 
 
 def _digest(value):
@@ -61,6 +72,7 @@ def _digest(value):
 
 def validate_vm_lab_plan(plan):
     """Validate declarations only. An approved field is NOT independent attestation."""
+    check_value(plan)
     _shape(plan, 'schema mode threat_model lab_id vm_id host storage image network integration accounts approval quotas teardown schema2 imported_credentials')
     _need(type(plan['schema']) is int and plan['schema'] == 1, 'VM_PLAN_VERSION_INVALID')
     _need(plan['mode'] == 'PlanOnly' and plan['threat_model'] == 'A', 'VM_PLAN_MODE_BLOCKED')
@@ -71,13 +83,12 @@ def validate_vm_lab_plan(plan):
     host_guid = _guid(host['id'][9:])
     _need(host['trusted_admin'] is True and host['inventory_complete'] is True and host['hypervisor'] == 'Hyper-V', 'VM_HOST_TRUST_UNPROVEN')
     _need(type(host['aliases']) is list and 1 <= len(host['aliases']) <= 16, 'VM_HOST_ALIASES_REQUIRED')
-    for alias in host['aliases']:
-        _need(type(alias) is str and re.fullmatch('[A-Za-z0-9_.-]{1,100}', alias), 'VM_HOST_ALIAS_INVALID')
-        _need(re.sub('[-_]', '', alias.split('.')[0]).upper() not in ('LS5', 'LS7'), 'VM_PROTECTED_HOST')
+    aliases=[_alias(alias) for alias in host['aliases']]
+    _need(len(set(aliases)) == len(aliases), 'VM_HOST_ALIAS_DUPLICATE')
     storage = plan['storage']; _shape(storage, 'root disk_id fresh_disk existing_disk shared_mounts host_folders passthrough')
     root = _path(storage['root']); disk = _guid(storage['disk_id'])
     _need(len({lab, vm, host_guid, disk}) == 4, 'VM_ID_REUSED')
-    _need(root.parts[1:] == ('GridVmLab', lab), 'VM_STORAGE_NOT_EXCLUSIVE_LAYOUT')
+    _need(tuple(part.casefold() for part in root.parts[1:]) == ('gridvmlab', lab), 'VM_STORAGE_NOT_EXCLUSIVE_LAYOUT')
     _need(type(host['protected_paths']) is list and 1 <= len(host['protected_paths']) <= 128, 'VM_PROTECTED_INVENTORY_REQUIRED')
     for value in host['protected_paths']:
         protected = _path(value)
@@ -117,30 +128,18 @@ def validate_vm_lab_plan(plan):
     for key, low, high in [('cpu',1,4), ('memory_mib',1024,8192), ('disk_gib',8,80), ('duration_minutes',1,120)]:
         _need(type(quotas[key]) is int and low <= quotas[key] <= high, 'VM_QUOTA_INVALID')
     return {'schema':1, 'mode':'PlanOnly', 'status':'BLOCKED', 'assurance':'STATIC_METADATA_ONLY',
-            'plan_validation':'VALID_METADATA_ONLY', 'execution_authorized':False,
+            'plan_validation':'VALID_METADATA_ONLY', 'inventory_assurance':'DECLARED_ONLY', 'execution_authorized':False,
             'physical_ready':False, 'readiness_passed':False, 'verified_safety_cases':0,
             'negative_cases':[{'case':case, 'objective':objective, 'execution':'NOT_RUN',
                                'assurance':'BLOCKED_UNPROVEN'} for case, objective in CASES],
             'blockers':['NO_EXECUTOR', 'HOST_AND_IMAGE_ATTESTATION_REQUIRED', 'INDEPENDENT_APPROVAL_NOT_AUTHENTICATED',
-                        'PATH_ALIAS_AND_STORAGE_OWNERSHIP_UNPROVEN', 'ACTUAL_TOKEN_SEPARATION_NOT_ATTESTED',
+                        'PATH_ALIAS_AND_STORAGE_OWNERSHIP_UNPROVEN', 'HOST_ALIAS_INVENTORY_NOT_ATTESTED', 'ACTUAL_TOKEN_SEPARATION_NOT_ATTESTED',
                         'NETWORK_AND_SHARED_DEVICE_ISOLATION_NOT_ATTESTED', 'ACL_NAMESPACE_ABA',
                         'GLOBAL_KERNEL_EXHAUSTION', 'ALL_GUEST_NEGATIVE_CASES_NOT_RUN']}
 
 
 def parse_vm_lab_plan(raw):
-    _need(type(raw) is str and len(raw.encode('utf-8')) <= 65536, 'VM_JSON_SIZE_INVALID')
-    def pairs(items):
-        result = {}
-        for key, value in items:
-            _need(key not in result, 'VM_JSON_DUPLICATE_KEY')
-            result[key] = value
-        return result
-    def constant(_):
-        raise ValueError('VM_JSON_NONFINITE')
-    try:
-        return validate_vm_lab_plan(json.loads(raw, object_pairs_hook=pairs, parse_constant=constant))
-    except (RecursionError, json.JSONDecodeError):
-        raise ValueError('VM_JSON_INVALID') from None
+    return validate_vm_lab_plan(load(raw))
 
 
 if __name__ == '__main__':
