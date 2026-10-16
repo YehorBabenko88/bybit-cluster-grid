@@ -155,3 +155,8 @@ Windows fixtures. No physical execution/readiness is authorized by green CI.
 Rollback: revert this source change through review. It creates no installed
 resources or data; no cleanup, ACL reset, database downgrade or journal rewrite
 is required. Existing preserve-only retirement remains unchanged.
+
+The restricted fixture-only lifetime feasibility prototype is documented in
+[NATIVE_OWNERSHIP_SESSION_PROTOTYPE.md](NATIVE_OWNERSHIP_SESSION_PROTOTYPE.md).
+It keeps production ownership BLOCKED; it does not complete this architecture's
+native ownership/ancestor/consumer requirements or enable schema2.
