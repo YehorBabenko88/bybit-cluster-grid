@@ -146,6 +146,10 @@ def parse_vm_lab_plan(raw):
 if __name__ == '__main__':
     try:
         print(json.dumps(parse_vm_lab_plan(sys.stdin.read(65537)), sort_keys=True))
-    except ValueError:
-        print('{"status":"BLOCKED","error":"VM_PLAN_REJECTED","execution_authorized":false}')
+    except ValueError as exc:
+        # Only fixed validator codes, never input/credentials or exception payloads.
+        code = str(exc)
+        if not re.fullmatch('VM_[A-Z_]{1,64}', code): code = 'VM_PLAN_INVALID'
+        print(json.dumps({'status':'BLOCKED', 'error':'VM_PLAN_REJECTED',
+                          'reason':code, 'execution_authorized':False}))
         sys.exit(2)

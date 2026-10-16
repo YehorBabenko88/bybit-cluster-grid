@@ -13,7 +13,11 @@ try {
     if($LASTEXITCODE -ne 2 -or ($bad -join "`n") -notmatch 'VM_PLAN_REJECTED'){throw 'VM_PLAN_INVALID_JSON_ACCEPTED'}
     $fixture=Join-Path $PSScriptRoot 'vm-lab-plan.example.json'
     $lines=@(Get-Content -LiteralPath $fixture -Raw | & $Python -B -m installer.vm_lab_plan)
-    if($LASTEXITCODE -ne 0){throw 'VM_PLAN_STATIC_FIXTURE_FAILED'}
+    if($LASTEXITCODE -ne 0){
+        $reason=(($lines -join "`n")|ConvertFrom-Json).reason
+        if($reason -notmatch '^VM_[A-Z_]{1,64}$'){$reason='VM_TRANSPORT_FAILED'}
+        throw "VM_PLAN_STATIC_FIXTURE_FAILED:$reason"
+    }
     $r=($lines -join "`n")|ConvertFrom-Json
     if($r.status -cne 'BLOCKED' -or $r.mode -cne 'PlanOnly' -or $r.assurance -cne 'STATIC_METADATA_ONLY' -or
        $r.execution_authorized -ne $false -or $r.physical_ready -ne $false -or
