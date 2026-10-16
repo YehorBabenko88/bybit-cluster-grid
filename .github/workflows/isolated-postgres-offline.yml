@@ -53,7 +53,12 @@ jobs:
           & ./installer/tests/test-isolated-ownership-contract.ps1
           & ./installer/tests/test-ownership-session-prototype.ps1 -Python (Get-Command python).Source
           & ./installer/tests/test-ownership-threat-boundary.ps1 -Python (Get-Command python).Source
-          & ./installer/tests/test-vm-lab-plan.ps1 -Python (Get-Command python).Source
+          # Regression: native stdin must remain strict JSON even with a BOM-producing host encoding.
+          $priorEncoding=$OutputEncoding
+          try {
+            $OutputEncoding=New-Object System.Text.UTF8Encoding($true)
+            & ./installer/tests/test-vm-lab-plan.ps1 -Python (Get-Command python).Source
+          } finally { $OutputEncoding=$priorEncoding }
           & ./installer/tests/test-isolated-deployment.ps1 -Python (Get-Command python).Source
       - name: PowerShell 5.1 mocked read-only snapshot and journal failure fixtures
         shell: powershell
@@ -63,7 +68,12 @@ jobs:
           & ./installer/tests/test-isolated-ownership-contract.ps1
           & ./installer/tests/test-ownership-session-prototype.ps1 -Python (Get-Command python).Source
           & ./installer/tests/test-ownership-threat-boundary.ps1 -Python (Get-Command python).Source
-          & ./installer/tests/test-vm-lab-plan.ps1 -Python (Get-Command python).Source
+          # Regression: native stdin must remain strict JSON even with a BOM-producing host encoding.
+          $priorEncoding=$OutputEncoding
+          try {
+            $OutputEncoding=New-Object System.Text.UTF8Encoding($true)
+            & ./installer/tests/test-vm-lab-plan.ps1 -Python (Get-Command python).Source
+          } finally { $OutputEncoding=$priorEncoding }
           & ./installer/tests/test-isolated-deployment.ps1 -Python (Get-Command python).Source
 
       - name: Native handle lifetime in disposable GUID fixtures (17 required)
