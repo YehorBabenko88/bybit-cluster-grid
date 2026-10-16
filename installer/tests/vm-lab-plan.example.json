@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "mode": "PlanOnly",
+  "threat_model": "A",
+  "lab_id": "11111111-1111-4111-8111-111111111111",
+  "vm_id": "22222222-2222-4222-8222-222222222222",
+  "host": {
+    "id": "LAB-HOST-33333333-3333-4333-8333-333333333333",
+    "aliases": [
+      "DISPOSABLE-LAB-HOST"
+    ],
+    "trusted_admin": true,
+    "hypervisor": "Hyper-V",
+    "inventory_complete": true,
+    "protected_paths": [
+      "C:\\BybitClusterGrid",
+      "D:\\InstalledGrid"
+    ]
+  },
+  "storage": {
+    "root": "D:\\GridVmLab\\11111111-1111-4111-8111-111111111111",
+    "disk_id": "44444444-4444-4444-8444-444444444444",
+    "fresh_disk": true,
+    "existing_disk": false,
+    "shared_mounts": [],
+    "host_folders": [],
+    "passthrough": false
+  },
+  "image": {
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "immutable": true,
+    "trusted_source": true,
+    "provenance_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "publisher": "APPROVED-LAB-IMAGE"
+  },
+  "network": {
+    "mode": "Disconnected",
+    "adapters": [],
+    "tailscale": false,
+    "ssh": false
+  },
+  "integration": {
+    "clipboard": false,
+    "drag_drop": false,
+    "enhanced_session": false,
+    "guest_services": false,
+    "device_passthrough": false
+  },
+  "accounts": [
+    {
+      "role": "owner",
+      "sid": "S-1-5-21-100-200-300-1001",
+      "token_sid": "S-1-5-21-100-200-300-1001",
+      "elevated": false,
+      "administrator": false,
+      "enabled_privileges": [],
+      "credential_origin": "FreshGuestOnly"
+    },
+    {
+      "role": "verifier",
+      "sid": "S-1-5-21-100-200-300-1002",
+      "token_sid": "S-1-5-21-100-200-300-1002",
+      "elevated": false,
+      "administrator": false,
+      "enabled_privileges": [],
+      "credential_origin": "FreshGuestOnly"
+    },
+    {
+      "role": "adversary",
+      "sid": "S-1-5-21-100-200-300-1003",
+      "token_sid": "S-1-5-21-100-200-300-1003",
+      "elevated": false,
+      "administrator": false,
+      "enabled_privileges": [],
+      "credential_origin": "FreshGuestOnly"
+    }
+  ],
+  "approval": {
+    "approved": true,
+    "requester_sid": "S-1-5-21-400-500-600-1001",
+    "approver_sid": "S-1-5-21-400-500-600-1002",
+    "plan_review_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "quotas": {
+    "cpu": 2,
+    "memory_mib": 4096,
+    "disk_gib": 40,
+    "duration_minutes": 60
+  },
+  "teardown": "PreserveOnly",
+  "schema2": false,
+  "imported_credentials": false
+}
