@@ -84,9 +84,12 @@ def main():
     args = p.parse_args()
     try:
         collected = json.loads(args.collected.read_text(encoding="utf-8"))
-        report = args.junit.read_text(encoding="utf-8")
     except (OSError, UnicodeError, ValueError):
-        collected, report = None, ""
+        collected = None
+    try:
+        report = args.junit.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        report = ""
     errors = validate_receipt(report, args.sha, args.expected_sha, collected)
     print("BLOCKED_UNPROVEN:", ",".join(errors) if errors else
           "exact PG pytest inventory matched; physical ownership and readiness unverified")
