@@ -53,3 +53,27 @@ def test_declared_actual_sid_drift_is_rejected():
         "b": principal("SID-B"),
     })
     assert "a:DECLARED_ACTUAL_MISMATCH" in errors
+
+def test_missing_sid_does_not_hide_privilege_and_acl_failures():
+    errors = audit_cross_guest_isolation({
+        "a": principal("SID-A", actual_sid=None, elevated=True,
+                       group_sids=("S-1-5-32-544",), acl_verified=False),
+        "b": principal("SID-B"),
+    })
+    assert "a:SID_UNPROVEN" in errors
+    assert "a:ELEVATED_TOKEN" in errors
+    assert "a:PRIVILEGED_GROUP:S-1-5-32-544" in errors
+    assert "a:ISOLATION_UNPROVEN" in errors
+
+def test_invalid_collection_and_guest_keys_fail_closed():
+    assert audit_cross_guest_isolation(None) == ("INVALID_PRINCIPAL_COLLECTION",)
+    errors = audit_cross_guest_isolation({1: principal("SID-A"), "b": principal("SID-B")})
+    assert "1:INVALID_EVIDENCE" in errors
+
+def test_missing_sids_are_not_falsely_reported_as_shared():
+    errors = audit_cross_guest_isolation({
+        "a": principal("SID-A", actual_sid=None),
+        "b": principal("SID-B", actual_sid=None),
+    })
+    assert "a:SID_UNPROVEN" in errors and "b:SID_UNPROVEN" in errors
+    assert not any("ACTUAL_SID_REUSED" in issue for issue in errors)
