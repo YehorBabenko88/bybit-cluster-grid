@@ -39,6 +39,10 @@ def assess_offline(principals: Mapping[str, PrincipalEvidence], hostile_admin: b
             reasons.append(f"{name}:ACTUAL_TOKEN_UNPROVEN")
         elif evidence.actual_sid != evidence.token_sid:
             reasons.append(f"{name}:TOKEN_SID_MISMATCH")
+        if evidence.declared_sid and evidence.actual_sid and evidence.declared_sid != evidence.actual_sid:
+            reasons.append(f"{name}:DECLARED_ACTUAL_SID_MISMATCH")
+        if evidence.elevated is True:
+            reasons.append(f"{name}:UNEXPECTED_ELEVATED_TOKEN")
         if evidence.elevated is None:
             reasons.append(f"{name}:ELEVATION_UNPROVEN")
         if not evidence.acl_verified:
