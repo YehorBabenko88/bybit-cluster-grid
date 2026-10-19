@@ -12,6 +12,12 @@ FALSE_FLAGS = ("execution_authorized", "physical_ready", "readiness_passed",
                "guest_execution_verified", "test_key_attestation_is_production_proof",
                "independent_operator_approval_verified", "native_host_principal_verified",
                "postgres_adapter_ownership_verified")
+# Real producer spellings used by PG205/CI206 and legacy plan-only reports.
+# Do not normalize or infer additional schemas from an arbitrary key name.
+SCHEMA2_FLAGS = frozenset((
+    "schema2", "schema2_enabled", "schema_2_enabled",
+    "schema2_active", "schema_2_active", "enable_schema2", "enable_schema_2",
+))
 STAGES = ("vm_plan", "vm_evidence", "attestation", "ownership", "postgres", "preflight", "deployment")
 ALLOWED_STATUS = {
     "vm_plan": "BLOCKED",
@@ -51,8 +57,6 @@ def _blocked(report, stage):
         _deny("AUTHORIZATION_PROMOTION")
     if "verified_safety_cases" in report and (type(report["verified_safety_cases"]) is not int or report["verified_safety_cases"] != 0):
         _deny("CASE_PROMOTION")
-    if report.get("schema2", False) is not False:
-        _deny("SCHEMA2_FORBIDDEN")
     if report.get("readiness", "BLOCKED") not in ("BLOCKED",):
         _deny("READINESS_PROMOTION")
     if report.get("physical_status", "NOT_RUN") not in ("NOT_RUN", "BLOCKED_UNPROVEN"):
@@ -85,12 +89,17 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
     # Never accept a self-reported authorization or readiness signal hidden
     # inside another component's metadata. This is a deny-only scan; it does
     # not attempt to interpret or authenticate component-specific evidence.
-    forbidden_keys = frozenset((*FALSE_FLAGS, "schema2", "verified_safety_cases"))
+    forbidden_keys = frozenset((*FALSE_FLAGS, "verified_safety_cases"))
     def reject_nested_promotions(value, depth=0):
         if depth > 32:
             _deny("NESTED_DEPTH_INVALID")
         if type(value) is dict:
             for key, child in value.items():
+                if key in SCHEMA2_FLAGS:
+                    # Presence is permitted only for a literal Python False.
+                    # Integers, strings, null, and contradictory aliases fail closed.
+                    if child is not False:
+                        _deny("SCHEMA2_FORBIDDEN")
                 if key in forbidden_keys:
                     if key == "verified_safety_cases":
                         if type(child) is not int or child != 0:
