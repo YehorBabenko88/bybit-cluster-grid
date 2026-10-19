@@ -42,3 +42,14 @@ class PgPytestReceiptTests(unittest.TestCase):
     def test_missing_case_identity_rejected(self):
         report = xml().replace(' name="test_0"', '', 1)
         self.assertIn("MALFORMED_TESTCASE", validate_receipt(report, SHA, SHA))
+
+
+    def test_wrong_junit_root_rejected(self):
+        self.assertIn("INVALID_JUNIT_ROOT", validate_receipt(
+            xml().replace("testsuite", "untrusted"), SHA, SHA))
+
+    def test_unbounded_junit_cases_rejected(self):
+        report = '<testsuite>' + ''.join(
+            f'<testcase classname="tests.test_pgdata_cross_contract" name="test_{i}"/>'
+            for i in range(10001)) + '</testsuite>'
+        self.assertIn("JUNIT_CASE_LIMIT_EXCEEDED", validate_receipt(report, SHA, SHA))
