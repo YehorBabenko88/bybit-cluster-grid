@@ -308,3 +308,62 @@ def test_journal_mismatches_report_specific_blockers():
         assert_blocked(result)
         assert blocker in result["blockers"], (field, result)
         assert "PHYSICAL_OWNERSHIP_UNVERIFIED" in result["blockers"]
+
+
+def test_real_powershell_jsonl_is_distinguished_from_diagnostic_envelope():
+    from installer.pgdata_cross_contract import inspect_producer_journal_format
+    digest = "b" * 64  # Adapter-intent digest, NOT PostgreSQL-plan digest.
+    def record(state):
+        return '{"schema":1,"plan_sha256":"' + digest + '","state":"' + state + '"}\n'
+    for data in (record("PREPARED"), record("PREPARED") + record("COMMITTED"),
+                 record("PREPARED") + record("RETIRED"),
+                 record("PREPARED") + record("COMMITTED") + record("RETIRED")):
+        assert inspect_producer_journal_format(data) == "JOURNAL_PRODUCER_JSONL_NOT_DIAGNOSTIC_ENVELOPE"
+        p, a, j = fixtures()
+        result = check_pgdata_contract(p, a, data)
+        assert_blocked(result)
+        assert "JOURNAL_PRODUCER_JSONL_NOT_DIAGNOSTIC_ENVELOPE" in result["blockers"]
+        assert "PGDATA_LAYOUT_MISMATCH" in result["blockers"]
+        assert "SCHEMA1_ADAPTER_MAPPING_BLOCKED" in result["blockers"]
+
+def test_producer_journal_mutations_fail_closed():
+    from installer.pgdata_cross_contract import inspect_producer_journal_format
+    digest = "b" * 64
+    row = '{"schema":1,"plan_sha256":"' + digest + '","state":"PREPARED"}\n'
+    changed = {
+        "duplicate_key": '{"schema":2,"schema":1,"plan_sha256":"' + digest + '","state":"PREPARED"}\n',
+        "reordered": '{"state":"PREPARED","schema":1,"plan_sha256":"' + digest + '"}\n',
+        "pretty": row.replace('":', '": '),
+        "crlf": row.replace("\n", "\r\n"),
+        "escaped": row.replace("PREPARED", r"\u0050REPARED"),
+        "truncated": row[:-1],
+        "bad_utf8": b"\xff",
+        "surrogate": "\ud800\n",
+        "reverse": '{"schema":1,"plan_sha256":"' + digest + '","state":"COMMITTED"}\n' + row,
+        "wrong_digest": row + '{"schema":1,"plan_sha256":"' + "c" * 64 + '","state":"COMMITTED"}\n',
+        "schema2": row.replace('"schema":1', '"schema":2'),
+    }
+    for label, payload in changed.items():
+        code = inspect_producer_journal_format(payload)
+        assert code != "JOURNAL_PRODUCER_JSONL_NOT_DIAGNOSTIC_ENVELOPE", (label, code)
+        result = check_pgdata_contract(*fixtures()[:2], payload)
+        assert_blocked(result)
+        assert code in result["blockers"]
+
+def test_extra_diagnostic_envelope_claims_are_not_trusted():
+    p, a, j = fixtures()
+    j["plan_sha256"] = "b" * 64
+    result = check_pgdata_contract(p, a, j)
+    assert_blocked(result)
+    assert "JOURNAL_ENVELOPE_SCHEMA_INVALID" in result["blockers"]
+
+def test_real_adapter_pgdata_layout_remains_incompatible():
+    from pathlib import PureWindowsPath
+    p, a, j = fixtures()
+    a["root"] = r"C:\AuditOnly\GridLab" + "\\" + RUN + "_LAB01"
+    expected_producer_pgdata = str(PureWindowsPath(a["root"]) / "postgres" / "data")
+    assert expected_producer_pgdata != p["data_root"]
+    result = check_pgdata_contract(p, a, j)
+    assert_blocked(result)
+    assert "PGDATA_LAYOUT_MISMATCH" in result["blockers"]
+    assert "SCHEMA1_ADAPTER_MAPPING_BLOCKED" in result["blockers"]
