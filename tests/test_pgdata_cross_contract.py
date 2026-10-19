@@ -224,3 +224,38 @@ def test_behavioral_adapter_fields_never_compared():
         assert_blocked(result)
         expected = "PGDATA_LAYOUT_MISMATCH" if field == "root" else "ADAPTER_IDENTITY_MISMATCH"
         assert expected in result["blockers"], (field, result)
+
+def test_repeated_calls_are_deterministic_and_do_not_accumulate_blockers():
+    p, a, j = fixtures()
+    first = check_pgdata_contract(p, a, j)
+    second = check_pgdata_contract(p, a, j)
+    assert first == second
+    assert first is not second
+    assert first["blockers"] is not second["blockers"]
+    assert first["blockers"] == sorted(set(first["blockers"]))
+    assert_blocked(first)
+
+def test_result_mutation_cannot_affect_future_checks():
+    p, a, j = fixtures()
+    first = check_pgdata_contract(p, a, j)
+    first["blockers"].clear()
+    first["status"] = "READY"
+    first["execution_authorized"] = True
+    second = check_pgdata_contract(p, a, j)
+    assert_blocked(second)
+    assert "PHYSICAL_OWNERSHIP_UNVERIFIED" in second["blockers"]
+    assert "SCHEMA1_ADAPTER_MAPPING_BLOCKED" in second["blockers"]
+
+def test_plan_malformed_shape_never_calls_adapter_or_journal_objects():
+    class Hostile:
+        def __eq__(self, other):
+            raise AssertionError("unsafe equality")
+        def __str__(self):
+            raise AssertionError("unsafe string conversion")
+    p, a, j = fixtures()
+    p["schema"] = 2
+    a["root"] = Hostile()
+    j["status"] = Hostile()
+    result = check_pgdata_contract(p, a, j)
+    assert_blocked(result)
+    assert result["blockers"] == ["PLAN_INVALID"]
