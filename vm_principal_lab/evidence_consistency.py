@@ -30,6 +30,11 @@ def detect_evidence_conflicts(claims: Mapping[str, EvidenceClaim]) -> Tuple[str,
             continue
         if type(claim.principal) is not str or not claim.principal or type(claim.source) is not str or not claim.source:
             errors.append(f"{key}:INVALID_PROVENANCE")
+            errors.append(f"{key}:MISSING_PROVENANCE")
+            if not isinstance(claim.acl_digest, str) or not claim.acl_digest:
+                errors.append(f"{key}:ACL_EVIDENCE_MISSING")
+            if claim.elevation not in ("limited", "elevated"):
+                errors.append(f"{key}:ELEVATION_UNKNOWN")
             continue
         if not valid_sid(claim.observed_sid) or not valid_sid(claim.token_sid):
             errors.append(f"{key}:INVALID_SID")
