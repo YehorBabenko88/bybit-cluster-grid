@@ -3,7 +3,8 @@ from vm_principal_lab.evidence_binding import audit_evidence_binding
 def evidence(**overrides):
     values = dict(declared_sid="S-1-5-21-100", actual_sid="S-1-5-21-100",
                   token_user_sid="S-1-5-21-100", object_owner_sid="S-1-5-21-100",
-                  token_group_sids=("S-1-5-32-545",), effective_read=True,
+                  token_group_sids=("S-1-5-32-545",), token_elevation="limited",
+                  token_integrity="S-1-16-8192", effective_read=True,
                   effective_write=False, effective_write_dac=False)
     values.update(overrides)
     return values
@@ -50,3 +51,16 @@ def test_non_mapping_is_blocked():
     result = audit_evidence_binding(None)
     assert result.issues == ("INVALID_EVIDENCE",)
     assert result.execution_authorized is False
+
+def test_elevated_token_is_explicitly_unsafe():
+    issues = audit_evidence_binding(evidence(token_elevation="elevated")).issues
+    assert "ELEVATED_TOKEN_UNSAFE" in issues
+
+def test_unknown_elevation_and_integrity_rejected():
+    issues = audit_evidence_binding(evidence(token_elevation="unknown", token_integrity="high")).issues
+    assert "INVALID_TOKEN_ELEVATION" in issues
+    assert "INVALID_TOKEN_INTEGRITY" in issues
+
+def test_duplicate_token_groups_rejected():
+    issues = audit_evidence_binding(evidence(token_group_sids=("S-1-5-32-545", "S-1-5-32-545"))).issues
+    assert "DUPLICATE_TOKEN_GROUP_SID" in issues
