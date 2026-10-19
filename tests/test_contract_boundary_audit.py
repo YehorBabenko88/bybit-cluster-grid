@@ -205,3 +205,16 @@ def test_deeply_nested_untrusted_report_is_rejected():
     report["extra_untrusted_metadata"] = nested
     with pytest.raises(ContractBoundaryBlocked):
         audit_contracts(p, vm_plan=report)
+
+
+@pytest.mark.parametrize("field", [
+    "lab_id", "vm_id", "host_id", "image_sha256",
+    "observer_id", "plan_sha256", "pg_run_id", "pg_node_id", "pg_commit_sha",
+])
+def test_nested_cross_component_identity_substitution_rejected(field):
+    p = fixture()
+    b = bindings(p)
+    report = validate_vm_lab_plan(p)
+    report["opaque_component_metadata"] = {"nested": [{field: "FORGED"}]}
+    with pytest.raises(ContractBoundaryBlocked):
+        audit_contracts(p, vm_plan=report, bindings=b)
