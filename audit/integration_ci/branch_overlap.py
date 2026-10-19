@@ -6,7 +6,8 @@ def collisions(branch_files):
     owners = defaultdict(set)
     for branch, paths in branch_files.items():
         for path in paths:
-            if not isinstance(path, str) or not path or path.startswith("/") or "\\x00" in path or ".." in path.split("/"):
+            if (not isinstance(path, str) or not path or "\\" in path or ":" in path
+                    or "\x00" in path or any(part in ("", ".", "..") for part in path.split("/"))):
                 raise ValueError("unsafe or invalid repository path")
             owners[path].add(branch)
     return {path: sorted(branches) for path, branches in sorted(owners.items()) if len(branches) > 1}
