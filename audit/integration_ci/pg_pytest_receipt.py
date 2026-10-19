@@ -72,6 +72,11 @@ def validate_receipt(xml_text, commit_sha, expected_sha, collected_ids=None):
         if any(case.find(tag) is not None for tag in ("skipped", "failure", "error")):
             errors.append("SKIPPED_OR_FAILED_CASE")
             break
+    if any(node.tag in ("skipped", "failure", "error") for node in root.iter()):
+        errors.append("SKIPPED_OR_FAILED_CASE")
+    if any(node.tag in ("testcase", "testsuite", "testsuites") and node is not root and
+           node not in cases and node not in suites for node in root.iter()):
+        errors.append("UNEXPECTED_JUNIT_STRUCTURE")
     return list(dict.fromkeys(errors))
 
 
