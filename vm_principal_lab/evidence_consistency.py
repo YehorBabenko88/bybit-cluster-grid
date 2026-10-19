@@ -18,6 +18,8 @@ def detect_evidence_conflicts(claims: Mapping[str, EvidenceClaim]) -> Tuple[str,
     if len(claims) < 2:
         errors.append("INSUFFICIENT_INDEPENDENT_SOURCES")
     by_principal = {}
+    source_owners = {}
+    sid_owners = {}
     for key, claim in sorted(claims.items()):
         if not claim.source or not claim.principal:
             errors.append(f"{key}:MISSING_PROVENANCE")
@@ -30,7 +32,17 @@ def detect_evidence_conflicts(claims: Mapping[str, EvidenceClaim]) -> Tuple[str,
         if claim.elevation not in ("elevated", "limited"):
             errors.append(f"{key}:ELEVATION_UNKNOWN")
         by_principal.setdefault(claim.principal, []).append(claim)
+        if claim.source and claim.principal:
+            owner = source_owners.setdefault(claim.source, claim.principal)
+            if owner != claim.principal:
+                errors.append(f"{key}:SOURCE_REUSED_ACROSS_PRINCIPALS")
+        if claim.observed_sid and claim.principal:
+            owner = sid_owners.setdefault(claim.observed_sid, claim.principal)
+            if owner != claim.principal:
+                errors.append(f"{key}:OBSERVED_SID_REUSED_ACROSS_PRINCIPALS")
     for principal, group in sorted(by_principal.items()):
+        if len({c.source for c in group if c.source}) < 2:
+            errors.append(f"{principal}:INSUFFICIENT_INDEPENDENT_SOURCES")
         if len({c.source for c in group}) != len(group):
             errors.append(f"{principal}:DUPLICATE_SOURCE")
         for field in ("observed_sid", "token_sid", "elevation", "group_sids", "acl_digest"):
