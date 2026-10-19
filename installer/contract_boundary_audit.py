@@ -8,7 +8,10 @@ from installer.vm_lab_evidence import digest, draft
 VERSION = 1
 EXPECTED_CASES = tuple(name for name, _ in CASES)
 FALSE_FLAGS = ("execution_authorized", "physical_ready", "readiness_passed",
-               "provenance_verified", "replay_protection_verified", "cross_component_authority")
+               "provenance_verified", "replay_protection_verified", "cross_component_authority",
+               "guest_execution_verified", "test_key_attestation_is_production_proof",
+               "independent_operator_approval_verified", "native_host_principal_verified",
+               "postgres_adapter_ownership_verified")
 STAGES = ("vm_plan", "vm_evidence", "attestation", "ownership", "postgres", "preflight", "deployment")
 ALLOWED_STATUS = {
     "vm_plan": "BLOCKED",
