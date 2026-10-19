@@ -1,7 +1,5 @@
 """Versioned, pure read-only boundary audit; not an execution or ownership adapter."""
 from __future__ import annotations
-import hashlib
-import json
 import re
 from installer.vm_lab_json import canonical, check_value
 from installer.vm_lab_plan import CASES, validate_vm_lab_plan
@@ -144,16 +142,16 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
                     _deny("COMMIT_MISMATCH")
         if stages["vm_evidence"] is not None:
             expected = draft(plan, bindings["observer_id"])
-            if vm_evidence.get("plan_sha256", digest(plan)) != digest(plan):
+            if "plan_sha256" in vm_evidence and vm_evidence["plan_sha256"] != digest(plan):
                 _deny("EVIDENCE_PLAN_MISMATCH")
-            if vm_evidence.get("payload_sha256", expected["payload_sha256"]) != expected["payload_sha256"]:
+            if "payload_sha256" in vm_evidence and vm_evidence["payload_sha256"] != expected["payload_sha256"]:
                 _deny("EVIDENCE_PAYLOAD_MISMATCH")
         if attestation is not None:
             # Reports never prove their own signature/nonce. Caller must retain the
             # verifier's consumed replay state and signed envelope separately.
-            if attestation.get("challenge", bindings["challenge"]) != bindings["challenge"]:
+            if "challenge" in attestation and attestation["challenge"] != bindings["challenge"]:
                 _deny("CHALLENGE_MISMATCH")
-            if attestation.get("observer_id", bindings["observer_id"]) != bindings["observer_id"]:
+            if "observer_id" in attestation and attestation["observer_id"] != bindings["observer_id"]:
                 _deny("OBSERVER_MISMATCH")
     return {
         "schema": VERSION, "status": "BLOCKED", "execution_authorized": False,
@@ -163,5 +161,6 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
         "matrix": {k: ("PRESENT_UNTRUSTED_METADATA" if v is not None else "MISSING_UNPROVEN")
                    for k, v in stages.items()},
         "blockers": ["NO_CROSS_COMPONENT_AUTHORITY", "INDEPENDENT_PROOF_NOT_IMPLEMENTED",
+                     "REPORT_ORIGIN_AND_CHALLENGE_NOT_CRYPTOGRAPHICALLY_BOUND",
                      "NO_SCHEMA2_OR_PHYSICAL_EXECUTOR", "ALL_GUEST_CASES_NOT_RUN"],
     }
