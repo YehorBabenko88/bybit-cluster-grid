@@ -20,6 +20,7 @@ def test_each_required_field_is_enforced():
 
 def test_complete_synthetic_evidence_never_authorizes():
     evidence = {field: "synthetic" for field in REQUIRED_FIELDS}
+    evidence.update(effective_read=False, effective_write=False, effective_write_dac=False)
     result = audit_evidence_completeness(evidence)
     assert result.complete is True
     assert result.missing == ()
