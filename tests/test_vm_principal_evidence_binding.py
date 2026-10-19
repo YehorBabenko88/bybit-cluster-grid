@@ -79,3 +79,20 @@ def test_read_only_evidence_does_not_prove_authorization():
     assert result.issues == ()
     assert result.readiness_passed is False
     assert result.execution_authorized is False
+
+def test_high_integrity_token_is_rejected_even_without_elevation_flag():
+    issues = audit_evidence_binding(evidence(token_integrity="S-1-16-12288")).issues
+    assert "HIGH_INTEGRITY_TOKEN_UNSAFE" in issues
+
+def test_privileged_builtin_group_rejected():
+    issues = audit_evidence_binding(evidence(token_group_sids=("S-1-5-32-545", "S-1-5-32-544"))).issues
+    assert "PRIVILEGED_TOKEN_GROUP_UNSAFE" in issues
+
+def test_non_integrity_sid_cannot_pass_integrity_check():
+    issues = audit_evidence_binding(evidence(token_integrity="S-1-5-21-100")).issues
+    assert "INVALID_TOKEN_INTEGRITY" in issues
+
+def test_medium_integrity_unprivileged_groups_remain_syntactically_consistent():
+    result = audit_evidence_binding(evidence())
+    assert result.issues == ()
+    assert result.execution_authorized is False
