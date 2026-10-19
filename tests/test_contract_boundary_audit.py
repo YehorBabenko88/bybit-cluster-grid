@@ -277,3 +277,15 @@ def test_test_key_metadata_never_proves_guest_execution():
     assert result["test_key_attestation_is_production_proof"] is False
     assert all(case["execution"] == "NOT_RUN" for case in result["guest_cases"])
     assert all(case["assurance"] == "BLOCKED_UNPROVEN" for case in result["guest_cases"])
+
+
+def test_unverified_operator_principal_and_pg_ownership_remain_blocked():
+    p = fixture()
+    report = validate_vm_lab_plan(p)
+    result = audit_contracts(p, vm_plan=report, bindings=bindings(p))
+    for field in ("independent_operator_approval_verified",
+                  "native_host_principal_verified",
+                  "postgres_adapter_ownership_verified"):
+        assert result[field] is False
+    assert result["status"] == "BLOCKED"
+    assert result["execution_authorized"] is False
