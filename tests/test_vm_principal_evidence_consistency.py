@@ -60,3 +60,19 @@ def test_independent_sources_per_each_guest_are_accepted_as_consistent():
         "b2": claim("b2", principal="guest-b", observed_sid="S-1-5-21-2", token_sid="S-1-5-21-2"),
     })
     assert issues == ()
+
+def test_token_sid_reuse_across_guests_detected_even_with_distinct_observed_sids():
+    issues = detect_evidence_conflicts({
+        "one": claim("source-1", principal="guest-a"),
+        "two": claim("source-2", principal="guest-b", observed_sid="S-1-5-21-2"),
+    })
+    assert "two:TOKEN_SID_REUSED_ACROSS_PRINCIPALS" in issues
+    assert "two:SID_TOKEN_CONFLICT" in issues
+
+def test_distinct_guest_token_sids_do_not_trigger_reuse():
+    issues = detect_evidence_conflicts({
+        "a1": claim("a1"), "a2": claim("a2"),
+        "b1": claim("b1", principal="guest-b", observed_sid="S-1-5-21-2", token_sid="S-1-5-21-2"),
+        "b2": claim("b2", principal="guest-b", observed_sid="S-1-5-21-2", token_sid="S-1-5-21-2"),
+    })
+    assert not any("TOKEN_SID_REUSED" in issue for issue in issues)
