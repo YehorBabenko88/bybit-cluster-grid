@@ -259,3 +259,28 @@ def test_plan_malformed_shape_never_calls_adapter_or_journal_objects():
     result = check_pgdata_contract(p, a, j)
     assert_blocked(result)
     assert result["blockers"] == ["PLAN_INVALID"]
+
+def test_invalid_plan_fields_are_rejected_without_execution():
+    mutations = (
+        ("port", True), ("port", 19999), ("port", 50000),
+        ("postgres_major", 17), ("listen_address", "0.0.0.0"),
+        ("existing_cluster", True), ("runtime_stopped", False),
+        ("operator_approved", False), ("schema", True),
+        ("run_id", "not-a-run-id"), ("node_id", "LS5"),
+    )
+    for field, value in mutations:
+        p, a, j = fixtures()
+        p[field] = value
+        result = check_pgdata_contract(p, a, j)
+        assert_blocked(result)
+        assert result["blockers"] == ["PLAN_INVALID"], (field, value, result)
+
+def test_non_dictionary_journal_and_adapter_are_rejected():
+    for value in (None, False, 0, "", [], (), set()):
+        p, a, j = fixtures()
+        adapter_result = check_pgdata_contract(p, value, j)
+        journal_result = check_pgdata_contract(p, a, value)
+        assert_blocked(adapter_result)
+        assert_blocked(journal_result)
+        assert "ADAPTER_MISSING" in adapter_result["blockers"]
+        assert "JOURNAL_MISSING" in journal_result["blockers"]
