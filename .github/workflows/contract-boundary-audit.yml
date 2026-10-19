@@ -1,0 +1,43 @@
+name: contract-boundary-audit
+on:
+  push:
+    branches:
+      - parallel/contract-boundary-audit-20261019
+  pull_request:
+    paths:
+      - 'installer/contract_boundary_audit.py'
+      - 'installer/vm_lab_json.py'
+      - 'installer/vm_lab_plan.py'
+      - 'installer/vm_lab_evidence.py'
+      - 'installer/vm_test_attestation.py'
+      - 'docs/CONTRACT_BOUNDARY_AUDIT.md'
+      - 'tests/test_contract_boundary_audit.py'
+      - '.github/workflows/contract-boundary-audit.yml'
+jobs:
+  read-only-negative-contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.11', '3.12']
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install offline-test runner
+        run: python -m pip install pytest
+      - name: Read-only negative contract tests
+        run: python -m pytest -q tests/test_contract_boundary_audit.py
