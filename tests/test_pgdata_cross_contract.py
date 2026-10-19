@@ -146,3 +146,32 @@ def test_string_subclasses_not_accepted_as_journal_claims():
         result = check_pgdata_contract(p, a, j)
         assert_blocked(result)
         assert "JOURNAL_FIELD_TYPE_INVALID" in result["blockers"]
+
+def test_protected_nodes_and_unsafe_path_aliases_remain_blocked():
+    for node in ("LS5", "LS7"):
+        p, a, j = fixtures()
+        p["node_id"] = node
+        result = check_pgdata_contract(p, a, j)
+        assert_blocked(result)
+        assert result["blockers"] == ["PLAN_INVALID"]
+    for root in (
+        "c:\\\\GridLab\\\\" + RUN + "\\\\LAB01\\\\pgdata",
+        "C:/GridLab/" + RUN + "/LAB01/pgdata",
+        "C:\\\\GridLab\\\\" + RUN + "\\\\LAB01\\\\..\\\\pgdata",
+        "\\\\\\\\server\\\\share\\\\pgdata",
+    ):
+        p, a, j = fixtures()
+        p["data_root"] = root
+        result = check_pgdata_contract(p, a, j)
+        assert_blocked(result)
+        assert "PLAN_INVALID" in result["blockers"], root
+
+def test_missing_adapter_root_cannot_suppress_layout_blocker():
+    for root in (None, "", 0, True, [], {}):
+        p, a, j = fixtures()
+        a["root"] = root
+        result = check_pgdata_contract(p, a, j)
+        assert_blocked(result)
+        assert "PGDATA_LAYOUT_MISMATCH" in result["blockers"]
+        assert "PHYSICAL_OWNERSHIP_UNVERIFIED" in result["blockers"]
+        assert "SCHEMA1_ADAPTER_MAPPING_BLOCKED" in result["blockers"]
