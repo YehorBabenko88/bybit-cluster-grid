@@ -115,3 +115,34 @@ def test_schema2_is_never_accepted():
     result = check_pgdata_contract(p, a, j)
     assert_blocked(result)
     assert result["blockers"] == ["PLAN_INVALID"]
+
+def test_hostile_journal_cannot_mutate_plan_through_comparison():
+    class Mutator:
+        def __init__(self, plan):
+            self.plan = plan
+        def __ne__(self, other):
+            self.plan["port"] = 25433
+            return False
+        def __eq__(self, other):
+            self.plan["port"] = 25433
+            return True
+
+    for field in ("status", "run_id", "node_id", "pgdata"):
+        p, a, j = fixtures()
+        original = copy.deepcopy(p)
+        j[field] = Mutator(p)
+        result = check_pgdata_contract(p, a, j)
+        assert_blocked(result)
+        assert "JOURNAL_FIELD_TYPE_INVALID" in result["blockers"]
+        assert p == original, field
+
+def test_string_subclasses_not_accepted_as_journal_claims():
+    class SpoofedString(str):
+        def __ne__(self, other):
+            raise AssertionError("comparison must not be invoked")
+    for field in ("status", "run_id", "node_id", "pgdata"):
+        p, a, j = fixtures()
+        j[field] = SpoofedString(j[field])
+        result = check_pgdata_contract(p, a, j)
+        assert_blocked(result)
+        assert "JOURNAL_FIELD_TYPE_INVALID" in result["blockers"]
