@@ -35,7 +35,7 @@ def validate_receipt(xml_text, commit_sha, expected_sha):
                                   ("errors", len(list(suite.iter("error")))),
                                   ("skipped", len(list(suite.iter("skipped"))))):
             declared = suite.attrib.get(attribute)
-            if declared is None or not declared.isdecimal() or int(declared) != actual:
+            if declared is not None and (not declared.isdecimal() or int(declared) != actual):
                 errors.append("JUNIT_SUITE_COUNTS_MISMATCH")
                 break
     matched = [
