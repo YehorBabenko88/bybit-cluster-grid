@@ -41,3 +41,9 @@ def test_missing_boolean_cannot_default_to_safe():
     data = valid()
     del data["readiness_passed"]
     assert "READINESS_PASSED_NOT_FALSE" in audit_readiness_document(data)
+
+def test_p2_r5_hostile_admin_string_not_accepted_as_boolean():
+    data = valid()
+    data["hostile_admin"] = "false"
+    errors = audit_readiness_document(data)
+    assert "HOSTILE_ADMIN_INVALID_BOOLEAN" in errors
