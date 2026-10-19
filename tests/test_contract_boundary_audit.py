@@ -289,3 +289,26 @@ def test_unverified_operator_principal_and_pg_ownership_remain_blocked():
         assert result[field] is False
     assert result["status"] == "BLOCKED"
     assert result["execution_authorized"] is False
+
+
+def test_audit_module_has_no_execution_or_io_dependencies():
+    """Static gate: metadata validator must not grow filesystem/network/SQL execution."""
+    import ast
+    source = (Path(__file__).resolve().parents[1] /
+              "installer/contract_boundary_audit.py").read_text(encoding="utf8")
+    tree = ast.parse(source)
+    forbidden_modules = {
+        "os", "subprocess", "socket", "pathlib", "shutil", "tempfile",
+        "sqlite3", "psycopg", "psycopg2", "asyncio", "ctypes", "winreg",
+        "requests", "urllib", "http", "multiprocessing"
+    }
+    forbidden_calls = {"open", "exec", "eval", "compile", "__import__", "input"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            assert all(alias.name.split(".")[0] not in forbidden_modules
+                       for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            assert (node.module or "").split(".")[0] not in forbidden_modules
+            assert node.module != "installer.physical_deployment_harness"
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            assert node.func.id not in forbidden_calls
