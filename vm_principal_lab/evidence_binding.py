@@ -4,9 +4,7 @@ Does not access guests, filesystems or Windows APIs, and never grants execution.
 """
 from dataclasses import dataclass
 from typing import Mapping, Tuple
-import re
-
-_SID_PATTERN = re.compile(r"S-1-(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*))+", re.ASCII)
+from .sid_validation import valid_sid, valid_integrity_sid, evidence_mapping_types
 
 @dataclass(frozen=True)
 class BindingResult:
@@ -19,28 +17,28 @@ def audit_evidence_binding(evidence: Mapping[str, object]) -> BindingResult:
     """Reject ambiguous identity bindings before any independent attestation."""
     if not isinstance(evidence, Mapping):
         return BindingResult(("INVALID_EVIDENCE",))
-    issues = []
+    issues = list(evidence_mapping_types(evidence))
     sid_fields = ("declared_sid", "actual_sid", "token_user_sid", "object_owner_sid")
     for field in sid_fields:
         value = evidence.get(field)
-        if not isinstance(value, str) or _SID_PATTERN.fullmatch(value) is None:
+        if not valid_sid(value):
             issues.append(f"{field}:INVALID_SID")
     declared = evidence.get("declared_sid")
     actual = evidence.get("actual_sid")
     token = evidence.get("token_user_sid")
-    if all(isinstance(v, str) and v.strip() for v in (declared, actual)):
+    if all(valid_sid(v) for v in (declared, actual)):
         if declared != actual:
             issues.append("DECLARED_ACTUAL_SID_MISMATCH")
-    if all(isinstance(v, str) and v.strip() for v in (actual, token)):
+    if all(valid_sid(v) for v in (actual, token)):
         if actual != token:
             issues.append("ACTUAL_TOKEN_SID_MISMATCH")
     groups = evidence.get("token_group_sids")
     if not isinstance(groups, (tuple, list)) or not groups or any(
-        not isinstance(g, str) or _SID_PATTERN.fullmatch(g) is None for g in groups
+        not isinstance(g, str) or not valid_sid(g) for g in groups
     ):
         issues.append("INVALID_TOKEN_GROUP_SIDS")
     if isinstance(groups, (tuple, list)) and groups and all(
-        isinstance(g, str) and _SID_PATTERN.fullmatch(g) is not None for g in groups
+        isinstance(g, str) and valid_sid(g) for g in groups
     ) and len(groups) != len(set(groups)):
         issues.append("DUPLICATE_TOKEN_GROUP_SID")
     elevation = evidence.get("token_elevation")
@@ -49,7 +47,7 @@ def audit_evidence_binding(evidence: Mapping[str, object]) -> BindingResult:
     elif elevation == "elevated":
         issues.append("ELEVATED_TOKEN_UNSAFE")
     integrity = evidence.get("token_integrity")
-    if not isinstance(integrity, str) or re.fullmatch(r"S-1-16-(?:0|[1-9][0-9]*)", integrity, re.ASCII) is None:
+    if not valid_integrity_sid(integrity):
         issues.append("INVALID_TOKEN_INTEGRITY")
     elif int(integrity.rsplit("-", 1)[1]) >= 12288:
         issues.append("HIGH_INTEGRITY_TOKEN_UNSAFE")
@@ -65,4 +63,4 @@ def audit_evidence_binding(evidence: Mapping[str, object]) -> BindingResult:
             issues.append(f"{field}:INVALID_EFFECTIVE_ACCESS")
         elif field in ("effective_write", "effective_write_dac") and access:
             issues.append(f"{field}:UNEXPECTED_WRITE_ACCESS")
-    return BindingResult(tuple(issues))
+    return BindingResult(tuple(dict.fromkeys(issues)))
