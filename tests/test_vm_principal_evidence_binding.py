@@ -25,7 +25,7 @@ def test_actual_token_mismatch():
         evidence(token_user_sid="S-1-5-21-999")).issues
 
 def test_malformed_group_sids():
-    for groups in ((), ["S-1-5-32-545", ""], "S-1-5-32-545", [None]):
+    for groups in ((), ("S-1-5-32-545", ""), "S-1-5-32-545", [None]):
         assert "INVALID_TOKEN_GROUP_SIDS" in audit_evidence_binding(
             evidence(token_group_sids=groups)).issues
 
@@ -96,3 +96,37 @@ def test_medium_integrity_unprivileged_groups_remain_syntactically_consistent():
     result = audit_evidence_binding(evidence())
     assert result.issues == ()
     assert result.execution_authorized is False
+
+def test_p2_r4_rejects_subauthority_overflow_even_when_every_sid_agrees():
+    result = audit_evidence_binding(evidence(
+        declared_sid="S-1-5-4294967296",
+        actual_sid="S-1-5-4294967296",
+        token_user_sid="S-1-5-4294967296",
+        object_owner_sid="S-1-5-4294967296",
+    ))
+    assert "actual_sid:INVALID_SID" in result.issues
+    assert result.issues
+    assert result.readiness_passed is False and result.execution_authorized is False
+
+
+def test_p2_r4_rejects_authority_overflow_and_excess_subauthorities():
+    bad = ("S-1-281474976710656-1", "S-1-5-" + "-".join(["1"] * 16),
+           "S-1-5-4294967296", "S-1-5-01", "S-1-5-" + "1" * 200)
+    for sid in bad:
+        assert "actual_sid:INVALID_SID" in audit_evidence_binding(
+            evidence(actual_sid=sid)).issues
+
+
+def test_p2_r4_accepts_binary_maximum_syntax_but_still_blocks_execution():
+    sid = "S-1-281474976710655-" + "-".join(["4294967295"] * 15)
+    result = audit_evidence_binding(evidence(
+        declared_sid=sid, actual_sid=sid, token_user_sid=sid))
+    assert "actual_sid:INVALID_SID" not in result.issues
+    assert result.execution_authorized is False
+
+
+def test_p2_r5_string_booleans_are_not_acl_proof():
+    result = audit_evidence_binding(evidence(
+        effective_read="true", effective_write="false", effective_write_dac="false"))
+    assert all(f"{field}:INVALID_EFFECTIVE_ACCESS" in result.issues for field in
+               ("effective_read", "effective_write", "effective_write_dac"))
