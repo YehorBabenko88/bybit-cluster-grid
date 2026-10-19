@@ -204,6 +204,7 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
         "guest_cases": [{"case": k, "execution": "NOT_RUN", "assurance": "BLOCKED_UNPROVEN"} for k in EXPECTED_CASES],
         "matrix": {k: ("PRESENT_UNTRUSTED_METADATA" if v is not None else "MISSING_UNPROVEN")
                    for k, v in stages.items()},
+        "trust_level": "UNVERIFIED_METADATA_ONLY",
         "blockers": ["NO_CROSS_COMPONENT_AUTHORITY", "INDEPENDENT_PROOF_NOT_IMPLEMENTED",
                      "REPORT_ORIGIN_AND_CHALLENGE_NOT_CRYPTOGRAPHICALLY_BOUND",
                      "CROSS_COMPONENT_REPLAY_NOT_DURABLY_PREVENTED",
