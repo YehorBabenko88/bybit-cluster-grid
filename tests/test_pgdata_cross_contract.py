@@ -54,3 +54,37 @@ def test_no_side_effects(monkeypatch):
         m.setattr(subprocess, "Popen", forbidden)
         m.setattr(socket.socket, "connect", forbidden)
         assert_blocked(check_pgdata_contract(*fixtures()))
+
+def test_specific_blocker_codes_and_immutable_inputs():
+    cases = [
+        (lambda p,a,j: (None,a,j), "PLAN_INVALID"),
+        (lambda p,a,j: (p,None,j), "ADAPTER_MISSING"),
+        (lambda p,a,j: (p,a,None), "JOURNAL_MISSING"),
+        (lambda p,a,j: (dict(p,postgres_major=17),a,j), "PLAN_INVALID"),
+        (lambda p,a,j: (p,dict(a,postgres_port=True),j), "ADAPTER_IDENTITY_MISMATCH"),
+        (lambda p,a,j: (p,a,dict(j,execution_authorized=True)), "JOURNAL_AUTHORIZATION_FORBIDDEN"),
+        (lambda p,a,j: (p,a,dict(j,readiness_passed=True)), "JOURNAL_AUTHORIZATION_FORBIDDEN"),
+        (lambda p,a,j: (p,a,dict(j,status="READY")), "JOURNAL_STATUS_UNSAFE"),
+        (lambda p,a,j: (p,a,dict(j,pgdata="C:\\\\other")), "JOURNAL_PGDATA_MISMATCH"),
+        (lambda p,a,j: (p,a,dict(j,node_id="LS5")), "JOURNAL_IDENTITY_MISMATCH"),
+    ]
+    for transform, expected in cases:
+        args = transform(*fixtures())
+        saved = copy.deepcopy(args)
+        r = check_pgdata_contract(*args)
+        assert_blocked(r)
+        assert expected in r["blockers"], (expected, r)
+        assert args == saved
+
+def test_behavioral_journal_objects_never_compared():
+    class Hostile:
+        def __eq__(self, other):
+            raise RuntimeError("UNSAFE_EQ")
+        def __ne__(self, other):
+            raise RuntimeError("UNSAFE_NE")
+    for field in ("status", "run_id", "node_id", "pgdata"):
+        p, a, j = fixtures()
+        j[field] = Hostile()
+        r = check_pgdata_contract(p, a, j)
+        assert_blocked(r)
+        assert "JOURNAL_FIELD_TYPE_INVALID" in r["blockers"]
