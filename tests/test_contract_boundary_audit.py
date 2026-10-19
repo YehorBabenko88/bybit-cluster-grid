@@ -218,3 +218,16 @@ def test_nested_cross_component_identity_substitution_rejected(field):
     report["opaque_component_metadata"] = {"nested": [{field: "FORGED"}]}
     with pytest.raises(ContractBoundaryBlocked):
         audit_contracts(p, vm_plan=report, bindings=b)
+
+
+def test_repeated_matching_reports_never_become_authorized():
+    p = fixture()
+    b = bindings(p)
+    report = validate_vm_lab_plan(p)
+    first = audit_contracts(p, vm_plan=report, bindings=b)
+    second = audit_contracts(p, vm_plan=copy.deepcopy(report), bindings=copy.deepcopy(b))
+    assert first == second
+    assert "CROSS_COMPONENT_REPLAY_NOT_DURABLY_PREVENTED" in second["blockers"]
+    assert second["execution_authorized"] is False
+    assert second["physical_ready"] is False
+    assert second["verified_safety_cases"] == 0
