@@ -6,6 +6,11 @@ on:
   pull_request:
     paths:
       - 'installer/contract_boundary_audit.py'
+      - 'installer/vm_lab_json.py'
+      - 'installer/vm_lab_plan.py'
+      - 'installer/vm_lab_evidence.py'
+      - 'installer/vm_test_attestation.py'
+      - 'docs/CONTRACT_BOUNDARY_AUDIT.md'
       - 'tests/test_contract_boundary_audit.py'
       - '.github/workflows/contract-boundary-audit.yml'
 jobs:
@@ -21,6 +26,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact checkout SHA
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
