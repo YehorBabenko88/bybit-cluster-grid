@@ -312,3 +312,22 @@ def test_audit_module_has_no_execution_or_io_dependencies():
             assert node.module != "installer.physical_deployment_harness"
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             assert node.func.id not in forbidden_calls
+
+
+@pytest.mark.parametrize("flag", [
+    "guest_execution_verified",
+    "test_key_attestation_is_production_proof",
+    "independent_operator_approval_verified",
+    "native_host_principal_verified",
+    "postgres_adapter_ownership_verified",
+])
+@pytest.mark.parametrize("nested", [False, True])
+def test_forged_guest_or_native_authority_is_denied(flag, nested):
+    p = fixture()
+    report = validate_vm_lab_plan(p)
+    if nested:
+        report["opaque_component_metadata"] = {"nested": [{flag: True}]}
+    else:
+        report[flag] = True
+    with pytest.raises(ContractBoundaryBlocked):
+        audit_contracts(p, vm_plan=report)
