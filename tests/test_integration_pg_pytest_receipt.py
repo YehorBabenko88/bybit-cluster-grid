@@ -109,3 +109,8 @@ class PgPytestReceiptTests(unittest.TestCase):
                 self.assertEqual(pg_pytest_receipt.main(), 1)
             self.assertEqual(validate_receipt(junit.read_text(encoding="utf-8"), SHA, SHA, None),
                              ["COLLECTION_REQUIRED"])
+
+    def test_suite_level_failure_or_skip_cannot_be_hidden(self):
+        for tag in ("failure", "error", "skipped"):
+            report = xml().replace("</testsuite>", f"<{tag}/></testsuite>")
+            self.assertIn("SKIPPED_OR_FAILED_CASE", validate_receipt(report, SHA, SHA, COLLECTED))
