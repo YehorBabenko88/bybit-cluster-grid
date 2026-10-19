@@ -10,7 +10,7 @@ def runs():
 class WorkflowAttestationTests(unittest.TestCase):
     def test_all_success_is_ci_only(self):
         result = assess(runs(), SHA)
-        self.assertEqual(result["status"], "CI_VERIFIED_ONLY")
+        self.assertEqual(result["status"], "CI_METADATA_ONLY")
         self.assertIs(result["readiness_passed"], False)
         self.assertIs(result["execution_authorized"], False)
     def test_missing(self):

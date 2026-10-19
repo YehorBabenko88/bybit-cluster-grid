@@ -1,4 +1,9 @@
-"""Read-only policy checks for evidence metadata and critical workflow selection."""
+"""Metadata-only checks. An empty error list authenticates no run or job proof.
+
+The source and synthetic fields are caller assertions, not provenance validation.
+"""
+
+import re
 
 CRITICAL = frozenset({
     "integration-evidence-audit", "composed-safety-gate",
@@ -11,7 +16,7 @@ def validate_manifest(manifest, expected_sha):
     errors = []
     if not isinstance(manifest, dict):
         return ["manifest must be an object"]
-    if not isinstance(expected_sha, str) or len(expected_sha) != 40:
+    if not isinstance(expected_sha, str) or re.fullmatch(r"[0-9a-f]{40}", expected_sha) is None:
         errors.append("expected SHA invalid")
     if manifest.get("commit_sha") != expected_sha:
         errors.append("evidence SHA mismatch")
