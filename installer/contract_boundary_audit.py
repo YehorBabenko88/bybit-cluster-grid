@@ -195,6 +195,8 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
                 _deny("CHALLENGE_MISMATCH")
             if "observer_id" in attestation and attestation["observer_id"] != bindings["observer_id"]:
                 _deny("OBSERVER_MISMATCH")
+    # Keep explicit negative-case state in the response: no supplied report,
+    # including a public test-key attestation, can certify guest execution.
     # Explicit identity contradictions are rejectable, but matching strings
     # alone are not proof that two reports came from the same run.
     return {
@@ -202,6 +204,8 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
         "physical_ready": False, "readiness_passed": False,
         "verified_safety_cases": 0, "schema2": False,
         "guest_cases": [{"case": k, "execution": "NOT_RUN", "assurance": "BLOCKED_UNPROVEN"} for k in EXPECTED_CASES],
+        "guest_execution_verified": False,
+        "test_key_attestation_is_production_proof": False,
         "matrix": {k: ("PRESENT_UNTRUSTED_METADATA" if v is not None else "MISSING_UNPROVEN")
                    for k, v in stages.items()},
         "trust_level": "UNVERIFIED_METADATA_ONLY",
