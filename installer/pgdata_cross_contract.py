@@ -23,9 +23,15 @@ def inspect_producer_journal_format(journal):
                                parse_constant=lambda x: (_ for _ in ()).throw(ValueError(x)))
         except (ValueError, UnicodeError, RecursionError):
             return "JOURNAL_FORMAT_INVALID"
-        if type(pairs) is not list or len(pairs) != 3 or [k for k, v in pairs] != ["schema", "plan_sha256", "state"]:
+        # object_pairs_hook returns lists for JSON objects, but JSON arrays are
+        # also lists. Never destructure elements before validating their shape.
+        if (type(pairs) is not list or len(pairs) != 3
+                or any(type(pair) is not tuple or len(pair) != 2
+                       or type(pair[0]) is not str for pair in pairs)):
             return "JOURNAL_RECORD_SCHEMA_INVALID"
-        schema, digest, state = [v for k, v in pairs]
+        if [pair[0] for pair in pairs] != ["schema", "plan_sha256", "state"]:
+            return "JOURNAL_RECORD_SCHEMA_INVALID"
+        schema, digest, state = (pair[1] for pair in pairs)
         if type(schema) is not int or schema != 1 or type(digest) is not str or re.fullmatch("[0-9a-f]{64}", digest) is None or type(state) is not str or state not in ("PREPARED", "COMMITTED", "RETIRED"):
             return "JOURNAL_RECORD_SCHEMA_INVALID"
         canonical = '{"schema":1,"plan_sha256":"' + digest + '","state":"' + state + '"}'
