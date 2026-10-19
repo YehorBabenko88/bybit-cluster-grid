@@ -16,7 +16,7 @@ def validate_manifest(manifest, expected_sha):
     if manifest.get("commit_sha") != expected_sha:
         errors.append("evidence SHA mismatch")
     runs = manifest.get("required_workflows")
-    if not isinstance(runs, list) or len(runs) != len(set(runs)) if isinstance(runs, list) else True:
+    if not isinstance(runs, list) or any(not isinstance(item, str) for item in runs) or len(runs) != len(set(runs)):
         errors.append("required workflows must be unique list")
     elif set(runs) != CRITICAL:
         errors.append("critical workflow coverage incomplete or unexpected")
