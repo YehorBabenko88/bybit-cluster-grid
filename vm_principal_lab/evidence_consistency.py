@@ -1,6 +1,7 @@
 """Read-only evidence consistency checks, not Windows authorization decisions."""
 from dataclasses import dataclass
 from typing import Mapping, Tuple
+from .sid_validation import valid_sid, valid_group_sids
 
 @dataclass(frozen=True)
 class EvidenceClaim:
@@ -15,13 +16,33 @@ class EvidenceClaim:
 def detect_evidence_conflicts(claims: Mapping[str, EvidenceClaim]) -> Tuple[str, ...]:
     """Detect disagreement and missing provenance; never infer execution permission."""
     errors = []
+    if not isinstance(claims, Mapping):
+        return ("INVALID_CLAIMS",)
     if len(claims) < 2:
         errors.append("INSUFFICIENT_INDEPENDENT_SOURCES")
     by_principal = {}
     source_owners = {}
     sid_owners = {}
     token_owners = {}
-    for key, claim in sorted(claims.items()):
+    for key, claim in sorted(claims.items(), key=lambda item: str(item[0])):
+        if type(key) is not str or not key or not isinstance(claim, EvidenceClaim):
+            errors.append(f"{key}:INVALID_CLAIM")
+            continue
+        if type(claim.principal) is not str or not claim.principal or type(claim.source) is not str or not claim.source:
+            errors.append(f"{key}:INVALID_PROVENANCE")
+            continue
+        if not valid_sid(claim.observed_sid) or not valid_sid(claim.token_sid):
+            errors.append(f"{key}:INVALID_SID")
+            continue
+        if not valid_group_sids(claim.group_sids):
+            errors.append(f"{key}:INVALID_GROUP_SIDS")
+            continue
+        if type(claim.elevation) is not str or claim.elevation not in ("limited", "elevated"):
+            errors.append(f"{key}:INVALID_ELEVATION")
+            continue
+        if type(claim.acl_digest) is not str or not claim.acl_digest:
+            errors.append(f"{key}:ACL_EVIDENCE_MISSING")
+            continue
         if not claim.source or not claim.principal:
             errors.append(f"{key}:MISSING_PROVENANCE")
         if not claim.observed_sid or not claim.token_sid:
