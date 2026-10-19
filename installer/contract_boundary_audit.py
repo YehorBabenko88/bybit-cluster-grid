@@ -98,6 +98,22 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
         elif type(value) is list:
             for child in value:
                 reject_nested_promotions(child, depth + 1)
+    # Reports may contain unknown component-specific fields, but cannot
+    # carry identity values that contradict the separately supplied binding.
+    identity_keys = ("lab_id", "vm_id", "host_id", "image_sha256",
+                     "observer_id", "plan_sha256", "pg_run_id",
+                     "pg_node_id", "pg_commit_sha")
+    def reject_identity_substitution(value, expected, depth=0):
+        if depth > 32:
+            _deny("NESTED_DEPTH_INVALID")
+        if type(value) is dict:
+            for key, child in value.items():
+                if key in identity_keys and key in expected and child != expected[key]:
+                    _deny("NESTED_IDENTITY_MISMATCH")
+                reject_identity_substitution(child, expected, depth + 1)
+        elif type(value) is list:
+            for child in value:
+                reject_identity_substitution(child, expected, depth + 1)
     for stage, report in stages.items():
         if report is None:
             continue
@@ -152,6 +168,11 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
                 _deny("PG_BINDING_INVALID")
         if bindings["pg_node_id"] in ("LS5", "LS7"):
             _deny("PROTECTED_NODE")
+        # The keys above are audit-envelope identifiers. Check them only
+        # where explicitly present; missing provenance remains UNPROVEN.
+        for stage, report in stages.items():
+            if report is not None:
+                reject_identity_substitution(report, bindings)
         for stage in ("postgres", "preflight"):
             report = stages[stage]
             if report is not None:
