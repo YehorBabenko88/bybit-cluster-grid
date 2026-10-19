@@ -284,3 +284,27 @@ def test_non_dictionary_journal_and_adapter_are_rejected():
         assert_blocked(journal_result)
         assert "ADAPTER_MISSING" in adapter_result["blockers"]
         assert "JOURNAL_MISSING" in journal_result["blockers"]
+
+def test_journal_boolean_authorization_flags_use_exact_false():
+    for field in ("execution_authorized", "readiness_passed"):
+        for unsafe in (None, True, 0, 1, "", "false", [], {}):
+            p, a, j = fixtures()
+            j[field] = unsafe
+            result = check_pgdata_contract(p, a, j)
+            assert_blocked(result)
+            assert "JOURNAL_AUTHORIZATION_FORBIDDEN" in result["blockers"], (field, unsafe, result)
+
+def test_journal_mismatches_report_specific_blockers():
+    cases = (
+        ("status", "READY", "JOURNAL_STATUS_UNSAFE"),
+        ("run_id", "b" * 32, "JOURNAL_IDENTITY_MISMATCH"),
+        ("node_id", "OTHER", "JOURNAL_IDENTITY_MISMATCH"),
+        ("pgdata", "C:\\\\Other\\\\pgdata", "JOURNAL_PGDATA_MISMATCH"),
+    )
+    for field, value, blocker in cases:
+        p, a, j = fixtures()
+        j[field] = value
+        result = check_pgdata_contract(p, a, j)
+        assert_blocked(result)
+        assert blocker in result["blockers"], (field, result)
+        assert "PHYSICAL_OWNERSHIP_UNVERIFIED" in result["blockers"]
