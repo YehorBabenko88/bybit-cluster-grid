@@ -64,3 +64,18 @@ def test_unknown_elevation_and_integrity_rejected():
 def test_duplicate_token_groups_rejected():
     issues = audit_evidence_binding(evidence(token_group_sids=("S-1-5-32-545", "S-1-5-32-545"))).issues
     assert "DUPLICATE_TOKEN_GROUP_SID" in issues
+
+def test_effective_write_is_rejected_even_when_boolean():
+    issues = audit_evidence_binding(evidence(effective_write=True)).issues
+    assert "effective_write:UNEXPECTED_WRITE_ACCESS" in issues
+
+def test_effective_write_dac_is_rejected_even_when_boolean():
+    issues = audit_evidence_binding(evidence(effective_write_dac=True)).issues
+    assert "effective_write_dac:UNEXPECTED_WRITE_ACCESS" in issues
+
+def test_read_only_evidence_does_not_prove_authorization():
+    result = audit_evidence_binding(evidence(effective_read=True, effective_write=False,
+                                            effective_write_dac=False))
+    assert result.issues == ()
+    assert result.readiness_passed is False
+    assert result.execution_authorized is False
