@@ -39,8 +39,8 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXACT_HEAD_SHA" || { echo "::error::CHECKOUT_HEAD_MISMATCH"; exit 1; }
           python -m pytest --collect-only -q tests/test_pgdata_cross_contract.py
-          python - <<'PY' > "$RUNNER_TEMP/pg-collected.json"
-          import json, pathlib, pytest
+          python - <<'PY'
+          import json, os, pathlib, pytest
           class Inventory:
               def __init__(self): self.nodes = []
               def pytest_collection_finish(self, session):
@@ -49,7 +49,7 @@ jobs:
           outcome = pytest.main(["--collect-only", "-q", "tests/test_pgdata_cross_contract.py"], plugins=[collector])
           if int(outcome) != 0 or not collector.nodes or len(set(collector.nodes)) != len(collector.nodes):
               raise SystemExit("PG_COLLECTION_INVALID")
-          print(json.dumps(collector.nodes))
+          pathlib.Path(os.environ["RUNNER_TEMP"], "pg-collected.json").write_text(json.dumps(collector.nodes), encoding="utf-8")
           PY
           python -m pytest -q --strict-markers --junitxml "$RUNNER_TEMP/pg-cross-contract.xml" tests/test_pgdata_cross_contract.py
           python -m audit.integration_ci.pg_pytest_receipt --junit "$RUNNER_TEMP/pg-cross-contract.xml" --collected "$RUNNER_TEMP/pg-collected.json" --sha "$(git rev-parse HEAD)" --expected-sha "$EXACT_HEAD_SHA"
