@@ -103,3 +103,39 @@ The current checker exposes `trust_level=UNVERIFIED_METADATA_ONLY`,
 implement cryptographic report provenance, durable anti-replay or
 physical execution. All are intentionally outside Agent #5's read-only
 audit scope and must remain blocked.
+
+
+## Codex five-PR P2 R6 integration checkpoint — 2026-10-19
+
+Independent reproduction: [Issue #203 comment 6273850727](https://github.com/YehorBabenko88/bybit-cluster-grid/issues/203#issuecomment-6273850727); coordinator acceptance: [Issue #208 comment 6273913185](https://github.com/YehorBabenko88/bybit-cluster-grid/issues/208#issuecomment-6273913185).
+
+The recursive schema-2 deny scanner rejects producer spellings
+`schema2`, `schema2_enabled` (PR205), `schema_2_enabled` (PR206),
+plus `schema2_active`, `schema_2_active`, `enable_schema2` and
+`enable_schema_2`. Each explicitly present value must be the literal
+boolean `false` at every nesting level. Numeric `0`/`1`, strings,
+null, arrays/objects and contradictory mixed aliases all fail with
+`CONTRACT_SCHEMA2_FORBIDDEN`. The two Codex reproductions are permanent
+offline regressions, along with nested/type/multi-component negative cases.
+
+### Explicit producer/consumer compatibility boundaries
+
+| Producer | Metadata-only integration stance |
+| --- | --- |
+| PR204 Windows principal diagnostics | Frozen diagnostic data and `BLOCKED_UNPROVEN` are **not** native SID/token/ACL attestations and have no authorized direct input stage in this checker |
+| PR205 PGDATA cross-contract | `BLOCKED` diagnostic is **not** the original `VALIDATED_PLAN_ONLY` PostgreSQL plan report accepted here; direct injection is refused |
+| PR206 CI/JUnit and JSONL reader | Test receipts/PowerShell producer bytes cannot be used as execution evidence or substituted for a `postgres` stage report |
+| PR207 test-key/replay model | Public test-key status and abstract checkpoint/anchor rollback are not durable anti-rollback, independent attestation or production approval; private `_challenge`/`_ROOTS` imported by this module require a reviewed stable public contract before integration |
+
+Cross-PR composition is **not** authorization. The two identical
+PR205/PR206 copied blobs require exact source-SHA provenance and review
+on any future refresh. Native PGDATA ownership, principal isolation,
+observer provenance and physical guest evidence remain unproven. In
+particular, coordinated rollback of both PR207's checkpoint and anchor
+allows modeled replay, so durable replay protection is **NOT IMPLEMENTED**.
+Even synthetic `PASS` with two caller-supplied source labels returns
+`BLOCKED` and twelve `NOT_RUN/BLOCKED_UNPROVEN` guest cases.
+
+The offline audit/CI is not an executor. It must never normalize old
+PGDATA layouts, manufacture adapter or observer credentials, authorize
+schema-2, or change deployment/host state.
