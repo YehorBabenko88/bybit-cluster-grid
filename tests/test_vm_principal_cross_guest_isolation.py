@@ -77,3 +77,32 @@ def test_missing_sids_are_not_falsely_reported_as_shared():
     })
     assert "a:SID_UNPROVEN" in errors and "b:SID_UNPROVEN" in errors
     assert not any("ACTUAL_SID_REUSED" in issue for issue in errors)
+
+def test_p2_r5_fake_distinct_sid_and_string_attestations_fail_closed():
+    fake = dict(elevated=0, acl_verified="false", independently_attested="false",
+                group_sids=("FAKE-GROUP",))
+    errors = audit_cross_guest_isolation({
+        "a": principal("fake-a", **fake),
+        "b": principal("fake-b", **fake),
+    })
+    assert errors
+    assert any("INVALID_SID" in error for error in errors)
+    assert any("INVALID_BOOLEAN" in error for error in errors)
+    assert any("INVALID_GROUP_SIDS" in error for error in errors)
+
+
+def test_p2_r5_true_as_string_is_not_attestation():
+    errors = audit_cross_guest_isolation({
+        "a": principal("S-1-5-21-101", acl_verified="true"),
+        "b": principal("S-1-5-21-102"),
+    })
+    assert "a:acl_verified:INVALID_BOOLEAN" in errors
+    assert "a:ISOLATION_UNPROVEN" in errors
+
+
+def test_p2_r5_non_tuple_groups_rejected():
+    errors = audit_cross_guest_isolation({
+        "a": principal("S-1-5-21-101", group_sids=["S-1-5-32-545"]),
+        "b": principal("S-1-5-21-102"),
+    })
+    assert "a:group_sids:INVALID_GROUP_SIDS" in errors
