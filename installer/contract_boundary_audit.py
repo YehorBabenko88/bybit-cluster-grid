@@ -78,10 +78,31 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
     stages = dict(vm_plan=vm_plan, vm_evidence=vm_evidence, attestation=attestation,
                   ownership=ownership, postgres=postgres, preflight=preflight,
                   deployment=deployment)
+    # Never accept a self-reported authorization or readiness signal hidden
+    # inside another component's metadata. This is a deny-only scan; it does
+    # not attempt to interpret or authenticate component-specific evidence.
+    forbidden_keys = frozenset(("execution_authorized", "physical_ready",
+                               "readiness_passed", "schema2", "verified_safety_cases"))
+    def reject_nested_promotions(value, depth=0):
+        if depth > 32:
+            _deny("NESTED_DEPTH_INVALID")
+        if type(value) is dict:
+            for key, child in value.items():
+                if key in forbidden_keys:
+                    if key == "verified_safety_cases":
+                        if type(child) is not int or child != 0:
+                            _deny("NESTED_CASE_PROMOTION")
+                    elif child is not False:
+                        _deny("NESTED_AUTHORIZATION_PROMOTION")
+                reject_nested_promotions(child, depth + 1)
+        elif type(value) is list:
+            for child in value:
+                reject_nested_promotions(child, depth + 1)
     for stage, report in stages.items():
         if report is None:
             continue
         _safe(report)
+        reject_nested_promotions(report)
         _blocked(report, stage)
         if stage in ("vm_plan", "vm_evidence", "attestation"):
             _shape(report, ("negative_cases",), allow_extra=True)
