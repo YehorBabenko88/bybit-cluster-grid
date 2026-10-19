@@ -1,0 +1,62 @@
+name: integration-evidence-audit
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evidence-invariants:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Offline negative evidence contract tests
+        shell: bash
+        run: python -m unittest discover -s tests -p 'test_integration_*.py' -v
+
+      - name: Require PostgreSQL cross-contract pytest source
+        shell: bash
+        run: |
+          test -f tests/test_pgdata_cross_contract.py || { echo "::error::PG205_SOURCE_MISSING"; exit 1; }
+          test -f installer/pgdata_cross_contract.py || { echo "::error::PG205_IMPLEMENTATION_MISSING"; exit 1; }
+      - name: Install pytest
+        run: python -m pip install pytest
+      - name: PostgreSQL cross-contract pytest (minimum 23, no skips)
+        shell: bash
+        env:
+          EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXACT_HEAD_SHA" || { echo "::error::CHECKOUT_HEAD_MISMATCH"; exit 1; }
+          python -m pytest --collect-only -q tests/test_pgdata_cross_contract.py
+          python - <<'PY'
+          import json, os, pathlib, pytest
+          class Inventory:
+              def __init__(self): self.nodes = []
+              def pytest_collection_finish(self, session):
+                  self.nodes = [item.nodeid.replace(chr(92), "/") for item in session.items]
+          collector = Inventory()
+          outcome = pytest.main(["--collect-only", "-q", "tests/test_pgdata_cross_contract.py"], plugins=[collector])
+          if int(outcome) != 0 or not collector.nodes or len(set(collector.nodes)) != len(collector.nodes):
+              raise SystemExit("PG_COLLECTION_INVALID")
+          pathlib.Path(os.environ["RUNNER_TEMP"], "pg-collected.json").write_text(json.dumps(collector.nodes), encoding="utf-8")
+          PY
+          python -m pytest -q --strict-markers --junitxml "$RUNNER_TEMP/pg-cross-contract.xml" tests/test_pgdata_cross_contract.py
+          python -m audit.integration_ci.pg_pytest_receipt --junit "$RUNNER_TEMP/pg-cross-contract.xml" --collected "$RUNNER_TEMP/pg-collected.json" --sha "$(git rev-parse HEAD)" --expected-sha "$EXACT_HEAD_SHA"
+      - name: Publish PostgreSQL cross-contract JUnit
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pg-cross-contract-${{ matrix.os }}-${{ matrix.python-version }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/pg-cross-contract.xml
+          if-no-files-found: warn
