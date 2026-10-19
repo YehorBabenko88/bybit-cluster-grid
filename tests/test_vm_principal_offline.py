@@ -44,3 +44,19 @@ def test_even_attested_distinct_principals_do_not_authorize_execution():
     })
     _assert_blocked(result)
     assert result.reasons == ("OFFLINE_MODEL_CANNOT_AUTHORIZE_EXECUTION",)
+
+def test_declared_actual_sid_drift_is_explicitly_rejected():
+    result = assess_offline({
+        "a": PrincipalEvidence("expected-a", "actual-a", "actual-a", False, (), True, True),
+        "b": PrincipalEvidence("b", "b", "b", False, (), True, True),
+    })
+    _assert_blocked(result)
+    assert "a:DECLARED_ACTUAL_SID_MISMATCH" in result.reasons
+
+def test_elevated_guest_token_is_explicitly_rejected():
+    result = assess_offline({
+        "a": PrincipalEvidence("a", "a", "a", True, (), True, True),
+        "b": PrincipalEvidence("b", "b", "b", False, (), True, True),
+    })
+    _assert_blocked(result)
+    assert "a:UNEXPECTED_ELEVATED_TOKEN" in result.reasons
