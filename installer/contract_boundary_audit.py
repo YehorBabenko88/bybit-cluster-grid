@@ -195,6 +195,8 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
                 _deny("CHALLENGE_MISMATCH")
             if "observer_id" in attestation and attestation["observer_id"] != bindings["observer_id"]:
                 _deny("OBSERVER_MISMATCH")
+    # Explicit identity contradictions are rejectable, but matching strings
+    # alone are not proof that two reports came from the same run.
     return {
         "schema": VERSION, "status": "BLOCKED", "execution_authorized": False,
         "physical_ready": False, "readiness_passed": False,
@@ -204,5 +206,6 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
                    for k, v in stages.items()},
         "blockers": ["NO_CROSS_COMPONENT_AUTHORITY", "INDEPENDENT_PROOF_NOT_IMPLEMENTED",
                      "REPORT_ORIGIN_AND_CHALLENGE_NOT_CRYPTOGRAPHICALLY_BOUND",
+                     "CROSS_COMPONENT_REPLAY_NOT_DURABLY_PREVENTED",
                      "NO_SCHEMA2_OR_PHYSICAL_EXECUTOR", "ALL_GUEST_CASES_NOT_RUN"],
     }
