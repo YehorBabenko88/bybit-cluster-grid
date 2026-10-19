@@ -15,7 +15,7 @@ class JobEvidenceTests(unittest.TestCase):
         self.assertIs(result["execution_authorized"], False)
         self.assertIs(result["readiness_passed"], False)
     def test_negative_cases(self):
-        for mutation in ("missing", "duplicate", "skipped", "cancelled", "missing_steps", "skipped_step", "unexpected"):
+        for mutation in ("missing", "duplicate", "skipped", "cancelled", "missing_steps", "skipped_step", "unexpected", "no_test_step"):
             with self.subTest(mutation=mutation):
                 data = jobs()
                 if mutation == "missing": data.pop()
@@ -25,6 +25,7 @@ class JobEvidenceTests(unittest.TestCase):
                 elif mutation == "missing_steps": data[0]["steps"] = []
                 elif mutation == "skipped_step": data[0]["steps"][0]["conclusion"] = "skipped"
                 elif mutation == "unexpected": data.append({"name": "unknown"})
+                elif mutation == "no_test_step": data[0]["steps"][0]["name"] = "Unrelated passing step"
                 self.assertEqual(inspect_jobs(data, SHA)["status"], "BLOCKED_UNPROVEN")
     def test_bad_sha_and_policy_override(self):
         self.assertEqual(inspect_jobs(jobs(), "z" * 40)["status"], "BLOCKED_UNPROVEN")
