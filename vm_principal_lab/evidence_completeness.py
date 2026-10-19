@@ -25,6 +25,11 @@ def audit_evidence_completeness(evidence: Mapping[str, object]) -> CompletenessR
         return CompletenessResult(False, REQUIRED_FIELDS)
     missing = tuple(field for field in REQUIRED_FIELDS
                     if field not in evidence or evidence[field] is None
-                    or (isinstance(evidence[field], str) and not evidence[field].strip()))
+                    or isinstance(evidence[field], bool) and field not in (
+                        "effective_read", "effective_write", "effective_write_dac")
+                    or isinstance(evidence[field], str) and not evidence[field].strip()
+                    or isinstance(evidence[field], (tuple, list, dict, set)) and not evidence[field]
+                    or field in ("effective_read", "effective_write", "effective_write_dac")
+                    and type(evidence[field]) is not bool)
     # Presence is not authenticity. Never promote to READY even when all fields exist.
     return CompletenessResult(not missing, missing)
