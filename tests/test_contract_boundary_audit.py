@@ -240,3 +240,16 @@ def test_metadata_trust_level_cannot_be_confused_with_authentication():
     assert result["status"] == "BLOCKED"
     assert result["readiness_passed"] is False
     assert "NO_CROSS_COMPONENT_AUTHORITY" in result["blockers"]
+
+
+@pytest.mark.parametrize("stage", ["vm_plan", "ownership"])
+def test_present_metadata_never_claims_provenance_or_replay_protection(stage):
+    p = fixture()
+    if stage == "vm_plan":
+        result = audit_contracts(p, vm_plan=validate_vm_lab_plan(p), bindings=bindings(p))
+    else:
+        result = audit_contracts(p)
+    for flag in ("provenance_verified", "replay_protection_verified",
+                 "cross_component_authority", "execution_authorized", "physical_ready"):
+        assert result[flag] is False
+    assert result["trust_level"] == "UNVERIFIED_METADATA_ONLY"
