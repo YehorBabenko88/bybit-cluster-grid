@@ -31,6 +31,10 @@ def validate_receipt(xml_text, commit_sha, expected_sha):
         errors.append("PG_CROSS_CONTRACT_CASES_MISSING")
     if len(matched) != len(cases):
         errors.append("UNEXPECTED_TEST_SCOPE")
+    if len({(case.attrib.get("classname"), case.attrib.get("name")) for case in cases}) != len(cases):
+        errors.append("DUPLICATE_TESTCASE")
+    if any(not case.attrib.get("name") or not case.attrib.get("classname") for case in cases):
+        errors.append("MALFORMED_TESTCASE")
     for case in cases:
         if any(case.find(tag) is not None for tag in ("skipped", "failure", "error")):
             errors.append("SKIPPED_OR_FAILED_CASE")
