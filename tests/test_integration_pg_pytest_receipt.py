@@ -93,3 +93,19 @@ class PgPytestReceiptTests(unittest.TestCase):
     def test_tampered_collected_inventory_rejected(self):
         self.assertIn("COLLECTION_REQUIRED", validate_receipt(xml(), SHA, SHA, ["wrong::test_case"]))
         self.assertIn("COLLECTION_REQUIRED", validate_receipt(xml(), SHA, SHA, None))
+
+    def test_invalid_collected_json_must_not_hide_valid_junit(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        from audit.integration_ci import pg_pytest_receipt
+        with TemporaryDirectory() as directory:
+            junit = Path(directory) / "results.xml"
+            collected = Path(directory) / "collected.json"
+            junit.write_text(xml(), encoding="utf-8")
+            collected.write_text("27 tests collected in 0.07s\\n" + "[]", encoding="utf-8")
+            with patch("sys.argv", ["receipt", "--junit", str(junit), "--collected", str(collected),
+                                    "--sha", SHA, "--expected-sha", SHA]):
+                self.assertEqual(pg_pytest_receipt.main(), 1)
+            self.assertEqual(validate_receipt(junit.read_text(encoding="utf-8"), SHA, SHA, None),
+                             ["COLLECTION_REQUIRED"])
