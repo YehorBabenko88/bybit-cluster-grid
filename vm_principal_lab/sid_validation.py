@@ -5,8 +5,8 @@ Syntax is never proof of guest identity, provenance, ACL effectiveness or author
 import re
 from typing import Mapping
 
-_SID_RE = re.compile(r"S-1-(0|[1-9][0-9]*)(?:-(0|[1-9][0-9]*)){1,15}\\Z", re.ASCII)
-_DECIMAL_RE = re.compile(r"(?:0|[1-9][0-9]*)\\Z", re.ASCII)
+_SID_RE = re.compile(r"S-1-(0|[1-9][0-9]*)(?:-(0|[1-9][0-9]*)){1,15}\Z", re.ASCII)
+_DECIMAL_RE = re.compile(r"(?:0|[1-9][0-9]*)\Z", re.ASCII)
 MAX_AUTHORITY = (1 << 48) - 1
 MAX_SUBAUTHORITY = (1 << 32) - 1
 MAX_SID_STRING_LENGTH = 184  # max canonical decimal SID text: revision + 48-bit authority + 15 DWORDs
