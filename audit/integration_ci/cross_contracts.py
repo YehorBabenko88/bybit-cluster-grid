@@ -4,6 +4,9 @@ def inspect_contracts(vm, postgres, attestation):
     errors = []
     if not all(isinstance(x, dict) for x in (vm, postgres, attestation)):
         return ["contracts must be objects"]
+    for contract, key in ((vm, "ownership_session"), (postgres, "ownership_session"), (attestation, "session")):
+        if not isinstance(contract.get(key), str) or not contract[key].strip():
+            errors.append("ownership session must be a nonempty string")
     if vm.get("mode") != "PlanOnly":
         errors.append("VM mode must be PlanOnly")
     if vm.get("physical_cases_status") != "NOT_RUN":

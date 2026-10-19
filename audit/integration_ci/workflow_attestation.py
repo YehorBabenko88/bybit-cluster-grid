@@ -1,4 +1,6 @@
-"""Read-only CI status attestation: prevent green-by-omission."""
+"""Caller-supplied CI metadata checks; never authenticated workflow/job proof."""
+import re
+
 REQUIRED = frozenset({
     "integration-evidence-audit", "composed-safety-gate",
     "commissioning-manifest", "isolated-postgres-offline",
@@ -7,8 +9,11 @@ REQUIRED = frozenset({
 })
 
 def assess(runs, expected_sha, required=REQUIRED):
-    if not isinstance(runs, list) or not isinstance(expected_sha, str) or len(expected_sha) != 40:
-        return {"status": "BLOCKED_UNPROVEN", "reasons": ["invalid input"]}
+    if (not isinstance(runs, list) or not isinstance(expected_sha, str)
+            or re.fullmatch(r"[0-9a-f]{40}", expected_sha) is None
+            or not isinstance(required, (set, frozenset)) or required != REQUIRED):
+        return {"status": "BLOCKED_UNPROVEN", "reasons": ["invalid input"],
+                "readiness_passed": False, "execution_authorized": False}
     seen = {}
     reasons = []
     for run in runs:
@@ -16,6 +21,9 @@ def assess(runs, expected_sha, required=REQUIRED):
             reasons.append("malformed run")
             continue
         name = run.get("name")
+        if not isinstance(name, str):
+            reasons.append("malformed workflow name")
+            continue
         if name not in required:
             continue
         if name in seen:
@@ -26,7 +34,8 @@ def assess(runs, expected_sha, required=REQUIRED):
         if run.get("status") != "completed" or run.get("conclusion") != "success":
             reasons.append(f"not successful: {name}")
     reasons.extend(f"missing workflow: {name}" for name in sorted(required - seen.keys()))
-    return {"status": "BLOCKED_UNPROVEN" if reasons else "CI_VERIFIED_ONLY",
+    return {"status": "BLOCKED_UNPROVEN" if reasons else "CI_METADATA_ONLY",
             "reasons": reasons,
+            "evidence_scope": "caller-supplied run metadata; job execution and provenance unverified",
             "readiness_passed": False,
             "execution_authorized": False}
