@@ -35,9 +35,10 @@ jobs:
           EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXACT_HEAD_SHA" || { echo "::error::CHECKOUT_HEAD_MISMATCH"; exit 1; }
           python -m pytest --collect-only -q tests/test_pgdata_cross_contract.py
           python -m pytest -q --strict-markers --junitxml "$RUNNER_TEMP/pg-cross-contract.xml" tests/test_pgdata_cross_contract.py
-          python -m audit.integration_ci.pg_pytest_receipt --junit "$RUNNER_TEMP/pg-cross-contract.xml" --sha "$EXACT_HEAD_SHA" --expected-sha "${{ github.event.pull_request.head.sha || github.sha }}"
+          python -m audit.integration_ci.pg_pytest_receipt --junit "$RUNNER_TEMP/pg-cross-contract.xml" --sha "$(git rev-parse HEAD)" --expected-sha "$EXACT_HEAD_SHA"
       - name: Publish PostgreSQL cross-contract JUnit
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
