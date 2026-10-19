@@ -88,3 +88,30 @@ def test_behavioral_journal_objects_never_compared():
         r = check_pgdata_contract(p, a, j)
         assert_blocked(r)
         assert "JOURNAL_FIELD_TYPE_INVALID" in r["blockers"]
+
+def test_all_journal_scalar_fields_reject_non_strings():
+    for field in ("status", "run_id", "node_id", "pgdata"):
+        for invalid in (None, True, False, 0, 1, 1.5, [], {}, b"BLOCKED"):
+            p, a, j = fixtures()
+            j[field] = invalid
+            before = copy.deepcopy((p, a, j))
+            result = check_pgdata_contract(p, a, j)
+            assert_blocked(result)
+            assert "JOURNAL_FIELD_TYPE_INVALID" in result["blockers"], (field, invalid, result)
+            assert (p, a, j) == before
+
+def test_adapter_identity_mismatch_codes():
+    for field, value in (("run_id", "b" * 32), ("node_id", "LS5"),
+                         ("postgres_port", True), ("postgres_port", 25433)):
+        p, a, j = fixtures()
+        a[field] = value
+        result = check_pgdata_contract(p, a, j)
+        assert_blocked(result)
+        assert "ADAPTER_IDENTITY_MISMATCH" in result["blockers"]
+
+def test_schema2_is_never_accepted():
+    p, a, j = fixtures()
+    p["schema"] = 2
+    result = check_pgdata_contract(p, a, j)
+    assert_blocked(result)
+    assert result["blockers"] == ["PLAN_INVALID"]
