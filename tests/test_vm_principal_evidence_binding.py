@@ -24,7 +24,7 @@ def test_actual_token_mismatch():
         evidence(token_user_sid="S-1-5-21-999")).issues
 
 def test_malformed_group_sids():
-    for groups in ((), ["valid", ""], "S-1-5-32-545", [None]):
+    for groups in ((), ["S-1-5-32-545", ""], "S-1-5-32-545", [None]):
         assert "INVALID_TOKEN_GROUP_SIDS" in audit_evidence_binding(
             evidence(token_group_sids=groups)).issues
 
@@ -34,6 +34,17 @@ def test_effective_access_requires_real_booleans():
                                             effective_write_dac=None)).issues
     assert all(f"{field}:INVALID_EFFECTIVE_ACCESS" in issues for field in (
         "effective_read", "effective_write", "effective_write_dac"))
+
+def test_noncanonical_sid_is_rejected():
+    for invalid in ("synthetic", "s-1-5-21-100", "S-1-05-21-100",
+                    "S-1-5-21-100 ", "S-1-5-21--100"):
+        assert "actual_sid:INVALID_SID" in audit_evidence_binding(
+            evidence(actual_sid=invalid)).issues
+
+def test_malformed_owner_sid_is_rejected_without_implying_same_owner_as_user():
+    issues = audit_evidence_binding(evidence(object_owner_sid="not-a-sid")).issues
+    assert "object_owner_sid:INVALID_SID" in issues
+    assert audit_evidence_binding(evidence(object_owner_sid="S-1-5-18")).issues == ()
 
 def test_non_mapping_is_blocked():
     result = audit_evidence_binding(None)
