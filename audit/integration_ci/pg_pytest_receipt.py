@@ -26,6 +26,18 @@ def validate_receipt(xml_text, commit_sha, expected_sha):
     cases = list(root.iter("testcase"))
     if len(cases) > 10000:
         errors.append("JUNIT_CASE_LIMIT_EXCEEDED")
+    suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
+    if not suites:
+        errors.append("JUNIT_SUITE_MISSING")
+    for suite in suites:
+        for attribute, actual in (("tests", len(list(suite.iter("testcase")))),
+                                  ("failures", len(list(suite.iter("failure")))),
+                                  ("errors", len(list(suite.iter("error")))),
+                                  ("skipped", len(list(suite.iter("skipped"))))):
+            declared = suite.attrib.get(attribute)
+            if declared is None or not declared.isdecimal() or int(declared) != actual:
+                errors.append("JUNIT_SUITE_COUNTS_MISMATCH")
+                break
     matched = [
         case for case in cases
         if ("test_pgdata_cross_contract" in case.attrib.get("classname", "")
