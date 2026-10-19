@@ -21,7 +21,11 @@ def validate_receipt(xml_text, commit_sha, expected_sha):
         root = ET.fromstring(xml_text)
     except (ET.ParseError, TypeError, ValueError):
         return errors + ["INVALID_JUNIT_XML"]
+    if root.tag not in ("testsuite", "testsuites"):
+        errors.append("INVALID_JUNIT_ROOT")
     cases = list(root.iter("testcase"))
+    if len(cases) > 10000:
+        errors.append("JUNIT_CASE_LIMIT_EXCEEDED")
     matched = [
         case for case in cases
         if ("test_pgdata_cross_contract" in case.attrib.get("classname", "")
