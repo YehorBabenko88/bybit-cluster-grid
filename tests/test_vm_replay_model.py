@@ -7,7 +7,8 @@ def binding():
     return {'audience':'VM_LAB_TEST_ONLY','plan_sha256':'a'*64,'image_sha256':'b'*64,
             'code_sha256':'c'*64,'artifact_sha256':'d'*64,
             'host_id':'33333333-3333-4333-8333-333333333333',
-            'vm_id':'22222222-2222-4222-8222-222222222222','policy_epoch':1}
+            'vm_id':'22222222-2222-4222-8222-222222222222',
+            'session_id':'77777777-7777-4777-8777-777777777777','policy_epoch':1}
 
 
 def prepared():
@@ -159,7 +160,7 @@ def test_seeded_binding_changes_and_restarts_preserve_model_invariants():
     for _ in range(64):
         bad=copy.deepcopy(b);field=rng.choice(list(b))
         bad[field]=('production' if field=='audience' else 2 if field=='policy_epoch' else
-                    '99999999-9999-4999-8999-999999999999' if field in ('host_id','vm_id') else 'f'*64)
+                    '99999999-9999-4999-8999-999999999999' if field in ('host_id','vm_id','session_id') else 'f'*64)
         with pytest.raises(ValueError):m.claim(nonces[0],'77777777-7777-4777-8777-777777777777',bad,1,1,m.revision)
         assert m.revision==revision and m.report()['status']=='BLOCKED'
 
@@ -176,3 +177,12 @@ def test_validation_event_must_be_specific_to_nonce_and_claim_fence(scope):
     revision=m.revision
     with pytest.raises(ValueError):m.consume(newer,v,now,now,m.revision)
     assert m.revision==revision
+
+
+
+def test_session_binding_cannot_be_substituted_on_an_issued_nonce():
+    from installer.vm_replay_model import ReplayModel
+    m=ReplayModel();b=binding();nonce=m.issue(b,'issuer',0,0,m.revision)
+    b['session_id']='99999999-9999-4999-8999-999999999999'
+    with pytest.raises(ValueError,match='VM_MODEL_BINDING'):
+        m.claim(nonce,'88888888-8888-4888-8888-888888888888',b,1,1,m.revision)

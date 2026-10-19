@@ -59,7 +59,7 @@ zero verified safety cases and all twelve guest cases NOT_RUN/BLOCKED_UNPROVEN.
 `vm_replay_model.py` is an executable specification in Python memory only. Frozen
 Image/Record/Claim/Witness/Checkpoint values represent hypothetical storage states.
 Inputs are strict bounded metadata; binding is detached before use. It contains
-TEST-only audience, plan/image/code/artifact digests, host/VM UUIDs and policy epoch.
+TEST-only audience, plan/image/code/artifact digests, host/VM/session UUIDs and policy epoch.
 These are declarations, not measured identities or protected authority.
 
 Model roles are literal issuer / policy-authority labels, NOT authenticated callers.
@@ -69,7 +69,7 @@ value; it is not a verifier receipt, signature, approval or runtime capability. 
 model is intentionally NOT wired into the crypto verifier or an executor.
 
 - ISSUE: role/policy/CAS/clock/budget checked, monotonic issuance counter advances,
-  record is committed before nonce is returned. Deterministic hash(counter,binding)
+  record is committed before nonce is returned. Global issuance sequence never resets per session; explicit session UUID is included in the immutable binding hash. Deterministic hash(counter,binding)
   creates reproducible model IDs, NOT unpredictable real nonce issuance. No eviction;
   at64 records the model stops rather than forget replay history.
 - CLAIM: compare-and-set revision allows one competing winner; record fence increases,
@@ -124,7 +124,7 @@ must fail closed on uncertain acknowledgement/anchor state, even at availability
 
 ## Test / CI / stop matrix
 
-Twenty-six pure model tests exercise issuance/consume crash boundaries, restart,
+Twenty-seven pure model tests exercise issuance/consume crash boundaries, restart,
 old snapshot and missing anchor, torn commit, correlated rollback limitation, delayed
 consume, takeover, concurrent CAS, epoch revocation, clock drift/high-water, invalid
 roles/bindings/evidence, budgets and seeded scope mutation. New nine crypto tests run
@@ -148,3 +148,9 @@ showed it could be reused for a different nonce or takeover fence with the same
 metadata. AssumedValidation now embeds the exact immutable Claim context; both
 cases are rejected without a state change. A takeover needs a newly scoped model
 validation event. This fixes the MODEL contract, not a production attestation bypass.
+
+
+Final specification reconciliation added explicit session UUID to the model binding
+(the crypto challenge already had one). A session-substitution regression rejects
+using an issued nonce under another session. This is an in-memory model scope
+refinement, not evidence of a production session-identity mechanism.

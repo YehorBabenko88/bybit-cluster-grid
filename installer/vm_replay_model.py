@@ -77,10 +77,10 @@ def _claim_context(claim):
 
 
 def _binding(value):
-    check_value(value);_shape(value,'audience plan_sha256 image_sha256 code_sha256 artifact_sha256 host_id vm_id policy_epoch')
+    check_value(value);_shape(value,'audience plan_sha256 image_sha256 code_sha256 artifact_sha256 host_id vm_id session_id policy_epoch')
     _need(value['audience']=='VM_LAB_TEST_ONLY','VM_MODEL_AUDIENCE')
     for key in ('plan_sha256','image_sha256','code_sha256','artifact_sha256'):_digest(value[key])
-    _guid(value['host_id']);_guid(value['vm_id'])
+    _guid(value['host_id']);_guid(value['vm_id']);_guid(value['session_id'])
     _need(type(value['policy_epoch']) is int and 1<=value['policy_epoch']<2**63,'VM_MODEL_POLICY')
     return hashlib.sha256(canonical(value)).hexdigest()
 
