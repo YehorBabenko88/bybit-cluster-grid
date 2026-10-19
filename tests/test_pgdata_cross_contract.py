@@ -175,3 +175,28 @@ def test_missing_adapter_root_cannot_suppress_layout_blocker():
         assert "PGDATA_LAYOUT_MISMATCH" in result["blockers"]
         assert "PHYSICAL_OWNERSHIP_UNVERIFIED" in result["blockers"]
         assert "SCHEMA1_ADAPTER_MAPPING_BLOCKED" in result["blockers"]
+
+def test_metadata_matching_cannot_claim_ownership_or_authorize():
+    p, a, j = fixtures()
+    # Even a synthetic adapter path matching the requested PGDATA is
+    # metadata only, never native identity or ownership evidence.
+    a["root"] = "C:\\\\GridLab\\\\" + RUN + "\\\\LAB01\\\\pgdata"
+    j.update(status="BLOCKED", execution_authorized=False, readiness_passed=False)
+    result = check_pgdata_contract(p, a, j)
+    assert_blocked(result)
+    assert "PHYSICAL_OWNERSHIP_UNVERIFIED" in result["blockers"]
+    assert "SCHEMA1_ADAPTER_MAPPING_BLOCKED" in result["blockers"]
+    assert result["blockers"] == sorted(set(result["blockers"]))
+
+def test_all_missing_journal_fields_fail_closed():
+    for field in ("status", "execution_authorized", "readiness_passed",
+                  "run_id", "node_id", "pgdata"):
+        p, a, j = fixtures()
+        del j[field]
+        result = check_pgdata_contract(p, a, j)
+        assert_blocked(result)
+        if field in ("execution_authorized", "readiness_passed"):
+            expected = "JOURNAL_AUTHORIZATION_FORBIDDEN"
+        else:
+            expected = "JOURNAL_FIELD_TYPE_INVALID"
+        assert expected in result["blockers"], (field, result)
