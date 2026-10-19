@@ -331,3 +331,66 @@ def test_forged_guest_or_native_authority_is_denied(flag, nested):
         report[flag] = True
     with pytest.raises(ContractBoundaryBlocked):
         audit_contracts(p, vm_plan=report)
+
+
+# Codex independent five-PR audit P2 R6: both reproduced producer aliases.
+@pytest.mark.parametrize("alias", ["schema2_enabled", "schema_2_enabled"])
+def test_codex_r6_reproduced_schema2_alias_in_ownership(alias):
+    p = fixture()
+    report = {
+        "status": "BLOCKED", "execution_authorized": False,
+        "physical_ready": False, "assurance": "SYNTHETIC_ONLY",
+        "backend": "MODEL", "synthetic_result": "PASS",
+        alias: True,
+    }
+    with pytest.raises(ContractBoundaryBlocked, match="^CONTRACT_SCHEMA2_FORBIDDEN$"):
+        audit_contracts(p, ownership=report)
+
+
+@pytest.mark.parametrize("alias", [
+    "schema2", "schema2_enabled", "schema_2_enabled",
+    "schema2_active", "schema_2_active", "enable_schema2", "enable_schema_2",
+])
+@pytest.mark.parametrize("value", [True, 1, 0, None, "false", "true", [], {}])
+def test_schema2_aliases_reject_invalid_types_and_enabling(alias, value):
+    p = fixture()
+    report = {
+        "status": "BLOCKED", "execution_authorized": False,
+        "physical_ready": False, "assurance": "SYNTHETIC_ONLY",
+        "backend": "MODEL", "synthetic_result": "PASS",
+        "other": {"nested": [{"flags": {alias: value}}]},
+    }
+    with pytest.raises(ContractBoundaryBlocked, match="^CONTRACT_SCHEMA2_FORBIDDEN$"):
+        audit_contracts(p, ownership=report)
+
+
+@pytest.mark.parametrize("alias", ["schema2_enabled", "schema_2_enabled"])
+def test_conflicting_schema2_aliases_fail_closed(alias):
+    p = fixture()
+    report = {
+        "status": "BLOCKED", "execution_authorized": False,
+        "physical_ready": False, "assurance": "SYNTHETIC_ONLY",
+        "backend": "MODEL", "synthetic_result": "PASS",
+        "schema2": False, "opaque": [{"flags": {alias: True}}],
+    }
+    with pytest.raises(ContractBoundaryBlocked, match="^CONTRACT_SCHEMA2_FORBIDDEN$"):
+        audit_contracts(p, ownership=report)
+
+
+def test_synthetic_multicomponent_evidence_never_promotes_to_pass():
+    p = fixture()
+    report = {
+        "status": "BLOCKED", "execution_authorized": False,
+        "physical_ready": False, "assurance": "SYNTHETIC_ONLY",
+        "backend": "MODEL", "synthetic_result": "PASS",
+        "sources": ["source1", "source2"],
+        "schema2": False, "schema2_enabled": False, "schema_2_enabled": False,
+    }
+    result = audit_contracts(p, vm_plan=validate_vm_lab_plan(p), ownership=report)
+    assert result["status"] == "BLOCKED"
+    assert result["cross_component_authority"] is False
+    assert result["provenance_verified"] is False
+    assert result["replay_protection_verified"] is False
+    assert result["verified_safety_cases"] == 0
+    assert all(c["execution"] == "NOT_RUN" and c["assurance"] == "BLOCKED_UNPROVEN"
+               for c in result["guest_cases"])
