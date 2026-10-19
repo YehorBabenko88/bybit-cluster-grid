@@ -9,9 +9,10 @@ def report(branch_files, workflow_runs, expected_sha):
     blockers = []
     if paths["conflicts"]:
         blockers.append("overlapping paths require human reconciliation")
-    if ci["status"] != "CI_VERIFIED_ONLY":
+    if ci["status"] != "CI_METADATA_ONLY":
         blockers.append("required CI evidence incomplete")
     blockers.extend([
+        "CI run provenance and required job execution unverified",
         "cross-branch semantic compatibility unverified",
         "physical VM principal/ACL tests NOT_RUN (12 cases)",
         "schema-2 activation prohibited",
