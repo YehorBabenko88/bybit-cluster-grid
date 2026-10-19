@@ -23,12 +23,12 @@ def audit_readiness_document(document: Mapping[str, Any]) -> Tuple[str, ...]:
         expected = {f"VM-NEG-{i:02d}" for i in range(1, 13)}
         if set(cases) != expected:
             errors.append("CASE_SET_MISMATCH")
-        for case_id, value in sorted(cases.items()):
+        for case_id, value in sorted(cases.items(), key=lambda item: str(item[0])):
             if value != "NOT_RUN":
                 errors.append(f"{case_id}:NOT_NOT_RUN")
-    if "hostile_admin" in document and type(document.get("hostile_admin")) is not bool:
+    if type(document.get("hostile_admin")) is not bool:
         errors.append("HOSTILE_ADMIN_INVALID_BOOLEAN")
-    if document.get("hostile_admin") is True and document.get("hostile_admin_action") != "STOP":
+    if document.get("hostile_admin_action") != "STOP":
         errors.append("HOSTILE_ADMIN_STOP_MISSING")
     for key in ("readiness", "deployment_state", "execution_state"):
         if str(document.get(key, "")).upper() in FORBIDDEN_STATES:
