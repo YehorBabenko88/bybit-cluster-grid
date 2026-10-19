@@ -7,7 +7,8 @@ from installer.vm_lab_evidence import digest, draft
 
 VERSION = 1
 EXPECTED_CASES = tuple(name for name, _ in CASES)
-FALSE_FLAGS = ("execution_authorized", "physical_ready", "readiness_passed")
+FALSE_FLAGS = ("execution_authorized", "physical_ready", "readiness_passed",
+               "provenance_verified", "replay_protection_verified", "cross_component_authority")
 STAGES = ("vm_plan", "vm_evidence", "attestation", "ownership", "postgres", "preflight", "deployment")
 ALLOWED_STATUS = {
     "vm_plan": "BLOCKED",
@@ -81,8 +82,7 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
     # Never accept a self-reported authorization or readiness signal hidden
     # inside another component's metadata. This is a deny-only scan; it does
     # not attempt to interpret or authenticate component-specific evidence.
-    forbidden_keys = frozenset(("execution_authorized", "physical_ready",
-                               "readiness_passed", "schema2", "verified_safety_cases"))
+    forbidden_keys = frozenset((*FALSE_FLAGS, "schema2", "verified_safety_cases"))
     def reject_nested_promotions(value, depth=0):
         if depth > 32:
             _deny("NESTED_DEPTH_INVALID")
