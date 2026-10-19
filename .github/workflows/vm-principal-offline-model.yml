@@ -28,5 +28,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install test runner
+        run: python -m pip install pytest
       - name: Run isolated offline model tests
         run: python -m pytest -q tests/test_vm_principal_offline.py tests/test_vm_principal_negative_cases.py tests/test_vm_principal_evidence_consistency.py
