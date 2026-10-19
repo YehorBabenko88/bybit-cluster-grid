@@ -45,6 +45,8 @@ def detect_evidence_conflicts(claims: Mapping[str, EvidenceClaim]) -> Tuple[str,
         if type(claim.elevation) is not str or claim.elevation not in ("limited", "elevated"):
             errors.append(f"{key}:INVALID_ELEVATION")
             continue
+        if claim.elevation == "elevated":
+            errors.append(f"{key}:ELEVATED_TOKEN_UNSAFE")
         if type(claim.acl_digest) is not str or not claim.acl_digest:
             errors.append(f"{key}:ACL_EVIDENCE_MISSING")
             continue
