@@ -253,3 +253,18 @@ def test_present_metadata_never_claims_provenance_or_replay_protection(stage):
                  "cross_component_authority", "execution_authorized", "physical_ready"):
         assert result[flag] is False
     assert result["trust_level"] == "UNVERIFIED_METADATA_ONLY"
+
+
+@pytest.mark.parametrize("flag", [
+    "provenance_verified", "replay_protection_verified", "cross_component_authority"
+])
+@pytest.mark.parametrize("nested", [False, True])
+def test_forged_provenance_or_authority_is_denied(flag, nested):
+    p = fixture()
+    report = validate_vm_lab_plan(p)
+    if nested:
+        report["untrusted_component_data"] = {"nested": {flag: True}}
+    else:
+        report[flag] = True
+    with pytest.raises(ContractBoundaryBlocked):
+        audit_contracts(p, vm_plan=report)
