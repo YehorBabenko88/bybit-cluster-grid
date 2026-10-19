@@ -60,3 +60,32 @@ def test_elevated_guest_token_is_explicitly_rejected():
     })
     _assert_blocked(result)
     assert "a:UNEXPECTED_ELEVATED_TOKEN" in result.reasons
+
+def test_p2_r5_assess_offline_rejects_string_boolean_attestations():
+    evil = PrincipalEvidence("S-1-5-21-101", "S-1-5-21-101", "S-1-5-21-101",
+                             0, ("S-1-5-32-545",), "false", "true")
+    result = assess_offline({
+        "a": evil,
+        "b": PrincipalEvidence("S-1-5-21-102", "S-1-5-21-102", "S-1-5-21-102",
+                               False, ("S-1-5-32-545",), True, True),
+    })
+    _assert_blocked(result)
+    assert "a:acl_verified:INVALID_BOOLEAN" in result.reasons
+    assert "a:independently_attested:INVALID_BOOLEAN" in result.reasons
+    assert "a:elevated:INVALID_BOOLEAN" in result.reasons
+
+
+def test_p2_r4_assess_offline_overflow_sid_not_silent():
+    bad = PrincipalEvidence("S-1-5-4294967296", "S-1-5-4294967296",
+                            "S-1-5-4294967296", False,
+                            ("S-1-5-32-545",), True, True)
+    result = assess_offline({"a": bad, "b": bad})
+    _assert_blocked(result)
+    assert "a:actual_sid:INVALID_SID" in result.reasons
+
+
+def test_non_mapping_and_invalid_hostile_admin_never_authorize():
+    result = assess_offline(None, hostile_admin="false")
+    _assert_blocked(result)
+    assert "INVALID_PRINCIPAL_COLLECTION" in result.reasons
+    assert "INVALID_HOSTILE_ADMIN_BOOLEAN" in result.reasons
