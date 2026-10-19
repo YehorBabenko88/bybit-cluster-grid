@@ -32,3 +32,13 @@ class PgPytestReceiptTests(unittest.TestCase):
 
     def test_invalid_xml_is_forbidden(self):
         self.assertIn("INVALID_JUNIT_XML", validate_receipt("<bad", SHA, SHA))
+
+
+    def test_duplicate_cases_cannot_inflate_count(self):
+        single = '<testcase classname="tests.test_pgdata_cross_contract" name="same"/>'
+        report = "<testsuite>" + single * 23 + "</testsuite>"
+        self.assertIn("DUPLICATE_TESTCASE", validate_receipt(report, SHA, SHA))
+
+    def test_missing_case_identity_rejected(self):
+        report = xml().replace(' name="test_0"', '', 1)
+        self.assertIn("MALFORMED_TESTCASE", validate_receipt(report, SHA, SHA))
