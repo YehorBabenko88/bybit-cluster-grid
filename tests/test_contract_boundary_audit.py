@@ -154,3 +154,28 @@ def test_no_mutation_of_caller_data():
     before = copy.deepcopy((p, b))
     audit_contracts(p, bindings=b)
     assert (p, b) == before
+
+
+@pytest.mark.parametrize("stage,field,value", [
+    ("vm_evidence", "plan_sha256", "0" * 64),
+    ("vm_evidence", "payload_sha256", "0" * 64),
+    ("attestation", "observer_id", "99999999-9999-4999-8999-999999999999"),
+    ("attestation", "challenge", {"session_id": "77777777-7777-4777-8777-777777777777",
+                                    "nonce": "f" * 64, "sequence": 1,
+                                    "code_sha256": "b" * 64, "artifact_sha256": "c" * 64}),
+])
+def test_explicit_foreign_report_provenance_is_rejected(stage, field, value):
+    p = fixture()
+    b = bindings(p)
+    report = {"status": "BLOCKED", "execution_authorized": False, "physical_ready": False,
+              "negative_cases": [{"case": case["case"], "execution": "NOT_RUN",
+                                  "assurance": "BLOCKED_UNPROVEN"}
+                                 for case in validate_vm_lab_plan(p)["negative_cases"]]}
+    if stage == "vm_evidence":
+        report.update(authentication="UNVERIFIED", integrity="MATCH_METADATA_ONLY")
+    else:
+        report.update(authentication="TEST_KEY_ONLY",
+                      signature_result="VERIFIED_PUBLIC_TEST_FIXTURE")
+    report[field] = value
+    with pytest.raises(ContractBoundaryBlocked):
+        audit_contracts(p, bindings=b, **{stage: report})
