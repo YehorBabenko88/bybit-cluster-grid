@@ -22,3 +22,35 @@ All responses must retain `status=BLOCKED`, `readiness_passed=false`, `execution
 ## Non-goals
 
 No physical PGDATA provisioning, PostgreSQL execution, ownership session verification, authorization, schema-2 activation or deployment. Never infer those properties from a successful metadata comparison.
+
+
+## Actual GridLab PowerShell producer (Codex audit F1)
+
+The real PowerShell producer writes UTF-8 (without BOM) newline-terminated
+\`owner.jsonl\` rows, with exact ordered fields
+\`{"schema":1,"plan_sha256":"<adapter-intent SHA-256>","state":"PREPARED"}\`.
+Subsequent states are \`COMMITTED\` and optionally \`RETIRED\` in the canonical
+sequence. It has no \`run_id\`, \`node_id\`, \`status\`, \`pgdata\`,
+\`readiness_passed\`, or \`execution_authorized\` journal fields.
+
+The argument historically named \`journal\` in \`check_pgdata_contract\`
+is a **synthetic diagnostic envelope**, *not* this PowerShell journal.
+\`inspect_producer_journal_format\` recognizes canonical JSONL syntax or
+returns a fixed rejection reason, but intentionally returns
+\`JOURNAL_PRODUCER_JSONL_NOT_DIAGNOSTIC_ENVELOPE\` even on a canonical producer
+journal. A correct format is not proof of digest source, session ownership, ACL,
+host identity, lifecycle activation, or authenticity. Adapter-intent digest
+\`plan_sha256\` is not the separate PostgreSQL-plan digest.
+
+PowerShell's root template is
+\`<GridLab parent>\\<run_id>_<node_id>\` and its PGDATA template is
+\`<root>\\postgres\\data\`. Schema-1 PostgreSQL validation instead requires
+\`<drive>\\GridLab\\<run_id>\\<node_id>\\pgdata\`. **Do not automatically
+rewrite or equate these paths**. The permanent
+\`SCHEMA1_ADAPTER_MAPPING_BLOCKED\` and physical-ownership blockers remain.
+
+The dedicated offline CI lists and agent #4 integration-evidence workflow
+must explicitly execute these pytest-style tests; merely using
+\`unittest discover\` does not collect them. Preflight broad pytest already
+collects the file on both Python 3.11 and 3.12. A dedicated zero-skip
+exact-SHA JUnit receipt remains a dependency for joint integration.
