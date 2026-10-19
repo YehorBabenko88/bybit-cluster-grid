@@ -27,8 +27,8 @@ class ContractBoundaryBlocked(ValueError):
 def _deny(code):
     raise ContractBoundaryBlocked("CONTRACT_" + code)
 
-def _shape(obj, required, optional=()):
-    if type(obj) is not dict or not set(required) <= set(obj) or set(obj) - set(required) - set(optional):
+def _shape(obj, required, optional=(), *, allow_extra=False):
+    if type(obj) is not dict or not set(required) <= set(obj) or (not allow_extra and set(obj) - set(required) - set(optional)):
         _deny("SHAPE_INVALID")
 
 def _safe(obj):
@@ -39,7 +39,7 @@ def _safe(obj):
         _deny("INPUT_INVALID")
 
 def _blocked(report, stage):
-    _shape(report, ("status", "execution_authorized", "physical_ready"))
+    _shape(report, ("status", "execution_authorized", "physical_ready"), allow_extra=True)
     if report["status"] != ALLOWED_STATUS[stage]:
         _deny("STATUS_PROMOTION")
     for key in FALSE_FLAGS:
@@ -86,7 +86,7 @@ def audit_contracts(plan, *, vm_plan=None, vm_evidence=None, attestation=None,
         _safe(report)
         _blocked(report, stage)
         if stage in ("vm_plan", "vm_evidence", "attestation"):
-            _shape(report, ("negative_cases",))
+            _shape(report, ("negative_cases",), allow_extra=True)
             _cases(report["negative_cases"])
         if stage == "vm_plan":
             if canonical(report) != canonical(local):
