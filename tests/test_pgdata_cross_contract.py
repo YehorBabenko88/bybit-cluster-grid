@@ -1,0 +1,56 @@
+"""Pure offline negative tests for PGDATA cross-contract checks."""
+import copy
+from installer.pgdata_cross_contract import check_pgdata_contract
+
+RUN = "a" * 32
+ROOT = "C:\\GridLab\\" + RUN + "\\LAB01\\pgdata"
+
+def fixtures():
+    plan = dict(schema=1, run_id=RUN, node_id="LAB01", data_root=ROOT,
+                port=25432, postgres_major=16, listen_address="127.0.0.1",
+                existing_cluster=False, runtime_stopped=True, operator_approved=True)
+    adapter = dict(run_id=RUN, node_id="LAB01", postgres_port=25432,
+                   root="C:\\GridLab\\" + RUN + "\\LAB01")
+    journal = dict(status="BLOCKED", execution_authorized=False,
+                   readiness_passed=False, run_id=RUN, node_id="LAB01", pgdata=ROOT)
+    return plan, adapter, journal
+
+def assert_blocked(result):
+    assert result["status"] == "BLOCKED"
+    assert result["readiness_passed"] is False
+    assert result["execution_authorized"] is False
+    assert result["physical_ready"] is False
+    assert result["ownership_verified"] is False
+    assert result["schema2_enabled"] is False
+
+def test_normal_metadata_still_blocked():
+    p, a, j = fixtures()
+    original = copy.deepcopy((p, a, j))
+    r = check_pgdata_contract(p, a, j)
+    assert_blocked(r)
+    assert "PGDATA_LAYOUT_MISMATCH" in r["blockers"]
+    assert (p, a, j) == original
+
+def test_missing_or_forged_inputs_fail_closed():
+    p, a, j = fixtures()
+    for args in [(None, a, j), (p, None, j), (p, a, None),
+                 (dict(p, postgres_major=17), a, j),
+                 (p, dict(a, postgres_port=True), j),
+                 (p, a, dict(j, execution_authorized=True)),
+                 (p, a, dict(j, readiness_passed=True)),
+                 (p, a, dict(j, status="READY")),
+                 (p, a, dict(j, pgdata="C:\\other")),
+                 (p, a, dict(j, node_id="LS5"))]:
+        assert_blocked(check_pgdata_contract(*args))
+
+def test_no_side_effects(monkeypatch):
+    import socket
+    import subprocess
+    from pathlib import Path
+    def forbidden(*args, **kwargs):
+        raise AssertionError("SIDE_EFFECT")
+    with monkeypatch.context() as m:
+        m.setattr(Path, "open", forbidden)
+        m.setattr(subprocess, "Popen", forbidden)
+        m.setattr(socket.socket, "connect", forbidden)
+        assert_blocked(check_pgdata_contract(*fixtures()))
