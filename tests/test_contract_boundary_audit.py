@@ -268,3 +268,12 @@ def test_forged_provenance_or_authority_is_denied(flag, nested):
         report[flag] = True
     with pytest.raises(ContractBoundaryBlocked):
         audit_contracts(p, vm_plan=report)
+
+
+def test_test_key_metadata_never_proves_guest_execution():
+    p = fixture()
+    result = audit_contracts(p, vm_plan=validate_vm_lab_plan(p), bindings=bindings(p))
+    assert result["guest_execution_verified"] is False
+    assert result["test_key_attestation_is_production_proof"] is False
+    assert all(case["execution"] == "NOT_RUN" for case in result["guest_cases"])
+    assert all(case["assurance"] == "BLOCKED_UNPROVEN" for case in result["guest_cases"])
