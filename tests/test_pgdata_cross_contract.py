@@ -368,3 +368,29 @@ def test_real_adapter_pgdata_layout_remains_incompatible():
     assert_blocked(result)
     assert "PGDATA_LAYOUT_MISMATCH" in result["blockers"]
     assert "SCHEMA1_ADAPTER_MAPPING_BLOCKED" in result["blockers"]
+
+
+def test_producer_json_array_roots_fail_closed_without_unpacking():
+    """Codex P2 R1: arrays are not object_pairs_hook JSON object records."""
+    from installer.pgdata_cross_contract import inspect_producer_journal_format
+    malformed = (
+        "[1,2,3]\n", "[[],[],[]]\n", "[[1,2],[3,4],[5,6]]\n",
+        '[["schema",1],["plan_sha256","' + "b" * 64 + '"],["state","PREPARED"]]\n',
+        '{"schema":[],"plan_sha256":[],"state":[]}\n',
+    )
+    for raw in malformed:
+        assert inspect_producer_journal_format(raw) == "JOURNAL_RECORD_SCHEMA_INVALID"
+        for payload in (raw, raw.encode("utf-8")):
+            p, a, _ = fixtures()
+            result = check_pgdata_contract(p, a, payload)
+            assert_blocked(result)
+            assert "JOURNAL_RECORD_SCHEMA_INVALID" in result["blockers"]
+            assert "PGDATA_LAYOUT_MISMATCH" in result["blockers"]
+            assert "PHYSICAL_OWNERSHIP_UNVERIFIED" in result["blockers"]
+            assert "SCHEMA1_ADAPTER_MAPPING_BLOCKED" in result["blockers"]
+            assert result["status"] == "BLOCKED"
+            assert result["schema2_enabled"] is False
+            assert result["execution_authorized"] is False
+            assert result["readiness_passed"] is False
+            assert result["physical_ready"] is False
+            assert result["ownership_verified"] is False
