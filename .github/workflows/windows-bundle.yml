@@ -383,6 +383,8 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'Bundled pinned crypto test dependency unavailable'}
           & (Join-Path $bundle 'installer/tests/test-vm-test-attestation.ps1') -Python $cp
           if($LASTEXITCODE -ne 0){throw 'Bundled signature fixture failed'}
+          & (Join-Path $bundle 'installer/tests/test-vm-replay-model.ps1') -Python $cp
+          if($LASTEXITCODE -ne 0){throw 'Bundled memory replay model failed'}
 
       - name: Archive verified Windows bundle
         shell: pwsh
