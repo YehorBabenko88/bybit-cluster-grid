@@ -200,3 +200,27 @@ def test_all_missing_journal_fields_fail_closed():
         else:
             expected = "JOURNAL_FIELD_TYPE_INVALID"
         assert expected in result["blockers"], (field, result)
+
+def test_missing_adapter_identity_fields_fail_closed():
+    for field in ("run_id", "node_id", "postgres_port"):
+        p, a, j = fixtures()
+        del a[field]
+        result = check_pgdata_contract(p, a, j)
+        assert_blocked(result)
+        assert "ADAPTER_IDENTITY_MISMATCH" in result["blockers"]
+
+def test_behavioral_adapter_fields_never_compared():
+    class Hostile:
+        def __eq__(self, other):
+            raise AssertionError("adapter comparison invoked")
+        def __ne__(self, other):
+            raise AssertionError("adapter comparison invoked")
+        def __str__(self):
+            raise AssertionError("adapter stringification invoked")
+    for field in ("run_id", "node_id", "postgres_port", "root"):
+        p, a, j = fixtures()
+        a[field] = Hostile()
+        result = check_pgdata_contract(p, a, j)
+        assert_blocked(result)
+        expected = "PGDATA_LAYOUT_MISMATCH" if field == "root" else "ADAPTER_IDENTITY_MISMATCH"
+        assert expected in result["blockers"], (field, result)
