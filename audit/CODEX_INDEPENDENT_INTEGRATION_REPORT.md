@@ -88,3 +88,5 @@ Observed historical Windows commissioning workflow name is `.github/workflows/wi
 5. Preserve source scanners as heuristics only. No obfuscation resistance, complete static safety proof, live PostgreSQL contract, real VM principal isolation or production scenario was established.
 
 Final invariant: status=BLOCKED_UNPROVEN; readiness_passed=false; execution_authorized=false; schema_2_enabled=false; physical_vm_cases=12; every physical_vm_case_status=NOT_RUN.
+
+Verified implementation run outcome: 39274400345 completed-success. Both actual jobs completed-success: 118134814781 (Python 3.12), 118134815552 (Python 3.11); exact API head_sha 6ba42df4ca845abd060da7655bb990bd94add098. Independent fresh review found no actionable regression and reproduced original boundary failures by loading base modules. Final documentation-head rerun is tracked in PR/Issue #203 rather than claiming the implementation run covers a different SHA.
