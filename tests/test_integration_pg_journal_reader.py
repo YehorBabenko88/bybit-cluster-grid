@@ -72,5 +72,15 @@ class PgJournalReaderTests(unittest.TestCase):
         for value in (None, [], "", "z"*64):
             self.assertFalse(inspect_journal_bytes(journal("PREPARED"), value)["metadata_valid"])
 
+    def test_nonascii_record_digest_never_raises(self):
+        for invalid in ("é" * 64, "a" * 63 + "é", "\\ud800"):
+            with self.subTest(invalid=repr(invalid)):
+                record = journal("PREPARED", digest=invalid)
+                result = inspect_journal_bytes(record, DIGEST)
+                self.assertEqual(result["status"], "BLOCKED_UNPROVEN")
+                self.assertFalse(result["metadata_valid"])
+                self.assertFalse(result["execution_authorized"])
+                self.assertIn("INVALID_RECORD_DIGEST", result["errors"])
+
 if __name__ == "__main__":
     unittest.main()
