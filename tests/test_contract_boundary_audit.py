@@ -179,3 +179,29 @@ def test_explicit_foreign_report_provenance_is_rejected(stage, field, value):
     report[field] = value
     with pytest.raises(ContractBoundaryBlocked):
         audit_contracts(p, bindings=b, **{stage: report})
+
+
+@pytest.mark.parametrize("key,value", [
+    ("execution_authorized", True),
+    ("physical_ready", True),
+    ("readiness_passed", True),
+    ("schema2", True),
+    ("verified_safety_cases", 12),
+])
+def test_nested_metadata_cannot_smuggle_authorization(key, value):
+    p = fixture()
+    report = validate_vm_lab_plan(p)
+    report["extra_untrusted_metadata"] = {"opaque": [{"inner": {key: value}}]}
+    with pytest.raises(ContractBoundaryBlocked):
+        audit_contracts(p, vm_plan=report)
+
+
+def test_deeply_nested_untrusted_report_is_rejected():
+    p = fixture()
+    report = validate_vm_lab_plan(p)
+    nested = {"value": False}
+    for _ in range(34):
+        nested = {"nested": nested}
+    report["extra_untrusted_metadata"] = nested
+    with pytest.raises(ContractBoundaryBlocked):
+        audit_contracts(p, vm_plan=report)
