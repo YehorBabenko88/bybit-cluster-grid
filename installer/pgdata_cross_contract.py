@@ -2,6 +2,42 @@
 from pathlib import PureWindowsPath
 from installer.isolated_postgres_plan import validate_postgres_plan, ProvisioningBlocked
 
+
+def inspect_producer_journal_format(journal):
+    """Read-only shape check; never establishes journal provenance or authority."""
+    import json
+    import re
+    if type(journal) not in (str, bytes):
+        return "JOURNAL_FORMAT_INVALID"
+    try:
+        value = journal.decode("utf-8") if type(journal) is bytes else journal
+        encoded = value.encode("utf-8")
+    except UnicodeError:
+        return "JOURNAL_ENCODING_INVALID"
+    if not value or len(encoded) > 4096 or not value.endswith("\n") or "\r" in value or value.startswith("\ufeff"):
+        return "JOURNAL_NONCANONICAL_BYTES"
+    records = []
+    for line in value[:-1].split("\n"):
+        try:
+            pairs = json.loads(line, object_pairs_hook=lambda items: items,
+                               parse_constant=lambda x: (_ for _ in ()).throw(ValueError(x)))
+        except (ValueError, UnicodeError, RecursionError):
+            return "JOURNAL_FORMAT_INVALID"
+        if type(pairs) is not list or len(pairs) != 3 or [k for k, v in pairs] != ["schema", "plan_sha256", "state"]:
+            return "JOURNAL_RECORD_SCHEMA_INVALID"
+        schema, digest, state = [v for k, v in pairs]
+        if type(schema) is not int or schema != 1 or type(digest) is not str or re.fullmatch("[0-9a-f]{64}", digest) is None or type(state) is not str or state not in ("PREPARED", "COMMITTED", "RETIRED"):
+            return "JOURNAL_RECORD_SCHEMA_INVALID"
+        canonical = '{"schema":1,"plan_sha256":"' + digest + '","state":"' + state + '"}'
+        if line != canonical:
+            return "JOURNAL_NONCANONICAL_BYTES"
+        records.append((digest, state))
+    if [state for digest, state in records] not in (["PREPARED"], ["PREPARED", "COMMITTED"], ["PREPARED", "RETIRED"], ["PREPARED", "COMMITTED", "RETIRED"]):
+        return "JOURNAL_LIFECYCLE_INVALID"
+    if len({digest for digest, state in records}) != 1:
+        return "JOURNAL_DIGEST_MISMATCH"
+    return "JOURNAL_PRODUCER_JSONL_NOT_DIAGNOSTIC_ENVELOPE"
+
 def check_pgdata_contract(plan, adapter, journal):
     result = {"status": "BLOCKED", "readiness_passed": False,
               "execution_authorized": False, "physical_ready": False,
@@ -20,11 +56,14 @@ def check_pgdata_contract(plan, adapter, journal):
                 or type(adapter.get("postgres_port")) is not int or adapter["postgres_port"] != plan["port"]):
             result["blockers"].append("ADAPTER_IDENTITY_MISMATCH")
         root = adapter.get("root")
+        # PowerShell GridLab root is <parent>\\<run_id>_<node_id>, not schema-1 PGDATA.
         if type(root) is not str or str(PureWindowsPath(root) / "postgres" / "data") != plan["data_root"]:
             result["blockers"].append("PGDATA_LAYOUT_MISMATCH")
     if type(journal) is not dict:
-        result["blockers"].append("JOURNAL_MISSING")
+        result["blockers"].append(inspect_producer_journal_format(journal) if type(journal) in (str, bytes) else "JOURNAL_MISSING")
     else:
+        if set(journal) != {"status", "execution_authorized", "readiness_passed", "run_id", "node_id", "pgdata"}:
+            result["blockers"].append("JOURNAL_ENVELOPE_SCHEMA_INVALID")
         if journal.get("execution_authorized") is not False or journal.get("readiness_passed") is not False:
             result["blockers"].append("JOURNAL_AUTHORIZATION_FORBIDDEN")
         if type(journal.get("status")) is not str:
