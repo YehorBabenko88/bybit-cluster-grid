@@ -30,3 +30,33 @@ def test_missing_evidence_fails_closed():
     assert "one:MISSING_PROVENANCE" in issues
     assert "one:ACL_EVIDENCE_MISSING" in issues
     assert "one:ELEVATION_UNKNOWN" in issues
+
+def test_two_claims_for_different_guests_do_not_count_as_independent():
+    issues = detect_evidence_conflicts({
+        "one": claim("source-1", principal="guest-a"),
+        "two": claim("source-2", principal="guest-b", observed_sid="S-1-5-21-2", token_sid="S-1-5-21-2"),
+    })
+    assert "guest-a:INSUFFICIENT_INDEPENDENT_SOURCES" in issues
+    assert "guest-b:INSUFFICIENT_INDEPENDENT_SOURCES" in issues
+
+def test_source_id_reuse_across_guests_is_detected():
+    issues = detect_evidence_conflicts({
+        "one": claim("shared-source", principal="guest-a"),
+        "two": claim("shared-source", principal="guest-b", observed_sid="S-1-5-21-2", token_sid="S-1-5-21-2"),
+    })
+    assert "two:SOURCE_REUSED_ACROSS_PRINCIPALS" in issues
+
+def test_observed_sid_reuse_across_guests_is_detected():
+    issues = detect_evidence_conflicts({
+        "one": claim("source-1", principal="guest-a"),
+        "two": claim("source-2", principal="guest-b"),
+    })
+    assert "two:OBSERVED_SID_REUSED_ACROSS_PRINCIPALS" in issues
+
+def test_independent_sources_per_each_guest_are_accepted_as_consistent():
+    issues = detect_evidence_conflicts({
+        "a1": claim("a1"), "a2": claim("a2"),
+        "b1": claim("b1", principal="guest-b", observed_sid="S-1-5-21-2", token_sid="S-1-5-21-2"),
+        "b2": claim("b2", principal="guest-b", observed_sid="S-1-5-21-2", token_sid="S-1-5-21-2"),
+    })
+    assert issues == ()
