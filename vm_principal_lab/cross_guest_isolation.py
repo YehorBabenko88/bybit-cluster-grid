@@ -7,6 +7,8 @@ from .offline_principals import PrincipalEvidence
 
 def audit_cross_guest_isolation(principals: Mapping[str, PrincipalEvidence]) -> Tuple[str, ...]:
     problems = []
+    if not isinstance(principals, Mapping):
+        return ("INVALID_PRINCIPAL_COLLECTION",)
     if len(principals) < 2:
         return ("INSUFFICIENT_GUESTS",)
     seen_actual = {}
@@ -14,14 +16,13 @@ def audit_cross_guest_isolation(principals: Mapping[str, PrincipalEvidence]) -> 
     privileged_groups = {"S-1-5-32-544", "S-1-5-32-548", "S-1-5-32-549",
                          "S-1-5-32-550", "S-1-5-32-551"}
     seen_privileged = {}
-    for guest, evidence in sorted(principals.items()):
-        if not guest or not isinstance(evidence, PrincipalEvidence):
+    for guest, evidence in sorted(principals.items(), key=lambda item: str(item[0])):
+        if not isinstance(guest, str) or not guest or not isinstance(evidence, PrincipalEvidence):
             problems.append(f"{guest}:INVALID_EVIDENCE")
             continue
         if not evidence.actual_sid or not evidence.token_sid:
             problems.append(f"{guest}:SID_UNPROVEN")
-            continue
-        if evidence.actual_sid != evidence.token_sid:
+        elif evidence.actual_sid != evidence.token_sid:
             problems.append(f"{guest}:TOKEN_USER_MISMATCH")
         if not evidence.declared_sid or evidence.declared_sid != evidence.actual_sid:
             problems.append(f"{guest}:DECLARED_ACTUAL_MISMATCH")
@@ -29,10 +30,11 @@ def audit_cross_guest_isolation(principals: Mapping[str, PrincipalEvidence]) -> 
             ("ACTUAL", evidence.actual_sid, seen_actual),
             ("TOKEN", evidence.token_sid, seen_token),
         ):
-            if sid in seen:
-                problems.append(f"{label}_SID_REUSED:{seen[sid]}:{guest}")
-            else:
-                seen[sid] = guest
+            if sid:
+                if sid in seen:
+                    problems.append(f"{label}_SID_REUSED:{seen[sid]}:{guest}")
+                else:
+                    seen[sid] = guest
         if evidence.elevated is True:
             problems.append(f"{guest}:ELEVATED_TOKEN")
         elif evidence.elevated is None:
