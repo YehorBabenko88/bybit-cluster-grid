@@ -47,3 +47,19 @@ def test_p2_r5_hostile_admin_string_not_accepted_as_boolean():
     data["hostile_admin"] = "false"
     errors = audit_readiness_document(data)
     assert "HOSTILE_ADMIN_INVALID_BOOLEAN" in errors
+
+def test_missing_hostile_admin_stop_cannot_be_clean():
+    data = valid()
+    del data["hostile_admin"]
+    del data["hostile_admin_action"]
+    issues = audit_readiness_document(data)
+    assert "HOSTILE_ADMIN_INVALID_BOOLEAN" in issues
+    assert "HOSTILE_ADMIN_STOP_MISSING" in issues
+
+
+def test_mixed_type_case_ids_do_not_crash_or_pass():
+    data = valid()
+    data["cases"][1] = "NOT_RUN"
+    issues = audit_readiness_document(data)
+    assert "CASE_SET_MISMATCH" in issues
+    assert issues
