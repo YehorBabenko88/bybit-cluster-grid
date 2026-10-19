@@ -49,8 +49,16 @@ def audit_evidence_binding(evidence: Mapping[str, object]) -> BindingResult:
     elif elevation == "elevated":
         issues.append("ELEVATED_TOKEN_UNSAFE")
     integrity = evidence.get("token_integrity")
-    if not isinstance(integrity, str) or _SID_PATTERN.fullmatch(integrity) is None:
+    if not isinstance(integrity, str) or re.fullmatch(r"S-1-16-(?:0|[1-9][0-9]*)", integrity, re.ASCII) is None:
         issues.append("INVALID_TOKEN_INTEGRITY")
+    elif int(integrity.rsplit("-", 1)[1]) >= 12288:
+        issues.append("HIGH_INTEGRITY_TOKEN_UNSAFE")
+    privileged_groups = {"S-1-5-32-544", "S-1-5-32-548", "S-1-5-32-549",
+                         "S-1-5-32-550", "S-1-5-32-551"}
+    if isinstance(groups, (tuple, list)) and any(
+        isinstance(g, str) and g in privileged_groups for g in groups
+    ):
+        issues.append("PRIVILEGED_TOKEN_GROUP_UNSAFE")
     for field in ("effective_read", "effective_write", "effective_write_dac"):
         access = evidence.get(field)
         if type(access) is not bool:
