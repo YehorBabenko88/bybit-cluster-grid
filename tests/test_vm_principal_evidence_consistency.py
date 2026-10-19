@@ -76,3 +76,25 @@ def test_distinct_guest_token_sids_do_not_trigger_reuse():
         "b2": claim("b2", principal="guest-b", observed_sid="S-1-5-21-2", token_sid="S-1-5-21-2"),
     })
     assert not any("TOKEN_SID_REUSED" in issue for issue in issues)
+
+def test_p2_r4_consistency_rejects_overflow_sid():
+    errors = detect_evidence_conflicts({
+        "one": claim("source-1", observed_sid="S-1-5-4294967296",
+                     token_sid="S-1-5-4294967296"),
+        "two": claim("source-2"),
+    })
+    assert "one:INVALID_SID" in errors
+    assert errors
+
+
+def test_p2_r5_consistency_rejects_fake_group_membership():
+    errors = detect_evidence_conflicts({
+        "one": claim("source-1", group_sids=("NOT-A-SID",)),
+        "two": claim("source-2"),
+    })
+    assert "one:INVALID_GROUP_SIDS" in errors
+
+
+def test_p2_r5_consistency_rejects_wrong_claim_type():
+    errors = detect_evidence_conflicts({"one": "forged", "two": claim("source-2")})
+    assert "one:INVALID_CLAIM" in errors
