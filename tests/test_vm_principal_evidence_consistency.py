@@ -98,3 +98,11 @@ def test_p2_r5_consistency_rejects_fake_group_membership():
 def test_p2_r5_consistency_rejects_wrong_claim_type():
     errors = detect_evidence_conflicts({"one": "forged", "two": claim("source-2")})
     assert "one:INVALID_CLAIM" in errors
+
+def test_consistent_elevated_token_is_still_unsafe():
+    errors = detect_evidence_conflicts({
+        "one": claim("source-1", elevation="elevated"),
+        "two": claim("source-2", elevation="elevated"),
+    })
+    assert "one:ELEVATED_TOKEN_UNSAFE" in errors
+    assert "two:ELEVATED_TOKEN_UNSAFE" in errors
