@@ -19,7 +19,7 @@ def validate(data):
         errors.append("exactly 12 VM cases required")
     else:
         ids = [case.get("id") for case in cases if isinstance(case, dict)]
-        if len(ids) != EXPECTED_CASES or len(set(ids)) != EXPECTED_CASES or any(not isinstance(i, str) or not i for i in ids):
+        if len(ids) != EXPECTED_CASES or any(not isinstance(i, str) or not i for i in ids) or len(set(ids)) != EXPECTED_CASES:
             errors.append("VM case identifiers must be unique nonempty strings")
         for i, case in enumerate(cases):
             if not isinstance(case, dict) or case.get("status") != "NOT_RUN":
