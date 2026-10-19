@@ -27,11 +27,17 @@ def check_pgdata_contract(plan, adapter, journal):
     else:
         if journal.get("execution_authorized") is not False or journal.get("readiness_passed") is not False:
             result["blockers"].append("JOURNAL_AUTHORIZATION_FORBIDDEN")
-        if type(journal.get("status")) is not str:\n            result["blockers"].append("JOURNAL_FIELD_TYPE_INVALID")\n        elif journal["status"] != "BLOCKED":
+        if type(journal.get("status")) is not str:
+            result["blockers"].append("JOURNAL_FIELD_TYPE_INVALID")
+        elif journal["status"] != "BLOCKED":
             result["blockers"].append("JOURNAL_STATUS_UNSAFE")
-        if type(journal.get("run_id")) is not str or type(journal.get("node_id")) is not str:\n            result["blockers"].append("JOURNAL_FIELD_TYPE_INVALID")\n        elif journal["run_id"] != plan["run_id"] or journal["node_id"] != plan["node_id"]:
+        if type(journal.get("run_id")) is not str or type(journal.get("node_id")) is not str:
+            result["blockers"].append("JOURNAL_FIELD_TYPE_INVALID")
+        elif journal["run_id"] != plan["run_id"] or journal["node_id"] != plan["node_id"]:
             result["blockers"].append("JOURNAL_IDENTITY_MISMATCH")
-        if type(journal.get("pgdata")) is not str:\n            result["blockers"].append("JOURNAL_FIELD_TYPE_INVALID")\n        elif journal["pgdata"] != plan["data_root"]:
+        if type(journal.get("pgdata")) is not str:
+            result["blockers"].append("JOURNAL_FIELD_TYPE_INVALID")
+        elif journal["pgdata"] != plan["data_root"]:
             result["blockers"].append("JOURNAL_PGDATA_MISMATCH")
     # Even matching metadata is not proof of physical path identity, ACL or ownership.
     result["blockers"].append("PHYSICAL_OWNERSHIP_UNVERIFIED")
