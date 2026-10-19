@@ -53,3 +53,8 @@ class PgPytestReceiptTests(unittest.TestCase):
             f'<testcase classname="tests.test_pgdata_cross_contract" name="test_{i}"/>'
             for i in range(10001)) + '</testsuite>'
         self.assertIn("JUNIT_CASE_LIMIT_EXCEEDED", validate_receipt(report, SHA, SHA))
+
+
+    def test_declared_junit_suite_counts_must_match(self):
+        report = xml().replace("<testsuite>", '<testsuite tests="999" failures="0" errors="0" skipped="0">')
+        self.assertIn("JUNIT_SUITE_COUNTS_MISMATCH", validate_receipt(report, SHA, SHA))
