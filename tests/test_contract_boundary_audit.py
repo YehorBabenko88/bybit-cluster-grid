@@ -231,3 +231,12 @@ def test_repeated_matching_reports_never_become_authorized():
     assert second["execution_authorized"] is False
     assert second["physical_ready"] is False
     assert second["verified_safety_cases"] == 0
+
+
+def test_metadata_trust_level_cannot_be_confused_with_authentication():
+    p = fixture()
+    result = audit_contracts(p, vm_plan=validate_vm_lab_plan(p), bindings=bindings(p))
+    assert result["trust_level"] == "UNVERIFIED_METADATA_ONLY"
+    assert result["status"] == "BLOCKED"
+    assert result["readiness_passed"] is False
+    assert "NO_CROSS_COMPONENT_AUTHORITY" in result["blockers"]
