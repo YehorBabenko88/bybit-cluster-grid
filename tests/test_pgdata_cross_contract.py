@@ -283,7 +283,8 @@ def test_non_dictionary_journal_and_adapter_are_rejected():
         assert_blocked(adapter_result)
         assert_blocked(journal_result)
         assert "ADAPTER_MISSING" in adapter_result["blockers"]
-        assert "JOURNAL_MISSING" in journal_result["blockers"]
+        expected = "JOURNAL_NONCANONICAL_BYTES" if value == "" else "JOURNAL_MISSING"
+        assert expected in journal_result["blockers"]
 
 def test_journal_boolean_authorization_flags_use_exact_false():
     for field in ("execution_authorized", "readiness_passed"):
