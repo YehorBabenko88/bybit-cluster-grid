@@ -108,6 +108,9 @@ def inspect_journal_bytes(journal_text, plan_sha256):
         states.append(record["state"])
         # The explicit byte comparison enforces field order, ASCII escaping,
         # whitespace, key spelling and PowerShell's terminal LF policy.
+        if type(record["plan_sha256"]) is not str or _DIGEST.fullmatch(record["plan_sha256"]) is None:
+            errors.append("INVALID_RECORD_DIGEST")
+            continue
         expected = ('{"schema":1,"plan_sha256":"' + record["plan_sha256"] +
                     '","state":"' + record["state"] + '"}').encode("ascii")
         if raw_line != expected:
