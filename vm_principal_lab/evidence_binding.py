@@ -52,6 +52,9 @@ def audit_evidence_binding(evidence: Mapping[str, object]) -> BindingResult:
     if not isinstance(integrity, str) or _SID_PATTERN.fullmatch(integrity) is None:
         issues.append("INVALID_TOKEN_INTEGRITY")
     for field in ("effective_read", "effective_write", "effective_write_dac"):
-        if type(evidence.get(field)) is not bool:
+        access = evidence.get(field)
+        if type(access) is not bool:
             issues.append(f"{field}:INVALID_EFFECTIVE_ACCESS")
+        elif field in ("effective_write", "effective_write_dac") and access:
+            issues.append(f"{field}:UNEXPECTED_WRITE_ACCESS")
     return BindingResult(tuple(issues))
