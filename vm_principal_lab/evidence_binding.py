@@ -39,6 +39,18 @@ def audit_evidence_binding(evidence: Mapping[str, object]) -> BindingResult:
         not isinstance(g, str) or _SID_PATTERN.fullmatch(g) is None for g in groups
     ):
         issues.append("INVALID_TOKEN_GROUP_SIDS")
+    if isinstance(groups, (tuple, list)) and groups and all(
+        isinstance(g, str) and _SID_PATTERN.fullmatch(g) is not None for g in groups
+    ) and len(groups) != len(set(groups)):
+        issues.append("DUPLICATE_TOKEN_GROUP_SID")
+    elevation = evidence.get("token_elevation")
+    if elevation not in ("limited", "elevated"):
+        issues.append("INVALID_TOKEN_ELEVATION")
+    elif elevation == "elevated":
+        issues.append("ELEVATED_TOKEN_UNSAFE")
+    integrity = evidence.get("token_integrity")
+    if not isinstance(integrity, str) or _SID_PATTERN.fullmatch(integrity) is None:
+        issues.append("INVALID_TOKEN_INTEGRITY")
     for field in ("effective_read", "effective_write", "effective_write_dac"):
         if type(evidence.get(field)) is not bool:
             issues.append(f"{field}:INVALID_EFFECTIVE_ACCESS")
