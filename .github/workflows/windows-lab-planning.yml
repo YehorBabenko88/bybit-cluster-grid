@@ -37,8 +37,8 @@ jobs:
           import xml.etree.ElementTree as E
           s=list(E.parse('lab-planning.xml').iter('testsuite'))
           assert s and all(int(x.get(k,0))==0 for x in s for k in ('errors','failures','skipped'))
-          assert sum(int(x.get('tests',0)) for x in s)==106
-          assert len(list(E.parse('lab-planning.xml').iter('testcase')))==106
+          assert sum(int(x.get('tests',0)) for x in s)==107
+          assert len(list(E.parse('lab-planning.xml').iter('testcase')))==107
           print('Offline design metadata only; BLOCKED; physical NO-GO; no live evidence')
           PY
           python -B -m installer.lab_manifest_design < lab-manifest.example.json

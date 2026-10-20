@@ -57,6 +57,13 @@ def test_no_live_calls_or_input_mutation(monkeypatch):
     monkeypatch.setattr(pathlib.Path,'stat',no);monkeypatch.setattr(pathlib.Path,'open',no)
     assert validate_manifest(m)['manifest_valid'];assert m==saved
 
+def test_cli_invalid_utf8_returns_fixed_blocked_json():
+    import sys,os
+    p=subprocess.run([sys.executable,'-B','-m','installer.lab_manifest_design'],input=b'\xffPRIVATE_SENTINEL',capture_output=True,cwd=ROOT,env={**os.environ,'PYTHONIOENCODING':'utf-8:strict'})
+    assert p.returncode==2 and b'PRIVATE_SENTINEL' not in p.stdout+p.stderr
+    r=json.loads(p.stdout);assert not r['manifest_valid'];blocked(r)
+    assert p.stderr==b''
+
 def test_planning_branch_cannot_start_inherited_jobs():
     import re
     for p in (ROOT/'.github/workflows').glob('*.yml'):

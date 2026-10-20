@@ -82,5 +82,7 @@ def validate_text(raw):
     try:return validate_manifest(load(raw))
     except (ValueError,TypeError,OverflowError,RecursionError):return result(['LAB_JSON_INVALID'])
 def main():
-    r=validate_text(sys.stdin.read(65537));print(json.dumps(r,sort_keys=True));return 0 if r['manifest_valid'] else 2
+    try:r=validate_text(sys.stdin.buffer.read(65537).decode('utf-8',errors='strict'))
+    except UnicodeError:r=result(['LAB_JSON_INVALID'])
+    print(json.dumps(r,sort_keys=True));return 0 if r['manifest_valid'] else 2
 if __name__=='__main__':raise SystemExit(main())
