@@ -1,6 +1,6 @@
 [
   {
-    "file": "ci-pg\\pg-cross-contract-ubuntu-latest-3.11-ed95dbffb71664a22b34e876c9c4da741201a5d0\\pg-cross-contract.xml",
+    "file": "ci-pg/pg-cross-contract-ubuntu-latest-3.11-ed95dbffb71664a22b34e876c9c4da741201a5d0/pg-cross-contract.xml",
     "sha256": "0d925cd74c22db6137d191e249225e25cac3311f1716e8f7b8e5df26a0272efe",
     "cases": 28,
     "skipped": 0,
@@ -8,7 +8,7 @@
     "errors": 0
   },
   {
-    "file": "ci-pg\\pg-cross-contract-ubuntu-latest-3.12-ed95dbffb71664a22b34e876c9c4da741201a5d0\\pg-cross-contract.xml",
+    "file": "ci-pg/pg-cross-contract-ubuntu-latest-3.12-ed95dbffb71664a22b34e876c9c4da741201a5d0/pg-cross-contract.xml",
     "sha256": "c965ed23d7842ddc214d9e07eb84477f24288121c7cd131cca568edd26ffbb0a",
     "cases": 28,
     "skipped": 0,
@@ -16,7 +16,7 @@
     "errors": 0
   },
   {
-    "file": "ci-pg\\pg-cross-contract-windows-latest-3.11-ed95dbffb71664a22b34e876c9c4da741201a5d0\\pg-cross-contract.xml",
+    "file": "ci-pg/pg-cross-contract-windows-latest-3.11-ed95dbffb71664a22b34e876c9c4da741201a5d0/pg-cross-contract.xml",
     "sha256": "4da879324907eced2b63af9003aedfc9ecb5831341367d27561b2c93dc619957",
     "cases": 28,
     "skipped": 0,
@@ -24,7 +24,7 @@
     "errors": 0
   },
   {
-    "file": "ci-pg\\pg-cross-contract-windows-latest-3.12-ed95dbffb71664a22b34e876c9c4da741201a5d0\\pg-cross-contract.xml",
+    "file": "ci-pg/pg-cross-contract-windows-latest-3.12-ed95dbffb71664a22b34e876c9c4da741201a5d0/pg-cross-contract.xml",
     "sha256": "f89c1289db905b19ec2becaec7e0ee2010f634884456448a6fc9fc0decd3d6fe",
     "cases": 28,
     "skipped": 0,
