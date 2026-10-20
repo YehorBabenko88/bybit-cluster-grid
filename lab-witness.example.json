@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "planning_base": "2552cf8568a21d4a57a2aacc57ccdbc9861ea5c4",
+  "mode": "OFFLINE_DESIGN_ONLY",
+  "choice": "UNSELECTED",
+  "authorized": false,
+  "readiness": false,
+  "schema2_enabled": false,
+  "execution_authorized": false,
+  "A": {
+    "transfer_enabled": false,
+    "live_freshness": "UNVERIFIED",
+    "transport": "SUPERVISED_MEDIA_PROPOSAL"
+  },
+  "B": {
+    "enabled": false,
+    "routes": [],
+    "transport": "RESTRICTED_GATEWAY_PROPOSAL",
+    "gateway_is_witness": false,
+    "default_deny": true
+  },
+  "witnesses": [
+    {
+      "owner": "EXTERNAL_OWNER_A",
+      "anchor_domain": "EXTERNAL_ANCHOR_A",
+      "key_custody": "EXTERNAL_KEY_A",
+      "status": "UNVERIFIED"
+    },
+    {
+      "owner": "EXTERNAL_OWNER_B",
+      "anchor_domain": "EXTERNAL_ANCHOR_B",
+      "key_custody": "EXTERNAL_KEY_B",
+      "status": "UNVERIFIED"
+    }
+  ],
+  "reviews": [
+    "NOT_REVIEWED",
+    "NOT_REVIEWED"
+  ],
+  "trusted_time": "UNVERIFIED",
+  "durable_anchor": "NOT_IMPLEMENTED",
+  "correlated_rollback": "UNRESOLVED",
+  "native_evidence": "UNVERIFIED",
+  "pgdata_mapping": "UNRESOLVED_SCHEMA1_MISMATCH",
+  "cases": [
+    "NOT_RUN",
+    "NOT_RUN",
+    "NOT_RUN",
+    "NOT_RUN",
+    "NOT_RUN",
+    "NOT_RUN",
+    "NOT_RUN",
+    "NOT_RUN",
+    "NOT_RUN",
+    "NOT_RUN",
+    "NOT_RUN",
+    "NOT_RUN"
+  ]
+}
