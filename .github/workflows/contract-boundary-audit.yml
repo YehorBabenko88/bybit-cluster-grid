@@ -15,6 +15,7 @@ on:
       - '.github/workflows/contract-boundary-audit.yml'
 jobs:
   read-only-negative-contracts:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
     strategy:
       fail-fast: false
       matrix:

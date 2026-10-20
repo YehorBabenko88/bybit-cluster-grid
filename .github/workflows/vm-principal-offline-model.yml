@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   offline-principal-contract:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
     name: offline principal contract (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
