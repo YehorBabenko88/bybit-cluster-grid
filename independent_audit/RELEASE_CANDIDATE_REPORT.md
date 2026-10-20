@@ -76,6 +76,8 @@ The package contains a documentation-only dry-run plan, installation/removal/rec
 
 Source and package SHA256/aggregate local commit are supplied separately in the artifact manifest and final report. The ZIP is a review artifact, not a signed installer or release activation capability.
 
+Package integrity guard initially stopped a Windows Git archive export because core.autocrlf converted the two pinned source blobs to CRLF. Export now explicitly uses core.autocrlf=false, preserving exact Git-blob bytes; no hash check was relaxed and no source/agent commit was changed. Failed draft archive is not the delivered artifact. Final package must pass CRC and exact shared-blob hash verification before publication.
+
 ## Executed file inventory
 
 - independent_audit/test_combined.py

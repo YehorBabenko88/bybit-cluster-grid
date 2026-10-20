@@ -1,18 +1,18 @@
 """Create a local review ZIP from the current local commit; never publish/deploy."""
 import hashlib,io,json,pathlib,subprocess,zipfile
 ROOT=pathlib.Path(__file__).resolve().parents[1]
-def git(*args):return subprocess.check_output(['git','-c','safe.directory='+str(ROOT),*args],cwd=ROOT)
+def git(*args):return subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-c','core.autocrlf=false',*args],cwd=ROOT)
 def main():
     sha=git('rev-parse','HEAD').decode().strip()
     out=ROOT/'artifacts';out.mkdir(exist_ok=True)
     raw=git('archive','--format=zip',sha)
     source=out/('offline-rc-source-'+sha+'.zip');assert not source.exists()
-    source.write_bytes(raw)
     comp=json.loads((ROOT/'independent_audit/composition.json').read_text())
     with zipfile.ZipFile(io.BytesIO(raw)) as z:
         assert z.testzip() is None
         for overlap in comp['overlap']:
             assert hashlib.sha256(z.read(overlap['path'])).hexdigest()==overlap['sha256_a']==overlap['sha256_b']
+    source.write_bytes(raw)
     manifest=dict(kind='OFFLINE_REVIEW_ONLY',candidate_sha=sha,base_sha=comp['base'],heads=comp['heads'],
       source_zip=source.name,source_zip_sha256=hashlib.sha256(raw).hexdigest(),
       collected_tests=739,subtests=78,former_reproductions=10,skipped=0,xfail=0,
