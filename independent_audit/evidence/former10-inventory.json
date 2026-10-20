@@ -1,0 +1,12 @@
+[
+  "independent_audit/test_combined.py::test_reader_wrong_unicode_digest_returns_blocked",
+  "independent_audit/test_combined.py::test_pg_array_journal_returns_blocker[[1,2,3]/n]",
+  "independent_audit/test_combined.py::test_pg_array_journal_returns_blocker[[[],[],[]]/n]",
+  "independent_audit/test_combined.py::test_junit_fake_nodeids_cannot_prove_coverage[tests.test_pgdata_cross_contract]",
+  "independent_audit/test_combined.py::test_junit_fake_nodeids_cannot_prove_coverage[evil.test_pgdata_cross_contract_not_real]",
+  "independent_audit/test_combined.py::test_receipt_requires_current_complete_collected_set",
+  "independent_audit/test_combined.py::test_sid_overflow_rejected",
+  "independent_audit/test_combined.py::test_cross_guest_invalid_types_not_clean",
+  "independent_audit/test_combined.py::test_boundary_rejects_schema2_alias_promotions[schema2_enabled]",
+  "independent_audit/test_combined.py::test_boundary_rejects_schema2_alias_promotions[schema_2_enabled]"
+]

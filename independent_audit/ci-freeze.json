@@ -1,0 +1,316 @@
+{
+  "204": [
+    {
+      "conclusion": "success",
+      "head_sha": "4dcf0dafba4872cce9b5b14745da3471b8aba67a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304862422",
+      "id": 39304862422,
+      "name": "windows-bundle",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "4dcf0dafba4872cce9b5b14745da3471b8aba67a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304862334",
+      "id": 39304862334,
+      "name": "preflight",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "4dcf0dafba4872cce9b5b14745da3471b8aba67a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304862457",
+      "id": 39304862457,
+      "name": "commissioning-manifest",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "4dcf0dafba4872cce9b5b14745da3471b8aba67a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304863285",
+      "id": 39304863285,
+      "name": "vm-principal-offline-model",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "4dcf0dafba4872cce9b5b14745da3471b8aba67a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304862836",
+      "id": 39304862836,
+      "name": "physical-deployment-harness",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "4dcf0dafba4872cce9b5b14745da3471b8aba67a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304862396",
+      "id": 39304862396,
+      "name": "composed-safety-gate",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "4dcf0dafba4872cce9b5b14745da3471b8aba67a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304862641",
+      "id": 39304862641,
+      "name": "isolated-postgres-offline",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "4dcf0dafba4872cce9b5b14745da3471b8aba67a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304862350",
+      "id": 39304862350,
+      "name": "windows-commissioning",
+      "status": "completed"
+    }
+  ],
+  "205": [
+    {
+      "conclusion": "success",
+      "head_sha": "c97873fbfc1aefc2996688f93564ea0e98259ee7",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39300231629",
+      "id": 39300231629,
+      "name": "preflight",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c97873fbfc1aefc2996688f93564ea0e98259ee7",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39300231720",
+      "id": 39300231720,
+      "name": "windows-bundle",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c97873fbfc1aefc2996688f93564ea0e98259ee7",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39300231554",
+      "id": 39300231554,
+      "name": "physical-deployment-harness",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c97873fbfc1aefc2996688f93564ea0e98259ee7",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39300231274",
+      "id": 39300231274,
+      "name": "windows-commissioning",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c97873fbfc1aefc2996688f93564ea0e98259ee7",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39300231335",
+      "id": 39300231335,
+      "name": "isolated-postgres-offline",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c97873fbfc1aefc2996688f93564ea0e98259ee7",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39300231567",
+      "id": 39300231567,
+      "name": "composed-safety-gate",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c97873fbfc1aefc2996688f93564ea0e98259ee7",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39300231387",
+      "id": 39300231387,
+      "name": "commissioning-manifest",
+      "status": "completed"
+    }
+  ],
+  "206": [
+    {
+      "conclusion": "success",
+      "head_sha": "ed95dbffb71664a22b34e876c9c4da741201a5d0",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304880818",
+      "id": 39304880818,
+      "name": "windows-bundle",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "ed95dbffb71664a22b34e876c9c4da741201a5d0",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304880855",
+      "id": 39304880855,
+      "name": "preflight",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "ed95dbffb71664a22b34e876c9c4da741201a5d0",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304881043",
+      "id": 39304881043,
+      "name": "isolated-postgres-offline",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "ed95dbffb71664a22b34e876c9c4da741201a5d0",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304880844",
+      "id": 39304880844,
+      "name": "windows-commissioning",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "ed95dbffb71664a22b34e876c9c4da741201a5d0",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304880877",
+      "id": 39304880877,
+      "name": "physical-deployment-harness",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "ed95dbffb71664a22b34e876c9c4da741201a5d0",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304880891",
+      "id": 39304880891,
+      "name": "commissioning-manifest",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "ed95dbffb71664a22b34e876c9c4da741201a5d0",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304881090",
+      "id": 39304881090,
+      "name": "composed-safety-gate",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "ed95dbffb71664a22b34e876c9c4da741201a5d0",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304880881",
+      "id": 39304880881,
+      "name": "integration-evidence-audit",
+      "status": "completed"
+    }
+  ],
+  "207": [
+    {
+      "conclusion": "success",
+      "head_sha": "c12812ba240a27095d0b01d453b25c1653110276",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39268286343",
+      "id": 39268286343,
+      "name": "windows-bundle",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c12812ba240a27095d0b01d453b25c1653110276",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39268286340",
+      "id": 39268286340,
+      "name": "commissioning-manifest",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c12812ba240a27095d0b01d453b25c1653110276",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39268286587",
+      "id": 39268286587,
+      "name": "composed-safety-gate",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c12812ba240a27095d0b01d453b25c1653110276",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39268286527",
+      "id": 39268286527,
+      "name": "physical-deployment-harness",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c12812ba240a27095d0b01d453b25c1653110276",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39268286345",
+      "id": 39268286345,
+      "name": "isolated-postgres-offline",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c12812ba240a27095d0b01d453b25c1653110276",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39268286533",
+      "id": 39268286533,
+      "name": "preflight",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "c12812ba240a27095d0b01d453b25c1653110276",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39268286341",
+      "id": 39268286341,
+      "name": "windows-commissioning",
+      "status": "completed"
+    }
+  ],
+  "209": [
+    {
+      "conclusion": "success",
+      "head_sha": "44de8b2efc9d82d641c79be33a051fbe557d3b5a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304866223",
+      "id": 39304866223,
+      "name": "windows-bundle",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "44de8b2efc9d82d641c79be33a051fbe557d3b5a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304865721",
+      "id": 39304865721,
+      "name": "preflight",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "44de8b2efc9d82d641c79be33a051fbe557d3b5a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304865970",
+      "id": 39304865970,
+      "name": "commissioning-manifest",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "44de8b2efc9d82d641c79be33a051fbe557d3b5a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304865817",
+      "id": 39304865817,
+      "name": "composed-safety-gate",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "44de8b2efc9d82d641c79be33a051fbe557d3b5a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304865985",
+      "id": 39304865985,
+      "name": "contract-boundary-audit",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "44de8b2efc9d82d641c79be33a051fbe557d3b5a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304866266",
+      "id": 39304866266,
+      "name": "windows-commissioning",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "44de8b2efc9d82d641c79be33a051fbe557d3b5a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304865884",
+      "id": 39304865884,
+      "name": "physical-deployment-harness",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "44de8b2efc9d82d641c79be33a051fbe557d3b5a",
+      "html_url": "https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39304865891",
+      "id": 39304865891,
+      "name": "isolated-postgres-offline",
+      "status": "completed"
+    }
+  ]
+}

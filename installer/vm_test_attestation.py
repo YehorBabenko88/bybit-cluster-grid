@@ -20,12 +20,24 @@ _ROOTS=MappingProxyType({
 class TestReplayState:
     """Bounded process-local test ledger; reset/restart is NOT replay protection."""
     __test__=False
-    def __init__(self):self._lock=threading.Lock();self._seen=set();self._sequence={}
+    __slots__=('_lock','_seen','_sequence','_poisoned')
+    def __init__(self):self._lock=threading.Lock();self._seen=set();self._sequence={};self._poisoned=False
     def consume(self,session,nonce,sequence):
+        _guid(session);_digest(nonce)
+        _need(type(sequence) is int and 1<=sequence<2**63,'VM_TEST_SEQUENCE_INVALID')
+        _need(type(self._lock) is type(threading.Lock()),'VM_TEST_STATE_CORRUPT')
         with self._lock:
+            _need(self._poisoned is False and type(self._seen) is set and type(self._sequence) is dict,'VM_TEST_STATE_CORRUPT')
+            _need(len(self._seen)<=1024 and len(self._sequence)<=1024 and
+                  all(type(v) is str and re.fullmatch('[0-9a-f]{64}',v) for v in self._seen) and
+                  all(type(k) is str and type(v) is int and 1<=v<2**63 for k,v in self._sequence.items()),'VM_TEST_STATE_CORRUPT')
             _need(nonce not in self._seen and sequence>self._sequence.get(session,0),'VM_TEST_REPLAY')
             _need(len(self._seen)<1024,'VM_TEST_REPLAY_BUDGET')
-            self._seen.add(nonce);self._sequence[session]=sequence
+            seen=self._seen|{nonce};sequences=dict(self._sequence);sequences[session]=sequence
+            try:self._seen,self._sequence=seen,sequences
+            except BaseException:
+                self._poisoned=True
+                raise
 
 
 def _integer_json(value):
@@ -53,6 +65,10 @@ def _challenge(c):
 def verify_test_fixture(raw,plan,challenge,state,now):
     """Trusted caller supplies TEST challenge/state/time. No wall clock or I/O used."""
     _need(type(state) is TestReplayState,'VM_TEST_STATE_REQUIRED')
+    # Private detached JSON values: later caller mutation must not change the
+    # plan inspected or the challenge consumed. Not an in-process sandbox.
+    try:plan,challenge=load(canonical(plan).decode('ascii')),load(canonical(challenge).decode('ascii'))
+    except (RuntimeError,TypeError,KeyError,RecursionError):raise ValueError('VM_TEST_CONTEXT_MUTATED') from None
     _challenge(challenge)
     envelope=load(raw);_integer_json(envelope)
     _shape(envelope,'schema domain canonicalization payload signatures')
@@ -73,7 +89,7 @@ def verify_test_fixture(raw,plan,challenge,state,now):
         import cryptography
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         from cryptography.exceptions import InvalidSignature,UnsupportedAlgorithm
-    except ImportError:raise ValueError('VM_TEST_CRYPTO_UNAVAILABLE') from None
+    except Exception:raise ValueError('VM_TEST_CRYPTO_UNAVAILABLE') from None
     _need(cryptography.__version__=='50.0.2','VM_TEST_CRYPTO_VERSION')
     for signature,key_id in zip(signatures,('test-observer-v1','test-approval-v1')):
         _shape(signature,'key_id role algorithm signature')
@@ -87,6 +103,7 @@ def verify_test_fixture(raw,plan,challenge,state,now):
         message=DOMAIN.encode('ascii')+b'\x00'+canonical(body)
         try:Ed25519PublicKey.from_public_bytes(bytes.fromhex(key_hex)).verify(bytes.fromhex(signature['signature']),message)
         except (InvalidSignature,UnsupportedAlgorithm,ValueError):raise ValueError('VM_TEST_SIGNATURE_INVALID') from None
+        except Exception:raise ValueError('VM_TEST_CRYPTO_FAILURE') from None
     # Consume only after BOTH signatures and all semantic constraints pass.
     state.consume(challenge['session_id'],challenge['nonce'],challenge['sequence'])
     report.update(authentication='TEST_KEY_ONLY',signature_result='VERIFIED_PUBLIC_TEST_FIXTURE')

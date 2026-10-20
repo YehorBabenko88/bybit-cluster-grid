@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "mode": "PlanOnly",
+  "kind": "OFFLINE_REVIEW_PACKAGE",
+  "installation": "DOCUMENTATION_ONLY",
+  "removal": "PRESERVE_ALL_RESOURCES_NO_AUTOMATIC_DELETION",
+  "recovery": "DOCUMENTATION_ONLY",
+  "rollback": "SOURCE_REVIEW_ONLY_NO_DATABASE_DOWNGRADE",
+  "infrastructure_operations": [],
+  "guest_cases": "12 NOT_RUN",
+  "schema2_enabled": false,
+  "physical_ready": false,
+  "readiness_passed": false,
+  "execution_authorized": false,
+  "physical_deployment": "NO-GO_REQUIRES_NEW_EXPLICIT_AUTHORIZATION"
+}
