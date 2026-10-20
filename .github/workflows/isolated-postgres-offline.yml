@@ -9,6 +9,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   offline-python:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     strategy:
@@ -28,7 +29,7 @@ jobs:
           import subprocess,sys
           subprocess.run(['sudo','-E','unshare','--net',sys.executable,'-B','-m','pytest','-q',
                           'tests/test_isolated_postgres_plan.py','tests/test_isolated_postgres_preflight.py',
-                          'tests/test_isolated_postgres_mapping.py','tests/test_isolated_ownership_contract.py','tests/test_ownership_session_prototype.py','tests/test_ownership_adversarial_model.py','tests/test_ownership_threat_boundary.py','tests/test_vm_lab_plan.py','tests/test_vm_lab_robustness.py','tests/test_vm_lab_evidence.py'],check=True)
+                          'tests/test_isolated_postgres_mapping.py','tests/test_isolated_ownership_contract.py','tests/test_ownership_session_prototype.py','tests/test_ownership_adversarial_model.py','tests/test_ownership_threat_boundary.py','tests/test_vm_lab_plan.py','tests/test_vm_lab_robustness.py','tests/test_vm_lab_evidence.py','tests/test_vm_replay_model.py'],check=True)
           PY
       - name: Isolated pinned test-key crypto wheels
         shell: bash
@@ -45,7 +46,10 @@ jobs:
           crypto_python="$RUNNER_TEMP/vm-test-crypto-${{ matrix.python }}-${{ github.run_attempt }}/bin/python"
           sudo -E unshare --net "$crypto_python" -B -m pytest -q tests/test_vm_test_attestation.py --junitxml "$RUNNER_TEMP/test-signatures.xml"
           "$crypto_python" -B -c "import sys,xml.etree.ElementTree as E; s=list(E.parse(sys.argv[1]).iter('testsuite')); assert sum(int(x.get('tests',0)) for x in s)==34; assert all(int(x.get(k,0))==0 for x in s for k in ('skipped','errors','failures'))" "$RUNNER_TEMP/test-signatures.xml"
+          sudo -E unshare --net "$crypto_python" -B -m pytest -q tests/test_vm_attestation_adversarial.py --junitxml "$RUNNER_TEMP/adversarial-signatures.xml"
+          "$crypto_python" -B -c "import sys,xml.etree.ElementTree as E; s=list(E.parse(sys.argv[1]).iter('testsuite')); assert sum(int(x.get('tests',0)) for x in s)==9; assert all(int(x.get(k,0))==0 for x in s for k in ('skipped','errors','failures'))" "$RUNNER_TEMP/adversarial-signatures.xml"
   windows-readonly:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
     runs-on: windows-latest
     timeout-minutes: 10
     strategy:
@@ -59,7 +63,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install pytest
-      - run: python -B -m pytest -q tests/test_isolated_postgres_plan.py tests/test_isolated_postgres_preflight.py tests/test_isolated_postgres_windows_contract.py tests/test_isolated_postgres_mapping.py tests/test_isolated_ownership_contract.py tests/test_ownership_session_prototype.py tests/test_ownership_adversarial_model.py tests/test_ownership_threat_boundary.py tests/test_vm_lab_plan.py tests/test_vm_lab_robustness.py tests/test_vm_lab_evidence.py
+      - run: python -B -m pytest -q tests/test_isolated_postgres_plan.py tests/test_isolated_postgres_preflight.py tests/test_isolated_postgres_windows_contract.py tests/test_isolated_postgres_mapping.py tests/test_isolated_ownership_contract.py tests/test_ownership_session_prototype.py tests/test_ownership_adversarial_model.py tests/test_ownership_threat_boundary.py tests/test_vm_lab_plan.py tests/test_vm_lab_robustness.py tests/test_vm_lab_evidence.py tests/test_vm_replay_model.py
       - name: PowerShell 7 mocked read-only snapshot and journal failure fixtures
         shell: pwsh
         run: |
@@ -74,6 +78,7 @@ jobs:
             $OutputEncoding=New-Object System.Text.UTF8Encoding($true)
             & ./installer/tests/test-vm-lab-plan.ps1 -Python (Get-Command python).Source
             & ./installer/tests/test-vm-lab-evidence.ps1 -Python (Get-Command python).Source
+            & ./installer/tests/test-vm-replay-model.ps1 -Python (Get-Command python).Source
           } finally { $OutputEncoding=$priorEncoding }
           & ./installer/tests/test-isolated-deployment.ps1 -Python (Get-Command python).Source
       - name: PowerShell 5.1 mocked read-only snapshot and journal failure fixtures
@@ -90,6 +95,7 @@ jobs:
             $OutputEncoding=New-Object System.Text.UTF8Encoding($true)
             & ./installer/tests/test-vm-lab-plan.ps1 -Python (Get-Command python).Source
             & ./installer/tests/test-vm-lab-evidence.ps1 -Python (Get-Command python).Source
+            & ./installer/tests/test-vm-replay-model.ps1 -Python (Get-Command python).Source
           } finally { $OutputEncoding=$priorEncoding }
           & ./installer/tests/test-isolated-deployment.ps1 -Python (Get-Command python).Source
 
@@ -159,6 +165,11 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'Signature regressions failed'}
           & $cp -B -c "import sys,xml.etree.ElementTree as E; s=list(E.parse(sys.argv[1]).iter('testsuite')); assert sum(int(x.get('tests',0)) for x in s)==34; assert all(int(x.get(k,0))==0 for x in s for k in ('skipped','errors','failures'))" $report
           if($LASTEXITCODE -ne 0){throw 'Signature cases missing or skipped'}
+          $adversarial=Join-Path $env:RUNNER_TEMP 'adversarial-signatures.xml'
+          & $cp -B -m pytest -q tests/test_vm_attestation_adversarial.py --junitxml $adversarial
+          if($LASTEXITCODE -ne 0){throw 'Adversarial signature regressions failed'}
+          & $cp -B -c "import sys,xml.etree.ElementTree as E; s=list(E.parse(sys.argv[1]).iter('testsuite')); assert sum(int(x.get('tests',0)) for x in s)==9; assert all(int(x.get(k,0))==0 for x in s for k in ('skipped','errors','failures'))" $adversarial
+          if($LASTEXITCODE -ne 0){throw 'Adversarial signature cases missing or skipped'}
       - name: PS7 test-key-only fixture
         shell: pwsh
         run: ./installer/tests/test-vm-test-attestation.ps1 -Python (Join-Path $env:RUNNER_TEMP 'vm-test-crypto-${{ matrix.python }}-${{ github.run_attempt }}/Scripts/python.exe')

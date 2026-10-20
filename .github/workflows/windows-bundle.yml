@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   collector-crash-recovery:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
     runs-on: windows-latest
     timeout-minutes: 15
     strategy:
@@ -35,6 +36,7 @@ jobs:
       - run: python -m pip install -r requirements.txt pytest
       - run: python -m pytest -q tests/test_public_trade_capture.py tests/test_wal_process_ownership.py tests/test_composed_tape_ownership.py tests/test_composed_capacity_admission.py tests/test_composed_lease_deadline.py tests/test_composed_wal_payload_snapshot.py tests/test_windows_preflight.py
   independent-writer-unit-gates:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
     runs-on: windows-latest
     timeout-minutes: 15
     strategy:
@@ -53,6 +55,7 @@ jobs:
       - run: python -m pip install -r requirements.txt pytest
       - run: python -m pytest -q tests/test_auxiliary_writer_lifecycle.py tests/test_raw_writer_readonly.py tests/test_ml_publication_fence.py
   build-windows-bundle:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -383,6 +386,8 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'Bundled pinned crypto test dependency unavailable'}
           & (Join-Path $bundle 'installer/tests/test-vm-test-attestation.ps1') -Python $cp
           if($LASTEXITCODE -ne 0){throw 'Bundled signature fixture failed'}
+          & (Join-Path $bundle 'installer/tests/test-vm-replay-model.ps1') -Python $cp
+          if($LASTEXITCODE -ne 0){throw 'Bundled memory replay model failed'}
 
       - name: Archive verified Windows bundle
         shell: pwsh

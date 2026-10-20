@@ -1,0 +1,35 @@
+name: vm-principal-offline-model
+
+on:
+  pull_request:
+    paths:
+      - 'vm_principal_lab/**'
+      - 'tests/test_vm_principal_*.py'
+      - '.github/workflows/vm-principal-offline-model.yml'
+  push:
+    paths:
+      - 'vm_principal_lab/**'
+      - 'tests/test_vm_principal_*.py'
+      - '.github/workflows/vm-principal-offline-model.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-principal-contract:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
+    name: offline principal contract (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Run isolated offline model tests
+        run: python -m pytest -q tests/test_vm_principal_offline.py tests/test_vm_principal_negative_cases.py tests/test_vm_principal_evidence_consistency.py tests/test_vm_principal_readiness_audit.py tests/test_vm_principal_evidence_completeness.py tests/test_vm_principal_cross_guest_isolation.py tests/test_vm_principal_evidence_binding.py

@@ -8,6 +8,7 @@ permissions:
   contents: read
 jobs:
   safe-script-fixtures:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
     runs-on: windows-latest
     timeout-minutes: 10
     steps:

@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   composed-source-safety:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -1,0 +1,101 @@
+{
+  "base": "5d18b2810a8b1b22ce59e46334d35e07f55c46c7",
+  "heads": {
+    "204": "4dcf0dafba4872cce9b5b14745da3471b8aba67a",
+    "205": "c97873fbfc1aefc2996688f93564ea0e98259ee7",
+    "206": "ed95dbffb71664a22b34e876c9c4da741201a5d0",
+    "207": "c12812ba240a27095d0b01d453b25c1653110276",
+    "209": "44de8b2efc9d82d641c79be33a051fbe557d3b5a"
+  },
+  "changed": {
+    "204": [
+      ".github/workflows/vm-principal-offline-model.yml",
+      "tests/test_vm_principal_cross_guest_isolation.py",
+      "tests/test_vm_principal_evidence_binding.py",
+      "tests/test_vm_principal_evidence_completeness.py",
+      "tests/test_vm_principal_evidence_consistency.py",
+      "tests/test_vm_principal_negative_cases.py",
+      "tests/test_vm_principal_offline.py",
+      "tests/test_vm_principal_readiness_audit.py",
+      "vm_principal_lab/ATTESTATION_PROTOCOL.md",
+      "vm_principal_lab/cross_guest_isolation.py",
+      "vm_principal_lab/evidence_binding.py",
+      "vm_principal_lab/evidence_completeness.py",
+      "vm_principal_lab/evidence_consistency.py",
+      "vm_principal_lab/negative_cases.py",
+      "vm_principal_lab/offline_principals.py",
+      "vm_principal_lab/readiness_audit.py",
+      "vm_principal_lab/sid_validation.py"
+    ],
+    "205": [
+      "docs/pgdata_cross_contract_readonly.md",
+      "installer/pgdata_cross_contract.py",
+      "tests/test_pgdata_cross_contract.py"
+    ],
+    "206": [
+      ".github/workflows/integration-evidence-audit.yml",
+      "audit/integration_ci/EVIDENCE_MATRIX.md",
+      "audit/integration_ci/branch_overlap.py",
+      "audit/integration_ci/cross_contracts.py",
+      "audit/integration_ci/evidence_gate.py",
+      "audit/integration_ci/evidence_manifest.py",
+      "audit/integration_ci/integration_report.py",
+      "audit/integration_ci/job_evidence.py",
+      "audit/integration_ci/pg_journal_reader.py",
+      "audit/integration_ci/pg_pytest_receipt.py",
+      "audit/integration_ci/static_safety_scan.py",
+      "audit/integration_ci/workflow_attestation.py",
+      "installer/pgdata_cross_contract.py",
+      "tests/test_integration_boundary_validation.py",
+      "tests/test_integration_branch_overlap.py",
+      "tests/test_integration_cross_contracts.py",
+      "tests/test_integration_evidence_gate.py",
+      "tests/test_integration_evidence_manifest.py",
+      "tests/test_integration_job_evidence.py",
+      "tests/test_integration_pg_journal_reader.py",
+      "tests/test_integration_pg_pytest_receipt.py",
+      "tests/test_integration_report.py",
+      "tests/test_integration_static_safety_scan.py",
+      "tests/test_integration_workflow_attestation.py",
+      "tests/test_pgdata_cross_contract.py"
+    ],
+    "207": [
+      ".github/workflows/isolated-postgres-offline.yml",
+      ".github/workflows/windows-bundle.yml",
+      "docs/VM_ATTESTATION_REPLAY_CRASH_AUDIT.md",
+      "installer/tests/test-vm-replay-model.ps1",
+      "installer/vm_replay_model.py",
+      "installer/vm_test_attestation.py",
+      "tests/test_vm_attestation_adversarial.py",
+      "tests/test_vm_replay_model.py"
+    ],
+    "209": [
+      ".github/workflows/contract-boundary-audit.yml",
+      "docs/CONTRACT_BOUNDARY_AUDIT.md",
+      "installer/contract_boundary_audit.py",
+      "tests/test_contract_boundary_audit.py"
+    ]
+  },
+  "overlap": [
+    {
+      "prs": [
+        "205",
+        "206"
+      ],
+      "path": "installer/pgdata_cross_contract.py",
+      "identical": true,
+      "sha256_a": "ff492592757a277661e60d554f73ebbb11b04b7e1f7bee9f0757562ac68392fd",
+      "sha256_b": "ff492592757a277661e60d554f73ebbb11b04b7e1f7bee9f0757562ac68392fd"
+    },
+    {
+      "prs": [
+        "205",
+        "206"
+      ],
+      "path": "tests/test_pgdata_cross_contract.py",
+      "identical": true,
+      "sha256_a": "dc76589fe660509c53ecefc957019b8f2448c42bb0ff429ebb1701b4f8dc8192",
+      "sha256_b": "dc76589fe660509c53ecefc957019b8f2448c42bb0ff429ebb1701b4f8dc8192"
+    }
+  ]
+}

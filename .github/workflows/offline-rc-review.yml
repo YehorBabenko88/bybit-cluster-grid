@@ -1,0 +1,99 @@
+name: offline-rc-review
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: offline-rc-review-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows-offline:
+    if: github.head_ref == 'review/offline-rc-20261020' || github.ref_name == 'review/offline-rc-20261020'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    env:
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: 'false'
+      PYTHONDONTWRITEBYTECODE: '1'
+      GRID_REQUIRE_TEST_ATTESTATION: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Isolated pinned offline test dependencies
+        shell: pwsh
+        run: |
+          python -m venv .offline-venv
+          & ./.offline-venv/Scripts/python.exe -m pip install pytest==9.1.1
+          if($LASTEXITCODE -ne 0){throw 'Pinned pytest unavailable'}
+          & ./.offline-venv/Scripts/python.exe -m pip install --only-binary=:all: --require-hashes -r installer/tests/requirements-vm-attestation.txt
+          if($LASTEXITCODE -ne 0){throw 'Pinned test crypto unavailable'}
+          & ./.offline-venv/Scripts/python.exe -m pip check
+          if($LASTEXITCODE -ne 0){throw 'Dependency conflict'}
+      - name: Receipt verifier negative tests (separate from frozen739)
+        shell: pwsh
+        run: |
+          & ./.offline-venv/Scripts/python.exe -B -m pytest independent_audit/test_publication_gate.py -q -p no:cacheprovider
+          if($LASTEXITCODE -ne 0){throw 'Receipt verifier regression'}
+      - name: Frozen739 plus78 subtests and former10 exact-head gate
+        shell: pwsh
+        env:
+          EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          & ./.offline-venv/Scripts/python.exe -B -m independent_audit.publication_gate --expected-sha $env:EXACT_HEAD_SHA
+          if($LASTEXITCODE -ne 0){throw 'Aggregate offline gate failed'}
+      - name: PowerShell 5.1 syntax and test-key/model smoke
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($f in Get-ChildItem installer -Recurse -Filter *.ps1){
+            $errors=$null;$tokens=$null
+            [void][Management.Automation.Language.Parser]::ParseFile($f.FullName,[ref]$tokens,[ref]$errors)
+            if($errors){throw ('POWERSHELL_SYNTAX_FAILED: '+$f.Name)}
+          }
+          $py=(Resolve-Path .offline-venv/Scripts/python.exe).Path
+          & ./installer/tests/test-vm-test-attestation.ps1 -Python $py
+          & ./installer/tests/test-vm-replay-model.ps1 -Python $py
+      - name: PowerShell 7 syntax and test-key/model smoke
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($f in Get-ChildItem installer -Recurse -Filter *.ps1){
+            $errors=$null;$tokens=$null
+            [void][Management.Automation.Language.Parser]::ParseFile($f.FullName,[ref]$tokens,[ref]$errors)
+            if($errors){throw ('POWERSHELL_SYNTAX_FAILED: '+$f.Name)}
+          }
+          $py=(Resolve-Path .offline-venv/Scripts/python.exe).Path
+          & ./installer/tests/test-vm-test-attestation.ps1 -Python $py
+          & ./installer/tests/test-vm-replay-model.ps1 -Python $py
+      - name: Exact-head evidence (no environment dump)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: offline-rc-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: publication-results/
+          if-no-files-found: error
+  static-workflows:
+    if: github.head_ref == 'review/offline-rc-20261020' || github.ref_name == 'review/offline-rc-20261020'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Pinned actionlint and read-only diff validation
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          "$(go env GOPATH)/bin/actionlint" .github/workflows/*.yml
+          git diff --check

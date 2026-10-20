@@ -9,6 +9,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   synthetic-failure-evidence:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -49,6 +50,7 @@ jobs:
             physical-results.md
           if-no-files-found: error
   windows-plan-compatibility:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' }}
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
