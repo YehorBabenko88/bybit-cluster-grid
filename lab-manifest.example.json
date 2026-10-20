@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "kind": "WINDOWS_LAB_L0_DRAFT",
+  "mode": "PlanOnly",
+  "authorized": false,
+  "readiness": false,
+  "execution_authorized": false,
+  "readiness_passed": false,
+  "physical_ready": false,
+  "schema2_enabled": false,
+  "offline_rc": {"sha": "83c7c034668d02ce833e4f9750409b74641b9070", "status": "VERIFIED_OFFLINE_ONLY", "run_id": 39436629147},
+  "host": {"evidence_status": "UNVERIFIED", "proposal": {"id": "11111111-1111-4111-8111-111111111111", "label": "LAB-HOST-PENDING", "dedicated": true, "os_build": "UNSPECIFIED", "hypervisor": "Hyper-V", "hypervisor_version": "UNSPECIFIED", "hardware_provenance": "UNSPECIFIED", "production_member": false}},
+  "guests": {"evidence_status": "UNVERIFIED", "proposal": [
+    {"id": "22222222-2222-4222-8222-222222222222", "node_id": "LABCTRL01", "role": "CONTROL", "os_build": "UNSPECIFIED", "image_sha256": null, "provisioned": false, "powered_on": false},
+    {"id": "33333333-3333-4333-8333-333333333333", "node_id": "LABWORK01", "role": "WORKER", "os_build": "UNSPECIFIED", "image_sha256": null, "provisioned": false, "powered_on": false}
+  ]},
+  "network": {"evidence_status": "UNVERIFIED", "proposal": {"switch_type": "PRIVATE", "address_plan": "UNASSIGNED", "routes": [], "default_gateway": null, "dns_forwarders": [], "production_access": false, "tailscale": false, "nat": false, "bridge": false, "host_management_access": false, "internet_access": false, "dual_homed_guests": false, "file_sharing": false, "clipboard": false, "enhanced_session": false}},
+  "principals": {"evidence_status": "UNVERIFIED", "proposal": [
+    {"role": "operator", "custody_domain": "OPERATOR-CUSTODY", "sid": null, "token_attestation": null},
+    {"role": "observer_a", "custody_domain": "OBSERVER-A-CUSTODY", "sid": null, "token_attestation": null},
+    {"role": "observer_b", "custody_domain": "OBSERVER-B-CUSTODY", "sid": null, "token_attestation": null},
+    {"role": "owner", "custody_domain": "OWNER-CUSTODY", "sid": null, "token_attestation": null},
+    {"role": "verifier", "custody_domain": "VERIFIER-CUSTODY", "sid": null, "token_attestation": null},
+    {"role": "adversary", "custody_domain": "ADVERSARY-CUSTODY", "sid": null, "token_attestation": null},
+    {"role": "host_admin", "custody_domain": "HOST-ADMIN-CUSTODY", "sid": null, "token_attestation": null}
+  ]},
+  "storage": {"evidence_status": "UNVERIFIED", "proposal": {"scope": "GUEST_ONLY", "volume_identity": "UNASSIGNED", "parent": "L:\\GridLab", "run_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "placeholder_run": true, "pg_mapping": "PROPOSAL_ONLY_NO_RUNTIME_MAPPING", "legacy_pg_plan": "{parent}\\{run_id}\\{node_id}\\pgdata", "legacy_adapter": "{parent}\\{run_id}_{node_id}\\postgres\\data", "proposed_contract": "LAB_PGDATA_INTENT_V1_DRAFT", "shared_host_mounts": false, "ownership_verified": false}},
+  "services": {"evidence_status": "UNVERIFIED", "proposal": {"postgres_major": 16, "postgres_listen": "127.0.0.1", "postgres_port": 23101, "coordinator_port": 23102, "task_prefix": "BybitClusterGridLab_", "registered_tasks": [], "installed_services": [], "startup_authorized": false, "trading": false, "telegram": false, "postgres_started": false}},
+  "trust": {"evidence_status": "UNVERIFIED", "proposal": {"operator_root": null, "observer_a_root": null, "observer_b_root": null, "live_keys": "NOT_PROVISIONED", "test_keys_allowed": false, "authority_verified": false}},
+  "time": {"evidence_status": "UNVERIFIED", "proposal": {"scheme": "OUT_OF_BAND_NONCE_BOUND_TIMESTAMP", "max_uncertainty_seconds": 2, "implementation": "NOT_IMPLEMENTED", "source_endpoint": null, "verified": false}},
+  "anti_rollback": {"evidence_status": "UNVERIFIED", "proposal": {"scheme": "TWO_INDEPENDENT_DURABLE_WITNESSES", "ack_policy": "2_OF_2", "storage": "EXTERNAL_TO_LAB_HOST", "implementation": "NOT_IMPLEMENTED", "anchor_endpoint": null, "correlated_rollback_resistance": "UNPROVEN", "verified": false}},
+  "retention": {"evidence_status": "UNVERIFIED", "proposal": {"planned_days": 30, "planned_max_runs": 10, "archive": "UNPROVISIONED", "append_only_verified": false, "automatic_delete": false, "cleanup_policy": "SEPARATE_APPROVAL_AND_PROVEN_OWNERSHIP", "teardown_owner": "operator", "preserve_on_failure": true}},
+  "gates": [
+    {"level": "L0", "owner": "operator", "source_sha": "83c7c034668d02ce833e4f9750409b74641b9070", "evidence_digest": null, "authorized": false, "status": "PROPOSED", "rollback": "PRESERVE_ONLY"},
+    {"level": "L1", "owner": "observer_a", "source_sha": "83c7c034668d02ce833e4f9750409b74641b9070", "evidence_digest": null, "authorized": false, "status": "PROPOSED", "rollback": "PRESERVE_ONLY"},
+    {"level": "L2", "owner": "operator", "source_sha": "83c7c034668d02ce833e4f9750409b74641b9070", "evidence_digest": null, "authorized": false, "status": "NOT_RUN", "rollback": "PRESERVE_ONLY"},
+    {"level": "L3", "owner": "observer_b", "source_sha": "83c7c034668d02ce833e4f9750409b74641b9070", "evidence_digest": null, "authorized": false, "status": "NOT_RUN", "rollback": "PRESERVE_ONLY"},
+    {"level": "L4", "owner": "operator", "source_sha": "83c7c034668d02ce833e4f9750409b74641b9070", "evidence_digest": null, "authorized": false, "status": "NOT_RUN", "rollback": "PRESERVE_ONLY"},
+    {"level": "L5", "owner": "operator", "source_sha": "83c7c034668d02ce833e4f9750409b74641b9070", "evidence_digest": null, "authorized": false, "status": "NOT_RUN", "rollback": "PRESERVE_ONLY"}
+  ],
+  "negative_cases": [
+    {"id": "VM-NEG-01", "case": "write", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null},
+    {"id": "VM-NEG-02", "case": "delete", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null},
+    {"id": "VM-NEG-03", "case": "write_dac", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null},
+    {"id": "VM-NEG-04", "case": "write_owner", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null},
+    {"id": "VM-NEG-05", "case": "acl_mutation", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null},
+    {"id": "VM-NEG-06", "case": "acl_aba", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null},
+    {"id": "VM-NEG-07", "case": "inherited_acl", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null},
+    {"id": "VM-NEG-08", "case": "junction", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null},
+    {"id": "VM-NEG-09", "case": "ancestor", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null},
+    {"id": "VM-NEG-10", "case": "existing_mapping", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null},
+    {"id": "VM-NEG-11", "case": "privileges", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null},
+    {"id": "VM-NEG-12", "case": "distinct_token", "execution": "NOT_RUN", "expected": "STOP_BLOCKED", "evidence_digest": null}
+  ]
+}
