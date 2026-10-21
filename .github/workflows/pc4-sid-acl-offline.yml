@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   manifest-offline:
-    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021' || github.head_ref == 'audit/lsa-failclosed-20261021' || github.ref_name == 'audit/lsa-failclosed-20261021'
+    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021' || github.head_ref == 'audit/lsa-failclosed-20261021' || github.ref_name == 'audit/lsa-failclosed-20261021' || github.head_ref == 'audit/lsa-json-contract-20261021' || github.ref_name == 'audit/lsa-json-contract-20261021'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 8
     strategy:
@@ -31,6 +31,32 @@ jobs:
         run: |
           python -m pytest -q tests/test_lsa_readonly.py --junitxml=lsa-source.xml
           python -c "import xml.etree.ElementTree as E; s=list(E.parse('lsa-source.xml').iter('testsuite')); assert sum(int(x.get('tests',0)) for x in s)==4; assert all(int(x.get(k,0))==0 for x in s for k in ('errors','failures','skipped'))"
+      - name: LSA JSON consumption boundary, offline only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXACT_HEAD_SHA"
+          python - <<'PY'
+          import json, os, pathlib, pytest, xml.etree.ElementTree as E
+          inventory=json.loads(pathlib.Path('tests/fixtures/lsa_report_contract_inventory.json').read_text())
+          events={'sha':os.environ['EXACT_HEAD_SHA'],'nodes':[],'calls':[],'bad_reports':[]}
+          class Receipt:
+              def pytest_collection_finish(self,session):
+                  events['nodes']=sorted(x.nodeid for x in session.items)
+              def pytest_runtest_logreport(self,report):
+                  if hasattr(report,'wasxfail') or report.outcome != 'passed':
+                      events['bad_reports'].append([report.nodeid,report.when,report.outcome])
+                  if report.when=='call' and report.outcome=='passed':events['calls'].append(report.nodeid)
+          code=pytest.main(['-q','-p','no:cacheprovider',*inventory['files'],'--junitxml','lsa-contract.xml'],plugins=[Receipt()])
+          pathlib.Path('lsa-contract-events.json').write_text(json.dumps(events,sort_keys=True))
+          assert code==0 and not events['bad_reports']
+          assert events['nodes']==inventory['nodes']==sorted(events['calls'])
+          suites=list(E.parse('lsa-contract.xml').iter('testsuite'))
+          assert suites and sum(int(x.get('tests',0)) for x in suites)==len(inventory['nodes'])
+          assert all(int(x.get(k,0))==0 for x in suites for k in ('errors','failures','skipped'))
+          assert sorted([c.get('classname'),c.get('name')] for c in E.parse('lsa-contract.xml').iter('testcase'))==inventory['junit_cases']
+          print('LSA JSON contract only; BLOCKED; physical 0/10 NOT_RUN; Execute NOT_AUTHORIZED')
+          PY
       - name: LSA mocked APIs on Windows PowerShell 5.1
         if: runner.os == 'Windows'
         shell: powershell
@@ -38,6 +64,17 @@ jobs:
           $result=@(./lab/lsa-readonly/Test-Offline.ps1)
           if($result -notcontains 'LSA_MOCK_CASES=49; GROUP_CASES=24; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
           $result
+          $plan=& ./lab/lsa-readonly/Get-LocalLogonRights.ps1
+          $OutputEncoding=New-Object System.Text.UTF8Encoding($false)
+          [Console]::InputEncoding=$OutputEncoding
+          $plan | python -c "import sys,json; b=sys.stdin.buffer.read(); print('LSA_PLAN_TRANSPORT_BYTES='+str(len(b))+':'+b[:24].hex()); v=json.loads(b.decode('utf-8')); print('LSA_PLAN_TRANSPORT_TYPES='+json.dumps({k:type(x).__name__ for k,x in v.items()},sort_keys=True))"
+          $review=$plan | python -m installer.lsa_report_contract
+          Write-Output ('LSA_PLAN_VALIDATOR_EXIT='+$LASTEXITCODE)
+          $review
+          if($LASTEXITCODE -ne 0){throw 'LSA_PLAN_JSON_CONTRACT_REJECTED'}
+          $v=$review | ConvertFrom-Json
+          if($v.contract_valid -ne $true -or $v.status -cne 'BLOCKED' -or $v.execution_authorized -isnot [bool] -or $v.execution_authorized -ne $false){throw 'LSA_PLAN_JSON_CONTRACT_PROMOTION'}
+          'LSA_PLAN_JSON_CONTRACT=BLOCKED; NO_NATIVE_EXECUTION'
       - name: LSA mocked APIs on PowerShell 7
         if: runner.os == 'Windows'
         shell: pwsh
@@ -45,6 +82,17 @@ jobs:
           $result=@(./lab/lsa-readonly/Test-Offline.ps1)
           if($result -notcontains 'LSA_MOCK_CASES=49; GROUP_CASES=24; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
           $result
+          $plan=& ./lab/lsa-readonly/Get-LocalLogonRights.ps1
+          $OutputEncoding=New-Object System.Text.UTF8Encoding($false)
+          [Console]::InputEncoding=$OutputEncoding
+          $plan | python -c "import sys,json; b=sys.stdin.buffer.read(); print('LSA_PLAN_TRANSPORT_BYTES='+str(len(b))+':'+b[:24].hex()); v=json.loads(b.decode('utf-8')); print('LSA_PLAN_TRANSPORT_TYPES='+json.dumps({k:type(x).__name__ for k,x in v.items()},sort_keys=True))"
+          $review=$plan | python -m installer.lsa_report_contract
+          Write-Output ('LSA_PLAN_VALIDATOR_EXIT='+$LASTEXITCODE)
+          $review
+          if($LASTEXITCODE -ne 0){throw 'LSA_PLAN_JSON_CONTRACT_REJECTED'}
+          $v=$review | ConvertFrom-Json
+          if($v.contract_valid -ne $true -or $v.status -cne 'BLOCKED' -or $v.execution_authorized -isnot [bool] -or $v.execution_authorized -ne $false){throw 'LSA_PLAN_JSON_CONTRACT_PROMOTION'}
+          'LSA_PLAN_JSON_CONTRACT=BLOCKED; NO_NATIVE_EXECUTION'
       - name: Parse PowerShell 5.1 without executing scripts
         if: runner.os == 'Windows'
         shell: powershell
@@ -125,9 +173,11 @@ jobs:
             pc4-offline.xml
             pc4-offline-events.json
             lsa-source.xml
+            lsa-contract.xml
+            lsa-contract-events.json
           if-no-files-found: error
   static-workflows:
-    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021' || github.head_ref == 'audit/lsa-failclosed-20261021' || github.ref_name == 'audit/lsa-failclosed-20261021'
+    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021' || github.head_ref == 'audit/lsa-failclosed-20261021' || github.ref_name == 'audit/lsa-failclosed-20261021' || github.head_ref == 'audit/lsa-json-contract-20261021' || github.ref_name == 'audit/lsa-json-contract-20261021'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
