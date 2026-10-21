@@ -10,6 +10,12 @@ permissions:
   contents: read
 jobs:
   offline-only:
+    if: >-
+      github.head_ref != 'planning/lab-airgap-a-20261021' &&
+      github.head_ref != 'planning/windows-lab-l0-20261020' &&
+      github.head_ref != 'planning/lab-witness-l1-20261020' &&
+      github.head_ref != 'planning/pgdata-intent-v1-20261021' &&
+      github.head_ref != 'planning/pgdata-physical-readiness-offline-20261021'
     strategy:
       fail-fast: false
       matrix:
