@@ -86,7 +86,8 @@ def test_no_side_effects(monkeypatch):
 
 def test_all_workflows_exclude_unapproved_infrastructure():
     import re
-    positive = {'pgdata-intent-offline.yml': 'planning/pgdata-intent-v1-20261021',
+    positive = {'pc4-sid-acl-offline.yml': 'audit/codex-pc4-sid-acl-20261021',
+                'pgdata-intent-offline.yml': 'planning/pgdata-intent-v1-20261021',
                 'lab-airgap-a.yml': 'planning/lab-airgap-a-20261021',
                 'lab-witness-l1.yml': 'planning/lab-witness-l1-20261020',
                 'windows-lab-planning.yml': 'planning/windows-lab-l0-20261020',
