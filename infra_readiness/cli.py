@@ -6,6 +6,19 @@ from pathlib import Path
 from .contracts import assess_inventory, assess_logon
 
 
+def _reject_duplicate_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def _reject_nonfinite(value):
+    raise ValueError("nonfinite JSON number")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Offline-only infrastructure readiness classifier")
     parser.add_argument("report", type=Path)
@@ -13,7 +26,11 @@ def main() -> int:
     args = parser.parse_args()
     # File is supplied explicitly by the operator. No network, LSA or subprocess use.
     try:
-        data = json.loads(args.report.read_text(encoding="utf-8"))
+        raw = args.report.read_text(encoding="utf-8")
+        if len(raw) > 65536:
+            raise ValueError("oversized report")
+        data = json.loads(raw, object_pairs_hook=_reject_duplicate_keys,
+                          parse_constant=_reject_nonfinite)
     except (OSError, UnicodeError, ValueError) as exc:
         print(json.dumps({"status": "BLOCKED", "issues": ["INVALID_REPORT_FILE"],
                           "readiness_passed": False, "execution_authorized": False}))
