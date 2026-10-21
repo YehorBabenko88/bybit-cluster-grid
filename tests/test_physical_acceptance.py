@@ -3,7 +3,7 @@ import json
 import unittest
 
 from installer.physical_acceptance import (
-    AcceptanceBlocked, DOMAINS, PHYSICAL_CASES, assess, validate_receipt, verify_jsonl,
+    AcceptanceBlocked, DOMAINS, PHYSICAL_CASES, assess, validate_receipt, verify_jsonl, verify_junit, verify_sha256_index,
 )
 
 
@@ -104,6 +104,44 @@ class AcceptanceTests(unittest.TestCase):
             with self.subTest(malformed=malformed), self.assertRaises(AcceptanceBlocked):
                 verify_jsonl(malformed, expected_run_id="pc4-lab-0001",
                              expected_sha256=hashlib.sha256(malformed).hexdigest())
+
+
+    def test_junit_only_not_run_is_accepted_as_blocked(self):
+        cases = ("collector_token", "storage_token")
+        raw = (b'<testsuite run_id="pc4-lab-0001" tests="2" failures="0" errors="0" skipped="2">'
+               b'<testcase name="collector_token"><skipped/></testcase>'
+               b'<testcase name="storage_token"><skipped/></testcase></testsuite>')
+        self.assertEqual(verify_junit(raw, expected_cases=cases,
+                                      expected_run_id="pc4-lab-0001")["status"], "BLOCKED")
+        forged = (
+            raw.replace(b'skipped="2"', b'skipped="0"'),
+            raw.replace(b'<skipped/>', b'', 1),
+            raw.replace(b'collector_token', b'storage_token'),
+            raw.replace(b'run_id="pc4-lab-0001"', b'run_id="other"'),
+            raw.replace(b'<skipped/>', b'<failure/>', 1),
+            b'<!DOCTYPE testsuite [<!ENTITY x "oops">]>' + raw,
+        )
+        for item in forged:
+            with self.subTest(item=item[:80]), self.assertRaises(AcceptanceBlocked):
+                verify_junit(item, expected_cases=cases, expected_run_id="pc4-lab-0001")
+
+    def test_sha256_index_exact_inventory_and_bytes(self):
+        files = {"events.jsonl": b'{"run_id":"pc4-lab-0001"}\\n',
+                 "results.xml": b"<testsuite/>"}
+        index = json.dumps({"schema": 1, "files": {
+            name: hashlib.sha256(data).hexdigest() for name, data in files.items()
+        }}).encode()
+        result = verify_sha256_index(index, files)
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertFalse(result["provenance_verified"])
+        for bad_index, bad_files in (
+            (index, {"events.jsonl": b"changed", "results.xml": files["results.xml"]}),
+            (index, {"events.jsonl": files["events.jsonl"]}),
+            (index.replace(b'"schema": 1', b'"schema": 2'), files),
+            (index.replace(b'"files":', b'"files": {}, "files":'), files),
+        ):
+            with self.subTest(index=bad_index[:50]), self.assertRaises(AcceptanceBlocked):
+                verify_sha256_index(bad_index, bad_files)
 
 
 if __name__ == "__main__":
