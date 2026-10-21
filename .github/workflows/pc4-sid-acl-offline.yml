@@ -36,14 +36,14 @@ jobs:
         shell: powershell
         run: |
           $result=@(./lab/lsa-readonly/Test-Offline.ps1)
-          if($result -notcontains 'LSA_MOCK_CASES=31; GROUP_CASES=13; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
+          if($result -notcontains 'LSA_MOCK_CASES=49; GROUP_CASES=24; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
           $result
       - name: LSA mocked APIs on PowerShell 7
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $result=@(./lab/lsa-readonly/Test-Offline.ps1)
-          if($result -notcontains 'LSA_MOCK_CASES=31; GROUP_CASES=13; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
+          if($result -notcontains 'LSA_MOCK_CASES=49; GROUP_CASES=24; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
           $result
       - name: Parse PowerShell 5.1 without executing scripts
         if: runner.os == 'Windows'

@@ -13,7 +13,7 @@ $sources=@((Get-Content (Join-Path $PSScriptRoot 'LsaRights.cs') -Raw),
     (Get-Content (Join-Path $PSScriptRoot 'MockTests.cs') -Raw))
 Add-Type -TypeDefinition ($sources -join "`n") -ErrorAction Stop
 $count=[GridLab.LsaReadOnly.Tests.LsaMockTests]::RunAll()
-if ($count -ne 31) { throw 'MOCK_COUNT_MISMATCH' }
+if ($count -ne 49) { throw 'MOCK_COUNT_MISMATCH' }
 . (Join-Path $PSScriptRoot 'Inventory.ps1')
 $u1=[pscustomobject]@{Name='GridLabCollector';SID=[pscustomobject]@{Value='S-1-5-21-1-2-3-1003'}}
 $u2=[pscustomobject]@{Name='GridLabStorage';SID=[pscustomobject]@{Value='S-1-5-21-1-2-3-1004'}}
@@ -30,7 +30,7 @@ foreach ($scenario in @('users','groups','members','duplicate','missing','invali
         if ($scenario -eq 'invalid') { [pscustomobject]@{Name='unexpected';SID=$u1.SID};$u2;return }
         $u1;$u2
     } -Groups { if ($scenario -eq 'groups') {throw 'group error'}; $g } -Members {throw 'members error'}
-    if ($r.errors.Count -ne 1 -or $r.completeness -ne 'UNKNOWN') {throw 'INVENTORY_ERROR_NOT_BLOCKED'}
+    if ($r.errors.Count -ne 1 -or $r.candidates.Count -ne 0 -or $r.completeness -ne 'UNKNOWN') {throw 'INVENTORY_ERROR_NOT_BLOCKED'}
 }
 foreach ($scenario in @('duplicate_name','partial','bad_group','bad_member','nonterminating')) {
     $r=Get-LsaCandidateInventory -Users {
@@ -48,9 +48,33 @@ foreach ($scenario in @('duplicate_name','partial','bad_group','bad_member','non
         throw ('INVALID_INVENTORY_NOT_DISCARDED_'+$scenario)
     }
 }
+foreach ($scenario in @('null_user','overflow_sid','noncanonical_sid','null_group','duplicate_group',
+    'user_as_group','null_member','null_sid','partial_members','nonterminating_users','nonterminating_groups')) {
+    $r=Get-LsaCandidateInventory -Users {
+        if ($scenario -eq 'null_user') { $null;$u2; return }
+        if ($scenario -eq 'overflow_sid') { [pscustomobject]@{Name='GridLabCollector';SID=[pscustomobject]@{Value='S-1-5-21-1-2-3-4294967296'}};$u2;return }
+        if ($scenario -eq 'noncanonical_sid') { [pscustomobject]@{Name='GridLabCollector';SID=[pscustomobject]@{Value='S-1-5-21-01-2-3-1003'}};$u2;return }
+        $u1;$u2
+        if ($scenario -eq 'nonterminating_users') { Write-Error 'partial users' -ErrorAction Continue }
+    } -Groups {
+        if ($scenario -eq 'null_group') { $null;return }
+        if ($scenario -eq 'user_as_group') { $u1;return }
+        $g
+        if ($scenario -eq 'duplicate_group') { $g }
+        if ($scenario -eq 'nonterminating_groups') { Write-Error 'partial groups' -ErrorAction Continue }
+    } -Members {
+        if ($scenario -eq 'null_member') { $null;return }
+        if ($scenario -eq 'null_sid') { [pscustomobject]@{SID=$null};return }
+        $u1
+        if ($scenario -eq 'partial_members') { throw 'partial members' }
+    }
+    if ($r.errors.Count -ne 1 -or $r.candidates.Count -ne 0 -or $r.completeness -ne 'UNKNOWN') {
+        throw ('INVALID_INVENTORY_NOT_DISCARDED_'+$scenario)
+    }
+}
 $plan=& (Join-Path $PSScriptRoot 'Get-LocalLogonRights.ps1') | ConvertFrom-Json
 if ($plan.mode -ne 'PlanOnly' -or $plan.readiness -ne 'BLOCKED' -or
     $plan.effective_rights -ne 'UNKNOWN' -or $plan.execution_authorized -or $plan.records.Count) {
     throw 'PLAN_FAILED'
 }
-'LSA_MOCK_CASES=31; GROUP_CASES=13; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'
+'LSA_MOCK_CASES=49; GROUP_CASES=24; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'
