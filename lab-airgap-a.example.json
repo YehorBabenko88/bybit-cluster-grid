@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "planning_base": "612a9daac26360886e0571ec9fe55c3a557c5da3",
+  "variant": "A",
+  "owner_direction": "PROVISIONAL",
+  "mode": "OFFLINE_DESIGN_ONLY",
+  "authorized": false,
+  "execution_authorized": false,
+  "readiness": false,
+  "physical_ready": false,
+  "schema2_enabled": false,
+  "execution": "NOT_RUN",
+  "topology": {
+    "wifi": false,
+    "bluetooth": false,
+    "routing": false,
+    "nat": false,
+    "bridged_nic": false,
+    "tailscale": false,
+    "production": false,
+    "internet": false,
+    "shared_clipboard": false,
+    "shared_folders": false,
+    "host_mounts": false,
+    "switch": "PRIVATE_PROPOSED",
+    "routes": [],
+    "hardware": "OWNER_UNVERIFIED"
+  },
+  "roles": [
+    {
+      "role": "operator",
+      "custody": "OPERATOR_DOMAIN",
+      "status": "UNVERIFIED"
+    },
+    {
+      "role": "observer_a",
+      "custody": "OBSERVER_A_DOMAIN",
+      "status": "UNVERIFIED"
+    },
+    {
+      "role": "observer_b",
+      "custody": "OBSERVER_B_DOMAIN",
+      "status": "UNVERIFIED"
+    },
+    {
+      "role": "stop_custodian",
+      "custody": "STOP_DOMAIN",
+      "status": "UNVERIFIED"
+    }
+  ],
+  "reviews": [
+    {
+      "reviewer": "HUMAN_ARCHITECTURE_REQUIRED",
+      "decision": "NOT_REVIEWED"
+    },
+    {
+      "reviewer": "HUMAN_SECURITY_REQUIRED",
+      "decision": "NOT_REVIEWED"
+    }
+  ],
+  "transfer": {
+    "direction": "OUTBOUND_EVIDENCE_ONLY",
+    "inbound_receipts": false,
+    "autorun": false,
+    "custody": "UNVERIFIED",
+    "freshness": "UNVERIFIED",
+    "hash_proves_freshness": false,
+    "approval": "NOT_GRANTED"
+  },
+  "trusted_time": "UNVERIFIED",
+  "anti_rollback": "NOT_IMPLEMENTED",
+  "epoch_continuity": "UNVERIFIED",
+  "native_evidence": "UNVERIFIED",
+  "pgdata_mapping": "UNRESOLVED_SCHEMA1_MISMATCH",
+  "cases": [
+    {
+      "case": "write",
+      "execution": "NOT_RUN"
+    },
+    {
+      "case": "delete",
+      "execution": "NOT_RUN"
+    },
+    {
+      "case": "write_dac",
+      "execution": "NOT_RUN"
+    },
+    {
+      "case": "write_owner",
+      "execution": "NOT_RUN"
+    },
+    {
+      "case": "acl_mutation",
+      "execution": "NOT_RUN"
+    },
+    {
+      "case": "acl_aba",
+      "execution": "NOT_RUN"
+    },
+    {
+      "case": "inherited_acl",
+      "execution": "NOT_RUN"
+    },
+    {
+      "case": "junction",
+      "execution": "NOT_RUN"
+    },
+    {
+      "case": "ancestor",
+      "execution": "NOT_RUN"
+    },
+    {
+      "case": "existing_mapping",
+      "execution": "NOT_RUN"
+    },
+    {
+      "case": "privileges",
+      "execution": "NOT_RUN"
+    },
+    {
+      "case": "distinct_token",
+      "execution": "NOT_RUN"
+    }
+  ]
+}

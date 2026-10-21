@@ -86,7 +86,8 @@ def test_no_side_effects(monkeypatch):
 
 def test_all_workflows_exclude_unapproved_infrastructure():
     import re
-    positive = {'lab-witness-l1.yml': 'planning/lab-witness-l1-20261020',
+    positive = {'lab-airgap-a.yml': 'planning/lab-airgap-a-20261021',
+                'lab-witness-l1.yml': 'planning/lab-witness-l1-20261020',
                 'windows-lab-planning.yml': 'planning/windows-lab-l0-20261020',
                 'offline-rc-review.yml': 'review/offline-rc-20261020'}
     for p in (ROOT / '.github/workflows').glob('*.yml'):
