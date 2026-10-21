@@ -52,7 +52,9 @@ and returns 0 for admitted diagnostic metadata, 2 for rejection. No input path,
 credentials, host query or execution option exists. It reuses the existing pure
 `installer.vm_lab_json.load` parser, without modifying it.
 PowerShell native pipelines must explicitly use `System.Text.UTF8Encoding(false)`
-for this CLI; PS5.1 UTF8Encoding with a preamble can prepend BOM bytes. This is
+for both `$OutputEncoding` and `[Console]::InputEncoding` for this CLI; the latter
+also affects PS5.1 redirected native input. UTF8Encoding with a preamble can
+prepend BOM bytes even if only `$OutputEncoding` is set without BOM. This is
 a process-local transport setting, not a policy/ACL/host configuration change.
 UTF-16 redirected files and BOM-prefixed input are rejected, never guessed or
 silently normalized.

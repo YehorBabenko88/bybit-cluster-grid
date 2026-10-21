@@ -39,6 +39,7 @@ or human interpretation cannot be enumerated from the repository.
 | P0/P1 | No demonstrated production authorization bypass or physical promotion path | No speculative edits to physical controller or unrelated consumers |
 | P2 | Existing PlanOnly smoke guard uses PowerShell truthiness for execution_authorized; a synthetic numeric 0 passes that guard | Reproduced by extracting/evaluating only its AST condition with synthetic JSON. New validator requires literal false; negative test pins rejection of 0/null/string. Specialized CI applies the validator to the actual PlanOnly JSON on PS5.1/7. Existing smoke script remains unchanged and is explicitly not a general validator |
 | P2 | No standalone versioned LSA JSON consumption boundary/specification; source/managed mocks did not test hostile JSON combinations | Added strict standalone offline validator, formal profile and pinned negative test inventory |
+| P2 fixed | New PS5.1 CI bridge initially sent BOM despite setting only OutputEncoding | Hosted byte-prefix diagnostics and local reproduction isolated Console.InputEncoding; CI now sets it to UTF8Encoding(false) as well, with no parser relaxation |
 | Inherent limitation | Valid-shaped mock and host JSON are byte-indistinguishable; redacted aliases cannot prove actual membership completeness | Output always UNAUTHENTICATED_DIAGNOSTIC_ONLY/BLOCKED, no authority, no verified physical pass; documented instead of inventing attestation |
 
 The local RED test demonstrated the new CLI was absent; it was a missing feature,
@@ -89,10 +90,15 @@ UTF8Encoding with a preamble sends `efbbbf` before JSON; strict parsing correctl
 rejects it. Explicit UTF8Encoding(false) fixed that local transport case but
 [run 39654585419](https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39654585419)
 still rejected the hosted PS5.1 input, so BOM was not established as the hosted
-failure's cause. Limited byte-prefix/type diagnostics were added to investigate
-the actual boundary rather than relaxing validation. BOM-prefixed input remains
-in the negative inventory. Both CI failures are preserved in the final evidence;
-neither produces authorization or physical evidence.
+failure's cause at that point. [Diagnostic run 39654935837](https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39654935837)
+then showed actual hosted bytes starting `efbbbf7b` despite OutputEncoding being
+set without BOM. An isolated local reproduction established that
+Console.InputEncoding with a UTF8 preamble caused the same result; changing
+Console.InputEncoding to UTF8Encoding(false) made the bytes start `7b0d0a` and
+the strict CLI admit the same PlanOnly report. CI now applies that process-local
+setting too. No parser/invariant check was weakened. BOM input remains in the
+negative inventory. All three failed CI runs are preserved in the final evidence;
+none produces authorization or physical evidence.
 
 Specialized CI adds exact-head checks, separate `lsa-contract.xml` and
 `lsa-contract-events.json` receipts. Events must match the committed 107-node

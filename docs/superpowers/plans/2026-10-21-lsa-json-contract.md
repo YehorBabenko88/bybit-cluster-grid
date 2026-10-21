@@ -19,7 +19,7 @@ partial inventory, cleanup errors, unknown schemas/states, mock-to-physical laun
       classify actual JSON consumers separately from unrelated authority fields.
 - [x] Add failing CLI regression showing the missing standalone validation boundary;
       implement strict shape/type/invariant checks and permanent BLOCKED output.
-- [ ] Pin negative test inventory; add specialized CI receipts and PS5.1/7 producer
+- [x] Pin negative test inventory; add specialized CI receipts and PS5.1/7 producer
       PlanOnly compatibility through the new CLI. Preserve all baseline mock suites.
 - [ ] Independently review changes, record defects vs coverage gaps, commit/push separate
       Draft PR and verify final exact-head CI/downloaded receipts and unchanged sources.
