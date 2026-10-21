@@ -56,7 +56,7 @@ if($Cleanup){
  if(Test-Pc4Absent $indexPath){$indexPath=Join-Path $evidence 'partial-sha256.json'}
  if(Test-Pc4Absent $indexPath){throw 'CLEANUP_HASH_INDEX_REQUIRED'}
  $index=Read-Pc4Text $indexPath 16384|ConvertFrom-Json
- if($index.'manifest.json' -cne (Get-Pc4Hash $manifestPath)){throw 'CLEANUP_MANIFEST_INTEGRITY_FAILED'}
+ Assert-Pc4RecordedHash $index 'manifest.json' (Get-Pc4Hash $manifestPath)
  # Stage all inventories before first delete. Unknown files/subdirectories/reparse
  # or missing ownership marker stop; no recursive deletion or ACL repair.
  Add-Type -Path (Join-Path $PSScriptRoot 'TokenFacts.dll')
@@ -75,6 +75,8 @@ if($Cleanup){
   $pidPath=Join-Path $evidence ($role+'-process.json')
   if(!(Test-Pc4Absent $intentPath)){
    if(Test-Pc4Absent $pidPath){throw 'CLEANUP_LAUNCH_OUTCOME_UNKNOWN'}
+   Assert-Pc4RecordedHash $index ($role+'-launch-intent.json') (Get-Pc4Hash $intentPath)
+   Assert-Pc4RecordedHash $index ($role+'-process.json') (Get-Pc4Hash $pidPath)
    $r=Read-Pc4Text $pidPath 4096|ConvertFrom-Json
    if($r.run_id -cne $RunId -or $r.role -cne $role){throw 'CLEANUP_PROCESS_SCOPE_MISMATCH'}
    if(($r.pid -isnot [int] -and $r.pid -isnot [long]) -or $r.pid -le 0){throw 'CLEANUP_PID_UNKNOWN'}

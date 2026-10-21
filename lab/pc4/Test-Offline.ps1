@@ -39,6 +39,11 @@ Reject {Assert-Pc4FreshScope $false $true $true}
 Reject {Assert-Pc4FreshScope $true $false $true}
 Reject {Assert-Pc4FreshScope $true $true $false}
 Reject {Assert-Pc4FreshScope 'true' $true $true}
+$index=[pscustomobject]@{'Collector-process.json'=('a'*64)}
+$null=Assert-Pc4RecordedHash $index 'Collector-process.json' ('a'*64);Check $true
+Reject {Assert-Pc4RecordedHash $index 'Collector-process.json' ('b'*64)}
+Reject {Assert-Pc4RecordedHash $index 'Storage-process.json' ('a'*64)}
+Reject {Assert-Pc4RecordedHash $index 'Collector-process.json' 'unknown'}
 # Extract only the pure Record function, never execute Actor's entry point.
 # Mock I/O verifies per-case persistence before a later process failure.
 $tok=$null;$err=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Actor.ps1'),[ref]$tok,[ref]$err)

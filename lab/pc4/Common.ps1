@@ -94,6 +94,12 @@ function Assert-Pc4EvidenceAcl([string]$Path,[string]$BootstrapSid){
 function Assert-Pc4FreshScope($FixtureAbsent,$EvidenceAbsent,$InventoryKnown){
  if($FixtureAbsent -isnot [bool] -or $EvidenceAbsent -isnot [bool] -or $InventoryKnown -isnot [bool] -or !$FixtureAbsent -or !$EvidenceAbsent -or !$InventoryKnown){throw 'FRESH_SCOPE_BLOCKED'}
 }
+function Assert-Pc4RecordedHash($Index,[string]$Name,[string]$Actual){
+ if($Name -cnotmatch '^(manifest\.json|(Collector|Storage)-(launch-intent|process)\.json)$' -or $Actual -cnotmatch '^[0-9a-f]{64}$'){throw 'RECORDED_HASH_SCOPE_INVALID'}
+ if($null -eq $Index -or $null -eq $Index.PSObject.Properties[$Name]){throw 'RECORDED_HASH_MISSING'}
+ $expected=$Index.PSObject.Properties[$Name].Value
+ if($expected -isnot [string] -or $expected -cnotmatch '^[0-9a-f]{64}$' -or $expected -cne $Actual){throw 'RECORDED_HASH_MISMATCH'}
+}
 function Get-Pc4CleanupNames([string]$RunId,[string]$Role,$Marker,$Entries,$ProcessAbsent){
  Assert-Pc4Guid $RunId;$null=Get-Pc4Paths $RunId $Role
  if($ProcessAbsent -isnot [bool] -or !$ProcessAbsent){throw 'CLEANUP_PROCESS_UNKNOWN'}
