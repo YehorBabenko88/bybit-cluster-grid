@@ -77,3 +77,36 @@ def test_batch_right_is_not_interactive_allow():
 
 def test_missing_logon_report_blocks():
     assert assess_logon(None).status == "BLOCKED"
+
+def test_json_parser_rejects_duplicate_keys_and_nonfinite():
+    import pytest
+    import json
+    from infra_readiness.cli import _reject_duplicate_keys, _reject_nonfinite
+    with pytest.raises(ValueError):
+        json.loads('{"execution_authorized":false,"execution_authorized":true}',
+                   object_pairs_hook=_reject_duplicate_keys)
+    with pytest.raises(ValueError):
+        json.loads('{"token":NaN}', parse_constant=_reject_nonfinite)
+
+
+def test_logon_string_true_never_proves_allow():
+    report = {"launcher": "CreateProcessWithLogonW", "logon_type": "interactive",
+              "seclogon_state": "Running"}
+    for role in ("collector", "storage"):
+        report[role] = dict(account_enabled=True, effective_interactive_allow="true",
+                            effective_interactive_deny_absent="true",
+                            non_admin=True, acl_isolated=True)
+    issues = assess_logon(report).issues
+    assert "collector:effective_interactive_allow_NOT_PROVEN" in issues
+    assert "collector:DENY_OVERRIDES_ALLOW_OR_UNKNOWN" in issues
+
+
+def test_all_forged_passes_still_never_authorize():
+    data = baseline()
+    for name in CONTROLS:
+        data["controls"][name] = {"status": "PASS", "evidence_ref": "claimed",
+                                  "witness_ref": "claimed-witness"}
+    result = assess_inventory(data)
+    assert result.status != "PASS"
+    assert result.readiness_passed is False and result.execution_authorized is False
+    assert result.physical_cases == ("NOT_RUN",) * 10
