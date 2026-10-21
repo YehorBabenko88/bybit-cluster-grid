@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   manifest-offline:
-    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021' || github.head_ref == 'audit/lsa-failclosed-20261021'
+    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021' || github.head_ref == 'audit/lsa-failclosed-20261021' || github.ref_name == 'audit/lsa-failclosed-20261021'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 8
     strategy:
@@ -127,7 +127,7 @@ jobs:
             lsa-source.xml
           if-no-files-found: error
   static-workflows:
-    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021' || github.head_ref == 'audit/lsa-failclosed-20261021'
+    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021' || github.head_ref == 'audit/lsa-failclosed-20261021' || github.ref_name == 'audit/lsa-failclosed-20261021'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:

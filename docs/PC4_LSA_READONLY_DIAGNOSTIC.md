@@ -55,6 +55,13 @@ create compiler temporaries; Windows can write auditing/cache data. Redirecting
 stdout creates an output file by operator choice. No assertion of zero host writes
 is made. Compilation and fake-API tests run only in disposable hosted CI here.
 
+The reported writable LS5 source staging and shared TEMP are **NO-GO** for an
+elevated diagnostic. Do not treat matching hashes as continuing source custody.
+The [protected Source/TEMP design](PC4_LSA_PROTECTED_STAGING_DESIGN.md) specifies
+future minimum ACLs, separate trusted operator identity, ancestor ownership,
+reparse/path and compiler custody requirements. It is not provisioned or
+physically verified by this change; no ACL changes are performed.
+
 ## Interpretation and privacy
 
 The JSON report contains redacted aliases, direct relevant allows/denies, numeric
@@ -71,6 +78,19 @@ that failure is retained, never interpreted as an empty membership set. Windows
 name resolution may consult configured identity providers; this is not an air-gap
 or no-network guarantee. Do not run if those lookups are prohibited.
 
+Inventory validation is transactional: duplicate account names/SIDs, invalid or
+noncanonical SIDs, malformed groups/members, duplicate group identities and
+terminating/nonterminating provider errors discard all inventory candidates and
+emit a fixed inventory error. An empty group list still establishes no token
+completeness. Conditional well-known candidate queries remain independent of
+inventory and do not reconstruct either account's groups after inventory failure.
+Successful LSA enumeration with zero rights is rejected as contradictory data;
+only the documented not-found status with empty outputs reports no direct
+assignments. No Win32 conversion (including zero) turns another NTSTATUS into
+success. Cleanup failure always clears rights and sets UNKNOWN. Numeric status
+fields describe the last returned Open/Enumerate result, not cleanup status;
+zero alone is not proof that parsing, conversion or cleanup succeeded.
+
 Nested/domain/dynamic/logon-specific/deny-only/restricted groups and a future
 actual token are not exhaustively established. Queries are separate snapshots,
 not an atomic policy/token view; policy could change before launch. A candidate's
@@ -83,7 +103,7 @@ No attestation, replay protection, air-gap proof or SID/ACL isolation proof resu
 ## Offline evidence and remaining decisions
 
 Mandatory CI: four Python source-contract tests (including pinned package byte
-comparison), 30 fake LSA/parser/lifetime cases, eight fake group inventory cases,
+comparison), 49 fake LSA/parser/lifetime cases, 24 fake group inventory cases,
 and one PlanOnly case on each Windows PowerShell 5.1/PowerShell 7 runner. Existing
 464 Python and 39-per-version physical-package policy checks remain intact.
 No mock case queries local LSA or tokens; fake buffers are freed separately by
@@ -96,6 +116,9 @@ denies, an approved service/logon prerequisite plan, protected diagnostic source
 private evidence custody, a separately approved account/experiment plan, and explicit
 authorization. No ACL/policy/account repair or cleanup is implemented. Rollback of
 this development change is reverting its commit; no host state was provisioned.
+
+See [independent audit and evidence matrix](PC4_LSA_READONLY_AUDIT.md) for severity,
+error-branch disposition, exact tested commits and remaining GO/NO-GO gates.
 
 References: [LsaEnumerateAccountRights](https://learn.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-lsaenumerateaccountrights),
 [LsaOpenPolicy](https://learn.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-lsaopenpolicy),
