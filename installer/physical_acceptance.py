@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import xml.etree.ElementTree as ET
 
 VERSION = 1
 DOMAINS = ("pc4_sid_acl", "windows_logon", "postgres", "network", "vm_lab", "attestation", "production")
@@ -124,3 +125,63 @@ def assess(readiness, *, approvals_verified=False):
             "physical_ready": False, "schema2": False,
             "approvals_verified": approvals_verified,
             "reason": "OBSERVED_FAILURE" if overall == "FAIL" else "INDEPENDENT_PHYSICAL_EVIDENCE_UNPROVEN"}
+
+
+def verify_junit(raw, *, expected_cases, expected_run_id):
+    """Strict offline JUnit inventory; not an authenticated physical result."""
+    _require(type(raw) is bytes and 0 < len(raw) <= 2_000_000, "JUNIT_BYTES")
+    _require(type(expected_cases) is tuple and all(type(x) is str for x in expected_cases)
+             and len(expected_cases) == len(set(expected_cases)), "EXPECTED_CASES")
+    _require(type(expected_run_id) is str and RUN.fullmatch(expected_run_id) is not None, "RUN_ID")
+    _require(b"<!DOCTYPE" not in raw.upper() and b"<!ENTITY" not in raw.upper(), "JUNIT_DTD")
+    try:
+        root = ET.fromstring(raw)
+    except (ET.ParseError, ValueError):
+        raise AcceptanceBlocked("ACCEPTANCE_JUNIT_INVALID") from None
+    _require(root.tag == "testsuite", "JUNIT_ROOT")
+    _require(root.attrib.get("run_id") == expected_run_id, "JUNIT_IDENTITY")
+    _require(set(root.attrib) == {"run_id", "tests", "failures", "errors", "skipped"},
+             "JUNIT_ATTRIBUTES")
+    _require(all(root.attrib[k].isdigit() for k in ("tests", "failures", "errors", "skipped")),
+             "JUNIT_COUNTS")
+    cases = list(root)
+    _require(len(cases) == len(expected_cases)
+             and all(c.tag == "testcase" for c in cases), "JUNIT_CASE_COUNT")
+    _require(tuple(c.attrib.get("name") for c in cases) == expected_cases, "JUNIT_CASE_IDENTITY")
+    _require(all(set(c.attrib) == {"name"} and len(c) == 1
+                 and c[0].tag == "skipped" and not c[0].attrib and not len(c[0])
+                 for c in cases), "JUNIT_CASE_PROMOTION")
+    _require(int(root.attrib["tests"]) == len(cases)
+             and int(root.attrib["skipped"]) == len(cases)
+             and int(root.attrib["failures"]) == 0
+             and int(root.attrib["errors"]) == 0, "JUNIT_COUNT_MISMATCH")
+    return {"status": "BLOCKED", "cases_not_run": len(cases), "physical_ready": False}
+
+
+def verify_sha256_index(index_raw, files):
+    """Check a self-consistent evidence bundle, not provenance or authorization."""
+    _require(type(index_raw) is bytes and 0 < len(index_raw) <= 1_000_000, "INDEX_BYTES")
+    _require(type(files) is dict and files, "FILES")
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            _require(key not in result, "DUPLICATE_KEY")
+            result[key] = value
+        return result
+    try:
+        index = json.loads(index_raw.decode("utf-8"), object_pairs_hook=pairs)
+    except (UnicodeError, ValueError, TypeError, RecursionError):
+        raise AcceptanceBlocked("ACCEPTANCE_INDEX_INVALID") from None
+    _require(type(index) is dict and set(index) == {"schema", "files"}
+             and type(index["schema"]) is int and index["schema"] == 1
+             and type(index["files"]) is dict, "INDEX_SCHEMA")
+    _require(set(index["files"]) == set(files), "INDEX_INVENTORY")
+    for name, content in files.items():
+        _require(type(name) is str and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", name)
+                 and name not in ("sha256.json", "completed.json"), "FILE_NAME")
+        _require(type(content) is bytes, "FILE_BYTES")
+        digest = index["files"][name]
+        _require(type(digest) is str and SHA.fullmatch(digest) is not None, "INDEX_SHA_FORMAT")
+        _require(hashlib.sha256(content).hexdigest() == digest, "INDEX_SHA_MISMATCH")
+    return {"status": "BLOCKED", "files_verified": len(files),
+            "provenance_verified": False, "physical_ready": False}
