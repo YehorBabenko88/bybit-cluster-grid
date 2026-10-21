@@ -43,11 +43,17 @@ jobs:
       - name: Pure PC4 policies on PowerShell 5.1
         if: runner.os == 'Windows'
         shell: powershell
-        run: ./lab/pc4/Test-Offline.ps1
+        run: |
+          $result=@(./lab/pc4/Test-Offline.ps1)
+          if($result -notcontains 'OFFLINE_POLICY_CASES=35; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'OFFLINE_POLICY_INVENTORY_MISMATCH'}
+          $result
       - name: Pure PC4 policies on PowerShell 7
         if: runner.os == 'Windows'
         shell: pwsh
-        run: ./lab/pc4/Test-Offline.ps1
+        run: |
+          $result=@(./lab/pc4/Test-Offline.ps1)
+          if($result -notcontains 'OFFLINE_POLICY_CASES=35; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'OFFLINE_POLICY_INVENTORY_MISMATCH'}
+          $result
       - name: Compile package only, no native entry points
         if: runner.os == 'Windows'
         shell: powershell

@@ -39,4 +39,19 @@ Reject {Assert-Pc4FreshScope $false $true $true}
 Reject {Assert-Pc4FreshScope $true $false $true}
 Reject {Assert-Pc4FreshScope $true $true $false}
 Reject {Assert-Pc4FreshScope 'true' $true $true}
+# Extract only the pure Record function, never execute Actor's entry point.
+# Mock I/O verifies per-case persistence before a later process failure.
+$tok=$null;$err=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Actor.ps1'),[ref]$tok,[ref]$err)
+$fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq 'Record'},$true)
+. ([scriptblock]::Create($fn.Extent.Text))
+$script:chunks=New-Object Collections.Generic.List[string]
+function Write-Pc4NewText([string]$Path,[string]$Text){$script:chunks.Add($Text)}
+function Add-Pc4Text([string]$Path,[string]$Text){$script:chunks.Add($Text)}
+$results=New-Object Collections.Generic.List[object];$RunId=$run;$Role='Collector';$paths=[pscustomobject]@{Root='MOCK_ONLY'}
+Record 'own_write' $true 'OK' $null
+Record 'own_read' $false 'OWN_IO_FAILED' $null
+Check ($script:chunks.Count -eq 2 -and $script:chunks[0].EndsWith("`n") -and $script:chunks[1].Contains('OWN_IO_FAILED'))
+function Add-Pc4Text([string]$Path,[string]$Text){throw (New-Object UnauthorizedAccessException)}
+Reject {Record 'foreign_read_denied' $true 'ACCESS_DENIED_5' $null}
+Check ($results.Count -eq 2)
 Write-Output ('OFFLINE_POLICY_CASES='+$script:count+'; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE')

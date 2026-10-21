@@ -44,6 +44,12 @@ function Write-Pc4NewText([string]$Path,[string]$Text){
  $s=New-Object IO.FileStream($Path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
  try{$s.Write($bytes,0,$bytes.Length);$s.Flush($true)}finally{$s.Dispose()}
 }
+function Add-Pc4Text([string]$Path,[string]$Text){
+ $bytes=$script:Pc4Utf8.GetBytes($Text)
+ # Open, not Append/Create: a missing per-run stream must not be recreated.
+ $s=New-Object IO.FileStream($Path,[IO.FileMode]::Open,[IO.FileAccess]::Write,[IO.FileShare]::None)
+ try{$null=$s.Seek(0,[IO.SeekOrigin]::End);$s.Write($bytes,0,$bytes.Length);$s.Flush($true)}finally{$s.Dispose()}
+}
 function Test-Pc4Facts($Facts,[string]$ExpectedSid){
  if($null -eq $Facts){return $false}
  foreach($k in @('admin_group','elevated','impersonating')){if($Facts.$k -isnot [bool]){return $false}}

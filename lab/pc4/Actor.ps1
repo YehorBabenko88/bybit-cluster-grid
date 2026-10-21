@@ -23,30 +23,39 @@ try {
  }
  $results=New-Object Collections.Generic.List[object]
  function Record([string]$Case,[bool]$Pass,[string]$Code,$Data){
-  $results.Add([ordered]@{schema=1;source='NATIVE_PC4_LOCAL';run_id=$RunId;role=$Role;case=$Case;outcome=$(if($Pass){'PASS'}else{'FAIL'});code=$Code;pid=$PID;facts=$Data})
+  $record=[ordered]@{schema=1;source='NATIVE_PC4_LOCAL';run_id=$RunId;role=$Role;case=$Case;outcome=$(if($Pass){'PASS'}else{'FAIL'});code=$Code;pid=$PID;facts=$Data}
+  $line=($record|ConvertTo-Json -Depth 8 -Compress)+"`n";$log=Join-Path $paths.Root 'actor.jsonl'
+  if($results.Count -eq 0){Write-Pc4NewText $log $line}else{Add-Pc4Text $log $line}
+  $results.Add($record)
  }
+ if(Test-Path -LiteralPath (Join-Path $paths.Root 'stop.flag')){throw 'COOPERATIVE_STOP'}
  Record 'token' $true 'OK' $facts
  $own=Join-Path $paths.Root 'own.txt';$content=$RunId+'|'+$Role
- try {Write-Pc4NewText $own $content;if((Get-Acl -LiteralPath $own).GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $ExpectedSid){throw 'OWN_FILE_OWNER_MISMATCH'};Record 'own_write' $true 'OK' $null}
- catch {Record 'own_write' $false 'OWN_IO_FAILED' $null}
- try {$bytes=[IO.File]::ReadAllText($own,$script:Pc4Utf8);if($bytes -cne $content){throw 'CONTENT_MISMATCH'};Record 'own_read' $true 'OK' $null}
- catch {Record 'own_read' $false 'OWN_IO_FAILED' $null}
+ $ok=$false
+ try {Write-Pc4NewText $own $content;if((Get-Acl -LiteralPath $own).GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $ExpectedSid){throw 'OWN_FILE_OWNER_MISMATCH'};$ok=$true}
+ catch {$ok=$false}
+ Record 'own_write' $ok $(if($ok){'OK'}else{'OWN_IO_FAILED'}) $null
+ if(Test-Path -LiteralPath (Join-Path $paths.Root 'stop.flag')){throw 'COOPERATIVE_STOP'}
+ $ok=$false
+ try {$bytes=[IO.File]::ReadAllText($own,$script:Pc4Utf8);if($bytes -cne $content){throw 'CONTENT_MISMATCH'};$ok=$true}
+ catch {$ok=$false}
+ Record 'own_read' $ok $(if($ok){'OK'}else{'OWN_IO_FAILED'}) $null
  $peer=if($Role -ceq 'Collector'){'Storage'}else{'Collector'}
  $foreign=Join-Path (Get-Pc4Paths $RunId $peer).Root 'canary.txt'
  foreach($case in @('foreign_read_denied','foreign_write_denied')){
-  $s=$null
+  if(Test-Path -LiteralPath (Join-Path $paths.Root 'stop.flag')){throw 'COOPERATIVE_STOP'}
+  $s=$null;$denied=$false;$code='ACCESS_UNEXPECTEDLY_ALLOWED'
   try {
    $access=if($case -ceq 'foreign_read_denied'){[IO.FileAccess]::Read}else{[IO.FileAccess]::Write}
    $s=New-Object IO.FileStream($foreign,[IO.FileMode]::Open,$access,[IO.FileShare]::ReadWrite)
-   Record $case $false 'ACCESS_UNEXPECTEDLY_ALLOWED' $null
   } catch {
    $e=$_.Exception;while($e.InnerException){$e=$e.InnerException}
-   if(($e.HResult -band 0xffff) -eq 5){Record $case $true 'ACCESS_DENIED_5' $null}
-   else {Record $case $false 'ERROR_NOT_ACCESS_DENIED' $null}
+   if(($e.HResult -band 0xffff) -eq 5){$denied=$true;$code='ACCESS_DENIED_5'}
+   else {$code='ERROR_NOT_ACCESS_DENIED'}
   } finally {if($null -ne $s){$s.Dispose()}}
+  # Logger errors must not be misclassified as denial of the foreign file.
+  Record $case $denied $code $null
  }
- $text=($results|ForEach-Object {$_|ConvertTo-Json -Depth 8 -Compress}) -join "`n"
- Write-Pc4NewText (Join-Path $paths.Root 'actor.jsonl') ($text+"`n")
  if(@($results|Where-Object outcome -ne 'PASS').Count){exit 2}
  exit 0
 } catch { [Console]::Error.WriteLine('PC4_ACTOR_BLOCKED');exit 3 }

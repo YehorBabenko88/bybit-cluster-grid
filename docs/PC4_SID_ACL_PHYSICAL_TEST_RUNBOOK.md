@@ -163,7 +163,11 @@ complete. No resume/delete-to-retry option. Investigate, preserve evidence and g
 approval for a new run ID. Account state restoration is handled by the separate
 human plan, never by an unattended finally block.
 
-Actors time out their initial gate after 45 seconds. Controller waits are bounded;
+Actors time out their initial gate after 45 seconds and check cooperative STOP
+between cases; this cannot interrupt an already blocked OS call. Each case record
+is flushed separately, so a later actor failure preserves earlier observations;
+an interrupted/truncated JSONL remains incomplete and must never pass validation.
+Controller waits are bounded;
 on failure it writes a per-run stop.flag where possible, never kills arbitrary
 PIDs or starts/restarts services. A child still running, reused PID or failed process
 inventory blocks cleanup. Check the failed state privately before another attempt.
