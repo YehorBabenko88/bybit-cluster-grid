@@ -102,7 +102,8 @@ def test_evidence_template_never_accepted_as_receipt_or_manifest():
 
 def test_inherited_jobs_excluded_and_new_workflow_pure():
     import re
-    positive = {'lab-airgap-a.yml': 'planning/lab-airgap-a-20261021',
+    positive = {'pgdata-intent-offline.yml': 'planning/pgdata-intent-v1-20261021',
+                'lab-airgap-a.yml': 'planning/lab-airgap-a-20261021',
                 'lab-witness-l1.yml': 'planning/lab-witness-l1-20261020',
                 'windows-lab-planning.yml': 'planning/windows-lab-l0-20261020',
                 'offline-rc-review.yml': 'review/offline-rc-20261020'}
