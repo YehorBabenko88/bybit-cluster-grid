@@ -60,7 +60,8 @@ public static class LsaMockTests {
             "SeDenyServiceLogonRight","SeDenyNetworkLogonRight","SeDenyRemoteInteractiveLogonRight"})
             Run(a=>a.Text=right,"ENUMERATED",right);
         Run(a=>{a.EnumStatus=Reader.NotAssigned;a.Count=0;a.NullBuffer=true;},"NO_DIRECT_ASSIGNMENTS",null);
-        Run(a=>{a.Count=0;a.NullBuffer=true;},"ENUMERATED",null);
+        Run(a=>{a.Count=0;a.NullBuffer=true;},"API_OR_DATA_ERROR",null);
+        Run(a=>a.Count=0,"API_OR_DATA_ERROR",null);
         Run(a=>a.OpenStatus=0xC0000022,"OPEN_FAILED",null);
         Run(a=>a.EnumStatus=0xC0000022,"ENUMERATE_FAILED",null);
         Run(a=>a.EnumStatus=0xC0000001,"ENUMERATE_FAILED",null);

@@ -13,7 +13,7 @@ $sources=@((Get-Content (Join-Path $PSScriptRoot 'LsaRights.cs') -Raw),
     (Get-Content (Join-Path $PSScriptRoot 'MockTests.cs') -Raw))
 Add-Type -TypeDefinition ($sources -join "`n") -ErrorAction Stop
 $count=[GridLab.LsaReadOnly.Tests.LsaMockTests]::RunAll()
-if ($count -ne 30) { throw 'MOCK_COUNT_MISMATCH' }
+if ($count -ne 31) { throw 'MOCK_COUNT_MISMATCH' }
 . (Join-Path $PSScriptRoot 'Inventory.ps1')
 $u1=[pscustomobject]@{Name='GridLabCollector';SID=[pscustomobject]@{Value='S-1-5-21-1-2-3-1003'}}
 $u2=[pscustomobject]@{Name='GridLabStorage';SID=[pscustomobject]@{Value='S-1-5-21-1-2-3-1004'}}
@@ -32,9 +32,25 @@ foreach ($scenario in @('users','groups','members','duplicate','missing','invali
     } -Groups { if ($scenario -eq 'groups') {throw 'group error'}; $g } -Members {throw 'members error'}
     if ($r.errors.Count -ne 1 -or $r.completeness -ne 'UNKNOWN') {throw 'INVENTORY_ERROR_NOT_BLOCKED'}
 }
+foreach ($scenario in @('duplicate_name','partial','bad_group','bad_member','nonterminating')) {
+    $r=Get-LsaCandidateInventory -Users {
+        $u1
+        if ($scenario -eq 'duplicate_name') { [pscustomobject]@{Name='GridLabCollector';SID=$u2.SID} } else { $u2 }
+    } -Groups {
+        if ($scenario -eq 'bad_group') { [pscustomobject]@{SID=[pscustomobject]@{Value='not-a-sid'}} } else { $g }
+        if ($scenario -eq 'partial') { throw 'partial group snapshot' }
+    } -Members {
+        if ($scenario -eq 'bad_member') { [pscustomobject]@{SID=[pscustomobject]@{Value='broken'}} }
+        elseif ($scenario -eq 'nonterminating') { $u1; Write-Error 'partial members' -ErrorAction Continue }
+        else { $u1 }
+    }
+    if ($r.errors.Count -ne 1 -or $r.candidates.Count -ne 0 -or $r.completeness -ne 'UNKNOWN') {
+        throw ('INVALID_INVENTORY_NOT_DISCARDED_'+$scenario)
+    }
+}
 $plan=& (Join-Path $PSScriptRoot 'Get-LocalLogonRights.ps1') | ConvertFrom-Json
 if ($plan.mode -ne 'PlanOnly' -or $plan.readiness -ne 'BLOCKED' -or
     $plan.effective_rights -ne 'UNKNOWN' -or $plan.execution_authorized -or $plan.records.Count) {
     throw 'PLAN_FAILED'
 }
-'LSA_MOCK_CASES=30; GROUP_CASES=8; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'
+'LSA_MOCK_CASES=31; GROUP_CASES=13; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'
