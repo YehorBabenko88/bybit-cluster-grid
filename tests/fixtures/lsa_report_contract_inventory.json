@@ -103,6 +103,7 @@
     "tests/test_lsa_report_contract.py::test_untrusted_json_parser_fails_closed[json-23]",
     "tests/test_lsa_report_contract.py::test_untrusted_json_parser_fails_closed[json-264]",
     "tests/test_lsa_report_contract.py::test_untrusted_json_parser_fails_closed[json-265]",
+    "tests/test_lsa_report_contract.py::test_untrusted_json_parser_fails_closed[json-267]",
     "tests/test_lsa_report_contract.py::test_untrusted_json_parser_fails_closed[json-269]",
     "tests/test_lsa_report_contract.py::test_untrusted_json_parser_fails_closed[json-2]",
     "tests/test_lsa_report_contract.py::test_untrusted_json_parser_fails_closed[json-4]",
@@ -510,6 +511,10 @@
     [
       "tests.test_lsa_report_contract",
       "test_untrusted_json_parser_fails_closed[json-265]"
+    ],
+    [
+      "tests.test_lsa_report_contract",
+      "test_untrusted_json_parser_fails_closed[json-267]"
     ],
     [
       "tests.test_lsa_report_contract",

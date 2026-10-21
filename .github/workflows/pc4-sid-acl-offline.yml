@@ -65,6 +65,7 @@ jobs:
           if($result -notcontains 'LSA_MOCK_CASES=49; GROUP_CASES=24; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
           $result
           $plan=& ./lab/lsa-readonly/Get-LocalLogonRights.ps1
+          $OutputEncoding=New-Object System.Text.UTF8Encoding($false)
           $review=$plan | python -m installer.lsa_report_contract
           if($LASTEXITCODE -ne 0){throw 'LSA_PLAN_JSON_CONTRACT_REJECTED'}
           $v=$review | ConvertFrom-Json
@@ -78,6 +79,7 @@ jobs:
           if($result -notcontains 'LSA_MOCK_CASES=49; GROUP_CASES=24; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
           $result
           $plan=& ./lab/lsa-readonly/Get-LocalLogonRights.ps1
+          $OutputEncoding=New-Object System.Text.UTF8Encoding($false)
           $review=$plan | python -m installer.lsa_report_contract
           if($LASTEXITCODE -ne 0){throw 'LSA_PLAN_JSON_CONTRACT_REJECTED'}
           $v=$review | ConvertFrom-Json

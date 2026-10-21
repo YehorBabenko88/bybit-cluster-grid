@@ -192,6 +192,7 @@ def test_partial_inventory_cannot_be_consumed(change):
     '[' * 25 + '0' + ']' * 25, ' ' * 65537,
     json.dumps(plan()) + json.dumps(plan()),
     json.dumps(plan()).replace('UNKNOWN', '\\ud800', 1),
+    '\ufeff' + json.dumps(plan()),
 ], ids=lambda value: 'json-' + str(len(value)))
 def test_untrusted_json_parser_fails_closed(raw):
     from installer.lsa_report_contract import validate

@@ -47,10 +47,15 @@ The complete baseline match inventory is exported with the audit receipts.
 ## Offline interface
 
 `installer.lsa_report_contract.validate(raw: str) -> dict` accepts JSON text.
-The CLI reads bounded UTF-8 stdin, writes one fixed JSON review result to stdout,
+The CLI reads bounded UTF-8 stdin without BOM, writes one fixed JSON review result to stdout,
 and returns 0 for admitted diagnostic metadata, 2 for rejection. No input path,
 credentials, host query or execution option exists. It reuses the existing pure
 `installer.vm_lab_json.load` parser, without modifying it.
+PowerShell native pipelines must explicitly use `System.Text.UTF8Encoding(false)`
+for this CLI; PS5.1 UTF8Encoding with a preamble can prepend BOM bytes. This is
+a process-local transport setting, not a policy/ACL/host configuration change.
+UTF-16 redirected files and BOM-prefixed input are rejected, never guessed or
+silently normalized.
 
 For an already-reviewed offline UTF-8 report, `python -m
 installer.lsa_report_contract` reads stdin. CLI exit 0 and `contract_valid=true`
