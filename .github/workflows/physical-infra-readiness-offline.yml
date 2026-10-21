@@ -1,0 +1,32 @@
+name: physical-infra-readiness-offline
+
+on:
+  pull_request:
+    paths:
+      - "infra_readiness/**"
+      - "tests/test_infra_readiness.py"
+      - ".github/workflows/physical-infra-readiness-offline.yml"
+      - "docs/PHYSICAL_WINDOWS_INFRA_READINESS.md"
+  push:
+    paths:
+      - "infra_readiness/**"
+      - "tests/test_infra_readiness.py"
+      - ".github/workflows/physical-infra-readiness-offline.yml"
+      - "docs/PHYSICAL_WINDOWS_INFRA_READINESS.md"
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install pytest
+      - run: python -m pytest -q tests/test_infra_readiness.py
