@@ -1,0 +1,35 @@
+name: pc4-independent-security-review
+on:
+  pull_request:
+    paths:
+      - 'audit/pc4_independent_security_gate.py'
+      - 'tests/test_pc4_independent_security_gate.py'
+      - '.github/workflows/pc4-independent-security-review.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  negative-security-review:
+    if: (github.head_ref == 'audit/pc4-independent-security-gates-20261021' || github.ref_name == 'audit/pc4-independent-security-gates-20261021') && (github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020') && (github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021') && (github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020') && (github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020') && (github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021') && (github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Exact checked out commit
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Mandatory negative security gate tests
+        run: python -m unittest discover -s tests -p test_pc4_independent_security_gate.py -v
