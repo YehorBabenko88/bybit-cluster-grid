@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   manifest-offline:
-    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021'
+    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021' || github.head_ref == 'audit/lsa-failclosed-20261021' || github.ref_name == 'audit/lsa-failclosed-20261021'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 8
     strategy:
@@ -36,14 +36,14 @@ jobs:
         shell: powershell
         run: |
           $result=@(./lab/lsa-readonly/Test-Offline.ps1)
-          if($result -notcontains 'LSA_MOCK_CASES=30; GROUP_CASES=8; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
+          if($result -notcontains 'LSA_MOCK_CASES=49; GROUP_CASES=24; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
           $result
       - name: LSA mocked APIs on PowerShell 7
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $result=@(./lab/lsa-readonly/Test-Offline.ps1)
-          if($result -notcontains 'LSA_MOCK_CASES=30; GROUP_CASES=8; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
+          if($result -notcontains 'LSA_MOCK_CASES=49; GROUP_CASES=24; PLAN_ONLY=1; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'LSA_MOCK_GATE_FAILED'}
           $result
       - name: Parse PowerShell 5.1 without executing scripts
         if: runner.os == 'Windows'
@@ -127,7 +127,7 @@ jobs:
             lsa-source.xml
           if-no-files-found: error
   static-workflows:
-    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021'
+    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021' || github.head_ref == 'audit/lsa-failclosed-20261021' || github.ref_name == 'audit/lsa-failclosed-20261021'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:

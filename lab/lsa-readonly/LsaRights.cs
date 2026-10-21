@@ -48,7 +48,8 @@ namespace GridLab.LsaReadOnly {
         public const uint LookupNames = 0x800;
         public const uint NotAssigned = 0xC0000034;
         public static string[] Parse(IntPtr buffer, uint count) {
-            if (count > 256 || (count > 0 && buffer == IntPtr.Zero)) throw new FormatException();
+            // STATUS_SUCCESS promises at least one right. Empty success is not absence evidence.
+            if (count == 0 || count > 256 || buffer == IntPtr.Zero) throw new FormatException();
             var values = new List<string>();
             int stride = Marshal.SizeOf(typeof(UnicodeString));
             for (int i=0; i<count; i++) {
