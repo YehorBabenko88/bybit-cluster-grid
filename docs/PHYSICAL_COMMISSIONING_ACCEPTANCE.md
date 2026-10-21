@@ -111,3 +111,18 @@ metadata report from authorizing physical execution.
 
 No merge, VM, SQL/initdb, service/account/policy/ACL/network changes, deployment,
 LS5/LS7 or PC4 physical test has been performed by this coordinator.
+
+## Independent bundle consistency checks (offline)
+
+`verify_junit` requires one testsuite, an exact ordered testcase inventory,
+exact run ID, all tests marked skipped/NOT_RUN, no failures/errors, matching
+aggregate counters and no DTD/entities. A positive physical JUnit PASS is
+deliberately not accepted by this plan-only validator. XML parser validation
+is not a secure provenance check and does not establish host authenticity.
+
+`verify_sha256_index` checks a strict schema-1 index, duplicate-key rejection,
+a complete exact filename inventory and SHA256 for every supplied byte string.
+It rejects completion markers and the index itself as self-hashed evidence.
+The returned status is always BLOCKED; a self-consistent bundle can still be
+forged or replayed. Actual evidence custody, durable replay protection and
+separately approved native physical verification remain outside this module.
