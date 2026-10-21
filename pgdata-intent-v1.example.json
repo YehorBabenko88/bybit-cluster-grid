@@ -1,0 +1,82 @@
+{
+  "intent": {
+    "contract": "PGDATA_POWERSHELL_INTENT_V1_DRAFT",
+    "parent": "L:\\GridLab",
+    "root": "L:\\GridLab\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_LAB01",
+    "pgdata": "L:\\GridLab\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_LAB01\\postgres\\data",
+    "run_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "node_id": "LAB01",
+    "candidate_sha": "272ea6c1d011779a83a5d89478e237a6427f66e9",
+    "phase": "COMMITTED",
+    "scope": "EMPTY_FIXTURE_ONLY",
+    "root_provenance": {
+      "source_commit": "272ea6c1d011779a83a5d89478e237a6427f66e9",
+      "producer_path": "installer/isolated-deployment-core.ps1",
+      "status": "UNVERIFIED"
+    },
+    "native": {
+      "reparse": "UNVERIFIED",
+      "symlink": "UNVERIFIED",
+      "ancestor": "UNVERIFIED",
+      "volume": "UNVERIFIED",
+      "file_identity": "UNVERIFIED",
+      "acl": "UNVERIFIED",
+      "tokens": "UNVERIFIED",
+      "handles": "UNVERIFIED"
+    },
+    "roles": [
+      {
+        "role": "resource_custodian",
+        "principal_id": "00000001-0000-4000-8000-000000000001",
+        "custody_domain": "RESOURCE_CUSTODIAN",
+        "proposed_sid": null,
+        "status": "UNVERIFIED"
+      },
+      {
+        "role": "windows_object_owner",
+        "principal_id": "00000002-0000-4000-8000-000000000001",
+        "custody_domain": "WINDOWS_OBJECT_OWNER",
+        "proposed_sid": null,
+        "status": "UNVERIFIED"
+      },
+      {
+        "role": "future_postgres_writer",
+        "principal_id": "00000003-0000-4000-8000-000000000001",
+        "custody_domain": "FUTURE_POSTGRES_WRITER",
+        "proposed_sid": null,
+        "status": "UNVERIFIED"
+      },
+      {
+        "role": "observer_a",
+        "principal_id": "00000004-0000-4000-8000-000000000001",
+        "custody_domain": "OBSERVER_A",
+        "proposed_sid": null,
+        "status": "UNVERIFIED"
+      },
+      {
+        "role": "observer_b",
+        "principal_id": "00000005-0000-4000-8000-000000000001",
+        "custody_domain": "OBSERVER_B",
+        "proposed_sid": null,
+        "status": "UNVERIFIED"
+      },
+      {
+        "role": "stop_authority",
+        "principal_id": "00000006-0000-4000-8000-000000000001",
+        "custody_domain": "STOP_AUTHORITY",
+        "proposed_sid": null,
+        "status": "UNVERIFIED"
+      }
+    ],
+    "execution_authorized": false,
+    "readiness_passed": false,
+    "physical_ready": false,
+    "schema2_enabled": false
+  },
+  "intent_sha256": "e574c5b1d71f94e1b0477b3110d0c85496b3adb06db6bcb9db1a8057c1b2f892",
+  "producer_plan_utf8": "{\"schema\":1,\"kind\":\"ISOLATED_PREPARATION\",\"parent\":\"L:\\\\GridLab\",\"root\":\"L:\\\\GridLab\\\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_LAB01\",\"run_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"node_id\":\"LAB01\",\"role\":\"CONTROL\",\"version\":\"272ea6c1d011779a83a5d89478e237a6427f66e9\",\"branch\":\"audit/codex-pgdata-intent-fixture\",\"postgres_port\":23001,\"coordinator_port\":23002,\"database\":\"grid_lab_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_lab01\",\"tasks\":[\"BybitClusterGridLab_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_LAB01_Agent\",\"BybitClusterGridLab_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_LAB01_Coordinator\",\"BybitClusterGridLab_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_LAB01_ArchivePipeline\"],\"activation_authorized\":false,\"database_initialization_authorized\":false,\"tasks_registered\":false,\"staging_policy\":\"installer/stage-github-release.ps1\",\"rollback\":\"RETIRE_AND_PRESERVE\",\"blockers\":[\"DATABASE_INITIALIZATION_REQUIRES_SEPARATE_REVIEW\",\"RELEASE_STAGING_AND_MANIFEST_PREFLIGHT_REQUIRED\",\"TASK_REGISTRATION_AND_ACTIVATION_NOT_IMPLEMENTED\",\"FRESH_PHYSICAL_EVIDENCE_AND_OPERATOR_APPROVAL_REQUIRED\"],\"plan_sha256\":\"b42908a8d6f8579ebe2c282e2c4ac8afe01de85309cff70b775acb6714787257\"}",
+  "journal_utf8": "{\"schema\":1,\"plan_sha256\":\"b42908a8d6f8579ebe2c282e2c4ac8afe01de85309cff70b775acb6714787257\",\"state\":\"PREPARED\"}\n{\"schema\":1,\"plan_sha256\":\"b42908a8d6f8579ebe2c282e2c4ac8afe01de85309cff70b775acb6714787257\",\"state\":\"COMMITTED\"}\n",
+  "journal_sha256": "c3287e76c596e6386bd4bb1674a9758ec45e8e0482ec664af3f630ae244f16dd",
+  "receipt_utf8": "{\"execution_authorized\":false,\"intent_sha256\":\"e574c5b1d71f94e1b0477b3110d0c85496b3adb06db6bcb9db1a8057c1b2f892\",\"journal_sha256\":\"c3287e76c596e6386bd4bb1674a9758ec45e8e0482ec664af3f630ae244f16dd\",\"kind\":\"PGDATA_INTENT_DIAGNOSTIC_V1\",\"node_id\":\"LAB01\",\"pgdata\":\"L:\\\\GridLab\\\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_LAB01\\\\postgres\\\\data\",\"phase\":\"COMMITTED\",\"physical_ready\":false,\"producer_plan_sha256\":\"b42908a8d6f8579ebe2c282e2c4ac8afe01de85309cff70b775acb6714787257\",\"readiness_passed\":false,\"receipt_id\":\"77777777-7777-4777-8777-777777777777\",\"root\":\"L:\\\\GridLab\\\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_LAB01\",\"run_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"schema2_enabled\":false,\"scope\":\"EMPTY_FIXTURE_ONLY\",\"status\":\"BLOCKED\"}\n",
+  "receipt_sha256": "17fa367d7f25e6a0f55ab164dd9aa4a6f9adf99b03641da9ebfd757a9ac7457a"
+}
