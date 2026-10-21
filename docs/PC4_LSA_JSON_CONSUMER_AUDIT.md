@@ -86,10 +86,13 @@ The initial [CI run 39654073586](https://github.com/YehorBabenko88/bybit-cluster
 passed the Python contract suite on all four matrix jobs but failed PS5.1
 PlanOnly-to-CLI transport. A local PlanOnly-only reproduction showed that PS5.1
 UTF8Encoding with a preamble sends `efbbbf` before JSON; strict parsing correctly
-rejects it. CI now explicitly uses process-local UTF8Encoding(false), without
-weakening the validator. BOM-prefixed input is included in the negative inventory.
-This was an integration compatibility defect in the new CI, not authorization
-promotion or a failure of LSA/mock tests.
+rejects it. Explicit UTF8Encoding(false) fixed that local transport case but
+[run 39654585419](https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/39654585419)
+still rejected the hosted PS5.1 input, so BOM was not established as the hosted
+failure's cause. Limited byte-prefix/type diagnostics were added to investigate
+the actual boundary rather than relaxing validation. BOM-prefixed input remains
+in the negative inventory. Both CI failures are preserved in the final evidence;
+neither produces authorization or physical evidence.
 
 Specialized CI adds exact-head checks, separate `lsa-contract.xml` and
 `lsa-contract-events.json` receipts. Events must match the committed 107-node

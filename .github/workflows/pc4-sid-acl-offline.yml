@@ -66,7 +66,10 @@ jobs:
           $result
           $plan=& ./lab/lsa-readonly/Get-LocalLogonRights.ps1
           $OutputEncoding=New-Object System.Text.UTF8Encoding($false)
+          $plan | python -c "import sys,json; b=sys.stdin.buffer.read(); print('LSA_PLAN_TRANSPORT_BYTES='+str(len(b))+':'+b[:24].hex()); v=json.loads(b.decode('utf-8')); print('LSA_PLAN_TRANSPORT_TYPES='+json.dumps({k:type(x).__name__ for k,x in v.items()},sort_keys=True))"
           $review=$plan | python -m installer.lsa_report_contract
+          Write-Output ('LSA_PLAN_VALIDATOR_EXIT='+$LASTEXITCODE)
+          $review
           if($LASTEXITCODE -ne 0){throw 'LSA_PLAN_JSON_CONTRACT_REJECTED'}
           $v=$review | ConvertFrom-Json
           if($v.contract_valid -ne $true -or $v.status -cne 'BLOCKED' -or $v.execution_authorized -isnot [bool] -or $v.execution_authorized -ne $false){throw 'LSA_PLAN_JSON_CONTRACT_PROMOTION'}
@@ -80,7 +83,10 @@ jobs:
           $result
           $plan=& ./lab/lsa-readonly/Get-LocalLogonRights.ps1
           $OutputEncoding=New-Object System.Text.UTF8Encoding($false)
+          $plan | python -c "import sys,json; b=sys.stdin.buffer.read(); print('LSA_PLAN_TRANSPORT_BYTES='+str(len(b))+':'+b[:24].hex()); v=json.loads(b.decode('utf-8')); print('LSA_PLAN_TRANSPORT_TYPES='+json.dumps({k:type(x).__name__ for k,x in v.items()},sort_keys=True))"
           $review=$plan | python -m installer.lsa_report_contract
+          Write-Output ('LSA_PLAN_VALIDATOR_EXIT='+$LASTEXITCODE)
+          $review
           if($LASTEXITCODE -ne 0){throw 'LSA_PLAN_JSON_CONTRACT_REJECTED'}
           $v=$review | ConvertFrom-Json
           if($v.contract_valid -ne $true -or $v.status -cne 'BLOCKED' -or $v.execution_authorized -isnot [bool] -or $v.execution_authorized -ne $false){throw 'LSA_PLAN_JSON_CONTRACT_PROMOTION'}
