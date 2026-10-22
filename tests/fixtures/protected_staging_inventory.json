@@ -66,6 +66,11 @@
     "tests/test_protected_staging.py::test_schema_is_closed[type]",
     "tests/test_protected_staging.py::test_schema_is_closed[unknown]",
     "tests/test_protected_staging.py::test_specialized_workflow_never_runs_physical_tools",
+    "tests/test_protected_staging.py::test_toolchain_cannot_be_staging_root_or_ancestor_file[evidence]",
+    "tests/test_protected_staging.py::test_toolchain_cannot_be_staging_root_or_ancestor_file[source]",
+    "tests/test_protected_staging.py::test_toolchain_cannot_be_staging_root_or_ancestor_file[temp]",
+    "tests/test_protected_staging.py::test_toolchain_cannot_be_staging_root_or_ancestor_file[temp_parent]",
+    "tests/test_protected_staging.py::test_toolchain_cannot_be_staging_root_or_ancestor_file[volume_root]",
     "tests/test_protected_staging.py::test_type_confused_boolean[0]",
     "tests/test_protected_staging.py::test_type_confused_boolean[1]",
     "tests/test_protected_staging.py::test_type_confused_boolean[false]",
@@ -340,6 +345,26 @@
     [
       "tests.test_protected_staging",
       "test_specialized_workflow_never_runs_physical_tools"
+    ],
+    [
+      "tests.test_protected_staging",
+      "test_toolchain_cannot_be_staging_root_or_ancestor_file[evidence]"
+    ],
+    [
+      "tests.test_protected_staging",
+      "test_toolchain_cannot_be_staging_root_or_ancestor_file[source]"
+    ],
+    [
+      "tests.test_protected_staging",
+      "test_toolchain_cannot_be_staging_root_or_ancestor_file[temp]"
+    ],
+    [
+      "tests.test_protected_staging",
+      "test_toolchain_cannot_be_staging_root_or_ancestor_file[temp_parent]"
+    ],
+    [
+      "tests.test_protected_staging",
+      "test_toolchain_cannot_be_staging_root_or_ancestor_file[volume_root]"
     ],
     [
       "tests.test_protected_staging",

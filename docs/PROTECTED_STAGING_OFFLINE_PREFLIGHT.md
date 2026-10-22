@@ -105,6 +105,7 @@ PowerShell collector, installer or physical harness is executed by this workflow
 | Priority | Finding / disposition |
 |---|---|
 | P0 | No concrete new P0 identified within this offline implementation; no claim of a full platform audit |
+| P2 — fixed | AI review reproduced false model PASS when a toolchain file equalled TEMP/evidence or was a required ancestor. Equality and both containment directions are now rejected. Three failing reproducers became green; five regression positions cover roots and ancestor-file collisions. Host flags remained blocked before and after the fix |
 | P1 | Supplied LS5 Source/shared TEMP observations remain unsafe for elevated compilation. This work does not inspect or fix them. Physical/host GO is blocked |
 | P1 | Input authenticity, actual token/effective group access, protected custody and TOCTOU resistance are unproven. A synthetic PASS cannot close these blockers |
 | P2 | ACL/path/volume model is conservative and incomplete for real Windows descriptors and dependency resolution. Schema success is not semantic success or host proof |

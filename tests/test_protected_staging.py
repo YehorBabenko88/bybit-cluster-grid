@@ -188,3 +188,16 @@ def test_current_branch_cannot_enter_infrastructure_jobs():
                 assert 'services:' not in text and 'self-hosted' not in text
             else:
                 assert f"github.head_ref != '{branch}'" in first and f"github.ref_name != '{branch}'" in first
+
+@pytest.mark.parametrize('position',['temp','evidence','source','temp_parent','volume_root'])
+def test_toolchain_cannot_be_staging_root_or_ancestor_file(position):
+    v=fixture();p=v['policy'];s=v['snapshot']
+    location=(p['roots'][position] if position in p['roots'] else
+        p['roots']['temp'].rsplit('\\',1)[0] if position=='temp_parent' else 'C:\\')
+    # Preserve other files: the only attack is treating a required directory as
+    # another approved executable. Matching hashes cannot make it a directory.
+    p['toolchain_files'][location]='f'*64
+    s['toolchain']['resolved_files'][location]='f'*64
+    node=next(n for n in s['objects'] if n['path']==location)
+    node['kind']='FILE';node['sha256']='f'*64
+    assert check(v)['model_status']=='FAIL'
