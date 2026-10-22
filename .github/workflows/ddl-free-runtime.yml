@@ -54,9 +54,9 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          & .\installer\tests\test-release-runtime-guard.ps1
+          & powershell.exe -NoProfile -NonInteractive -File .\installer\tests\test-release-runtime-guard.ps1
           if ($LASTEXITCODE -ne 0) { throw 'Runtime Guard regression failure' }
-          & .\installer\tests\test-legacy-rollback.ps1 -Python (Get-Command python).Source
+          & powershell.exe -NoProfile -NonInteractive -File .\installer\tests\test-legacy-rollback.ps1 -Python (Get-Command python).Source
           if ($LASTEXITCODE -ne 0) { throw 'LegacyRollback regression failure' }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

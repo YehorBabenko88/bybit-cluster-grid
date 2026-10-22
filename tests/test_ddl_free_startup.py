@@ -113,3 +113,10 @@ def test_all_runtime_pool_constructors_pin_search_path():
                 found.append(path.name)
                 assert any(k.arg=='setup' and getattr(k.value,'id','')=='configure_connection' for k in n.keywords)
     assert sorted(found)==['db.py','storage.py','strategy_runtime.py']
+
+
+def test_windows_synthetic_suites_use_fresh_powershell_process_exit_status():
+    workflow=(ROOT/'.github/workflows/ddl-free-runtime.yml').read_text(encoding='utf-8')
+    assert 'powershell.exe -NoProfile -NonInteractive -File .\\installer\\tests\\test-release-runtime-guard.ps1' in workflow
+    assert 'powershell.exe -NoProfile -NonInteractive -File .\\installer\\tests\\test-legacy-rollback.ps1' in workflow
+    assert "if ($LASTEXITCODE -ne 0) { throw 'LegacyRollback regression failure' }" in workflow

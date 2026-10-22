@@ -48,6 +48,7 @@
     "tests/test_ddl_free_startup.py::test_runtime_verification_failure_is_fatal_and_closes_pool",
     "tests/test_ddl_free_startup.py::test_startup_never_prepares_schema",
     "tests/test_ddl_free_startup.py::test_strategy_subprocess_validates_before_loading_plugin",
+    "tests/test_ddl_free_startup.py::test_windows_synthetic_suites_use_fresh_powershell_process_exit_status",
     "tests/test_fleet_json_boundary.py::test_json_value_decodes_jsonb_array_text",
     "tests/test_fleet_json_boundary.py::test_json_value_decodes_jsonb_object_text",
     "tests/test_fleet_json_boundary.py::test_json_value_fails_closed_on_invalid_json",
@@ -476,6 +477,10 @@
     [
       "tests.test_ddl_free_startup",
       "test_strategy_subprocess_validates_before_loading_plugin"
+    ],
+    [
+      "tests.test_ddl_free_startup",
+      "test_windows_synthetic_suites_use_fresh_powershell_process_exit_status"
     ],
     [
       "tests.test_fleet_json_boundary",
