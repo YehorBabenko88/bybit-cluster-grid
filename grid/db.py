@@ -2,10 +2,16 @@ import asyncpg, json, logging
 from .config import settings
 log=logging.getLogger("db")
 
+async def configure_connection(connection):
+    # Pool reset and role/DSN defaults must never redirect unqualified runtime DML.
+    # setup runs on EVERY acquisition, including a reused/reset connection.
+    await connection.execute('SET search_path=pg_catalog,public')
+
 class Database:
     def __init__(self): self.pool=None
     async def connect(self):
-        self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=10,command_timeout=30)
+        self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=10,command_timeout=30,
+                                          setup=configure_connection)
     async def close(self):
         if self.pool is not None:
             await self.pool.close()

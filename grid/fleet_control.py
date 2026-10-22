@@ -39,7 +39,6 @@ async def ensure_fleet_schema(pool):
       ON fleet_operations(action,status,created_at DESC)""")
 
 async def latest_operation(pool, action=None):
-    await ensure_fleet_schema(pool)
     if action:
         row=await pool.fetchrow("SELECT * FROM fleet_operations WHERE action=$1 ORDER BY created_at DESC LIMIT 1",action)
     else:
@@ -64,7 +63,6 @@ async def _last_local_intent(pool,nid,node):
             "inferred_offline":True}
 
 async def fleet_stop(pool,nodes,requested_by):
-    await ensure_fleet_schema(pool)
     current=await runtime_state(pool)
     if current["state"]=="PAUSED":
         return {"state":"PAUSED","commands":[],"already":True}
@@ -84,7 +82,6 @@ async def fleet_stop(pool,nodes,requested_by):
     return {"state":"STOPPING","operation_id":str(op),"commands":commands}
 
 async def fleet_resume(pool,nodes,requested_by):
-    await ensure_fleet_schema(pool)
     prev=await latest_operation(pool,"STOP")
     snapshot=_json_value((prev or {}).get("snapshot"), {})
     if not isinstance(snapshot, dict):
@@ -104,7 +101,6 @@ async def fleet_resume(pool,nodes,requested_by):
     return {"state":"RESUMING","operation_id":str(op),"commands":commands,"preserved_stopped":[n for n,v in snapshot.items() if v.get("operator_stopped")]}
 
 async def begin_fleet_delete(pool,nodes,requested_by):
-    await ensure_fleet_schema(pool)
     existing=await latest_operation(pool,"DELETE")
     if existing and existing["status"] in ("WAITING","READY_CONTROL_PURGE"):
         return {"operation_id":str(existing["id"]),"targets":existing["targets"],"existing":True}
@@ -119,7 +115,6 @@ async def begin_fleet_delete(pool,nodes,requested_by):
     return {"operation_id":str(op),"targets":targets,"commands":commands}
 
 async def fleet_delete_status(pool,operation_id):
-    await ensure_fleet_schema(pool)
     op=await pool.fetchrow("SELECT * FROM fleet_operations WHERE id=$1::uuid",operation_id)
     if not op: return None
     targets=_json_value(op["targets"], [])
@@ -138,7 +133,6 @@ async def fleet_delete_status(pool,operation_id):
 
 async def reconcile_fleet_operation(pool):
     """Advance STOP/RESUME only after every required node command ACKs."""
-    await ensure_fleet_schema(pool)
     op=await pool.fetchrow("""SELECT * FROM fleet_operations
       WHERE action IN ('STOP','RESUME') AND status='RUNNING'
       ORDER BY created_at DESC LIMIT 1""")

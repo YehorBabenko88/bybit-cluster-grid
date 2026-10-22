@@ -46,7 +46,16 @@ class Storage:
     async def start(self):
         self.remote=(settings.role!="coordinator")
         if not self.remote:
-            self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=5)
+            from .db import configure_connection
+            self.pool=await asyncpg.create_pool(settings.postgres_dsn,min_size=1,max_size=5,
+                                              setup=configure_connection)
+            from .schema_contract import verify_runtime_schema
+            try:
+                await verify_runtime_schema(self.pool)
+            except BaseException:
+                await self.pool.close()
+                self.pool=None
+                raise
             await self.feature_builder.start(self.pool)
             self.derived=DerivedPipeline(self.pool)
             await self.derived.start()

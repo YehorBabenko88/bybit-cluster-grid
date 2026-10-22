@@ -22,7 +22,8 @@
        OR (a.grantee=ro_oid AND (n.nspname<>'public' OR c.relkind<>'r'
           OR c.relname NOT IN ('candles_1m','footprint_1m','derivatives_metrics')
           OR a.privilege_type<>'SELECT' OR a.is_grantable))
-       OR (a.grantee=app_oid AND (n.nspname<>'public' OR a.is_grantable OR NOT
+       OR (a.grantee=app_oid AND (n.nspname<>'public' OR a.is_grantable
+          OR (c.relname IN ('schema_migrations','grid_schema_contract') AND a.privilege_type<>'SELECT') OR NOT
           ((c.relkind='r' AND a.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE'))
            OR (c.relkind='S' AND a.privilege_type IN ('USAGE','SELECT'))))))
        OR EXISTS (SELECT 1 FROM pg_attribute t JOIN pg_class c ON c.oid=t.attrelid
@@ -51,6 +52,10 @@
   GRANT USAGE ON SCHEMA public TO grid_integration_test_app,grid_integration_test_ro;
   SET LOCAL ROLE grid_integration_test_owner;
   GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO grid_integration_test_app;
+  -- Immutable runtime contract metadata is owner-only. Broad market/control
+  -- DML grants must never permit the app to rewrite migration or schema seals.
+  REVOKE INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER ON
+    public.schema_migrations,public.grid_schema_contract FROM grid_integration_test_app;
   GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO grid_integration_test_app;
   -- RO is a market-data allowlist, never enrollment/control credentials or
   -- automatic access to future tables. Rerun after a separately reviewed migration.

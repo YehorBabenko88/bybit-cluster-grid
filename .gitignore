@@ -9,3 +9,10 @@ secrets/
 .pytest_cache/
 .idea/
 .vscode/
+ddl-offline.xml
+ddl-offline-events.json
+ddl-offline-sha256.json
+ddl-pg18.xml
+ddl-pg18-events.json
+ddl-pg18-sha256.json
+pg18-provider.json
