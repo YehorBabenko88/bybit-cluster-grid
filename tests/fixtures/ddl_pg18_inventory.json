@@ -17,6 +17,7 @@
     "tests/test_ddl_free_pg18.py::test_fresh_48_and_idempotent_preparation",
     "tests/test_ddl_free_pg18.py::test_legacy_import_is_dml_only_and_conflicts_abort",
     "tests/test_ddl_free_pg18.py::test_missing_required_dml_privilege_blocks_startup",
+    "tests/test_ddl_free_pg18.py::test_preparation_rejects_superuser_even_on_empty_ci_database",
     "tests/test_ddl_free_pg18.py::test_real_coordinator_start_stop_restart_under_app_role",
     "tests/test_ddl_free_pg18.py::test_registry_and_structure_drift_are_fatal[column]",
     "tests/test_ddl_free_pg18.py::test_registry_and_structure_drift_are_fatal[gate]",
@@ -100,6 +101,10 @@
     [
       "tests.test_ddl_free_pg18",
       "test_missing_required_dml_privilege_blocks_startup"
+    ],
+    [
+      "tests.test_ddl_free_pg18",
+      "test_preparation_rejects_superuser_even_on_empty_ci_database"
     ],
     [
       "tests.test_ddl_free_pg18",

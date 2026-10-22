@@ -310,3 +310,17 @@ def test_disabled_constraint_triggers_block_without_resealing():
             with pytest.raises(SchemaBlocked,match='STRUCTURE_MISMATCH'):
                 await verify_runtime_schema(p['app'])
     asyncio.run(run())
+
+
+def test_preparation_rejects_superuser_even_on_empty_ci_database():
+    async def run():
+        from tools.ci_pg18 import attest
+        attest()
+        pool=await asyncpg.create_pool(host='127.0.0.1',port=int(os.environ['GRID_PG18_PORT']),
+            user='grid',database='grid',password=os.environ['GRID_PG18_PASSWORD'],min_size=1,max_size=1)
+        try:
+            with pytest.raises(SchemaBlocked,match='PREPARATION_REQUIRES_DATABASE_OWNER'):
+                await prepare_schema(pool)
+            assert await pool.fetchval("SELECT count(*) FROM pg_tables WHERE schemaname='public'")==0
+        finally:await pool.close()
+    asyncio.run(run())

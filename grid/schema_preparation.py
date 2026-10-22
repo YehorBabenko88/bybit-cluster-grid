@@ -41,8 +41,11 @@ async def prepare_schema(pool):
         try:
             async with c.transaction():
                 await c.execute('SET LOCAL search_path=public,pg_catalog')
-                if not await c.fetchval("""SELECT datdba=(SELECT oid FROM pg_roles WHERE rolname=current_user)
-                      FROM pg_database WHERE datname=current_database()"""):
+                if not await c.fetchval("""SELECT datname NOT IN ('postgres','template0','template1')
+                      AND datdba=r.oid AND NOT (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole
+                                               OR r.rolreplication OR r.rolbypassrls)
+                      FROM pg_database d CROSS JOIN pg_roles r
+                      WHERE d.datname=current_database() AND r.rolname=current_user"""):
                     raise SchemaBlocked('PREPARATION_REQUIRES_DATABASE_OWNER')
                 if await c.fetchval("SELECT to_regclass('public.grid_schema_contract') IS NOT NULL"):
                     await verify_schema(c)

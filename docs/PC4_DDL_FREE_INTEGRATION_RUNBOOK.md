@@ -35,7 +35,8 @@ preparation code, not runtime startup. No migration SQL/name/order is rewritten.
 Schema preparation uses the existing migration advisory-lock key across the
 entire transaction, including baseline/supplementary objects and seal. A failure
 or cancellation rolls back all of them. The nested migration lock is balanced.
-Re-entry checks the seal before doing any DDL. Unknown/unsealed existing schemas
+Preparation rejects default databases and requires a restricted current-role database
+owner; a direct superuser current role is not accepted. Re-entry checks the seal before doing any DDL. Unknown/unsealed existing schemas
 are BLOCKED: this is deliberately **not** an in-place adoption/upgrade command.
 
 The owner-written contract binds normalized source files and a structural catalog
