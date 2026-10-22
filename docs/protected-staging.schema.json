@@ -1,0 +1,936 @@
+{
+  "type": "object",
+  "properties": {
+    "policy": {
+      "$ref": "#/$defs/policy"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/snapshot"
+    }
+  },
+  "required": [
+    "policy",
+    "snapshot"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:grid:protected-staging:offline:1",
+  "$defs": {
+    "path": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 240,
+      "pattern": "^[A-Z]:\\\\(?:[A-Za-z0-9_.-]+(?:\\\\[A-Za-z0-9_.-]+)*)?$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sid": {
+      "type": "string",
+      "pattern": "^S-1-5-21-(?:[1-9][0-9]{0,9}-){3}[1-9][0-9]{0,9}$"
+    },
+    "hashes": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 32,
+      "propertyNames": {
+        "$ref": "#/$defs/path"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/sha256"
+      }
+    },
+    "ace": {
+      "type": "object",
+      "properties": {
+        "sid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "ALLOW"
+        },
+        "mask": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inherited": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "sid",
+        "type",
+        "mask",
+        "inherited"
+      ],
+      "additionalProperties": false
+    },
+    "node": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "kind": {
+          "enum": [
+            "DIRECTORY",
+            "FILE"
+          ]
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dacl_protected": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "aces": {
+          "anyOf": [
+            {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "$ref": "#/$defs/ace"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reparse": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "kind",
+        "owner",
+        "dacl_protected",
+        "aces",
+        "reparse",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "grid-staging-policy-1"
+        },
+        "operator_sid": {
+          "$ref": "#/$defs/sid"
+        },
+        "untrusted_sids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/sid"
+          }
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "source_files": {
+          "$ref": "#/$defs/hashes"
+        },
+        "toolchain_files": {
+          "$ref": "#/$defs/hashes"
+        },
+        "roots": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/path"
+            },
+            "temp": {
+              "$ref": "#/$defs/path"
+            },
+            "evidence": {
+              "$ref": "#/$defs/path"
+            }
+          },
+          "required": [
+            "source",
+            "temp",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "volume": {
+          "type": "object",
+          "properties": {
+            "drive": {
+              "type": "string",
+              "pattern": "^[A-Z]:$"
+            },
+            "identity": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9-]{1,80}$"
+            }
+          },
+          "required": [
+            "drive",
+            "identity"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema",
+        "operator_sid",
+        "untrusted_sids",
+        "run_id",
+        "source_commit",
+        "source_files",
+        "toolchain_files",
+        "roots",
+        "volume"
+      ],
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "grid-staging-snapshot-1"
+        },
+        "identity": {
+          "type": "object",
+          "properties": {
+            "sid": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sid"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "elevated": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "groups": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 64
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "sid",
+            "elevated",
+            "groups"
+          ],
+          "additionalProperties": false
+        },
+        "objects": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "source": {
+          "type": "object",
+          "properties": {
+            "commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "hashes_before": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/hashes"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "hashes_at_use": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/hashes"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "hashes_after": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/hashes"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "custody_continuous": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "commit",
+            "hashes_before",
+            "hashes_at_use",
+            "hashes_after",
+            "custody_continuous"
+          ],
+          "additionalProperties": false
+        },
+        "temp": {
+          "type": "object",
+          "properties": {
+            "TEMP": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/path"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "TMP": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/path"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "fresh": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "empty": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "shared": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "TEMP",
+            "TMP",
+            "fresh",
+            "empty",
+            "shared"
+          ],
+          "additionalProperties": false
+        },
+        "toolchain": {
+          "type": "object",
+          "properties": {
+            "resolved_files": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/hashes"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "search_paths_trusted": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "working_directory_trusted": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "profiles_disabled": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "ps_version": {
+              "type": "string"
+            },
+            "bitness": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "resolved_files",
+            "search_paths_trusted",
+            "working_directory_trusted",
+            "profiles_disabled",
+            "ps_version",
+            "bitness"
+          ],
+          "additionalProperties": false
+        },
+        "evidence": {
+          "type": "object",
+          "properties": {
+            "fresh": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "overwrite": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "outside_temp": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "exclusive_creation": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "fresh",
+            "overwrite",
+            "outside_temp",
+            "exclusive_creation"
+          ],
+          "additionalProperties": false
+        },
+        "lifecycle": {
+          "type": "object",
+          "properties": {
+            "cleanup_authorized": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unknown_contents": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reuse": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "cleanup_authorized",
+            "unknown_contents",
+            "reuse"
+          ],
+          "additionalProperties": false
+        },
+        "authorization": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "const": "SYNTHETIC_MODEL_ONLY"
+            },
+            "host_observation": {
+              "type": "boolean"
+            },
+            "execute": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "scope",
+            "host_observation",
+            "execute"
+          ],
+          "additionalProperties": false
+        },
+        "volume": {
+          "type": "object",
+          "properties": {
+            "drive": {
+              "type": "string",
+              "pattern": "^[A-Z]:$"
+            },
+            "identity": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9-]{1,80}$"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "custody_trusted": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "drive",
+            "identity",
+            "kind",
+            "custody_trusted"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema",
+        "identity",
+        "objects",
+        "source",
+        "temp",
+        "toolchain",
+        "evidence",
+        "lifecycle",
+        "authorization",
+        "volume"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "grid-staging-result-1"
+        },
+        "model_status": {
+          "enum": [
+            "OFFLINE_MODEL_PASS",
+            "FAIL",
+            "BLOCKED"
+          ]
+        },
+        "HOST_VERIFIED": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "physical_passes": {
+          "const": 0
+        },
+        "physical_tests": {
+          "const": "0/10 NOT_RUN"
+        },
+        "gates": {
+          "type": "object",
+          "properties": {
+            "S1": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "enum": [
+                    "PASS",
+                    "FAIL",
+                    "BLOCKED"
+                  ]
+                },
+                "host": {
+                  "const": "BLOCKED"
+                },
+                "code": {
+                  "enum": [
+                    "NOT_EVALUATED",
+                    "INVALID_CONTRACT",
+                    "SYNTHETIC_ASSERTION_ONLY",
+                    "MODEL_UNKNOWN",
+                    "MODEL_REJECTED"
+                  ]
+                }
+              },
+              "required": [
+                "model",
+                "host",
+                "code"
+              ],
+              "additionalProperties": false
+            },
+            "S2": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "enum": [
+                    "PASS",
+                    "FAIL",
+                    "BLOCKED"
+                  ]
+                },
+                "host": {
+                  "const": "BLOCKED"
+                },
+                "code": {
+                  "enum": [
+                    "NOT_EVALUATED",
+                    "INVALID_CONTRACT",
+                    "SYNTHETIC_ASSERTION_ONLY",
+                    "MODEL_UNKNOWN",
+                    "MODEL_REJECTED"
+                  ]
+                }
+              },
+              "required": [
+                "model",
+                "host",
+                "code"
+              ],
+              "additionalProperties": false
+            },
+            "S3": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "enum": [
+                    "PASS",
+                    "FAIL",
+                    "BLOCKED"
+                  ]
+                },
+                "host": {
+                  "const": "BLOCKED"
+                },
+                "code": {
+                  "enum": [
+                    "NOT_EVALUATED",
+                    "INVALID_CONTRACT",
+                    "SYNTHETIC_ASSERTION_ONLY",
+                    "MODEL_UNKNOWN",
+                    "MODEL_REJECTED"
+                  ]
+                }
+              },
+              "required": [
+                "model",
+                "host",
+                "code"
+              ],
+              "additionalProperties": false
+            },
+            "S4": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "enum": [
+                    "PASS",
+                    "FAIL",
+                    "BLOCKED"
+                  ]
+                },
+                "host": {
+                  "const": "BLOCKED"
+                },
+                "code": {
+                  "enum": [
+                    "NOT_EVALUATED",
+                    "INVALID_CONTRACT",
+                    "SYNTHETIC_ASSERTION_ONLY",
+                    "MODEL_UNKNOWN",
+                    "MODEL_REJECTED"
+                  ]
+                }
+              },
+              "required": [
+                "model",
+                "host",
+                "code"
+              ],
+              "additionalProperties": false
+            },
+            "S5": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "enum": [
+                    "PASS",
+                    "FAIL",
+                    "BLOCKED"
+                  ]
+                },
+                "host": {
+                  "const": "BLOCKED"
+                },
+                "code": {
+                  "enum": [
+                    "NOT_EVALUATED",
+                    "INVALID_CONTRACT",
+                    "SYNTHETIC_ASSERTION_ONLY",
+                    "MODEL_UNKNOWN",
+                    "MODEL_REJECTED"
+                  ]
+                }
+              },
+              "required": [
+                "model",
+                "host",
+                "code"
+              ],
+              "additionalProperties": false
+            },
+            "S6": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "enum": [
+                    "PASS",
+                    "FAIL",
+                    "BLOCKED"
+                  ]
+                },
+                "host": {
+                  "const": "BLOCKED"
+                },
+                "code": {
+                  "enum": [
+                    "NOT_EVALUATED",
+                    "INVALID_CONTRACT",
+                    "SYNTHETIC_ASSERTION_ONLY",
+                    "MODEL_UNKNOWN",
+                    "MODEL_REJECTED"
+                  ]
+                }
+              },
+              "required": [
+                "model",
+                "host",
+                "code"
+              ],
+              "additionalProperties": false
+            },
+            "S7": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "enum": [
+                    "PASS",
+                    "FAIL",
+                    "BLOCKED"
+                  ]
+                },
+                "host": {
+                  "const": "BLOCKED"
+                },
+                "code": {
+                  "enum": [
+                    "NOT_EVALUATED",
+                    "INVALID_CONTRACT",
+                    "SYNTHETIC_ASSERTION_ONLY",
+                    "MODEL_UNKNOWN",
+                    "MODEL_REJECTED"
+                  ]
+                }
+              },
+              "required": [
+                "model",
+                "host",
+                "code"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "S1",
+            "S2",
+            "S3",
+            "S4",
+            "S5",
+            "S6",
+            "S7"
+          ],
+          "additionalProperties": false
+        },
+        "snapshot_sha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policy_sha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "model_status",
+        "HOST_VERIFIED",
+        "execution_authorized",
+        "physical_passes",
+        "physical_tests",
+        "gates",
+        "snapshot_sha256",
+        "policy_sha256"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "description": "Synthetic structural contract only. Schema success never authorizes host observation/execution; run the semantic validator as well."
+}

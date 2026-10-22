@@ -103,6 +103,7 @@ def test_evidence_template_never_accepted_as_receipt_or_manifest():
 def test_inherited_jobs_excluded_and_new_workflow_pure():
     import re
     positive = {'pc4-sid-acl-offline.yml': 'audit/codex-pc4-sid-acl-20261021',
+                'protected-staging-offline.yml': 'audit/protected-staging-offline-20261022',
                 'pgdata-intent-offline.yml': 'planning/pgdata-intent-v1-20261021',
                 'lab-airgap-a.yml': 'planning/lab-airgap-a-20261021',
                 'lab-witness-l1.yml': 'planning/lab-witness-l1-20261020',

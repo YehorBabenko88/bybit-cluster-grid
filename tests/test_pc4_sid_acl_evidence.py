@@ -104,7 +104,8 @@ def test_new_workflow_excludes_all_inherited_jobs():
     from pathlib import Path
     import re
     root=Path(__file__).resolve().parents[1]
-    positive={'pc4-sid-acl-offline.yml':'audit/codex-pc4-sid-acl-20261021',
+    positive={'protected-staging-offline.yml':'audit/protected-staging-offline-20261022',
+                    'pc4-sid-acl-offline.yml':'audit/codex-pc4-sid-acl-20261021',
               'pgdata-intent-offline.yml':'planning/pgdata-intent-v1-20261021',
               'lab-airgap-a.yml':'planning/lab-airgap-a-20261021',
               'lab-witness-l1.yml':'planning/lab-witness-l1-20261020',
