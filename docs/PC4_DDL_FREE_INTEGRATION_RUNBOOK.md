@@ -98,11 +98,12 @@ $Psql='C:\Program Files\PostgreSQL\18\bin\psql.exe'
 Set-Location -LiteralPath $Source
 if ((git rev-parse HEAD) -ne $ExpectedSha) { throw 'FAIL_CHECKOUT_SHA' }
 if (git status --porcelain) { throw 'FAIL_DIRTY_CHECKOUT' }
+if (Test-Path -LiteralPath (Join-Path $Source '.env')) { throw 'BLOCKED_UNREVIEWED_DOTENV' }
 & $Python --version
 & $Psql --version
 & $Python -m pip check
 if ($LASTEXITCODE) { throw 'FAIL_DEPENDENCIES' }
-& $Python -m grid.schema_preparation
+& $Python -E -s -m grid.schema_preparation
 if ($LASTEXITCODE) { throw 'FAIL_PLAN_ONLY' }
 ```
 
@@ -137,7 +138,7 @@ The owner remains NOLOGIN. The trusted connection assumes it for object ownershi
 ```powershell
 $env:PGPASSFILE=Read-Host 'Protected admin passfile absolute path'
 $env:POSTGRES_DSN='postgresql://postgres@127.0.0.1:5432/grid_integration_test?role=grid_integration_test_owner'
-& $Python -m grid.schema_preparation --execute --database grid_integration_test
+& $Python -E -s -m grid.schema_preparation --execute --database grid_integration_test
 if ($LASTEXITCODE) { throw 'FAIL_SCHEMA_PREPARATION_PRESERVE_DATABASE' }
 Remove-Item Env:POSTGRES_DSN
 Remove-Item Env:PGPASSFILE
@@ -192,16 +193,20 @@ $env:TMP=$env:TEMP
 $env:ARCHIVE_ROOT=Join-Path $Root 'State\archive-cache'
 $env:ML_ARTIFACT_ROOT=Join-Path $Root 'State\ml-artifacts'
 $env:RETENTION_ENABLED='false'
+$env:GRID_SHARED_TOKEN=''
+$env:NODE_CREDENTIAL=''
 $env:TELEGRAM_BOT_TOKEN=''
 $env:TELEGRAM_ALLOWED_CHAT_IDS=''
 $env:ENROLLMENT_TOKEN=''
 $env:TAILSCALE_OAUTH_CLIENT_ID=''
 $env:TAILSCALE_OAUTH_CLIENT_SECRET=''
-& $Python -m uvicorn grid.coordinator:app --host 127.0.0.1 --port 8765 --workers 1 --no-access-log
+& $Python -E -s -m uvicorn grid.coordinator:app --host 127.0.0.1 --port 8765 --workers 1 --no-access-log
 ```
 
 Do not use `run_coordinator.py` or existing launcher: their all-interface binding
-is outside this loopback-only procedure. No Worker/enrollment/Telegram/ACTIVE-state
+is outside this loopback-only procedure. Administrative endpoints deliberately return 503 with the empty shared token.
+Python -E -s ignores inherited PYTHONPATH/PYTHONHOME and user-site packages.
+No Worker/enrollment/Telegram/ACTIVE-state
 or exchange/trading credentials are enabled. PASS requires prepared schema,
 restricted app, INFRA_ONLY, exactly one effective CONTROL lease and loopback
 listener only. Any other listener or market activation is FAIL/STOP. Unknown token,
