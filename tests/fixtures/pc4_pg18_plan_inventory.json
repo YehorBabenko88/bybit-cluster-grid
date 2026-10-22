@@ -7,7 +7,8 @@
     "tests/test_pc4_pg18_plan.py::test_catalogue_is_48_and_not_main_46",
     "tests/test_pc4_pg18_plan.py::test_catalogue_receipt_matches_actual_names_and_sql",
     "tests/test_pc4_pg18_plan.py::test_context_is_cluster_pinned_and_superuser_only",
-    "tests/test_pc4_pg18_plan.py::test_existing_runtime_and_migration_sources_are_not_patched",
+    "tests/test_pc4_pg18_plan.py::test_ddl_is_retained_only_for_explicit_preparation",
+    "tests/test_pc4_pg18_plan.py::test_migration_and_physical_safety_sources_are_not_patched",
     "tests/test_pc4_pg18_plan.py::test_minimum_grants_do_not_make_app_owner",
     "tests/test_pc4_pg18_plan.py::test_missing_approval_stops_with_sql_error_not_unsupported_quit_status",
     "tests/test_pc4_pg18_plan.py::test_mutation_files_are_explicitly_gated[10_bootstrap.sql]",
@@ -25,7 +26,6 @@
     "tests/test_pc4_pg18_plan.py::test_readonly_file_is_transaction_readonly",
     "tests/test_pc4_pg18_plan.py::test_readonly_has_no_blanket_or_future_auth_table_grants",
     "tests/test_pc4_pg18_plan.py::test_readonly_login_and_connection_activation_are_not_implemented",
-    "tests/test_pc4_pg18_plan.py::test_real_runtime_still_requires_ddl",
     "tests/test_pc4_pg18_plan.py::test_rollback_has_no_incomplete_catalog_pristine_test",
     "tests/test_pc4_pg18_plan.py::test_rollback_refuses_nonpristine_or_external_resources",
     "tests/test_pc4_pg18_plan.py::test_sql_grammar_offline[00_readonly.sql]",
@@ -54,7 +54,11 @@
     ],
     [
       "tests.test_pc4_pg18_plan",
-      "test_existing_runtime_and_migration_sources_are_not_patched"
+      "test_ddl_is_retained_only_for_explicit_preparation"
+    ],
+    [
+      "tests.test_pc4_pg18_plan",
+      "test_migration_and_physical_safety_sources_are_not_patched"
     ],
     [
       "tests.test_pc4_pg18_plan",
@@ -123,10 +127,6 @@
     [
       "tests.test_pc4_pg18_plan",
       "test_readonly_login_and_connection_activation_are_not_implemented"
-    ],
-    [
-      "tests.test_pc4_pg18_plan",
-      "test_real_runtime_still_requires_ddl"
     ],
     [
       "tests.test_pc4_pg18_plan",

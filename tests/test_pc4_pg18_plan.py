@@ -70,12 +70,13 @@ def test_readonly_has_no_blanket_or_future_auth_table_grants():
     assert 'GRANT SELECT ON ALL TABLES' not in s
     assert 'GRANT SELECT ON TABLES TO grid_integration_test_ro' not in s
 
-def test_real_runtime_still_requires_ddl():
-    # Document the blocker instead of granting owner privileges to runtime.
+def test_ddl_is_retained_only_for_explicit_preparation():
+    # Baseline DDL is retained for the explicit trusted preparer.
     tree=ast.parse((ROOT/'grid/db.py').read_text())
     assert any(isinstance(n,ast.Constant) and isinstance(n.value,str) and 'CREATE TABLE' in n.value
                for n in ast.walk(tree))
-    assert 'ensure_retention_schema(db.pool)' in (ROOT/'grid/coordinator.py').read_text()
+    assert 'verify_runtime_schema(db.pool)' in (ROOT/'grid/service.py').read_text()
+    assert 'await ensure_retention_schema(db.pool)' not in (ROOT/'grid/coordinator.py').read_text()
 
 def sql_text(name):
     s=(SQL/name).read_text()
@@ -140,10 +141,10 @@ def test_plan_branch_cannot_start_infrastructure():
             else:
                 assert 'services:' not in s and 'self-hosted' not in s
 
-def test_existing_runtime_and_migration_sources_are_not_patched():
+def test_migration_and_physical_safety_sources_are_not_patched():
     import subprocess
     base='217904071394ab8a84e5a180822081ff8e25e1e9'
-    assert not subprocess.check_output(['git','diff',base,'--','grid','installer','lab'],cwd=ROOT)
+    assert not subprocess.check_output(['git','diff',base,'--','grid/migrations.py','grid/collection_ownership.py','grid/migration48_index.py','installer','lab'],cwd=ROOT)
 
 def test_ownership_and_public_privileges_are_not_implicit_bypasses():
     owned=(SQL/'_owned.sql').read_text();acl=(SQL/'20_privileges.sql').read_text()
