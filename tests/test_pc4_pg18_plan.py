@@ -35,6 +35,7 @@ def test_readonly_file_is_transaction_readonly():
     s=(SQL/'00_readonly.sql').read_text()
     assert 'BEGIN READ ONLY' in s and 'COMMIT;' in s
     assert not re.search(r'\b(CREATE|ALTER|DROP|GRANT|REVOKE)\b',s)
+    assert "pg_catalog.substr(rolname,1,3)<>'pg_'" in s
 
 def test_rollback_refuses_nonpristine_or_external_resources():
     s=(SQL/'30_rollback.sql').read_text()

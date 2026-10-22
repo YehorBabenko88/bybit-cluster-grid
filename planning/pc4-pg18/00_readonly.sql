@@ -10,7 +10,7 @@ FROM pg_catalog.pg_database ORDER BY datname;
 SELECT rolname, oid, rolsuper, rolcreatedb, rolcreaterole, rolcanlogin,
        rolreplication, rolbypassrls
 FROM pg_catalog.pg_roles
-WHERE rolname NOT LIKE 'pg_%' ORDER BY rolname;
+WHERE pg_catalog.substr(rolname,1,3)<>'pg_' ORDER BY rolname;
 SELECT count(*) AS other_clients
 FROM pg_catalog.pg_stat_activity
 WHERE backend_type='client backend' AND pid<>pg_catalog.pg_backend_pid();
