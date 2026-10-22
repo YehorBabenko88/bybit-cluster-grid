@@ -252,7 +252,13 @@ def test_app_connection_loss_can_reconnect_without_preparation():
         async with database() as (p,r,options,name,admin):
             c=await p['app'].acquire()
             pid=await c.fetchval('SELECT pg_backend_pid()')
+            interrupted=asyncio.create_task(c.fetchval('SELECT pg_sleep(60)'))
+            await asyncio.sleep(0)
             assert await admin.fetchval('SELECT pg_terminate_backend($1)',pid)
+            # Observe the in-flight connection failure before returning the
+            # holder; otherwise reset races the still-active protocol query.
+            with pytest.raises(asyncpg.ConnectionDoesNotExistError):
+                await interrupted
             await p['app'].release(c)
             await verify_runtime_schema(p['app'])
     asyncio.run(run())
@@ -289,5 +295,18 @@ def test_missing_required_dml_privilege_blocks_startup():
         async with database() as (p,r,*_):
             await p['owner'].execute(f'REVOKE UPDATE ON public.fleet_operations FROM "{r["app"]}"')
             with pytest.raises(SchemaBlocked,match='DML_GRANTS_MISSING'):
+                await verify_runtime_schema(p['app'])
+    asyncio.run(run())
+
+
+def test_disabled_constraint_triggers_block_without_resealing():
+    async def run():
+        async with database() as (p,r,options,name,admin):
+            c=await asyncpg.connect(**options,user='grid',database=name)
+            try:
+                assert await c.fetchval("SELECT count(*) FROM pg_trigger WHERE tgrelid='public.model_registry'::regclass")>0
+                await c.execute('ALTER TABLE public.model_registry DISABLE TRIGGER ALL')
+            finally:await c.close()
+            with pytest.raises(SchemaBlocked,match='STRUCTURE_MISMATCH'):
                 await verify_runtime_schema(p['app'])
     asyncio.run(run())

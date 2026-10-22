@@ -94,3 +94,20 @@ def test_isolation_failure_never_connects_or_creates_database(monkeypatch):
         with pytest.raises(RuntimeError,match='proof denied'):
             async with fixture.database():raise AssertionError('not entered')
     asyncio.run(run())
+
+
+def test_provider_cannot_pull_or_run_before_local_daemon_proof(monkeypatch,tmp_path):
+    environment(monkeypatch)
+    monkeypatch.setenv('RUNNER_TEMP',str(tmp_path))
+    monkeypatch.setenv('GITHUB_ENV',str(tmp_path/'github-env'))
+    calls=[]
+    def remote(*args):
+        calls.append(args)
+        if args==('context','inspect','default'):
+            return json.dumps([{'Endpoints':{'docker':{'Host':'tcp://remote.invalid:2375'}}}])
+        raise AssertionError('pull/run/stop before local daemon proof')
+    monkeypatch.setattr(ci,'docker',remote)
+    with pytest.raises(RuntimeError,match='LOCAL_DOCKER'):
+        ci.start()
+    assert calls==[('context','inspect','default')]
+    assert not (tmp_path/'grid-pg18-ci.env').exists()

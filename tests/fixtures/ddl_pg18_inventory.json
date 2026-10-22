@@ -13,6 +13,7 @@
     "tests/test_ddl_free_pg18.py::test_app_has_no_ddl_or_metadata_write[temp]",
     "tests/test_ddl_free_pg18.py::test_cancelled_preparation_rolls_back_and_releases_lock",
     "tests/test_ddl_free_pg18.py::test_concurrent_preparation_is_serialized",
+    "tests/test_ddl_free_pg18.py::test_disabled_constraint_triggers_block_without_resealing",
     "tests/test_ddl_free_pg18.py::test_fresh_48_and_idempotent_preparation",
     "tests/test_ddl_free_pg18.py::test_legacy_import_is_dml_only_and_conflicts_abort",
     "tests/test_ddl_free_pg18.py::test_missing_required_dml_privilege_blocks_startup",
@@ -83,6 +84,10 @@
     [
       "tests.test_ddl_free_pg18",
       "test_concurrent_preparation_is_serialized"
+    ],
+    [
+      "tests.test_ddl_free_pg18",
+      "test_disabled_constraint_triggers_block_without_resealing"
     ],
     [
       "tests.test_ddl_free_pg18",

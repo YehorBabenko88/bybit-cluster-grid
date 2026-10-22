@@ -215,6 +215,7 @@
     "tests/test_pg18_ci_isolation.py::test_bad_container_proof_blocks_before_host_sql[wrong-run]",
     "tests/test_pg18_ci_isolation.py::test_complete_mock_proof",
     "tests/test_pg18_ci_isolation.py::test_isolation_failure_never_connects_or_creates_database",
+    "tests/test_pg18_ci_isolation.py::test_provider_cannot_pull_or_run_before_local_daemon_proof",
     "tests/test_pg18_ci_isolation.py::test_provider_failure_is_fail_closed",
     "tests/test_pg18_ci_isolation.py::test_untrusted_environment_never_calls_provider[DOCKER_CONTEXT-other]",
     "tests/test_pg18_ci_isolation.py::test_untrusted_environment_never_calls_provider[DOCKER_HOST-tcp://example.invalid:1234]",
@@ -1141,6 +1142,10 @@
     [
       "tests.test_pg18_ci_isolation",
       "test_isolation_failure_never_connects_or_creates_database"
+    ],
+    [
+      "tests.test_pg18_ci_isolation",
+      "test_provider_cannot_pull_or_run_before_local_daemon_proof"
     ],
     [
       "tests.test_pg18_ci_isolation",

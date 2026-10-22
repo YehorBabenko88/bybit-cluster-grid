@@ -38,15 +38,20 @@ def labels():
             'grid.audit.run_attempt':os.environ['GITHUB_RUN_ATTEMPT']}
 
 
+def local_daemon():
+    hosted()
+    context = json.loads(docker('context','inspect','default'))
+    if len(context)!=1 or context[0]['Endpoints']['docker']['Host'] != 'unix:///var/run/docker.sock':
+        raise RuntimeError('PG18_LOCAL_DOCKER_REQUIRED')
+
+
 def attest():
     """Must succeed before opening ANY host PostgreSQL connection."""
     hosted()
     cid = os.environ.get('GRID_PG18_CONTAINER','')
     if not re.fullmatch(r'[0-9a-f]{64}',cid):
         raise RuntimeError('PG18_CONTAINER_ID_REQUIRED')
-    context = json.loads(docker('context','inspect','default'))
-    if context[0]['Endpoints']['docker']['Host'] != 'unix:///var/run/docker.sock':
-        raise RuntimeError('PG18_LOCAL_DOCKER_REQUIRED')
+    local_daemon()
     rows = json.loads(docker('inspect',cid))
     if len(rows) != 1:
         raise RuntimeError('PG18_AMBIGUOUS_CONTAINER')
@@ -83,6 +88,7 @@ def attest():
 
 def start():
     hosted()
+    local_daemon()  # before secrets files, image pull or container creation
     secret = secrets.token_hex(32)
     print('::add-mask::'+secret, flush=True)
     secretfile = Path(os.environ['RUNNER_TEMP']) / 'grid-pg18-ci.env'
@@ -120,6 +126,7 @@ def start():
 
 def stop():
     hosted()
+    local_daemon()  # never mutate an unproven default/remote Docker endpoint
     cid=os.environ.get('GRID_PG18_CONTAINER','')
     if not re.fullmatch(r'[0-9a-f]{64}',cid):
         raise RuntimeError('PG18_NO_OWNED_CONTAINER_RECEIPT')

@@ -51,7 +51,7 @@ SELECT kind,name,definition FROM (
  WHERE n.nspname='public' AND a.attnum>0 AND NOT a.attisdropped
  UNION ALL
  SELECT 'constraint',c.relname||'.'||p.conname,
-   jsonb_build_array(pg_get_constraintdef(p.oid,true),p.convalidated)::text
+   jsonb_build_array(pg_get_constraintdef(p.oid,true),p.convalidated,to_jsonb(p)->'conenforced')::text
  FROM pg_constraint p JOIN pg_class c ON c.oid=p.conrelid
  JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public'
  UNION ALL
@@ -71,7 +71,8 @@ SELECT kind,name,definition FROM (
  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname='public' AND p.prokind IN ('f','p')
  UNION ALL
- SELECT 'trigger',c.relname||'.'||t.tgname,pg_get_triggerdef(t.oid)
+ SELECT 'trigger',c.relname||'.'||t.tgname,
+   jsonb_build_array(pg_get_triggerdef(t.oid),t.tgenabled)::text
  FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
  JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public'
  UNION ALL
