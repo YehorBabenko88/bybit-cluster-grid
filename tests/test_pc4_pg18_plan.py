@@ -150,3 +150,9 @@ def test_ownership_and_public_privileges_are_not_implicit_bypasses():
     assert 'a.grantee=0' in acl
     assert "aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner)))" in acl
     assert "has_database_privilege('grid_integration_test_app',d.oid,'CONNECT')" in owned
+
+def test_missing_approval_stops_with_sql_error_not_unsupported_quit_status():
+    combined=(SQL/'_context.sql').read_text()+(SQL/'30_rollback.sql').read_text()
+    assert '\\quit 3' not in combined
+    assert "RAISE EXCEPTION 'BLOCKED_MISSING_BOOTSTRAP_ID'" in combined
+    assert "RAISE EXCEPTION 'BLOCKED_SEPARATE_ROLE_CLEANUP_APPROVAL_REQUIRED'" in combined

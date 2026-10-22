@@ -9,6 +9,7 @@
     "tests/test_pc4_pg18_plan.py::test_context_is_cluster_pinned_and_superuser_only",
     "tests/test_pc4_pg18_plan.py::test_existing_runtime_and_migration_sources_are_not_patched",
     "tests/test_pc4_pg18_plan.py::test_minimum_grants_do_not_make_app_owner",
+    "tests/test_pc4_pg18_plan.py::test_missing_approval_stops_with_sql_error_not_unsupported_quit_status",
     "tests/test_pc4_pg18_plan.py::test_mutation_files_are_explicitly_gated[10_bootstrap.sql]",
     "tests/test_pc4_pg18_plan.py::test_mutation_files_are_explicitly_gated[20_privileges.sql]",
     "tests/test_pc4_pg18_plan.py::test_mutation_files_are_explicitly_gated[30_rollback.sql]",
@@ -58,6 +59,10 @@
     [
       "tests.test_pc4_pg18_plan",
       "test_minimum_grants_do_not_make_app_owner"
+    ],
+    [
+      "tests.test_pc4_pg18_plan",
+      "test_missing_approval_stops_with_sql_error_not_unsupported_quit_status"
     ],
     [
       "tests.test_pc4_pg18_plan",

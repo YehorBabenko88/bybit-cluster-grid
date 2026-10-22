@@ -1,13 +1,14 @@
+\set ON_ERROR_STOP on
 -- Internal include, never invoke independently. Session settings only.
 \if :{?bootstrap_id}
 \else
   \echo BLOCKED_MISSING_BOOTSTRAP_ID
-  \quit 3
+  DO $blocked$ BEGIN RAISE EXCEPTION 'BLOCKED_MISSING_BOOTSTRAP_ID'; END; $blocked$;
 \endif
 \if :{?expected_system_identifier}
 \else
   \echo BLOCKED_MISSING_CLUSTER_PIN
-  \quit 3
+  DO $blocked$ BEGIN RAISE EXCEPTION 'BLOCKED_MISSING_CLUSTER_PIN'; END; $blocked$;
 \endif
 \if :{?expected_owner_oid}
 \else

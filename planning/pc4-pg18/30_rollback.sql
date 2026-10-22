@@ -11,7 +11,7 @@
   \if :approve_role_cleanup
   \else
     \echo BLOCKED_SEPARATE_ROLE_CLEANUP_APPROVAL_REQUIRED
-    \quit 3
+    DO $blocked$ BEGIN RAISE EXCEPTION 'BLOCKED_SEPARATE_ROLE_CLEANUP_APPROVAL_REQUIRED'; END; $blocked$;
   \endif
   \set _operation rollback
   \set _database postgres
