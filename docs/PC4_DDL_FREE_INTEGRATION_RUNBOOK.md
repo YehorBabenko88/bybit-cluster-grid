@@ -1,4 +1,4 @@
-# PC4 DDL-free integration candidate — future operator runbook
+# PC4 DDL-free integration candidate â€” future operator runbook
 
 **NOT AUTHORIZED TO EXECUTE. Physical SID/ACL 0/10 NOT_RUN.** This document
 authorizes no connection, role activation, SQL, ACL change, service, installation,
@@ -16,18 +16,19 @@ their physical authorization, integrity, rollback and identity gates remain.
 
 | Entry/path | Before | Candidate |
 |---|---|---|
-| Coordinator startup → service.prepare_database | baseline DDL and 1–48 migrations, retry forever | connect, read-only schema/role verification, fatal failure |
+| Coordinator startup â†’ service.prepare_database | baseline DDL and 1â€“48 migrations, retry forever | connect, read-only schema/role verification, fatal failure |
 | elected start_leader_services | eight supplementary CREATE/ALTER helpers | DML-only initialization after verification |
 | fleet lifecycle/reconcile | lazy fleet table/index creation per operation | existing prepared tables only |
 | runtime gate state setter | lazy CREATE plus default INSERT | UPDATE only; missing gate blocks startup |
 | stable rollout | lazy rollout_nodes CREATE | existing prepared table only |
 | bootstrap_runtime | apply_migrations before discovery | shared read-only verification before discovery |
 | direct ML training | raw connect without validation | shared verified startup |
+| strategy subprocess | independent raw pool/plugin load | pinned pool + shared verification before plugin load |
 | direct local Storage | raw pool before feature startup | shared verification and cleanup on rejection |
 | DB-less Worker / MicroEventStorage | remote ingest/WAL | still DB-less, unchanged fencing/receipts |
 | standalone ArchivePipeline | rejects unfenced database | rejection preserved |
 | legacy import / pilot | TEMP CREATE, COPY, TRUNCATE | bounded typed-array DML; atomic conflicting-value rejection |
-| schema_preparation --execute | new explicit trusted process | baseline, migrations 1–48, **all nine** supplementary helpers and owner-only seal |
+| schema_preparation --execute | new explicit trusted process | baseline, migrations 1â€“48, **all nine** supplementary helpers and owner-only seal |
 
 DDL retained in `Database.ensure_schema`, migrations and `ensure_*` functions is
 preparation code, not runtime startup. No migration SQL/name/order is rewritten.
@@ -40,7 +41,7 @@ are BLOCKED: this is deliberately **not** an in-place adoption/upgrade command.
 The owner-written contract binds normalized source files and a structural catalog
 digest, including columns/defaults/types, constraints/validation, indexes/status,
 sequences, relation owners/options/RLS, routines, triggers and policies. Runtime
-also checks the exact 1–48 registry, the full migration48 index postcondition and
+also checks the exact 1â€“48 registry, the full migration48 index postcondition and
 the runtime gate row. The seal/registry must be read-only to app, including column
 grants. App must have no memberships, ownership, superuser/role/database creation,
 replication/bypass-RLS authority, database CREATE/TEMP or user-schema CREATE.
@@ -54,7 +55,7 @@ anti-rollback or a signature. No schema-2/physical isolation claim is enabled.
 Runtime verification occurs at startup; it cannot freeze a malicious owner's
 future DDL. Re-verify after maintenance; coordinate owner changes with shutdown.
 
-## Commands and gates — future local PC4 session only
+## Commands and gates â€” future local PC4 session only
 
 Every command below requires separate owner authorization. Do not run these from
 SSH/Tailscale or the current Codex session. Never use transcripts, `psql -a/-e`,
@@ -63,7 +64,7 @@ uploaded `.env`/passfiles. PostgreSQL `postgres`/`user`, other databases, PGDATA
 `C:\Program Files\PostgreSQL\18\data`, its NetworkService identity, existing ACLs
 and services must not be repurposed. No initdb/server upgrade is included.
 
-### G0 — independent security and target approval
+### G0 â€” independent security and target approval
 
 PASS requires independently verified full SIDs/tokens, new-object ACL design,
 ancestor custody, Source/TEMP/evidence custody, Python/toolchain provenance,
@@ -82,7 +83,7 @@ credentials only; Evidence: append producer plus independent custody, no overwri
 Ancestors need protection against replacement/DELETE_CHILD, not merely a leaf ACL.
 An empty/new name is not proof of custody. No ACL-provisioning shortcut is supplied.
 
-### G1 — protected checkout and runtime
+### G1 â€” protected checkout and runtime
 
 After independent provisioning, use a reviewed PowerShell process/token:
 
@@ -111,7 +112,7 @@ evidence of compatibility. Do not resolve new dependencies under app authority.
 Unknown ACL, signature/hash, dependency or root is BLOCKED. Do not use the global
 system Python or writable Source/TEMP as executable search paths.
 
-### G2 — target identity and isolated resources
+### G2 â€” target identity and isolated resources
 
 Use PR226 `planning/pc4-pg18/00_readonly.sql` with local interactive psql (`-X -W`)
 to independently pin system identifier and record the non-secret receipt. Existing
@@ -127,7 +128,7 @@ authorize that operation merely because a validation command passed. PUBLIC
 access to unrelated databases cannot be removed by grants on this database;
 strict cluster-wide isolation requires a separately approved design.
 
-### G3 — trusted owner preparation (separate terminal/token)
+### G3 â€” trusted owner preparation (separate terminal/token)
 
 Supply a separately provisioned protected libpq passfile for the trusted local
 admin login; its content is never printed, hashed into artifacts or passed as argv.
@@ -142,13 +143,13 @@ Remove-Item Env:POSTGRES_DSN
 Remove-Item Env:PGPASSFILE
 ```
 
-PASS: first run PREPARED, second ALREADY_PREPARED; registry exactly 1–48 and same
+PASS: first run PREPARED, second ALREADY_PREPARED; registry exactly 1â€“48 and same
 source/catalog seal. No automatic repair/adoption/downgrade exists. A different
 source seal is BLOCKED pending reviewed schema upgrade, not permission to reseal.
-The trusted prep connection may be admin→owner; runtime must authenticate directly
+The trusted prep connection may be adminâ†’owner; runtime must authenticate directly
 as app and rejects session-user/current-user substitution.
 
-### G4 — privileges and separate activation approval
+### G4 â€” privileges and separate activation approval
 
 Run the reviewed `20_privileges.sql` using PR226 cluster/OID/UUID pins and explicit
 approval. This candidate revokes app writes to both registry and contract after
@@ -175,7 +176,7 @@ as app. RO may SELECT only candles_1m/footprint_1m/derivatives_metrics, cannot r
 agent_credentials or write even with read-only setting off. PASS requires actual
 permission failures, not inferred role labels. Missing evidence is BLOCKED.
 
-### G5 — foreground loopback-only Coordinator
+### G5 â€” foreground loopback-only Coordinator
 
 Use a new verified non-admin app-token terminal, not the trusted preparer's shell.
 No Scheduler/service entry is installed or run. Independently exclude conflicting
@@ -206,7 +207,7 @@ restricted app, INFRA_ONLY, exactly one effective CONTROL lease and loopback
 listener only. Any other listener or market activation is FAIL/STOP. Unknown token,
 protected paths, secrets custody or task inventory is BLOCKED before this command.
 
-### G6 — health, fencing, WAL and controlled recovery
+### G6 â€” health, fencing, WAL and controlled recovery
 
 In a second approved local terminal:
 
@@ -225,7 +226,7 @@ interrupt PostgreSQL, network, Windows services or real data. CI already exercis
 software-level restricted startup/restart/concurrency and existing WAL regressions;
 that does not mark PC4 recovery scenarios PASS.
 
-### G7 — stop and retain evidence
+### G7 â€” stop and retain evidence
 
 Ctrl+C in the owning foreground terminal, wait for graceful shutdown and verify
 its loopback listener ended. Preserve database, State/WAL and evidence. Never kill

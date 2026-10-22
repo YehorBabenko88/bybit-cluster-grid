@@ -58,7 +58,8 @@ def run(mode):
     assert all(int(s.get(k,0))==0 for s in tree.iter('testsuite') for k in ('errors','failures','skipped'))
     names=subprocess.check_output(['git','diff','--name-only','f99f401aa11b5f0e0ed75046960801f882540216','HEAD'],cwd=ROOT).decode().splitlines()
     files={name:hashlib.sha256(subprocess.check_output(['git','show','HEAD:'+name],cwd=ROOT)).hexdigest() for name in names}
-    for name in (prefix+'.xml',prefix+'-events.json'):
+    for name in (prefix+'.xml',prefix+'-events.json',
+                 *[n for n in ('ddl-dependencies.txt','pg18-provider.json') if Path(n).exists()]):
         files[name]=hashlib.sha256(Path(name).read_bytes()).hexdigest()
     Path(prefix+'-sha256.json').write_text(json.dumps({'sha':events['sha'],'files':files},indent=2),encoding='utf-8')
 

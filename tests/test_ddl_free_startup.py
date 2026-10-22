@@ -89,3 +89,27 @@ def test_new_static_sql_parses_as_postgresql18():
                 # src/rdb are read-only SQLite handles, not PostgreSQL.
                 if getattr(node.func.value,'id','') in {'src','rdb'}:continue
                 if isinstance(arg,ast.Constant) and isinstance(arg.value,str):parse_sql(arg.value)
+
+
+def test_strategy_subprocess_validates_before_loading_plugin(monkeypatch):
+    from grid import strategy_runtime as runtime
+    from grid.schema_contract import SchemaBlocked
+    pool=SimpleNamespace(close=AsyncMock())
+    monkeypatch.setattr(runtime.asyncpg,'create_pool',AsyncMock(return_value=pool))
+    monkeypatch.setattr(runtime,'verify_runtime_schema',AsyncMock(side_effect=SchemaBlocked('BLOCKED_SCHEMA')),raising=False)
+    for k,v in {'GRID_STRATEGY_PLUGIN':'synthetic-never-load.py','GRID_STRATEGY_JOB_ID':'synthetic',
+                'POSTGRES_DSN':'synthetic-no-connection','GRID_STRATEGY_ATTEMPT':'1','GRID_STRATEGY_NODE':'synthetic'}.items():
+        monkeypatch.setenv(k,v)
+    with pytest.raises(SchemaBlocked,match='BLOCKED_SCHEMA'):
+        asyncio.run(runtime.main())
+    pool.close.assert_awaited_once()
+
+
+def test_all_runtime_pool_constructors_pin_search_path():
+    found=[]
+    for path in (ROOT/'grid').glob('*.py'):
+        for n in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
+            if isinstance(n,ast.Call) and getattr(n.func,'attr','')=='create_pool':
+                found.append(path.name)
+                assert any(k.arg=='setup' and getattr(k.value,'id','')=='configure_connection' for k in n.keywords)
+    assert sorted(found)==['db.py','storage.py','strategy_runtime.py']
