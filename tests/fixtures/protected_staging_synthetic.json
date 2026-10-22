@@ -1,0 +1,464 @@
+{
+  "policy": {
+    "schema": "grid-staging-policy-1",
+    "operator_sid": "S-1-5-21-1-2-3-1005",
+    "untrusted_sids": [
+      "S-1-5-21-1-2-3-1001"
+    ],
+    "run_id": "77777777-7777-4777-8777-777777777777",
+    "source_commit": "2a93efaab1ec61cc5e2a872b95e47a0a8a227f55",
+    "source_files": {
+      "C:\\Staging\\Source\\Get-LocalLogonRights.ps1": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "C:\\Staging\\Source\\Inventory.ps1": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "C:\\Staging\\Source\\LsaRights.cs": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "toolchain_files": {
+      "C:\\TrustedTools\\powershell.exe": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "C:\\TrustedTools\\csc.exe": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "roots": {
+      "source": "C:\\Staging\\Source",
+      "temp": "C:\\Staging\\Temp\\77777777-7777-4777-8777-777777777777",
+      "evidence": "C:\\Staging\\Evidence\\77777777-7777-4777-8777-777777777777"
+    },
+    "volume": {
+      "drive": "C:",
+      "identity": "SYNTHETIC-VOLUME-1"
+    }
+  },
+  "snapshot": {
+    "schema": "grid-staging-snapshot-1",
+    "identity": {
+      "sid": "S-1-5-21-1-2-3-1005",
+      "elevated": true,
+      "groups": [
+        "S-1-5-32-544"
+      ]
+    },
+    "objects": [
+      {
+        "path": "C:\\",
+        "kind": "DIRECTORY",
+        "owner": "S-1-5-18",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1179817,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": null
+      },
+      {
+        "path": "C:\\Staging",
+        "kind": "DIRECTORY",
+        "owner": "S-1-5-18",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1179817,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": null
+      },
+      {
+        "path": "C:\\Staging\\Evidence",
+        "kind": "DIRECTORY",
+        "owner": "S-1-5-18",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1179817,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": null
+      },
+      {
+        "path": "C:\\Staging\\Evidence\\77777777-7777-4777-8777-777777777777",
+        "kind": "DIRECTORY",
+        "owner": "S-1-5-21-1-2-3-1005",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1245631,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": null
+      },
+      {
+        "path": "C:\\Staging\\Source",
+        "kind": "DIRECTORY",
+        "owner": "S-1-5-18",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1179817,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": null
+      },
+      {
+        "path": "C:\\Staging\\Source\\Get-LocalLogonRights.ps1",
+        "kind": "FILE",
+        "owner": "S-1-5-18",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1179817,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "path": "C:\\Staging\\Source\\Inventory.ps1",
+        "kind": "FILE",
+        "owner": "S-1-5-18",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1179817,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "path": "C:\\Staging\\Source\\LsaRights.cs",
+        "kind": "FILE",
+        "owner": "S-1-5-18",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1179817,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      {
+        "path": "C:\\Staging\\Temp",
+        "kind": "DIRECTORY",
+        "owner": "S-1-5-18",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1179817,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": null
+      },
+      {
+        "path": "C:\\Staging\\Temp\\77777777-7777-4777-8777-777777777777",
+        "kind": "DIRECTORY",
+        "owner": "S-1-5-21-1-2-3-1005",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1245631,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": null
+      },
+      {
+        "path": "C:\\TrustedTools",
+        "kind": "DIRECTORY",
+        "owner": "S-1-5-18",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1179817,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": null
+      },
+      {
+        "path": "C:\\TrustedTools\\csc.exe",
+        "kind": "FILE",
+        "owner": "S-1-5-18",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1179817,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      {
+        "path": "C:\\TrustedTools\\powershell.exe",
+        "kind": "FILE",
+        "owner": "S-1-5-18",
+        "dacl_protected": true,
+        "aces": [
+          {
+            "sid": "S-1-5-18",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-32-544",
+            "type": "ALLOW",
+            "mask": 2032127,
+            "inherited": false
+          },
+          {
+            "sid": "S-1-5-21-1-2-3-1005",
+            "type": "ALLOW",
+            "mask": 1179817,
+            "inherited": false
+          }
+        ],
+        "reparse": false,
+        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    ],
+    "source": {
+      "commit": "2a93efaab1ec61cc5e2a872b95e47a0a8a227f55",
+      "hashes_before": {
+        "C:\\Staging\\Source\\Get-LocalLogonRights.ps1": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "C:\\Staging\\Source\\Inventory.ps1": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "C:\\Staging\\Source\\LsaRights.cs": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "hashes_at_use": {
+        "C:\\Staging\\Source\\Get-LocalLogonRights.ps1": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "C:\\Staging\\Source\\Inventory.ps1": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "C:\\Staging\\Source\\LsaRights.cs": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "hashes_after": {
+        "C:\\Staging\\Source\\Get-LocalLogonRights.ps1": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "C:\\Staging\\Source\\Inventory.ps1": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "C:\\Staging\\Source\\LsaRights.cs": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "custody_continuous": true
+    },
+    "temp": {
+      "TEMP": "C:\\Staging\\Temp\\77777777-7777-4777-8777-777777777777",
+      "TMP": "C:\\Staging\\Temp\\77777777-7777-4777-8777-777777777777",
+      "fresh": true,
+      "empty": true,
+      "shared": false
+    },
+    "toolchain": {
+      "resolved_files": {
+        "C:\\TrustedTools\\powershell.exe": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "C:\\TrustedTools\\csc.exe": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "search_paths_trusted": true,
+      "working_directory_trusted": true,
+      "profiles_disabled": true,
+      "ps_version": "5.1",
+      "bitness": 64
+    },
+    "evidence": {
+      "fresh": true,
+      "overwrite": false,
+      "outside_temp": true,
+      "exclusive_creation": true
+    },
+    "lifecycle": {
+      "cleanup_authorized": false,
+      "unknown_contents": false,
+      "reuse": false
+    },
+    "authorization": {
+      "scope": "SYNTHETIC_MODEL_ONLY",
+      "host_observation": false,
+      "execute": false
+    },
+    "volume": {
+      "drive": "C:",
+      "identity": "SYNTHETIC-VOLUME-1",
+      "kind": "FIXED",
+      "custody_trusted": true
+    }
+  }
+}

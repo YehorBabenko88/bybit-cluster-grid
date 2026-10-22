@@ -68,7 +68,7 @@ def test_planning_branch_cannot_start_inherited_jobs():
     import re
     for p in (ROOT/'.github/workflows').glob('*.yml'):
         text=p.read_text();jobs=text.split('jobs:\n',1)[1]
-        if p.name in ('windows-lab-planning.yml', 'lab-witness-l1.yml', 'lab-airgap-a.yml', 'pgdata-intent-offline.yml', 'pc4-sid-acl-offline.yml'):
+        if p.name in ('protected-staging-offline.yml', 'windows-lab-planning.yml', 'lab-witness-l1.yml', 'lab-airgap-a.yml', 'pgdata-intent-offline.yml', 'pc4-sid-acl-offline.yml'):
             assert 'services:' not in text and 'self-hosted' not in text
             continue
         for job in re.split(r'(?m)^  [A-Za-z0-9_-]+:\n',jobs)[1:]:

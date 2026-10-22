@@ -187,7 +187,8 @@ def test_empty_history_cannot_establish_continuity_or_atomic_consumption():
 
 def test_all_workflows_keep_new_branch_off_infrastructure():
     import re
-    positive = {'pc4-sid-acl-offline.yml': 'audit/codex-pc4-sid-acl-20261021',
+    positive = {'protected-staging-offline.yml':'audit/protected-staging-offline-20261022',
+                    'pc4-sid-acl-offline.yml': 'audit/codex-pc4-sid-acl-20261021',
                 'pgdata-intent-offline.yml': 'planning/pgdata-intent-v1-20261021',
                 'lab-airgap-a.yml': 'planning/lab-airgap-a-20261021',
                 'lab-witness-l1.yml': 'planning/lab-witness-l1-20261020',
