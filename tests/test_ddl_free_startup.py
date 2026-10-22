@@ -86,4 +86,6 @@ def test_new_static_sql_parses_as_postgresql18():
         for node in ast.walk(tree):
             if isinstance(node,ast.Call) and getattr(node.func,'attr','') in {'execute','fetch','fetchrow','fetchval'} and node.args:
                 arg=node.args[0]
+                # src/rdb are read-only SQLite handles, not PostgreSQL.
+                if getattr(node.func.value,'id','') in {'src','rdb'}:continue
                 if isinstance(arg,ast.Constant) and isinstance(arg.value,str):parse_sql(arg.value)
