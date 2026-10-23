@@ -19,3 +19,8 @@ pc4-hardening*.json
 pc4-offline*.xml
 pc4-offline*.json
 lsa-source.xml
+
+.ls5-*/
+ls5-acl-*.xml
+ls5-acl-*.json
+ls5-acl-*.jsonl

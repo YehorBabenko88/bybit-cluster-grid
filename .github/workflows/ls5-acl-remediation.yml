@@ -1,0 +1,103 @@
+name: ls5-acl-remediation
+on:
+  pull_request:
+    paths:
+      - 'installer/**'
+      - 'tests/test_ls5_acl*'
+      - 'tests/fixtures/ls5_acl_inventory.json'
+      - '.github/workflows/ls5-acl-remediation.yml'
+      - 'docs/LS5_ACL_SECURITY_REMEDIATION.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ls5-acl-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  offline-model:
+    if: github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12']
+    env:
+      EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install pytest==9.1.1
+      - name: Frozen inventory, JUnit, JSONL, source SHA256 and exact HEAD
+        run: python -m installer.ls5_acl_ci
+      - name: Compile Python only
+        run: python -m compileall -q installer/ls5_acl_remediation.py installer/ls5_acl_ci.py tests/test_ls5_acl_remediation.py tests/test_ls5_acl_entrypoints.py tests/test_ls5_acl_evidence.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ls5-acl-offline-${{ matrix.os }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ls5-acl-offline.xml
+            ls5-acl-offline.jsonl
+            ls5-acl-offline-receipt.json
+          if-no-files-found: error
+  windows-acl-fixtures:
+    if: github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021'
+    runs-on: windows-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    env:
+      EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Parse installer and pure PlanOnly tests
+        shell: pwsh
+        env:
+          TEST_SHELL: ${{ matrix.shell }}
+        run: |
+          & $env:TEST_SHELL -NoProfile -File ./installer/tests/test-ls5-acl-compat.ps1
+          if($LASTEXITCODE -ne 0){throw 'PS_COMPAT_FAILED'}
+      - name: Hosted GUID structural ACL fixtures; never physical evidence
+        shell: pwsh
+        env:
+          TEST_SHELL: ${{ matrix.shell }}
+        run: |
+          $r=@(& $env:TEST_SHELL -NoProfile -File ./installer/tests/test-ls5-acl-fixtures.ps1)
+          if($LASTEXITCODE -ne 0 -or $r -notcontains 'WINDOWS_GUID_ACL_CASES=16; STRUCTURAL_ONLY; PHYSICAL_NOT_RUN'){throw 'NATIVE_INVENTORY_FAILED'}
+          $r
+      - name: Independently validate native receipt and create JUnit
+        run: python -m installer.ls5_acl_ci --native
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ls5-acl-layout-${{ matrix.shell }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ls5-acl-windows.jsonl
+            ls5-acl-native.xml
+            ls5-acl-native-receipt.json
+          if-no-files-found: error
+  required-acl-gate:
+    if: ${{ always() && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021' }}
+    needs: [offline-model, windows-acl-fixtures]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Missing, skipped or failed matrix is not PASS
+        env:
+          MODEL: ${{ needs.offline-model.result }}
+          WINDOWS: ${{ needs.windows-acl-fixtures.result }}
+        run: test "$MODEL" = success && test "$WINDOWS" = success

@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+#Requires -Version 5.1
 param(
   [string]$CoordinatorUrl="",
   [string]$EnrollmentToken="",
@@ -10,9 +10,13 @@ param(
   [string]$TailscaleTags="",
   [string]$TailscaleMsiPath="",
   [string]$BundlePath="",
-  [ValidateSet("CONTROL","PILOT","NORMAL","AUTO")][string]$AgentMode="NORMAL"
+  [ValidateSet("CONTROL","PILOT","NORMAL","AUTO")][string]$AgentMode="NORMAL",
+  [switch]$Apply
 )
 $ErrorActionPreference="Stop"
+if(!$Apply){Write-Output 'PLAN_ONLY; ACL remediation/protected staging proof required; no host actions';return}
+throw 'LS5_ACL_EXECUTE_NOT_AUTHORIZED: protected source/toolchain/custody proof required'
+
 $InstallRoot="$env:ProgramFiles\BybitClusterGrid"
 $DataRoot="$env:ProgramData\BybitClusterGrid"
 $RuntimeRoot=Join-Path $DataRoot "runtime"
