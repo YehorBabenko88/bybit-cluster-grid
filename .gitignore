@@ -18,3 +18,10 @@ ddl-pg18-sha256.json
 pg18-provider.json
 
 ddl-dependencies.txt
+
+.audit-*-temp/
+pr227-*.xml
+pr227-*-events.json
+pr227-audit-sha256.json
+pr227-offline-*/
+ddl-acceptance.json
