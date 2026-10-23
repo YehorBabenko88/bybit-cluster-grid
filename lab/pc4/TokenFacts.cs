@@ -75,6 +75,7 @@ namespace GridPc4 {
    for(int i=0;i<count;i++) {
     SidAttr g=(SidAttr)Marshal.PtrToStructure(IntPtr.Add(b,offset+i*stride),typeof(SidAttr));
     if((g.Attr & ~0xE000007Fu)!=0)throw new InvalidOperationException("GROUP_ATTRIBUTES_INVALID");
+    if((g.Attr & 0x00000014u)==0x00000014u)throw new InvalidOperationException("GROUP_ATTRIBUTES_CONFLICT");
     string sid=Sid(b,length,g.Sid);
     if(sid=="S-1-5-32-544")present=true;
     if(sid=="S-1-5-32-544" && (g.Attr & 0x00000004u)!=0 && (g.Attr & 0x00000010u)==0)admin=true;

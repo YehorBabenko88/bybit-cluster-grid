@@ -15,11 +15,15 @@ try {
  [Runtime.InteropServices.Marshal]::Copy($bytes,0,$sidPointer,$bytes.Length)
  [Runtime.InteropServices.Marshal]::WriteInt32($b,1)
  [Runtime.InteropServices.Marshal]::WriteIntPtr($b,$offset,$sidPointer)
- foreach($row in @(@(4,$true),@(0,$false),@(16,$false),@(20,$false),@(7,$true))){
+ foreach($row in @(@(4,$true),@(0,$false),@(16,$false),@(7,$true))){
   [Runtime.InteropServices.Marshal]::WriteInt32($b,($offset+[IntPtr]::Size),[int]$row[0])
   Check ([GridPc4.TokenFacts]::ParseGroupBuffer($b,$size) -eq $row[1])
   Check ([GridPc4.TokenFacts]::HasAdministratorGroup($b,$size))
  }
+ [Runtime.InteropServices.Marshal]::WriteInt32($b,($offset+[IntPtr]::Size),20)
+ Reject {[GridPc4.TokenFacts]::ParseGroupBuffer($b,$size)}
+ Reject {[GridPc4.TokenFacts]::HasAdministratorGroup($b,$size)}
+ [Runtime.InteropServices.Marshal]::WriteInt32($b,($offset+[IntPtr]::Size),4)
  [Runtime.InteropServices.Marshal]::WriteInt32($sidPointer,12,545)
  Check (![GridPc4.TokenFacts]::HasAdministratorGroup($b,$size))
  Check (![GridPc4.TokenFacts]::ParseGroupBuffer($b,$size))
