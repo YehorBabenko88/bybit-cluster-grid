@@ -47,6 +47,9 @@ Assert-Pc4EvidenceAcl 'C:\GridLab\Evidence' $bootstrapSid
 Assert-Pc4Guid $RunId
 $evidence=(Get-Pc4Paths $RunId 'Collector').Evidence
 if($Cleanup){
+ # Path-based deletion is disabled until handle-relative custody and independent
+ # process-termination evidence are implemented and reviewed.
+ throw 'CLEANUP_DISABLED_PENDING_HANDLE_RELATIVE_REVIEW'
  if(!$ApproveFixtureCleanup){throw 'CLEANUP_APPROVAL_REQUIRED'}
  Assert-Pc4EvidenceAcl $evidence $bootstrapSid
  $manifestPath=Join-Path $evidence 'manifest.json'
@@ -211,6 +214,9 @@ try {
     $stop=Join-Path (Get-Pc4Paths $RunId $role).Root 'stop.flag'
     try{if(Test-Pc4Absent $stop){Write-Pc4NewText $stop 'STOP'}}catch{}
    }
+   # Best-effort bounded cooperative stop; never terminate an uncertain PID.
+   # A still-running actor remains a hard block for any future cleanup.
+   try { if(!$processes[$role].HasExited){$null=$processes[$role].WaitForExit(5000)} } catch {}
    $processes[$role].Dispose()
   }
  }
