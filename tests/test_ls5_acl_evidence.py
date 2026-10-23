@@ -38,3 +38,12 @@ def test_junit_cannot_claim_false_pass(tmp_path,fault):
     if fault=='case':text=text.replace('name="n"','name="wrong"')
     p=tmp_path/'junit.xml';p.write_text(text)
     with pytest.raises(ValueError):verify_junit(p,['node'],[['c','n']])
+
+
+def test_native_negative_cases_require_the_intended_error():
+    from pathlib import Path
+    s=(Path(__file__).resolve().parents[1]/'installer/tests/test-ls5-acl-fixtures.ps1').read_text()
+    assert '$message -ceq $Expected' in s
+    for case,code in [('partial-before-set-fault','INJECTED_BEFORE_SET'),('junction-blocked','REPARSE_BLOCKED'),
+        ('symlink-blocked','REPARSE_BLOCKED'),('hardlink-blocked','HARDLINK_BLOCKED'),('system-root-outside-fixture-blocked','OUTSIDE_FIXTURE')]:
+        assert f"Reject '{case}' '{code}' {{" in s

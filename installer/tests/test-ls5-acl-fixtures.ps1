@@ -66,7 +66,7 @@ function Policy([string]$Path,[switch]$BeforeSetFault){
  if($BeforeSetFault){throw 'INJECTED_BEFORE_SET'}
  Set-Acl -LiteralPath $Path -AclObject $a -ErrorAction Stop
 }
-function Reject([string]$Case,[scriptblock]$Action){$failed=$false;try{& $Action|Out-Null}catch{$failed=$true};Check $Case $failed}
+function Reject([string]$Case,[string]$Expected,[scriptblock]$Action){$message='';try{& $Action|Out-Null}catch{$message=$_.Exception.Message};Check $Case ($message -ceq $Expected)}
 try {
  Policy $script:root
  $a=Get-Acl -LiteralPath $script:root
@@ -81,7 +81,7 @@ try {
  Check 'leaf-rx-does-not-prove-parent-safe' (!(Has-Users $file 2) -and (Has-Users $file 0x20))
  Check 'env-readable-before' (Has-Users $envFile 1)
  $before=(Get-Acl -LiteralPath $envFile).Sddl
- Reject 'partial-before-set-fault' {Policy $envFile -BeforeSetFault}
+ Reject 'partial-before-set-fault' 'INJECTED_BEFORE_SET' {Policy $envFile -BeforeSetFault}
  Check 'failure-preserves-original' ((Get-Acl -LiteralPath $envFile).Sddl -ceq $before)
  Policy $envFile
  Check 'secret-users-removed' (!(Has-Users $envFile 0x1F01FF))
@@ -96,13 +96,13 @@ try {
  Check 'new-release-inherits-no-users-write' (!(Has-Users $new 0x1F01FF))
  $target=Join-Path $script:root 'target';$null=New-Item -ItemType Directory -Path $target
  $junction=Join-Path $script:root 'junction';$null=New-Item -ItemType Junction -Path $junction -Value $target
- Reject 'junction-blocked' {Policy $junction}
+ Reject 'junction-blocked' 'REPARSE_BLOCKED' {Policy $junction}
  $symlink=Join-Path $script:root 'symlink';$null=New-Item -ItemType SymbolicLink -Path $symlink -Value $file
- Reject 'symlink-blocked' {Policy $symlink}
+ Reject 'symlink-blocked' 'REPARSE_BLOCKED' {Policy $symlink}
  $hardlink=Join-Path $script:root 'hardlink';$null=New-Item -ItemType HardLink -Path $hardlink -Value $file
  Check 'hardlink-count-observed' ([GridAclFixtureInfo]::Links($file) -eq 2)
- Reject 'hardlink-blocked' {Policy $hardlink}
- Reject 'system-root-outside-fixture-blocked' {Policy 'C:\ProgramData'}
+ Reject 'hardlink-blocked' 'HARDLINK_BLOCKED' {Policy $hardlink}
+ Reject 'system-root-outside-fixture-blocked' 'OUTSIDE_FIXTURE' {Policy 'C:\ProgramData'}
  Check 'evidence-not-physical' $true
 } finally {
  $lines=@($script:events|ForEach-Object {$_|ConvertTo-Json -Compress}) -join "`n"

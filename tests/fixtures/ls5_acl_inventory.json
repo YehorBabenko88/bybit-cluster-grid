@@ -29,6 +29,7 @@
     "tests/test_ls5_acl_evidence.py::test_junit_cannot_claim_false_pass[error]",
     "tests/test_ls5_acl_evidence.py::test_junit_cannot_claim_false_pass[failure]",
     "tests/test_ls5_acl_evidence.py::test_junit_cannot_claim_false_pass[skipped]",
+    "tests/test_ls5_acl_evidence.py::test_native_negative_cases_require_the_intended_error",
     "tests/test_ls5_acl_remediation.py::test_cli_invalid_input_is_blocked_and_does_not_echo[NaN]",
     "tests/test_ls5_acl_remediation.py::test_cli_invalid_input_is_blocked_and_does_not_echo[[]]",
     "tests/test_ls5_acl_remediation.py::test_cli_invalid_input_is_blocked_and_does_not_echo[{\"head\":\"a\",\"head\":\"b\"}]",
@@ -222,6 +223,10 @@
     [
       "tests.test_ls5_acl_evidence",
       "test_junit_cannot_claim_false_pass[skipped]"
+    ],
+    [
+      "tests.test_ls5_acl_evidence",
+      "test_native_negative_cases_require_the_intended_error"
     ],
     [
       "tests.test_ls5_acl_remediation",

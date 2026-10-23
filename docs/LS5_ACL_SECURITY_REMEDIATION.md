@@ -73,12 +73,12 @@ Only separately approved per-object restoration is permissible. Restoring Users 
 
 ## Tests and evidence
 
-- Frozen offline pytest inventory: `tests/fixtures/ls5_acl_inventory.json`; 120 tests initially, exact node IDs and JUnit names required. No skipped/xfail/errors/failures accepted.
+- Frozen offline pytest inventory: `tests/fixtures/ls5_acl_inventory.json`; 121 tests, exact node IDs and JUnit names required. No skipped/xfail/errors/failures accepted.
 - Python matrix: Ubuntu/Windows x 3.11/3.12. Exact PR head checkout; git blob vs working source comparison (line-ending normalization only); SHA256 source inventory. JSONL and JUnit bind exact HEAD, Actions run ID/attempt and false physical/authority flags.
 - PowerShell 5.1/7 pure PlanOnly tests: 13 each; installer AST parse without execution. Locally safe command: `powershell.exe -NoProfile -File installer/tests/test-ls5-acl-compat.ps1` (or `pwsh`). These never observe LS5 ACLs/users/tasks.
 - Hosted-CI structural ACL suite: 16 cases per shell; only new GUID fixture under RUNNER_TEMP with explicit repository/job/hosted-runner guards. Reproduces directory-only inherited writes, leaf RX ambiguity, env read, idempotence, new-release inheritance, fault-before-write, fixture-only SDDL roundtrip, junction/symlink/hardlink rejection and out-of-scope refusal. No users created, no ordinary-user tokens tested, no physical attestation, no cleanup. Path-based ACL operations here are fixture demonstrations **not a production executor or TOCTOU proof**. Missing symlink capability fails CI rather than skipping.
 - Required CI aggregate rejects skipped/failed/missing matrix jobs. No inherited general CI gate is removed. New receipts include SHA256 for source and JUnit/JSONL, verified independently after download. JUnit alone is not a cryptographic signature; repository/runner/workflow compromise is outside this model.
-- Independent review found required-file-kind bypass and forged model journal authority; 13 RED regression cases reproduced before minimal fixes. Full native host guarantees remain unproven.
+- Independent review found required-file-kind bypass and forged model journal authority; 13 RED regression cases reproduced before minimal fixes. Follow-up review required expected error codes in native negative cases so unrelated provider errors cannot count as PASS. Full native host guarantees remain unproven.
 
 ## Remaining severity and acceptance
 
