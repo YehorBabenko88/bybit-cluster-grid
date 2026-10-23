@@ -203,7 +203,7 @@ $env:TELEGRAM_ALLOWED_CHAT_IDS=''
 $env:ENROLLMENT_TOKEN=''
 $env:TAILSCALE_OAUTH_CLIENT_ID=''
 $env:TAILSCALE_OAUTH_CLIENT_SECRET=''
-& $Python -E -s -m uvicorn grid.coordinator:app --host 127.0.0.1 --port 8765 --workers 1 --no-access-log
+# BLOCKED reference only: & $Python -E -s -m uvicorn grid.coordinator:app --host 127.0.0.1 --port 8765 --workers 1 --no-access-log
 ```
 
 Do not use `run_coordinator.py` or existing launcher: their all-interface binding

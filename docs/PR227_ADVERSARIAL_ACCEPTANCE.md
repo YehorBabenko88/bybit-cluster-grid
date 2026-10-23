@@ -5,7 +5,7 @@ Dependencies: PR226 `f99f401aa11b5f0e0ed75046960801f882540216`,
 PR225 `217904071394ab8a84e5a180822081ff8e25e1e9`.
 PR229 `62e3e180da35fc8d6eb6c11ec1f0bf2d04f93cd7` was inspected:
 its prefix-only workflow fix is partial; this branch uses branch-independent safe
-PR/dispatch gates and a required-evidence aggregator instead. No source branches
+PR/dispatch gates (except explicit offline-only planning exclusions) and a required-evidence aggregator instead. No source branches
 were changed. This is AI engineering review, not independent human acceptance.
 
 ## Defects and reproducible checks
@@ -25,7 +25,7 @@ with `git archive`, imports Grid from that export, and then runs the identical
 | D / P1 | same: seal/registry issuer and other grantees omitted | Grant RO UPDATE(catalog_sha256), transfer seal to RO and reseal, or install UPDATE default ACL before preparation. Original verifier trusts these metadata writers; source hash is public and does not authenticate issuer. | Require database-owner metadata ownership and forbid non-owner write/column ACLs, in preparation and runtime. Dirty default ACL causes the entire preparation transaction to roll back. |
 | E / P2 | `tools/check_ddl_free_ci.py`: Git blobs hashed without checking executed checkout | Modify a tracked source file while HEAD remains exact; original receipt still hashes original blob. | Verify exact HEAD and clean tracked/index state before collection and after tests; reject untracked executable inputs. Four disposable Git-fixture regressions. This is not defense against a malicious runner or concurrent administrator. |
 | F / P1 acceptance | `.github/workflows/ddl-free-runtime.yml`, Issue228 | Rename the PR branch: original mandatory runtime/PG jobs are SKIPPED. PR229 only broadens one branch prefix. | Branch-independent PR/dispatch scope for these safe hosted jobs. `acceptance` requires all five terminal successes, matching SHA/run/attempt, complete artifacts, JUnit/inventory and source/output SHA256. Skipped/missing/old-attempt jobs BLOCK. Repository branch-protection configuration is external and was not changed. |
-| G / P1 physical blocker | `grid/runtime_gate.py`, `grid/fleet_control.py`, PC4 runbook | `test_pr227_authorization_boundary.py` proves persisted ACTIVE allows market work with an empty HTTP token; empty RESUME targets can set ACTIVE without ACKs. Schema validation does not prove current operator authority. | Runtime authorization redesign remains BLOCKED; G5 runbook has an unconditional blocking throw before the reference launch command. No new authorization flag or physical approval is invented. |
+| G / P1 physical blocker | `grid/runtime_gate.py`, `grid/fleet_control.py`, PC4 runbook | `test_pr227_authorization_boundary.py` proves persisted ACTIVE allows market work with an empty HTTP token; empty RESUME targets can set ACTIVE without ACKs. Schema validation does not prove current operator authority. | Runtime authorization redesign remains BLOCKED; G5 runbook has an unconditional blocking throw and the reference launch is commented out, so interactive paste cannot launch after an earlier throw. No new authorization flag or physical approval is invented. |
 
 ## Startup, dependencies and lifecycle audit
 
@@ -68,7 +68,7 @@ independently authenticated by that script.
 
 Candidate evidence must be read from its own exact-head Actions; original green
 results never transfer to this branch. Expected candidate runtime inventory:
-313 offline cases per matrix cell, 32 original PG cases, 12 baseline reproductions
+314 offline cases per matrix cell, 32 original PG cases, 12 baseline reproductions
 and 12 candidate rejection cases. Baseline-vulnerability PASS is deliberately
 not candidate security PASS. The baseline staging matrix remains 89+575+31=695.
 Runtime Guard195 and LegacyRollback52 are synthetic tests in fresh PowerShell5.1

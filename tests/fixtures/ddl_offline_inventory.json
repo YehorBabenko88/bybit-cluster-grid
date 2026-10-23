@@ -252,6 +252,7 @@
     "tests/test_pg18_ci_isolation.py::test_untrusted_environment_never_calls_provider[GITHUB_RUN_ID-]",
     "tests/test_pg18_ci_isolation.py::test_untrusted_environment_never_calls_provider[RUNNER_ENVIRONMENT-self-hosted]",
     "tests/test_pg18_ci_isolation.py::test_untrusted_environment_never_calls_provider[RUNNER_OS-Windows]",
+    "tests/test_pr227_authorization_boundary.py::test_blocked_runbook_has_no_executable_coordinator_launch",
     "tests/test_pr227_authorization_boundary.py::test_empty_resume_currently_opens_active_without_ack",
     "tests/test_pr227_authorization_boundary.py::test_persisted_active_does_not_prove_operator_authorization",
     "tests/test_pr227_checkout.py::test_checkout_exact_clean",
@@ -1322,6 +1323,10 @@
     [
       "tests.test_pg18_ci_isolation",
       "test_untrusted_environment_never_calls_provider[RUNNER_OS-Windows]"
+    ],
+    [
+      "tests.test_pr227_authorization_boundary",
+      "test_blocked_runbook_has_no_executable_coordinator_launch"
     ],
     [
       "tests.test_pr227_authorization_boundary",
