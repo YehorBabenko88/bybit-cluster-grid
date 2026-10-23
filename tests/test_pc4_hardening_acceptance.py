@@ -28,3 +28,5 @@ def test_shutdown_is_a_recorded_failure_boundary():
     assert 'ACTOR_SHUTDOWN_UNCONFIRMED' in source
     assert 'ACTOR_STARTED' in source
     assert '$r.exit_code -ne 0 -or $r.signal_failed' in source
+    assert '[Diagnostics.Stopwatch]::StartNew()' in source
+    assert '[Diagnostics.Stopwatch]::StartNew()' in (ROOT/'lab/pc4/Actor.ps1').read_text()

@@ -17,9 +17,9 @@ try {
  $facts=[GridPc4.TokenFacts]::Read($PID,$true)
  if(!(Test-Pc4Facts $facts $ExpectedSid)){throw 'TOKEN_UNSAFE'}
  Write-Pc4NewText (Join-Path $paths.Root 'ready.json') (@{run_id=$RunId;role=$Role;pid=$PID;start_utc=[Diagnostics.Process]::GetCurrentProcess().StartTime.ToUniversalTime().ToString('O');facts=$facts}|ConvertTo-Json -Depth 8 -Compress)
- $deadline=[DateTime]::UtcNow.AddSeconds(45)
+ $deadline=[Diagnostics.Stopwatch]::StartNew()
  while(!(Test-Path -LiteralPath (Join-Path $paths.Root 'go.flag'))){
-  if((Test-Path -LiteralPath (Join-Path $paths.Root 'stop.flag')) -or [DateTime]::UtcNow -gt $deadline){throw 'START_GATE_TIMEOUT'}
+  if((Test-Path -LiteralPath (Join-Path $paths.Root 'stop.flag')) -or $deadline.Elapsed.TotalSeconds -ge 45){throw 'START_GATE_TIMEOUT'}
   Start-Sleep -Milliseconds 100
  }
  $results=New-Object Collections.Generic.List[object]

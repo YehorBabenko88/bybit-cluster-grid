@@ -105,8 +105,8 @@ try {
   Write-Pc4NewText (Join-Path $evidence ($role+'-process.json')) (@{run_id=$RunId;role=$role;state='ACTOR_STARTED';pid=$processes[$role].Id;start_utc=$processes[$role].StartTime.ToUniversalTime().ToString('O')}|ConvertTo-Json -Compress)
  }
  foreach($role in @('Collector','Storage')){
-  $root=(Get-Pc4Paths $RunId $role).Root;$ready=Join-Path $root 'ready.json';$deadline=[DateTime]::UtcNow.AddSeconds(30)
-  while(Test-Pc4Absent $ready){if($processes[$role].HasExited -or [DateTime]::UtcNow -gt $deadline){throw 'ACTOR_START_FAILED'};Start-Sleep -Milliseconds 100}
+  $root=(Get-Pc4Paths $RunId $role).Root;$ready=Join-Path $root 'ready.json';$deadline=[Diagnostics.Stopwatch]::StartNew()
+  while(Test-Pc4Absent $ready){if($processes[$role].HasExited -or $deadline.Elapsed.TotalSeconds -ge 30){throw 'ACTOR_START_FAILED'};Start-Sleep -Milliseconds 100}
   $r=Read-Pc4Text $ready 16384|ConvertFrom-Json
   if($processes[$role].HasExited -or $r.run_id -cne $RunId -or $r.role -cne $role -or $r.start_utc -cne $processes[$role].StartTime.ToUniversalTime().ToString('O') -or $r.pid -ne $processes[$role].Id -or !(Test-Pc4Facts $r.facts $sids[$role])){throw 'CHILD_HANDSHAKE_BLOCKED'}
   $observed=[GridPc4.TokenFacts]::ReadProcessHandle($processes[$role].Handle,$false)
