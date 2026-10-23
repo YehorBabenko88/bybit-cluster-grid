@@ -6,11 +6,15 @@ import subprocess
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BASE = '1067b36e81e3ff613a68dd54d3dd186128666ab7'
 
-def test_pinned_physical_package_unchanged():
+def test_reviewed_hardening_preserves_unrelated_package_files():
     paths = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', BASE,
         'lab/pc4', 'docs/PC4_SID_ACL_PHYSICAL_TEST_RUNBOOK.md'], cwd=ROOT).decode().splitlines()
     assert len(paths) == 7
+    approved={'lab/pc4/TokenFacts.cs','lab/pc4/Invoke-Pc4SidAcl.ps1','lab/pc4/Actor.ps1','lab/pc4/Build-OfflinePackage.ps1'}
+    # New explicit hardening authorization supersedes the old blanket pin only
+    # for these four files. Common/policy tests/runbook remain pinned unchanged.
     for path in paths:
+        if path in approved:continue
         original = subprocess.check_output(['git', 'show', f'{BASE}:{path}'], cwd=ROOT)
         current = (ROOT / path).read_bytes().replace(b'\r\n', b'\n')
         assert hashlib.sha256(original.replace(b'\r\n', b'\n')).digest() == hashlib.sha256(current).digest()

@@ -4,9 +4,9 @@ $ErrorActionPreference='Stop'
 if($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_ENVIRONMENT -cne 'github-hosted' -or !$env:RUNNER_TEMP -or $env:EXACT_HEAD_SHA -cnotmatch '^[0-9a-f]{40}$'){throw 'HOSTED_CI_BUILD_ONLY'}
 $out=Join-Path $env:RUNNER_TEMP ('pc4-package-'+[guid]::NewGuid().ToString('D'))
 $null=New-Item -ItemType Directory -Path $out -ErrorAction Stop
-foreach($name in @('Common.ps1','Actor.ps1','TokenFacts.cs','Invoke-Pc4SidAcl.ps1')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $out $name) -ErrorAction Stop}
+foreach($name in @('Common.ps1','Lifecycle.ps1','Actor.ps1','TokenFacts.cs','Invoke-Pc4SidAcl.ps1')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $out $name) -ErrorAction Stop}
 Add-Type -Path (Join-Path $out 'TokenFacts.cs') -OutputAssembly (Join-Path $out 'TokenFacts.dll') -ErrorAction Stop
-$files=[ordered]@{};foreach($name in @('Common.ps1','Actor.ps1','TokenFacts.cs','TokenFacts.dll','Invoke-Pc4SidAcl.ps1')){$files[$name]=(Get-FileHash -LiteralPath (Join-Path $out $name) -Algorithm SHA256).Hash.ToLowerInvariant()}
+$files=[ordered]@{};foreach($name in @('Common.ps1','Lifecycle.ps1','Actor.ps1','TokenFacts.cs','TokenFacts.dll','Invoke-Pc4SidAcl.ps1')){$files[$name]=(Get-FileHash -LiteralPath (Join-Path $out $name) -Algorithm SHA256).Hash.ToLowerInvariant()}
 $utf8=New-Object Text.UTF8Encoding($false,$true)
 [IO.File]::WriteAllText((Join-Path $out 'package.sha256.json'),(@{kind='PC4_OFFLINE_BUILT_PACKAGE';source_sha=$env:EXACT_HEAD_SHA;files=$files}|ConvertTo-Json -Depth 5 -Compress),$utf8)
 $hash=(Get-FileHash -LiteralPath (Join-Path $out 'package.sha256.json') -Algorithm SHA256).Hash.ToLowerInvariant()
