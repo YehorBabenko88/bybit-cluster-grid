@@ -46,6 +46,9 @@
     "tests/test_ls5_acl_remediation.py::test_forged_model_journal_is_rejected[originals]",
     "tests/test_ls5_acl_remediation.py::test_forged_model_journal_is_rejected[rollback]",
     "tests/test_ls5_acl_remediation.py::test_forged_model_journal_is_rejected[state]",
+    "tests/test_ls5_acl_remediation.py::test_illegal_windows_child_path_is_blocked[bad<name]",
+    "tests/test_ls5_acl_remediation.py::test_illegal_windows_child_path_is_blocked[bad\\x01]",
+    "tests/test_ls5_acl_remediation.py::test_illegal_windows_child_path_is_blocked[bad|name]",
     "tests/test_ls5_acl_remediation.py::test_incomplete_model_is_blocked[1-all_launch_paths_verified]",
     "tests/test_ls5_acl_remediation.py::test_incomplete_model_is_blocked[1-all_releases_verified]",
     "tests/test_ls5_acl_remediation.py::test_incomplete_model_is_blocked[1-ancestors_verified]",
@@ -102,6 +105,11 @@
     "tests/test_ls5_acl_remediation.py::test_inherited_and_explicit_users_permissions_are_unsafe[code-524288]",
     "tests/test_ls5_acl_remediation.py::test_inherited_and_explicit_users_permissions_are_unsafe[code-64]",
     "tests/test_ls5_acl_remediation.py::test_inherited_and_explicit_users_permissions_are_unsafe[secret-1179785]",
+    "tests/test_ls5_acl_remediation.py::test_journal_nested_numeric_alias_is_rejected[0.0]",
+    "tests/test_ls5_acl_remediation.py::test_journal_nested_numeric_alias_is_rejected[False]",
+    "tests/test_ls5_acl_remediation.py::test_noncanonical_or_overflow_sid_is_blocked[S-1-5-21-01-2-3-1005]",
+    "tests/test_ls5_acl_remediation.py::test_noncanonical_or_overflow_sid_is_blocked[S-1-5-21-1-2-3-4294967296]",
+    "tests/test_ls5_acl_remediation.py::test_noncanonical_or_overflow_sid_is_blocked[S-1-5-21-1-2-3-\\u0661]",
     "tests/test_ls5_acl_remediation.py::test_original_unsafe_acl_is_not_automatically_restored",
     "tests/test_ls5_acl_remediation.py::test_partial_failure_and_recovery_fail_closed[head]",
     "tests/test_ls5_acl_remediation.py::test_partial_failure_and_recovery_fail_closed[identity]",
@@ -292,6 +300,18 @@
     [
       "tests.test_ls5_acl_remediation",
       "test_forged_model_journal_is_rejected[state]"
+    ],
+    [
+      "tests.test_ls5_acl_remediation",
+      "test_illegal_windows_child_path_is_blocked[bad<name]"
+    ],
+    [
+      "tests.test_ls5_acl_remediation",
+      "test_illegal_windows_child_path_is_blocked[bad\\x01]"
+    ],
+    [
+      "tests.test_ls5_acl_remediation",
+      "test_illegal_windows_child_path_is_blocked[bad|name]"
     ],
     [
       "tests.test_ls5_acl_remediation",
@@ -516,6 +536,26 @@
     [
       "tests.test_ls5_acl_remediation",
       "test_inherited_and_explicit_users_permissions_are_unsafe[secret-1179785]"
+    ],
+    [
+      "tests.test_ls5_acl_remediation",
+      "test_journal_nested_numeric_alias_is_rejected[0.0]"
+    ],
+    [
+      "tests.test_ls5_acl_remediation",
+      "test_journal_nested_numeric_alias_is_rejected[False]"
+    ],
+    [
+      "tests.test_ls5_acl_remediation",
+      "test_noncanonical_or_overflow_sid_is_blocked[S-1-5-21-01-2-3-1005]"
+    ],
+    [
+      "tests.test_ls5_acl_remediation",
+      "test_noncanonical_or_overflow_sid_is_blocked[S-1-5-21-1-2-3-4294967296]"
+    ],
+    [
+      "tests.test_ls5_acl_remediation",
+      "test_noncanonical_or_overflow_sid_is_blocked[S-1-5-21-1-2-3-\\u0661]"
     ],
     [
       "tests.test_ls5_acl_remediation",

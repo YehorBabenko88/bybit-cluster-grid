@@ -33,8 +33,10 @@ def desired_acl(profile,kind,roles):
     if type(roles) is not dict or set(roles)!={'service','custodian'} or roles['custodian']!=ADMINS:
         raise ValueError('ACL_ROLE_UNKNOWN')
     service=roles['service']
-    if service!=SYSTEM and (type(service) is not str or not re.fullmatch(r'S-1-5-21-\d+-\d+-\d+-\d+',service)):
+    if service!=SYSTEM and (type(service) is not str or not re.fullmatch(r'S-1-5-21-(?:0|[1-9][0-9]*)-(?:0|[1-9][0-9]*)-(?:0|[1-9][0-9]*)-(?:0|[1-9][0-9]*)',service)):
         raise ValueError('ACL_SERVICE_SID_UNKNOWN')
+    if service!=SYSTEM and any(len(v)>10 or int(v)>0xFFFFFFFF for v in service.split('-')[4:]):
+        raise ValueError('ACL_SERVICE_SID_RANGE')
     rights={SYSTEM:FULL,ADMINS:FULL}
     if service not in rights:
         rights[service]={'boundary':RX,'code':RX,'secret':READ,'data':MODIFY}[profile]
@@ -46,6 +48,7 @@ def canonical(path):
     if type(path) is not str or len(path)>240 or not path.startswith('C:\\') or '/' in path:
         raise ValueError('ACL_PATH_UNKNOWN')
     if any(c in path for c in '\x00\r\n%~*?"') or ':' in path[2:]:raise ValueError('ACL_PATH_ALIAS')
+    if any(ord(c)<32 or c in '<>|' for c in path):raise ValueError('ACL_PATH_INVALID_CHARACTER')
     parts=path[3:].split('\\')
     if any(not p or p in ('.','..') or p.endswith((' ','.')) for p in parts):raise ValueError('ACL_PATH_ALIAS')
     reserved={'CON','PRN','AUX','NUL',*[f'COM{i}' for i in range(1,10)],*[f'LPT{i}' for i in range(1,10)]}
@@ -165,7 +168,7 @@ def advance(j,s,index):
     expected=prepare(s)
     if type(j) is not dict or set(j)!=set(expected):raise ValueError('ACL_JOURNAL_INVALID')
     for key in set(expected)-{'state','cursor'}:
-        if type(j[key]) is not type(expected[key]) or j[key]!=expected[key]:
+        if type(j[key]) is not type(expected[key]) or _digest(j[key])!=_digest(expected[key]):
             raise ValueError('ACL_JOURNAL_CHANGED')
     cursor=j['cursor'];count=len(expected['changes'])
     if type(cursor) is not int or type(index) is not int or index!=cursor:

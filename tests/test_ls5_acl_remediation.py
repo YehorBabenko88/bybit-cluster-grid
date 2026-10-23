@@ -176,3 +176,22 @@ def test_default_cli_is_non_authorizing(capsys,monkeypatch):
     from installer.ls5_acl_remediation import main
     monkeypatch.setattr('sys.argv',['model']);main()
     assert 'BLOCKED' in capsys.readouterr().out
+
+@pytest.mark.parametrize('sid',['S-1-5-21-1-2-3-4294967296','S-1-5-21-01-2-3-1005','S-1-5-21-1-2-3-'+chr(0x661)])
+def test_noncanonical_or_overflow_sid_is_blocked(sid):
+    s=snapshot();s['roles']['service']=sid
+    for t in s['tasks'].values():t['principal_sid']=sid
+    assert assess(s)['status']=='BLOCKED'
+
+
+@pytest.mark.parametrize('leaf',['bad|name','bad<name','bad'+chr(1)])
+def test_illegal_windows_child_path_is_blocked(leaf):
+    s=snapshot();o=copy.deepcopy(s['objects'][4]);o.update(path=r'C:\ProgramData\BybitClusterGrid'+'\\'+leaf,
+        profile='code',sha256='1'*64,identity='new-child');s['objects'].append(o)
+    assert assess(s)['status']=='BLOCKED'
+
+
+@pytest.mark.parametrize('flags',[False,0.0])
+def test_journal_nested_numeric_alias_is_rejected(flags):
+    s=snapshot();j=prepare(s);j['changes'][4]['desired'][0]['flags']=flags
+    with pytest.raises(ValueError):advance(j,s,0)
