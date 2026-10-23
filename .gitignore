@@ -9,3 +9,13 @@ secrets/
 .pytest_cache/
 .idea/
 .vscode/
+
+.hardening-*/
+.hardening*/
+.bundle-*/
+.acceptance-*/
+pc4-hardening*.xml
+pc4-hardening*.json
+pc4-offline*.xml
+pc4-offline*.json
+lsa-source.xml

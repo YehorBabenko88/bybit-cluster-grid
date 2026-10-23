@@ -13,6 +13,9 @@ if(!$Execute -and !$Cleanup){
  return
 }
 if($Execute -and $Cleanup){throw 'MODES_EXCLUSIVE'}
+# Immutable safety blocks; no approval switch overrides these.
+if($Cleanup){throw 'CLEANUP_NOT_AUTHORIZED'}
+if($Execute){throw 'EXECUTE_NOT_AUTHORIZED'}
 if([Environment]::MachineName -cne 'PC4' -or ![Environment]::Is64BitProcess){throw 'PC4_LOCAL_ONLY'}
 $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
 $principal=New-Object Security.Principal.WindowsPrincipal($identity)
@@ -36,71 +39,17 @@ $bootstrapManifest=[IO.File]::ReadAllText($bootstrapManifestPath,(New-Object Tex
 if((Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'Common.ps1') -Algorithm SHA256).Hash.ToLowerInvariant() -cne $bootstrapManifest.files.'Common.ps1'){throw 'BOOTSTRAP_COMMON_HASH_MISMATCH'}
 . (Join-Path $PSScriptRoot 'Common.ps1')
 foreach($p in @('C:\GridLab','C:\GridLab\Secure','C:\GridLab\Harness',$PSScriptRoot,'C:\GridLab\Evidence')){Assert-Pc4TrustedAcl $p $bootstrapSid}
-$packageFiles=@('Common.ps1','Actor.ps1','TokenFacts.cs','TokenFacts.dll','Invoke-Pc4SidAcl.ps1')
+$packageFiles=@('Common.ps1','Actor.ps1','TokenFacts.cs','TokenFacts.dll','Invoke-Pc4SidAcl.ps1','Lifecycle.ps1')
 foreach($name in @($packageFiles)+@('package.sha256.json')){Assert-Pc4TrustedAcl (Join-Path $PSScriptRoot $name) $bootstrapSid}
 $packagePath=Join-Path $PSScriptRoot 'package.sha256.json'
 if($ExpectedPackageManifestSha256 -cnotmatch '^[0-9a-f]{64}$' -or (Get-Pc4Hash $packagePath) -cne $ExpectedPackageManifestSha256){throw 'PINNED_PACKAGE_MANIFEST_REQUIRED'}
 $package=Read-Pc4Text $packagePath 16384|ConvertFrom-Json
 if(@($package.PSObject.Properties).Count -ne 3 -or $package.source_sha -cnotmatch '^[0-9a-f]{40}$' -or $package.kind -cne 'PC4_OFFLINE_BUILT_PACKAGE' -or @($package.files.PSObject.Properties).Count -ne $packageFiles.Count){throw 'PACKAGE_PROFILE_BLOCKED'}
 foreach($name in $packageFiles){if((Get-Pc4Hash (Join-Path $PSScriptRoot $name)) -cne $package.files.$name){throw 'PACKAGE_HASH_MISMATCH'}}
+. (Join-Path $PSScriptRoot 'Lifecycle.ps1')
 Assert-Pc4EvidenceAcl 'C:\GridLab\Evidence' $bootstrapSid
 Assert-Pc4Guid $RunId
 $evidence=(Get-Pc4Paths $RunId 'Collector').Evidence
-if($Cleanup){
- # Path-based deletion is disabled until handle-relative custody and independent
- # process-termination evidence are implemented and reviewed.
- throw 'CLEANUP_DISABLED_PENDING_HANDLE_RELATIVE_REVIEW'
- if(!$ApproveFixtureCleanup){throw 'CLEANUP_APPROVAL_REQUIRED'}
- Assert-Pc4EvidenceAcl $evidence $bootstrapSid
- $manifestPath=Join-Path $evidence 'manifest.json'
- $manifest=Read-Pc4Text $manifestPath 16384|ConvertFrom-Json
- if($manifest.schema -ne 1 -or $manifest.run_id -cne $RunId -or $manifest.kind -cne 'PC4_OWNED_FIXTURE_MANIFEST' -or $manifest.bootstrap_sid -cne $bootstrapSid -or $manifest.package_manifest_sha256 -cne $ExpectedPackageManifestSha256 -or $manifest.source_sha -cne $package.source_sha){throw 'CLEANUP_MANIFEST_MISMATCH'}
- $indexPath=Join-Path $evidence 'sha256.json'
- if(Test-Pc4Absent $indexPath){$indexPath=Join-Path $evidence 'partial-sha256.json'}
- if(Test-Pc4Absent $indexPath){throw 'CLEANUP_HASH_INDEX_REQUIRED'}
- $index=Read-Pc4Text $indexPath 16384|ConvertFrom-Json
- Assert-Pc4RecordedHash $index 'manifest.json' (Get-Pc4Hash $manifestPath)
- # Stage all inventories before first delete. Unknown files/subdirectories/reparse
- # or missing ownership marker stop; no recursive deletion or ACL repair.
- Add-Type -Path (Join-Path $PSScriptRoot 'TokenFacts.dll')
- $delete=New-Object Collections.Generic.List[string];$roots=New-Object Collections.Generic.List[string];$pins=New-Object Collections.Generic.List[object]
- try {
- foreach($path in @('C:\GridLab','C:\GridLab\Secure','C:\GridLab\Secure\Collector','C:\GridLab\Secure\Storage')){$pins.Add([GridPc4.TokenFacts]::PinDirectory($path))}
- foreach($role in @('Collector','Storage')){
-  $root=(Get-Pc4Paths $RunId $role).Root
-  if(Test-Pc4Absent $root){continue}
-  Assert-Pc4Plain $root
-  $pins.Add([GridPc4.TokenFacts]::PinDirectory($root))
-  $marker=Read-Pc4Text (Join-Path $root 'fixture.json') 4096|ConvertFrom-Json
-  if($marker.run_id -cne $RunId -or $marker.role -cne $role -or $marker.kind -cne 'PC4_DISPOSABLE_FIXTURE'){throw 'CLEANUP_MARKER_MISMATCH'}
-  # A matching PID may have been reused: any uncertainty blocks; never terminate it.
-  $intentPath=Join-Path $evidence ($role+'-launch-intent.json')
-  $pidPath=Join-Path $evidence ($role+'-process.json')
-  if(!(Test-Pc4Absent $intentPath)){
-   if(Test-Pc4Absent $pidPath){throw 'CLEANUP_LAUNCH_OUTCOME_UNKNOWN'}
-   Assert-Pc4RecordedHash $index ($role+'-launch-intent.json') (Get-Pc4Hash $intentPath)
-   Assert-Pc4RecordedHash $index ($role+'-process.json') (Get-Pc4Hash $pidPath)
-   $r=Read-Pc4Text $pidPath 4096|ConvertFrom-Json
-   if($r.run_id -cne $RunId -or $r.role -cne $role){throw 'CLEANUP_PROCESS_SCOPE_MISMATCH'}
-   if(($r.pid -isnot [int] -and $r.pid -isnot [long]) -or $r.pid -le 0){throw 'CLEANUP_PID_UNKNOWN'}
-   try{$null=Get-Process -Id $r.pid -ErrorAction Stop;throw 'CLEANUP_PROCESS_STILL_PRESENT'}
-   catch {if($_.FullyQualifiedErrorId -notlike 'NoProcessFoundForGivenId,*'){throw 'CLEANUP_PROCESS_INVENTORY_BLOCKED'}}
-  } elseif(!(Test-Pc4Absent (Join-Path $root 'ready.json')) -or !(Test-Pc4Absent $pidPath)){
-   throw 'CLEANUP_LAUNCH_HISTORY_AMBIGUOUS'
-  }
-  $names=@(Get-Pc4CleanupNames $RunId $role $marker @(Get-ChildItem -LiteralPath $root -Force -ErrorAction Stop) $true)
-  foreach($name in $names){$delete.Add((Join-Path $root $name))}
-  $roots.Add($root)
- }
- foreach($path in $delete){Remove-Item -LiteralPath $path -ErrorAction Stop}
- foreach($root in $roots){Remove-Item -LiteralPath (Join-Path $root 'fixture.json') -ErrorAction Stop}
- } finally {foreach($pin in $pins){$pin.Dispose()}}
- foreach($root in $roots){[IO.Directory]::Delete($root,$false)}
- # Evidence is always preserved. Interrupted cleanup may need manual review,
- # especially if its marker was removed but directory deletion failed.
- [pscustomobject]@{status='CLEANUP_COMPLETED_OR_ALREADY_ABSENT';evidence_preserved=$true;run_id=$RunId}
- return
-}
 if(!$ApproveFixtureCreation -or $AccountPlanReference -cnotmatch '^[A-Z0-9][A-Z0-9_-]{3,63}$'){throw 'SEPARATE_ACCOUNT_PLAN_AND_FIXTURE_APPROVAL_REQUIRED'}
 Assert-Pc4Sid $CollectorSid '1003';Assert-Pc4Sid $StorageSid '1004'
 $sids=@{Collector=$CollectorSid;Storage=$StorageSid};$credentials=@{}
@@ -123,7 +72,7 @@ $manifest=[ordered]@{schema=1;kind='PC4_OWNED_FIXTURE_MANIFEST';run_id=$RunId;bo
  source_sha=$package.source_sha;package_manifest_sha256=$ExpectedPackageManifestSha256;
  package_hashes=@{};expected_sids=$sids;complete=$false;airgap_verified=$false;execution_authorized=$false;readiness_passed=$false}
 foreach($name in @($packageFiles)+@('package.sha256.json')){$manifest.package_hashes[$name]=Get-Pc4Hash (Join-Path $PSScriptRoot $name)}
-$processes=@{};$success=$false;$pins=New-Object Collections.Generic.List[object]
+$processes=@{};$launchIntents=@{};$success=$false;$pins=New-Object Collections.Generic.List[object]
 try {
  foreach($path in @('C:\GridLab','C:\GridLab\Secure','C:\GridLab\Secure\Collector','C:\GridLab\Secure\Storage','C:\GridLab\Evidence')){$pins.Add([GridPc4.TokenFacts]::PinDirectory($path))}
  $null=New-Item -ItemType Directory -Path $evidence -ErrorAction Stop
@@ -148,15 +97,19 @@ try {
   $start.WorkingDirectory=(Get-Pc4Paths $RunId $role).Root
   $start.UserName='GridLab'+$role;$start.Domain='PC4';$start.Password=$credentials[$role].Password
   Write-Pc4NewText (Join-Path $evidence ($role+'-launch-intent.json')) (@{run_id=$RunId;role=$role;state='LAUNCH_INTENT_ONLY'}|ConvertTo-Json -Compress)
+  $launchIntents[$role]=$true
   $processes[$role]=[Diagnostics.Process]::Start($start)
-  Write-Pc4NewText (Join-Path $evidence ($role+'-process.json')) (@{run_id=$RunId;role=$role;pid=$processes[$role].Id;start_utc=$processes[$role].StartTime.ToUniversalTime().ToString('O')}|ConvertTo-Json -Compress)
+  if($null -eq $processes[$role]){throw 'ACTOR_START_UNKNOWN'}
+  $null=$processes[$role].Handle # retain OS identity before publishing PID
+  $actorStarted=$processes[$role].StartTime.ToUniversalTime().ToString('O')
+  Write-Pc4NewText (Join-Path $evidence ($role+'-process.json')) (@{run_id=$RunId;role=$role;state='ACTOR_STARTED';pid=$processes[$role].Id;start_utc=$processes[$role].StartTime.ToUniversalTime().ToString('O')}|ConvertTo-Json -Compress)
  }
  foreach($role in @('Collector','Storage')){
   $root=(Get-Pc4Paths $RunId $role).Root;$ready=Join-Path $root 'ready.json';$deadline=[DateTime]::UtcNow.AddSeconds(30)
   while(Test-Pc4Absent $ready){if($processes[$role].HasExited -or [DateTime]::UtcNow -gt $deadline){throw 'ACTOR_START_FAILED'};Start-Sleep -Milliseconds 100}
   $r=Read-Pc4Text $ready 16384|ConvertFrom-Json
-  if($r.pid -ne $processes[$role].Id -or !(Test-Pc4Facts $r.facts $sids[$role])){throw 'CHILD_HANDSHAKE_BLOCKED'}
-  $observed=[GridPc4.TokenFacts]::Read($processes[$role].Id,$false)
+  if($processes[$role].HasExited -or $r.run_id -cne $RunId -or $r.role -cne $role -or $r.start_utc -cne $processes[$role].StartTime.ToUniversalTime().ToString('O') -or $r.pid -ne $processes[$role].Id -or !(Test-Pc4Facts $r.facts $sids[$role])){throw 'CHILD_HANDSHAKE_BLOCKED'}
+  $observed=[GridPc4.TokenFacts]::ReadProcessHandle($processes[$role].Handle,$false)
   if(!(Test-Pc4Facts $observed $sids[$role])){throw 'PARENT_OBSERVED_TOKEN_BLOCKED'}
   Write-Pc4NewText (Join-Path $evidence ($role+'-parent-token.json')) (@{pid=$processes[$role].Id;facts=$observed}|ConvertTo-Json -Depth 8 -Compress)
  }
@@ -192,11 +145,7 @@ try {
   $c=$suite.CreateElement('testcase');$c.SetAttribute('classname',('PC4.'+$role));$c.SetAttribute('name',$case);$null=$s.AppendChild($c)
  }}
  Write-Pc4NewText (Join-Path $evidence 'junit.xml') $suite.OuterXml
- $hashes=[ordered]@{};foreach($f in @(Get-ChildItem -LiteralPath $evidence -File)){$hashes[$f.Name]=Get-Pc4Hash $f.FullName}
- Write-Pc4NewText (Join-Path $evidence 'sha256.json') ($hashes|ConvertTo-Json -Compress)
- Write-Pc4NewText (Join-Path $evidence 'completed.json') (@{run_id=$RunId;reported_cases=10;physical_attestation=$false;airgap_verified=$false}|ConvertTo-Json -Compress)
  $success=$true
- [pscustomobject]@{status='TEN_LOCAL_CASES_REPORTED_PASS';run_id=$RunId;evidence=$evidence;physical_attestation=$false;airgap_verified=$false;readiness_passed=$false}
 } catch {
  # Preserve partial evidence. No exception details/credentials are logged.
  if(!(Test-Pc4Absent $evidence)){
@@ -208,18 +157,28 @@ try {
  }
  throw 'PC4_RUN_BLOCKED_OR_PARTIAL'
 } finally {
+ $shutdown=[ordered]@{};$shutdownBlocked=$false
  foreach($role in @('Collector','Storage')){
   if($processes.ContainsKey($role)){
-   if(!$processes[$role].HasExited){
-    $stop=Join-Path (Get-Pc4Paths $RunId $role).Root 'stop.flag'
-    try{if(Test-Pc4Absent $stop){Write-Pc4NewText $stop 'STOP'}}catch{}
-   }
-   # Best-effort bounded cooperative stop; never terminate an uncertain PID.
-   # A still-running actor remains a hard block for any future cleanup.
-   try { if(!$processes[$role].HasExited){$null=$processes[$role].WaitForExit(5000)} } catch {}
-   $processes[$role].Dispose()
-  }
+   $stop=Join-Path (Get-Pc4Paths $RunId $role).Root 'stop.flag'
+   $r=Stop-Pc4Actor $processes[$role] {if(Test-Pc4Absent $stop){Write-Pc4NewText $stop 'STOP'}}
+   $shutdown[$role]=$r
+   if($r.status -cne 'EXIT_CONFIRMED'){$shutdownBlocked=$true}
+   else {$processes[$role].Dispose()}
+   if($r.exit_code -ne 0 -or $r.signal_failed){$shutdownBlocked=$true}
+  } elseif($launchIntents.ContainsKey($role)) {
+   $shutdown[$role]=@{status='BLOCKED_LAUNCH_OUTCOME_UNKNOWN';exit_code=$null};$shutdownBlocked=$true
+  } else {$shutdown[$role]=@{status='NOT_LAUNCHED';exit_code=$null}}
  }
  $credentials.Clear()
  foreach($pin in $pins){$pin.Dispose()}
+ if(!(Test-Pc4Absent $evidence)){Write-Pc4NewText (Join-Path $evidence 'shutdown.json') ($shutdown|ConvertTo-Json -Depth 5 -Compress)}
+ if($shutdownBlocked){throw 'ACTOR_SHUTDOWN_UNCONFIRMED'}
+}
+
+if($success){
+ Write-Pc4NewText (Join-Path $evidence 'completed.json') (@{run_id=$RunId;reported_cases=10;physical_attestation=$false;airgap_verified=$false}|ConvertTo-Json -Compress)
+ $hashes=[ordered]@{};foreach($f in @(Get-ChildItem -LiteralPath $evidence -File)){$hashes[$f.Name]=Get-Pc4Hash $f.FullName}
+ Write-Pc4NewText (Join-Path $evidence 'sha256.json') ($hashes|ConvertTo-Json -Compress)
+ [pscustomobject]@{status='TEN_LOCAL_CASES_REPORTED_NOT_ATTESTED';run_id=$RunId;physical_attestation=$false;readiness_passed=$false}
 }

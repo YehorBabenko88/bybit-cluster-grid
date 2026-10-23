@@ -13,12 +13,12 @@ def test_admin_group_requires_enabled_and_not_deny_only():
 
 def test_cleanup_remains_explicitly_disabled():
     source = (ROOT / "Invoke-Pc4SidAcl.ps1").read_text(encoding="utf-8")
-    start = source.index("if($Cleanup){")
-    approval = source.index("if(!$ApproveFixtureCleanup)", start)
-    assert "throw 'CLEANUP_DISABLED_PENDING_HANDLE_RELATIVE_REVIEW'" in source[start:approval]
+    assert "if($Cleanup){throw 'CLEANUP_NOT_AUTHORIZED'}" in source[:source.index('[Environment]::MachineName')]
+    assert 'Remove-Item' not in source
+
 
 
 def test_actor_shutdown_has_bounded_wait():
     source = (ROOT / "Invoke-Pc4SidAcl.ps1").read_text(encoding="utf-8")
-    assert "$processes[$role].WaitForExit(5000)" in source
+    assert "Stop-Pc4Actor $processes[$role]" in source
     assert "Kill(" not in source

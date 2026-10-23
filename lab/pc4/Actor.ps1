@@ -4,6 +4,7 @@ param([Parameter(Mandatory=$true)][string]$RunId,
       [Parameter(Mandatory=$true)][string]$ExpectedSid,
       [Parameter(Mandatory=$true)][string]$TokenAssemblySha256)
 $ErrorActionPreference='Stop'
+throw 'EXECUTE_NOT_AUTHORIZED' # also block direct actor invocation before any observation
 . (Join-Path $PSScriptRoot 'Common.ps1')
 try {
  if([Environment]::MachineName -cne 'PC4' -or ![Environment]::Is64BitProcess){throw 'HOST_BLOCKED'}
@@ -15,7 +16,7 @@ try {
  Add-Type -Path $assembly
  $facts=[GridPc4.TokenFacts]::Read($PID,$true)
  if(!(Test-Pc4Facts $facts $ExpectedSid)){throw 'TOKEN_UNSAFE'}
- Write-Pc4NewText (Join-Path $paths.Root 'ready.json') (@{pid=$PID;facts=$facts}|ConvertTo-Json -Depth 8 -Compress)
+ Write-Pc4NewText (Join-Path $paths.Root 'ready.json') (@{run_id=$RunId;role=$Role;pid=$PID;start_utc=[Diagnostics.Process]::GetCurrentProcess().StartTime.ToUniversalTime().ToString('O');facts=$facts}|ConvertTo-Json -Depth 8 -Compress)
  $deadline=[DateTime]::UtcNow.AddSeconds(45)
  while(!(Test-Path -LiteralPath (Join-Path $paths.Root 'go.flag'))){
   if((Test-Path -LiteralPath (Join-Path $paths.Root 'stop.flag')) -or [DateTime]::UtcNow -gt $deadline){throw 'START_GATE_TIMEOUT'}

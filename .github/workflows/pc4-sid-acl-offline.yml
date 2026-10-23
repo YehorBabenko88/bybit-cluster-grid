@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   manifest-offline:
-    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021'
+    if: github.head_ref == 'audit/pc4-security-acceptance-20261023' || github.ref_name == 'audit/pc4-security-acceptance-20261023' || github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 8
     strategy:
@@ -73,6 +73,28 @@ jobs:
           $result=@(./lab/pc4/Test-Offline.ps1)
           if($result -notcontains 'OFFLINE_POLICY_CASES=39; NO_NATIVE_EXECUTION; NO_PHYSICAL_EVIDENCE'){throw 'OFFLINE_POLICY_INVENTORY_MISMATCH'}
           $result
+      - name: Synthetic buffers and process lifecycle (powershell)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $r=@(./lab/pc4/Test-TokenBuffers.ps1)
+          if($r -notcontains 'TOKEN_BUFFER_CASES=24; SYNTHETIC_ONLY; PHYSICAL_NOT_RUN'){throw 'BUFFER_INVENTORY_BLOCKED'}
+          $r
+          $r=@(./lab/pc4/Test-Lifecycle.ps1)
+          if($r -notcontains 'LIFECYCLE_CASES=10; MOCK_ONLY; PHYSICAL_NOT_RUN'){throw 'LIFECYCLE_INVENTORY_BLOCKED'}
+          $r
+      - name: Synthetic buffers and process lifecycle (pwsh)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $r=@(./lab/pc4/Test-TokenBuffers.ps1)
+          if($r -notcontains 'TOKEN_BUFFER_CASES=24; SYNTHETIC_ONLY; PHYSICAL_NOT_RUN'){throw 'BUFFER_INVENTORY_BLOCKED'}
+          $r
+          $r=@(./lab/pc4/Test-Lifecycle.ps1)
+          if($r -notcontains 'LIFECYCLE_CASES=10; MOCK_ONLY; PHYSICAL_NOT_RUN'){throw 'LIFECYCLE_INVENTORY_BLOCKED'}
+          $r
       - name: Compile package only, no native entry points
         if: runner.os == 'Windows'
         shell: powershell
@@ -118,6 +140,8 @@ jobs:
           print('Offline design metadata only; BLOCKED; physical NO-GO; no live evidence')
           PY
           python -B -m installer.lab_manifest_design < lab-manifest.example.json
+      - name: Strict hardening inventory and independent package/evidence hashes
+        run: python lab/pc4/check_security_ci.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: pc4-sid-acl-offline-${{ matrix.os }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
@@ -125,9 +149,12 @@ jobs:
             pc4-offline.xml
             pc4-offline-events.json
             lsa-source.xml
+            pc4-hardening.xml
+            pc4-hardening-events.json
+            pc4-hardening-sha256.json
           if-no-files-found: error
   static-workflows:
-    if: github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021'
+    if: github.head_ref == 'audit/pc4-security-acceptance-20261023' || github.ref_name == 'audit/pc4-security-acceptance-20261023' || github.head_ref == 'audit/codex-pc4-sid-acl-20261021' || github.ref_name == 'audit/codex-pc4-sid-acl-20261021'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -135,6 +162,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+          fetch-depth: 0
       - run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           "$(go env GOPATH)/bin/actionlint" .github/workflows/*.yml
