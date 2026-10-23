@@ -54,7 +54,7 @@ namespace GridPc4 {
     b=Info(token,2);try{
      int count=Marshal.ReadInt32(b); if(count<0 || count>512)throw new InvalidOperationException("GROUP_COUNT_INVALID");
      int offset=IntPtr.Size==8?8:4; int stride=Marshal.SizeOf(typeof(SidAttr));
-     for(int i=0;i<count;i++) { SidAttr g=(SidAttr)Marshal.PtrToStructure(IntPtr.Add(b,offset+i*stride),typeof(SidAttr)); if(Sid(g.Sid)=="S-1-5-32-544") f.admin_group=true; }
+     for(int i=0;i<count;i++) { SidAttr g=(SidAttr)Marshal.PtrToStructure(IntPtr.Add(b,offset+i*stride),typeof(SidAttr)); if(Sid(g.Sid)=="S-1-5-32-544" && (g.Attr & 0x00000004u)!=0 && (g.Attr & 0x00000010u)==0) f.admin_group=true; }
     }finally{Marshal.FreeHGlobal(b);}
     b=Info(token,20);try{f.elevated=Marshal.ReadInt32(b)!=0;}finally{Marshal.FreeHGlobal(b);}
     b=Info(token,25);try{string s=Sid(Marshal.ReadIntPtr(b));f.integrity_rid=int.Parse(s.Substring(s.LastIndexOf('-')+1));}finally{Marshal.FreeHGlobal(b);}
