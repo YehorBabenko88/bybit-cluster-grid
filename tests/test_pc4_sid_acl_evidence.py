@@ -119,6 +119,14 @@ def test_new_workflow_excludes_all_inherited_jobs():
                 assert "github.head_ref == '"+b+"'" in first
                 assert "github.ref_name == '"+b+"'" in first
                 assert 'services:' not in text and 'self-hosted' not in text
+            elif p.name in {'preflight.yml','windows-bundle.yml','windows-commissioning.yml',
+                    'physical-deployment-harness.yml','isolated-postgres-offline.yml','integration-evidence-audit.yml',
+                    'commissioning-manifest.yml','composed-safety-gate.yml','contract-boundary-audit.yml','vm-principal-offline-model.yml'}:
+                # PR236 restores hosted CI; do not suppress it to satisfy a stale
+                # branch exception. Physical authority remains disabled in code.
+                assert "github.head_ref != 'audit/codex-pc4-sid-acl-20261021'" not in first
+                assert 'self-hosted' not in text
+                assert 'runs-on:' in text
             else:
                 assert "github.head_ref != 'audit/codex-pc4-sid-acl-20261021'" in first
                 assert "github.ref_name != 'audit/codex-pc4-sid-acl-20261021'" in first

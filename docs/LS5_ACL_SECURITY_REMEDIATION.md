@@ -45,7 +45,7 @@ A complete synthetic input may produce `OFFLINE_MODEL_PASS`, always `host_verifi
 
 `prepare/advance` model ordered original-SDDL preservation and partial progress in memory. Advancement validates every immutable plan field, typed cursor/state and false authority flags against the regenerated plan, including its committed shortcut. `COMMITTED_MODEL_ONLY` does not mean ACLs changed. There is no durable transaction storage, trusted anti-rollback or write receipt. Recovery always BLOCKED, even if snapshot hashes match; restoring an originally vulnerable DACL can reopen a P0.
 
-## Required physical remediation sequence — NOT AUTHORIZED
+## Required physical remediation sequence â€” NOT AUTHORIZED
 
 The following is an operator design, not an instruction to run on LS5 now. Do not run bootstrap, installer, release switch, ACL apply, rollback, coordinator or physical harness from this branch.
 
@@ -73,9 +73,9 @@ Only separately approved per-object restoration is permissible. Restoring Users 
 
 ## Tests and evidence
 
-- Frozen offline pytest inventory: `tests/fixtures/ls5_acl_inventory.json`; 121 tests, exact node IDs and JUnit names required. No skipped/xfail/errors/failures accepted.
+- Frozen offline pytest inventory: `tests/fixtures/ls5_acl_inventory.json`; 122 tests, exact node IDs and JUnit names required. No skipped/xfail/errors/failures accepted.
 - Python matrix: Ubuntu/Windows x 3.11/3.12. Exact PR head checkout; git blob vs working source comparison (line-ending normalization only); SHA256 source inventory. JSONL and JUnit bind exact HEAD, Actions run ID/attempt and false physical/authority flags.
-- PowerShell 5.1/7 pure PlanOnly tests: 13 each; installer AST parse without execution. Locally safe command: `powershell.exe -NoProfile -File installer/tests/test-ls5-acl-compat.ps1` (or `pwsh`). These never observe LS5 ACLs/users/tasks.
+- PowerShell 5.1/7 pure PlanOnly tests: 14 each; installer AST parse without execution. Locally safe command: `powershell.exe -NoProfile -File installer/tests/test-ls5-acl-compat.ps1` (or `pwsh`). These never observe LS5 ACLs/users/tasks.
 - Hosted-CI structural ACL suite: 16 cases per shell; only new GUID fixture under RUNNER_TEMP with explicit repository/job/hosted-runner guards. Reproduces directory-only inherited writes, leaf RX ambiguity, env read, idempotence, new-release inheritance, fault-before-write, fixture-only SDDL roundtrip, junction/symlink/hardlink rejection and out-of-scope refusal. No users created, no ordinary-user tokens tested, no physical attestation, no cleanup. Path-based ACL operations here are fixture demonstrations **not a production executor or TOCTOU proof**. Missing symlink capability fails CI rather than skipping.
 - Required CI aggregate rejects skipped/failed/missing matrix jobs. No inherited general CI gate is removed. New receipts include SHA256 for source and JUnit/JSONL, verified independently after download. JUnit alone is not a cryptographic signature; repository/runner/workflow compromise is outside this model.
 - Independent review found required-file-kind bypass and forged model journal authority; 13 RED regression cases reproduced before minimal fixes. Follow-up review required expected error codes in native negative cases so unrelated provider errors cannot count as PASS. Full native host guarantees remain unproven.
@@ -89,3 +89,9 @@ Only separately approved per-object restoration is permissible. Restoring Users 
 **P2:** future service/data-writer contract, authenticated evidence storage/retention and recovery operational rehearsal. These do not justify weakening P0/P1 gates.
 
 Offline containment model/test readiness depends on exact-HEAD CI results reported in the PR. **Physical repair, Execute, Cleanup, Deployment: NO-GO.** This work does not promote L1/L2 or the PC4 physical harness.
+
+### General CI compatibility follow-up
+
+The first exact-HEAD run exposed a stale assertion demanding the PC4 skip conditions which PR236 deliberately removed, and a shallow checkout lacking the pinned historical PC4 tree. The regression now asserts hosted general CI remains enabled for those ten workflows; preflight fetches full history. The new ACL workflow preserves all earlier isolated planning/review branch exclusions.
+
+Windows bundle previously invoked the production ML bootstrap and therefore failed after the new unconditional safety block. It now exercises the same retained dependency/lock/recovery algorithm through `installer/tests/invoke-ml-owned-ci.ps1`, exclusively in a newly minted hosted-runner GUID root. The helper refuses non-hosted/wrong-repository/wrong-job use, never creates/adopts an arbitrary root, verifies a run/attempt/HEAD ownership marker, and rejects reparse children. The runner/checkout are trusted CI inputs; this fixture is not an adversarial handle-custody executor and confers no production capability. Existing ML install/idempotence/truncated interpreter/missing pip/concurrent lock checks are retained; no production guard is relaxed.

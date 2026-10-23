@@ -29,6 +29,7 @@
     "tests/test_ls5_acl_evidence.py::test_junit_cannot_claim_false_pass[error]",
     "tests/test_ls5_acl_evidence.py::test_junit_cannot_claim_false_pass[failure]",
     "tests/test_ls5_acl_evidence.py::test_junit_cannot_claim_false_pass[skipped]",
+    "tests/test_ls5_acl_evidence.py::test_ml_algorithm_fixture_cannot_adopt_production_paths",
     "tests/test_ls5_acl_evidence.py::test_native_negative_cases_require_the_intended_error",
     "tests/test_ls5_acl_remediation.py::test_cli_invalid_input_is_blocked_and_does_not_echo[NaN]",
     "tests/test_ls5_acl_remediation.py::test_cli_invalid_input_is_blocked_and_does_not_echo[[]]",
@@ -223,6 +224,10 @@
     [
       "tests.test_ls5_acl_evidence",
       "test_junit_cannot_claim_false_pass[skipped]"
+    ],
+    [
+      "tests.test_ls5_acl_evidence",
+      "test_ml_algorithm_fixture_cannot_adopt_production_paths"
     ],
     [
       "tests.test_ls5_acl_evidence",
@@ -629,6 +634,11 @@
     "tests/test_ls5_acl_evidence.py",
     "tests/fixtures/ls5_acl_inventory.json",
     ".github/workflows/ls5-acl-remediation.yml",
-    "installer/tests/test-ls5-acl-compat.ps1"
+    "installer/tests/test-ls5-acl-compat.ps1",
+    "installer/tests/invoke-ml-owned-ci.ps1",
+    ".github/workflows/preflight.yml",
+    ".github/workflows/windows-bundle.yml",
+    "tests/test_pc4_sid_acl_evidence.py",
+    "installer/tests/test-install-apply.ps1"
   ]
 }

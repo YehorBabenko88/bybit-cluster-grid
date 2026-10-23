@@ -47,3 +47,15 @@ def test_native_negative_cases_require_the_intended_error():
     for case,code in [('partial-before-set-fault','INJECTED_BEFORE_SET'),('junction-blocked','REPARSE_BLOCKED'),
         ('symlink-blocked','REPARSE_BLOCKED'),('hardlink-blocked','HARDLINK_BLOCKED'),('system-root-outside-fixture-blocked','OUTSIDE_FIXTURE')]:
         assert f"Reject '{case}' '{code}' {{" in s
+
+
+def test_ml_algorithm_fixture_cannot_adopt_production_paths():
+    from pathlib import Path
+    root=Path(__file__).resolve().parents[1]
+    s=(root/'installer/tests/invoke-ml-owned-ci.ps1').read_text()
+    assert s.index('OWNED_ML_CI_FIXTURE_ONLY') < s.index('Get-Item') < s.index('[scriptblock]::Create')
+    for marker in ('ML_FIXTURE_SCOPE_BLOCKED','ML_FIXTURE_OWNER_MISMATCH','ML_CHILD_REPARSE','grid-ml-ci-'):
+        assert marker in s
+    assert 'New-Item' not in s and 'Set-Acl' not in s
+    w=(root/'.github/workflows/windows-bundle.yml').read_text()
+    assert 'invoke-ml-owned-ci.ps1' in w and '& ./installer/bootstrap-ml.ps1' not in w

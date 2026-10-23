@@ -24,5 +24,6 @@ $result=& (Join-Path $root 'ls5-acl-remediation.ps1')
 Check ($result.mode -ceq 'PlanOnly' -and $result.status -ceq 'BLOCKED' -and !$result.host_verified)
 Reject {& (Join-Path $root 'ls5-acl-remediation.ps1') -Apply} 'EXECUTE_NOT_AUTHORIZED'
 Reject {& (Join-Path $root 'ls5-acl-remediation.ps1') -Rollback} 'ROLLBACK_NOT_AUTHORIZED'
+Reject {& (Join-Path $PSScriptRoot 'invoke-ml-owned-ci.ps1') -RuntimeRoot 'C:\SYNTHETIC'} 'OWNED_ML_CI_FIXTURE_ONLY'
 Check ($script:prohibited -eq 0)
 Write-Output ('LS5_PLAN_ONLY_CASES='+$script:count+'; NO_HOST_OBSERVATIONS; NO_AUTHORITY')
