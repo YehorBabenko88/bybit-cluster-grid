@@ -24,6 +24,7 @@ if ($Repository -ne 'YehorBabenko88/bybit-cluster-grid') {
 if($Branch -ne 'main' -and (!$AllowAuditCandidate -or $Branch -cnotmatch '^audit/codex-[a-z0-9-]+$' -or $Commit -cnotmatch '^[0-9a-f]{40}$')){
     throw 'Audit staging requires explicit AllowAuditCandidate, audit/codex branch and exact Commit'
 }
+if($Download){throw 'LS5_ACL_EXECUTE_NOT_AUTHORIZED: protected staging custody unproven'}
 $gh = Get-Command gh.exe -ErrorAction Stop
 function GitHubJson([string[]]$Arguments) {
     $raw = & $gh.Source @Arguments

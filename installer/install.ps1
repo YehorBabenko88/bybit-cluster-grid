@@ -17,6 +17,7 @@ if(!$Apply){
  Write-Output ('PLAN_ONLY; role='+$Mode+'; tasks=disabled; archive=refused; no files changed')
  return
 }
+throw 'LS5_ACL_EXECUTE_NOT_AUTHORIZED: task preparation requires proven executable/config ACL custody'
 $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
 $principal=[Security.Principal.WindowsPrincipal]::new($identity)
 if(!$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Apply requires an administrator'}

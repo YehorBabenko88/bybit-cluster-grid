@@ -1,4 +1,7 @@
 $ErrorActionPreference='Stop'
+if($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_ENVIRONMENT -cne 'github-hosted' -or
+ $env:RUNNER_OS -cne 'Windows' -or $env:GITHUB_REPOSITORY -cne 'YehorBabenko88/bybit-cluster-grid' -or
+ $env:GITHUB_JOB -cne 'safe-script-fixtures'){throw 'MOCKED_INSTALL_CI_ONLY'}
 # Run only on administrator Windows CI. Every Scheduler operation is mocked;
 # all file writes stay in this newly created fixture. No real .env or services.
 $principal=[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -39,6 +42,15 @@ function Invoke-FixturePython {
 }
 $script=Join-Path $PSScriptRoot '..\install.ps1'
 try {
+ # First verify the real entry point refuses, before testing its retained
+ # registration algorithm in an owned copy with every Scheduler provider mocked.
+ $message='';try {& $script -ReleaseDir $release -Python Invoke-FixturePython -Mode CONTROL -Apply} catch {$message=$_.Exception.Message}
+ if(!$message.StartsWith('LS5_ACL_EXECUTE_NOT_AUTHORIZED:') -or $global:GridFixtureRegistrations -ne 0){throw 'REAL_APPLY_GUARD_BYPASSED'}
+ $source=Get-Content -LiteralPath $script -Raw
+ $guard="throw 'LS5_ACL_EXECUTE_NOT_AUTHORIZED: task preparation requires proven executable/config ACL custody'"
+ if(($source.Split([string[]]@($guard),[StringSplitOptions]::None)).Count -ne 2){throw 'MOCK_INSTALL_MARKER_INVALID'}
+ $script=Join-Path $root 'mocked-install-body.ps1'
+ [IO.File]::WriteAllText($script,$source.Replace($guard,'# CI mocked algorithm only; original entry point remains blocked'))
  $rejected=$false
  try {& $script -ReleaseDir $release -Python Invoke-FixturePython -Mode CONTROL -Apply} catch {$rejected=$true}
  if(!$rejected -or $global:GridFixtureRegistrations -ne 0 -or (Test-Path -LiteralPath $env:ProgramData)){throw 'Failed preflight caused install mutation'}

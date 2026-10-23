@@ -1,11 +1,15 @@
 param(
-  [Parameter(Mandatory=$true)][string]$Python,
+  [string]$Python,
   [string]$BasePython="",
-  [Parameter(Mandatory=$true)][string]$ReleaseDir,
-  [Parameter(Mandatory=$true)][string]$RuntimeRoot,
-  [ValidateSet("CONTROL","PILOT","NORMAL")][string]$Mode="NORMAL"
+  [string]$ReleaseDir,
+  [string]$RuntimeRoot,
+  [ValidateSet("CONTROL","PILOT","NORMAL")][string]$Mode="NORMAL",
+  [switch]$Apply
 )
 $ErrorActionPreference="Stop"
+if(!$Apply){Write-Output 'PLAN_ONLY; ML runtime ACL/custody proof required; no host actions';return}
+throw 'LS5_ACL_EXECUTE_NOT_AUTHORIZED: ML code and runtime custody unproven'
+
 $Req=Join-Path $ReleaseDir "requirements-ml.txt"
 if(!(Test-Path $Req)){throw "Missing ML requirements: $Req"}
 if(!(Test-Path -LiteralPath $Python)){throw "Missing ML Python runtime: $Python"}
