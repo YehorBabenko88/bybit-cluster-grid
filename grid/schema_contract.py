@@ -79,6 +79,11 @@ SELECT kind,name,definition FROM (
  SELECT 'policy',c.relname||'.'||p.polname,to_jsonb(p)::text
  FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid
  JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public'
+ UNION ALL
+ SELECT 'rule',c.relname||'.'||r.rulename,
+   jsonb_build_array(pg_get_ruledef(r.oid,true),r.ev_enabled)::text
+ FROM pg_rewrite r JOIN pg_class c ON c.oid=r.ev_class
+ JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public'
 ) definitions ORDER BY kind,name,definition
 """
 
@@ -90,6 +95,21 @@ async def catalog_digest(c):
 
 async def verify_schema(c):
     """Trusted preparation and runtime share exactly the same postcondition."""
+    # A predictable source hash is not an issuer credential. Only the database
+    # owner may own/write the seal and migration registry, including column ACLs.
+    # The owner/admin remains trusted and can change these facts after this read.
+    unsafe_issuer = await c.fetchval("""SELECT EXISTS(
+      SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relname IN ('grid_schema_contract','schema_migrations')
+        AND (c.relowner<>(SELECT datdba FROM pg_database WHERE datname=current_database())
+          OR EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
+            WHERE a.grantee<>c.relowner AND a.privilege_type<>'SELECT')
+          OR EXISTS(SELECT 1 FROM pg_attribute att CROSS JOIN LATERAL aclexplode(att.attacl) a
+            WHERE att.attrelid=c.oid AND NOT att.attisdropped
+              AND a.grantee<>c.relowner AND a.privilege_type<>'SELECT')))
+    """)
+    if unsafe_issuer is not False:
+        raise SchemaBlocked('SCHEMA_METADATA_ISSUER_UNTRUSTED')
     seal = await c.fetchrow('SELECT version,source_sha256,catalog_sha256 FROM public.grid_schema_contract WHERE singleton')
     if not seal or seal['version'] != CONTRACT_VERSION or seal['source_sha256'] != source_digest():
         raise SchemaBlocked('SCHEMA_CONTRACT_SOURCE_MISMATCH')
@@ -127,6 +147,21 @@ async def verify_runtime_schema(pool):
               OR EXISTS(SELECT 1 FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
                         AND d.refclassid='pg_authid'::regclass AND d.deptype='o'
                         AND d.refobjid=(SELECT oid FROM pg_roles WHERE rolname=current_user))
+              OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                        WHERE substr(n.nspname,1,3)<>'pg_' AND n.nspname<>'information_schema'
+                          AND c.relkind IN ('r','p','v','m','f')
+                          AND (has_table_privilege(current_user,c.oid,'TRIGGER,TRUNCATE,REFERENCES,MAINTAIN')
+                            OR has_any_column_privilege(current_user,c.oid,'REFERENCES')))
+              OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                        WHERE substr(n.nspname,1,3)<>'pg_' AND n.nspname<>'information_schema' AND c.relkind='S'
+                          AND has_sequence_privilege(current_user,c.oid,'UPDATE'))
+              OR EXISTS(SELECT 1 FROM pg_parameter_acl p CROSS JOIN LATERAL aclexplode(p.paracl) a
+                        WHERE a.grantee IN (0,(SELECT oid FROM pg_roles WHERE rolname=current_user)))
+              OR current_setting('session_replication_role')<>'origin'
+              OR EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                        WHERE p.prosecdef AND substr(n.nspname,1,3)<>'pg_'
+                          AND n.nspname<>'information_schema'
+                          AND has_function_privilege(current_user,p.oid,'EXECUTE'))
             """)
             if unsafe is not False:
                 raise SchemaBlocked('RUNTIME_DDL_AUTHORITY_FORBIDDEN')

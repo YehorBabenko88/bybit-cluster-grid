@@ -185,6 +185,8 @@ No Scheduler/service entry is installed or run. Independently exclude conflictin
 ports/tasks/processes using existing read-only Runtime Guard; do not bypass it.
 
 ```powershell
+throw 'BLOCKED: process-scoped market quarantine and operator authorization are not implemented'
+# Commands below are a design reference only; do not remove the blocking throw.
 Set-Location -LiteralPath $Source
 $env:POSTGRES_DSN='postgresql://grid_integration_test_app@127.0.0.1:5432/grid_integration_test'
 $env:PGPASSFILE=Read-Host 'Protected app passfile absolute path'
@@ -212,6 +214,14 @@ or exchange/trading credentials are enabled. PASS requires prepared schema,
 restricted app, INFRA_ONLY, exactly one effective CONTROL lease and loopback
 listener only. Any other listener or market activation is FAIL/STOP. Unknown token,
 protected paths, secrets custody or task inventory is BLOCKED before this command.
+
+G5 is **BLOCKED even with loopback binding and an empty HTTP shared token**.
+A persisted ACTIVE state passes schema verification and allows market work before
+G6; an empty pending RESUME can transition to ACTIVE without ACKs. A pre-start SQL
+check is insufficient because the DML app can later change the gate. Required
+follow-up: a reviewed process-scoped INFRA_ONLY/quarantine profile enforced by
+all market side effects, and a separately specified operator authorization model.
+Do not interpret schema acceptance, CI PASS or the commands above as authority.
 
 ### G6 â€” health, fencing, WAL and controlled recovery
 

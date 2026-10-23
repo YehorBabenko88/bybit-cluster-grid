@@ -34,6 +34,29 @@
     "tests/test_control_runtime_fence.py::test_shutdown_cleans_services_even_if_election_already_cleared_lease",
     "tests/test_control_runtime_wiring.py::test_actual_startup_registers_services_with_election_before_any_start",
     "tests/test_control_runtime_wiring.py::test_follower_cannot_reach_control_handlers",
+    "tests/test_ddl_acceptance.py::test_adversarial_receipt_is_fail_closed[bad-inventory]",
+    "tests/test_ddl_acceptance.py::test_adversarial_receipt_is_fail_closed[clean]",
+    "tests/test_ddl_acceptance.py::test_adversarial_receipt_is_fail_closed[empty-hashes]",
+    "tests/test_ddl_acceptance.py::test_adversarial_receipt_is_fail_closed[missing-events]",
+    "tests/test_ddl_acceptance.py::test_adversarial_receipt_is_fail_closed[phase-label]",
+    "tests/test_ddl_acceptance.py::test_adversarial_receipt_is_fail_closed[wrong-baseline]",
+    "tests/test_ddl_acceptance.py::test_branch_rename_cannot_skip_required_gates",
+    "tests/test_ddl_acceptance.py::test_complete_exact_attempt_passes",
+    "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[attempt]",
+    "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[clean]",
+    "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[hash]",
+    "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[inventory]",
+    "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[junit-skip]",
+    "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[missing-hash]",
+    "tests/test_ddl_acceptance.py::test_fail_closed_inventory[duplicate]",
+    "tests/test_ddl_acceptance.py::test_fail_closed_inventory[failure]",
+    "tests/test_ddl_acceptance.py::test_fail_closed_inventory[missing]",
+    "tests/test_ddl_acceptance.py::test_fail_closed_inventory[old-attempt]",
+    "tests/test_ddl_acceptance.py::test_fail_closed_inventory[running]",
+    "tests/test_ddl_acceptance.py::test_fail_closed_inventory[skip]",
+    "tests/test_ddl_acceptance.py::test_fail_closed_inventory[wrong-run]",
+    "tests/test_ddl_acceptance.py::test_fail_closed_inventory[wrong-sha]",
+    "tests/test_ddl_acceptance.py::test_missing_artifacts_blocked",
     "tests/test_ddl_free_startup.py::test_all_grid_ddl_execute_sites_are_explicit_preparation_only",
     "tests/test_ddl_free_startup.py::test_all_runtime_pool_constructors_pin_search_path",
     "tests/test_ddl_free_startup.py::test_lazy_runtime_paths_do_not_prepare[bootstrap_runtime-bootstrap_runtime]",
@@ -229,6 +252,12 @@
     "tests/test_pg18_ci_isolation.py::test_untrusted_environment_never_calls_provider[GITHUB_RUN_ID-]",
     "tests/test_pg18_ci_isolation.py::test_untrusted_environment_never_calls_provider[RUNNER_ENVIRONMENT-self-hosted]",
     "tests/test_pg18_ci_isolation.py::test_untrusted_environment_never_calls_provider[RUNNER_OS-Windows]",
+    "tests/test_pr227_authorization_boundary.py::test_empty_resume_currently_opens_active_without_ack",
+    "tests/test_pr227_authorization_boundary.py::test_persisted_active_does_not_prove_operator_authorization",
+    "tests/test_pr227_checkout.py::test_checkout_exact_clean",
+    "tests/test_pr227_checkout.py::test_checkout_substitution_rejected",
+    "tests/test_pr227_checkout.py::test_checkout_wrong_head_rejected",
+    "tests/test_pr227_checkout.py::test_staged_substitution_rejected",
     "tests/test_retention_bootstrap_regression.py::test_coordinator_bootstraps_retention_before_background_tasks",
     "tests/test_retention_bootstrap_regression.py::test_empty_retention_dataset_has_no_phantom_backlog",
     "tests/test_retention_bootstrap_regression.py::test_existing_overdue_rows_keep_estimate",
@@ -421,6 +450,98 @@
     [
       "tests.test_control_runtime_wiring",
       "test_follower_cannot_reach_control_handlers"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_adversarial_receipt_is_fail_closed[bad-inventory]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_adversarial_receipt_is_fail_closed[clean]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_adversarial_receipt_is_fail_closed[empty-hashes]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_adversarial_receipt_is_fail_closed[missing-events]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_adversarial_receipt_is_fail_closed[phase-label]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_adversarial_receipt_is_fail_closed[wrong-baseline]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_branch_rename_cannot_skip_required_gates"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_complete_exact_attempt_passes"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_downloaded_evidence_is_not_trusted[attempt]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_downloaded_evidence_is_not_trusted[clean]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_downloaded_evidence_is_not_trusted[hash]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_downloaded_evidence_is_not_trusted[inventory]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_downloaded_evidence_is_not_trusted[junit-skip]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_downloaded_evidence_is_not_trusted[missing-hash]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_fail_closed_inventory[duplicate]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_fail_closed_inventory[failure]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_fail_closed_inventory[missing]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_fail_closed_inventory[old-attempt]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_fail_closed_inventory[running]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_fail_closed_inventory[skip]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_fail_closed_inventory[wrong-run]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_fail_closed_inventory[wrong-sha]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_missing_artifacts_blocked"
     ],
     [
       "tests.test_ddl_free_startup",
@@ -1201,6 +1322,30 @@
     [
       "tests.test_pg18_ci_isolation",
       "test_untrusted_environment_never_calls_provider[RUNNER_OS-Windows]"
+    ],
+    [
+      "tests.test_pr227_authorization_boundary",
+      "test_empty_resume_currently_opens_active_without_ack"
+    ],
+    [
+      "tests.test_pr227_authorization_boundary",
+      "test_persisted_active_does_not_prove_operator_authorization"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_checkout_exact_clean"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_checkout_substitution_rejected"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_checkout_wrong_head_rejected"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_staged_substitution_rejected"
     ],
     [
       "tests.test_retention_bootstrap_regression",
