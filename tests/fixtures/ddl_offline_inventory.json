@@ -255,6 +255,7 @@
     "tests/test_pr227_authorization_boundary.py::test_blocked_runbook_has_no_executable_coordinator_launch",
     "tests/test_pr227_authorization_boundary.py::test_empty_resume_currently_opens_active_without_ack",
     "tests/test_pr227_authorization_boundary.py::test_persisted_active_does_not_prove_operator_authorization",
+    "tests/test_pr227_checkout.py::test_assume_unchanged_cannot_hide_substitution",
     "tests/test_pr227_checkout.py::test_checkout_exact_clean",
     "tests/test_pr227_checkout.py::test_checkout_substitution_rejected",
     "tests/test_pr227_checkout.py::test_checkout_wrong_head_rejected",
@@ -1335,6 +1336,10 @@
     [
       "tests.test_pr227_authorization_boundary",
       "test_persisted_active_does_not_prove_operator_authorization"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_assume_unchanged_cannot_hide_substitution"
     ],
     [
       "tests.test_pr227_checkout",

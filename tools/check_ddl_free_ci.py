@@ -1,5 +1,6 @@
 """Exact-commit receipts and zero-skip CI gate; no physical commissioning."""
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -25,6 +26,38 @@ def verify_checkout(root, sha):
     untracked = subprocess.check_output(['git','ls-files','--others','--exclude-standard'],cwd=root).decode().splitlines()
     if status.returncode != 0 or any(Path(p).suffix.lower() in ('.py','.ps1','.sql','.pyd','.dll') for p in untracked):
         raise RuntimeError('CHECKOUT_DIRTY')
+    # git diff alone trusts assume-unchanged/skip-worktree index flags. Compare
+    # actual regular-file bytes to HEAD objects independently of those flags.
+    entries = []
+    for record in subprocess.check_output(['git','ls-tree','-rz','--full-tree','HEAD'],cwd=root).split(b'\0'):
+        if not record:
+            continue
+        metadata, name = record.split(b'\t',1)
+        mode, kind, oid = metadata.split()
+        if mode not in (b'100644',b'100755') or kind != b'blob':
+            raise RuntimeError('CHECKOUT_UNSUPPORTED_FILE_KIND')
+        entries.append((name.decode('utf-8'),oid))
+    objects = io.BytesIO(subprocess.check_output(['git','cat-file','--batch'],cwd=root,
+                         input=b''.join(oid+b'\n' for _,oid in entries)))
+    for name, oid in entries:
+        header = objects.readline().split()
+        if len(header)!=3 or header[:2]!=[oid,b'blob']:
+            raise RuntimeError('CHECKOUT_OBJECT_MISMATCH')
+        expected = objects.read(int(header[2]))
+        if objects.read(1)!=b'\n':
+            raise RuntimeError('CHECKOUT_OBJECT_MISMATCH')
+        path = root/name
+        if path.is_symlink() or not path.is_file():
+            raise RuntimeError('CHECKOUT_DIRTY')
+        actual = path.read_bytes()
+        if expected == actual:
+            continue
+        try:
+            expected.decode('utf-8'); actual.decode('utf-8')
+        except UnicodeError:
+            raise RuntimeError('CHECKOUT_DIRTY') from None
+        if b'\0' in expected or b'\0' in actual or expected.replace(b'\r\n',b'\n')!=actual.replace(b'\r\n',b'\n'):
+            raise RuntimeError('CHECKOUT_DIRTY')
 
 
 class Receipt:

@@ -39,3 +39,11 @@ def test_staged_substitution_rejected(checkout):
     subprocess.check_call(['git', 'add', 'source.py'], cwd=root)
     with pytest.raises(RuntimeError, match='CHECKOUT_DIRTY'):
         gate.verify_checkout(root, sha)
+
+
+def test_assume_unchanged_cannot_hide_substitution(checkout):
+    root, sha = checkout
+    subprocess.check_call(['git','update-index','--assume-unchanged','source.py'],cwd=root)
+    (root/'source.py').write_text('original = False\n')
+    with pytest.raises(RuntimeError,match='CHECKOUT_DIRTY'):
+        gate.verify_checkout(root,sha)
