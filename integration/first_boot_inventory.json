@@ -421,6 +421,8 @@
     "tests/test_ls5_native_observer.py::test_native_evidence_forgery_is_rejected[wrong-attempt]",
     "tests/test_ls5_native_observer.py::test_native_evidence_forgery_is_rejected[wrong-head]",
     "tests/test_ls5_native_observer.py::test_native_evidence_forgery_is_rejected[wrong-run]",
+    "tests/test_ls5_native_observer.py::test_native_python_receipt_never_turns_skip_or_xfail_into_pass",
+    "tests/test_ls5_native_observer.py::test_native_python_receipt_registers_with_real_pytest_hookspec",
     "tests/test_ls5_native_observer.py::test_native_receipt_rejects_unknown_security_facts[ace-bool-mask]",
     "tests/test_ls5_native_observer.py::test_native_receipt_rejects_unknown_security_facts[ace-kind]",
     "tests/test_ls5_native_observer.py::test_native_receipt_rejects_unknown_security_facts[ace-sid]",
@@ -2563,6 +2565,14 @@
     [
       "tests.test_ls5_native_observer",
       "test_native_evidence_forgery_is_rejected[wrong-run]"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_native_python_receipt_never_turns_skip_or_xfail_into_pass"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_native_python_receipt_registers_with_real_pytest_hookspec"
     ],
     [
       "tests.test_ls5_native_observer",
