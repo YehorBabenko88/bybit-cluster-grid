@@ -69,3 +69,11 @@ def test_version_path_unicode_and_case_alias_rejected(candidate):
 def test_commit_requires_prepared_journal():
     with pytest.raises(Stop):
         commit(State(current=OLD))
+
+@pytest.mark.parametrize("forgery", ["false", 1, ["trusted"], {"trusted": True}])
+def test_truthy_attestation_forgery_is_blocked(forgery):
+    with pytest.raises(Stop):
+        stage(State(current=OLD), NEW, **dict(GOOD, trusted_custody=forgery))
+    prepared = stage(State(current=OLD), NEW, **GOOD)
+    with pytest.raises(Stop):
+        recover(prepared, **dict(RECOVERY, journal_valid=forgery))
