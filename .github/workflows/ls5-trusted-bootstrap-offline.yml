@@ -9,6 +9,7 @@ on:
       - "installer/ls5_disposable_release_model.py"
       - "installer/ls5-g0-readonly-preflight.ps1"
       - "tests/test_ls5_disposable_release_model.py"
+      - "tests/test_ls5_g0_readonly_preflight.ps1"
       - "docs/LS5_TRUSTED_BOOTSTRAP.md"
       - "docs/LS5_TRUSTED_SOURCE_HANDOFF.md"
       - "docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md"
@@ -56,6 +57,10 @@ jobs:
             $errors | ForEach-Object { Write-Error $_.Message }
             throw 'G0_POWERSHELL_PARSE_FAILED'
           }
+      - name: Windows G0 mocked fail-closed regression
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tests/test_ls5_g0_readonly_preflight.ps1
       - name: Offline negative regression tests
         run: python -m pytest -q -ra tests/test_ls5_trusted_bootstrap.py tests/test_ls5_bootstrap_ci_evidence.py tests/test_ls5_disposable_release_model.py --junitxml=junit.xml
       - name: Exact-HEAD evidence receipts
