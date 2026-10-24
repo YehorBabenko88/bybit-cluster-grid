@@ -41,7 +41,7 @@ def verify_partition_payload(partition: dict, payload: bytes, *, max_bytes: int)
         event, available, revision = (row[k] for k in ("event_ns", "available_ns", "revision"))
         if any(type(v) is not int or v < 0 for v in (event, available, revision)):
             raise PartitionContractError("Invalid row timestamps/revision")
-        if revision < 1 or event > available or available > partition["knowledge_cutoff_ns"]:
+        if revision < 1 or event % step or event > available or available > partition["knowledge_cutoff_ns"]:
             raise PartitionContractError("Noncausal row")
         if event in seen or (last is not None and event <= last):
             raise PartitionContractError("Duplicate or unordered event")
