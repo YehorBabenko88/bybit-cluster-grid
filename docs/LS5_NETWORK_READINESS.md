@@ -51,3 +51,9 @@ Separate operator authorization and change window required even for read-only ob
 - STOP/rollback: this PR makes **no physical changes**, so there is no host rollback. Any future authorized firewall change must have out-of-band access and independently approved recovery plan before implementation.
 
 P0: reported wildcard listener + unverified firewall/TLS boundary; potential exposed API and direct DB if network policy permissive (not confirmed exploit). P1: unknown live ACL/SSH identities, incomplete route authentication and cert/secret inventory. P2: missing evidence provenance and node IP inventory. No physical GO.
+
+## Operator-only native inventory script (not executed)
+
+`tools/collect_ls5_network_readonly.ps1` is an optional future **local** read-only observation helper for Windows PowerShell 5.1. It reads TCP listeners, IPv4 interface addresses and enabled inbound firewall rule address/port filters and emits JSON to stdout. It performs no remote connection or probe, does not call the Tailscale CLI, and does not change firewall or services. **Do not execute on LS5 without separate operator authorization.** Its output is unverified and may contain sensitive host metadata: redact and independently review it before distribution. It cannot prove effective network reachability, Tailscale grants, SSH key identity, TLS certificate trust, or runtime API authentication; these remain BLOCKED.
+
+The offline validator now rejects lateral SSH and incorrectly directed API flows. Its deliberately restrictive SSH profile only models LS5↔PC4; additional future SSH edges require a separate reviewed policy revision, not silent allowlisting.
