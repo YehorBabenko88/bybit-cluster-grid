@@ -14,8 +14,10 @@ class Pg18Integrity(unittest.TestCase):
         assert cls.dsn == "postgresql://grid_ci:ci_only_disposable@127.0.0.1:55439/grid_ci_disposable"
         with psycopg.connect(cls.dsn) as c:
             host, port, db, version = c.execute("select inet_server_addr()::text, inet_server_port(), current_database(), current_setting('server_version_num')::int").fetchone()
-            assert host in ("127.0.0.1", "::1"), host
-            assert port == 55439, port
+            # Docker publishes host loopback:55439 to container:5432.
+            # inet_server_addr() is the container interface, not the client target.
+            assert host is not None, host
+            assert port == 5432, port
             assert db == "grid_ci_disposable", db
             assert 180000 <= version < 190000, version
             assert c.execute("show fsync").fetchone()[0] == "on"
