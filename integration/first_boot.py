@@ -42,6 +42,15 @@ def pilot_workers_stopped(state,expected):
         for row in nodes.values())
 
 
+async def status_if_ready(child):
+    try:return await child.command('status')
+    except RuntimeError as exc:
+        # Read-only status may be refused during lease loss/reacquisition.
+        # Protocol/EOF/process errors are fatal; mutation commands are never retried.
+        if str(exc)=='CHILD_ACTION_REJECTED':return None
+        raise
+
+
 async def execute():
     require_ci()
     from tools.check_ddl_free_ci import verify_checkout
@@ -133,7 +142,7 @@ async def execute():
                     child=OwnedChild(env,node_roots[n],n,redactions);children.append(child);await child.start();worker_children[n]=child
                 for n in node_roots:await start_worker(n)
                 async def all_registered():
-                    value=await co.command('status');return value if set(value['nodes'])==set(node_roots) and all(x['integrity_ok'] is True for x in value['nodes'].values()) else False
+                    value=await status_if_ready(co);return value if value and set(value['nodes'])==set(node_roots) and all(x['integrity_ok'] is True for x in value['nodes'].values()) else False
                 await until(all_registered);evidence.case('two-real-workers')
                 if feed.connections or feed.frames:raise RuntimeError('INFRA_ONLY_OPENED_MARKET')
                 evidence.case('infra-no-market')
@@ -149,7 +158,7 @@ async def execute():
                     h=await health();return h and h['runtime_state']=='STOPPED'
                 await until(stopped);evidence.case('fleet-stop-ack')
                 async def worker_stop_observed():
-                    state=await co.command('status');return pilot_workers_stopped(state,node_roots)
+                    state=await status_if_ready(co);return bool(state) and pilot_workers_stopped(state,node_roots)
                 await until(worker_stop_observed)
                 for n in node_roots:await co.command('pilot-validate',n)
                 evidence.case('pilot-validation');await co.command('fleet-resume')
@@ -157,7 +166,9 @@ async def execute():
                     h=await health();return h and h['runtime_state']=='ACTIVE'
                 await until(active);evidence.case('fleet-resume-ack')
                 async def assigned():
-                    state=await co.command('status');flat=[s for symbols in state['assignments'].values() for s in symbols]
+                    state=await status_if_ready(co)
+                    if state is None:return False
+                    flat=[s for symbols in state['assignments'].values() for s in symbols]
                     return state if sorted(flat)==sorted(SYMBOLS) and len(flat)==len(set(flat)) else False
                 await until(assigned);evidence.case('exclusive-assignments')
                 async def fresh_collection():
@@ -189,8 +200,8 @@ async def execute():
                 previous=(await co.command('status'))['nodes']
                 first=next(iter(node_roots));await worker_children[first].stop(crash=True);await start_worker(first)
                 async def fresh_workers():
-                    state=await co.command('status')
-                    return state if registration_is_fresh(state['nodes'],previous,{first}) else False
+                    state=await status_if_ready(co)
+                    return state if state and registration_is_fresh(state['nodes'],previous,{first}) else False
                 await until(fresh_workers)
                 await fresh_collection()
                 evidence.case('worker-crash-restart')

@@ -158,3 +158,16 @@ def test_pilot_requires_complete_zero_activity_worker_snapshots():
     state=dict(nodes={'a':dict(operator_stopped=True,wanted_symbols=0,active_trade_streams=0,integrity_ok=True)})
     assert pilot_workers_stopped(state,{'a'})
     assert not pilot_workers_stopped(state,{'a','b'})
+
+
+
+def test_recovery_status_retries_only_explicit_leader_not_ready():
+    from integration.first_boot import status_if_ready
+    child=SimpleNamespace(command=AsyncMock(side_effect=RuntimeError('CHILD_ACTION_REJECTED')))
+    assert asyncio.run(status_if_ready(child)) is None
+
+
+def test_recovery_status_does_not_hide_private_protocol_or_process_failure():
+    from integration.first_boot import status_if_ready
+    child=SimpleNamespace(command=AsyncMock(side_effect=RuntimeError('CHILD_PIPE_FAILED')))
+    with pytest.raises(RuntimeError,match='CHILD_PIPE_FAILED'):asyncio.run(status_if_ready(child))

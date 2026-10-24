@@ -320,3 +320,12 @@ other detected encodings, and validates exact decoded command. A57th pure in-mem
 wire case verifies BOM decoding; the policy still rejects a BOM in decoded text.
 No command text is logged and no file/share/authority guard is relaxed. Full Windows
 fixture acceptance awaits the next run.
+
+Hosted297fcb7 reached22/26 stages: live synthetic PostgreSQL persistence, immutable
+receipts, duplicate checks, Worker crash/restart and CONTROL crash/recovery passed.
+PostgreSQL-restart recovery polling aborted on the first expected private status
+refusal during leader loss. Read-only status now returns pending only for that exact
+refusal within existing deadlines; EOF/protocol/process errors remain fatal, mutation
+commands are not retried, and fresh post-recovery data remains mandatory. Transient
+asyncpg setup/closed-connection errors are preserved in the artifact; no driver or
+production fencing behavior is silently changed by this harness correction.
