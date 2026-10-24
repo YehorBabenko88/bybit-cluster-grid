@@ -157,3 +157,12 @@ Downloaded actual hosted ZIP, 47,775 bytes, independently computed SHA256 `975c0
 **New PR244 HEAD** `106a6c5a508cbdcf1b6bf99fe531fe27fb94715a`: `installer/ls5_bootstrap_ci_evidence.py` blob `f21dfb30553da0a8e079744d580dd7a474d9073b` now matches PR239 (previous P1 parser drift fixed at source level). GitHub Actions on this exact HEAD include failed `full-system-first-boot`, `ls5-native-observer-offline`, `preflight`, `windows-bundle`; thus no integration PASS or physical GO. All previous ZIP evidence is tied to its historical SHA only.
 
 **Verdict: CI FAILURE / E2E BLOCKED / physical G0 BLOCKED / G1 NOT_AUTHORIZED / Deployment NO-GO.**
+
+
+## Hosted exact-HEAD evidence run 40091003818, artifact 12559571068
+
+Independently downloaded GitHub ZIP `12559571068`, size 65,556 bytes; SHA256 computed locally `8e2d0c031288e7cda4a94ada16db15fd410abb4dc2602d096c10c38d24addc72`, matching GitHub artifact digest. Summary HEAD `106a6c5a508cbdcf1b6bf99fe531fe27fb94715a`, run `40091003818`, attempt `1`, producer-reported tree `aa524c1fe9764ecc9c0e2e0f92cbcfcae96beb93`. All 26 JSONL events: 23 `ISOLATED_E2E_PASS`, 3 `BLOCKED`; JUnit 26 tests, 3 failures, 0 errors/skips. Blocked: `persisted-state-restart`, `controlled-shutdown`, `catalog-unchanged`. `postgres-restart-recovery` is now producer-reported PASS; PG18 JUnit 32 tests, no failures/errors/skips. Checked all ZIP-contained first-boot manifest file hashes, no mismatch; source-tree file digests in manifest are not independently verifiable from ZIP alone.
+
+**Additional operational findings from raw logs:** `coordinator-4.log` contains `asyncpg.exceptions._base.InternalClientError: cannot switch to state 15; another operation (2) is in progress`. `synthetic-a-2.log` contains `write_queue_drain_timeout` with queue_depth 177; `synthetic-b-1.log` likewise queue_depth 469. These are directly observed in the artifact, but causal linkage to the three missing stages has not been proven. Investigate shared asyncpg connection concurrency, queue drain/shutdown timing, and durable WAL readback independently. Do not suppress these log signals to turn gate green.
+
+Exact-head workflow `full-system-first-boot` run `40091003818` FAIL, four native observer fixture jobs FAIL, required gates FAIL; separate `preflight` and `windows-bundle` runs FAIL. No physical evidence. **G0 BLOCKED / G1 NOT_AUTHORIZED / Deployment NO-GO.**
