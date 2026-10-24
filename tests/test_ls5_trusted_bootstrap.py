@@ -11,7 +11,7 @@ FILES = [
     EXEC + r"\runtime\pyvenv.cfg",
     EXEC + r"\runtime\site-packages\sitecustomize.py",
     EXEC + r"\runtime\site-packages\grid.pth",
-    EXEC + r"\releases\" + VERSION + r"\grid\coordinator.py",
+    EXEC + "\\releases\\" + VERSION + "\\grid\\coordinator.py",
     EXEC + r"\runtime\python311.dll",
 ]
 def sample():
