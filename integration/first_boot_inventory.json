@@ -809,6 +809,8 @@
     "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[no_artifact]",
     "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[partial]",
     "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[wrong_head]",
+    "tests/test_preflight_pg18_profile_contract.py::test_pg16_exclusions_have_mandatory_pg18_companion",
+    "tests/test_preflight_pg18_profile_contract.py::test_pg18_reusable_gate_keeps_seven_real_tests",
     "tests/test_retention_bootstrap_regression.py::test_coordinator_bootstraps_retention_before_background_tasks",
     "tests/test_retention_bootstrap_regression.py::test_empty_retention_dataset_has_no_phantom_backlog",
     "tests/test_retention_bootstrap_regression.py::test_existing_overdue_rows_keep_estimate",
@@ -4117,6 +4119,14 @@
     [
       "tests.test_pr_compatibility_watch",
       "test_unknown_or_truncated_metadata_blocks[wrong_head]"
+    ],
+    [
+      "tests.test_preflight_pg18_profile_contract",
+      "test_pg16_exclusions_have_mandatory_pg18_companion"
+    ],
+    [
+      "tests.test_preflight_pg18_profile_contract",
+      "test_pg18_reusable_gate_keeps_seven_real_tests"
     ],
     [
       "tests.test_retention_bootstrap_regression",
