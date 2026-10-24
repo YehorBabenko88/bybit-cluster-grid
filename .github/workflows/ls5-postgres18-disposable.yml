@@ -26,6 +26,9 @@ jobs:
           --health-cmd "pg_isready -U grid_ci -d grid_ci_disposable"
           --health-interval 5s --health-timeout 3s --health-retries 10
     env:
+      RUNNER_ENVIRONMENT: github-hosted
+      RUNNER_OS: Linux
+      GITHUB_REPOSITORY: YehorBabenko88/bybit-cluster-grid
       GRID_DISPOSABLE_PG18: 'YES'
       GRID_DISPOSABLE_PG_DSN: postgresql://grid_ci:ci_only_disposable@127.0.0.1:55439/grid_ci_disposable
       PYTHONDONTWRITEBYTECODE: '1'
