@@ -192,3 +192,33 @@ def audit_workflow_runs(runs, *, expected_head):
             "offline_ci_complete": not missing and not bad,
             "artifacts_independently_verified": False,
             "physical_pass": False, "deployment_go": False}
+
+
+def audit_evidence_chain(chain, *, expected_head):
+    """Cross-check producer/custody IDs across CI records, never authenticate them."""
+    require(type(expected_head) is str and HEAD.fullmatch(expected_head) is not None, "EXPECTED_HEAD")
+    require(type(chain) is dict and set(chain) == {
+        "head", "run_id", "attempt", "artifact_id", "zip_sha256",
+        "manifest_head", "junit_head", "jsonl_head",
+        "manifest_run_id", "junit_run_id", "jsonl_run_id",
+        "manifest_attempt", "junit_attempt", "jsonl_attempt",
+        "custody", "source"
+    }, "CHAIN_SCHEMA")
+    require(all(type(chain[k]) is str and chain[k] == expected_head for k in
+                ("head", "manifest_head", "junit_head", "jsonl_head")), "CHAIN_HEAD")
+    require(type(chain["run_id"]) is int and chain["run_id"] > 0 and
+            type(chain["attempt"]) is int and chain["attempt"] > 0 and
+            type(chain["artifact_id"]) is int and chain["artifact_id"] > 0,
+            "CHAIN_ID")
+    require(all(type(chain[k]) is int and chain[k] == chain["run_id"] for k in
+                ("manifest_run_id", "junit_run_id", "jsonl_run_id")), "CHAIN_RUN")
+    require(all(type(chain[k]) is int and chain[k] == chain["attempt"] for k in
+                ("manifest_attempt", "junit_attempt", "jsonl_attempt")), "CHAIN_ATTEMPT")
+    require(type(chain["zip_sha256"]) is str and
+            SHA.fullmatch(chain["zip_sha256"]) is not None, "CHAIN_ZIP_SHA")
+    require(chain["custody"] == "UNVERIFIED" and
+            chain["source"] == "GITHUB_HOSTED_SYNTHETIC", "CHAIN_AUTHORITY")
+    return {"status": "BLOCKED", "internal_identity_consistent": True,
+            "zip_bytes_independently_verified": False,
+            "custody_authenticated": False, "physical_pass": False,
+            "deployment_go": False}
