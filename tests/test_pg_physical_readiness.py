@@ -41,6 +41,16 @@ class PhysicalReadinessTests(unittest.TestCase):
         receipt["checks"]["existing_wal_custody"]["evidence_sha256"] = ""
         self.assertEqual(verdict(receipt)["reason"], "INVALID_CHECK")
 
+    def test_unhashable_status_rejected_without_exception(self):
+        receipt = fixture()
+        receipt["checks"]["existing_database_inventory"]["status"] = []
+        self.assertEqual(verdict(receipt)["reason"], "INVALID_CHECK")
+
+    def test_unknown_status_invalid_digest_rejected(self):
+        receipt = fixture()
+        receipt["checks"]["existing_database_inventory"]["evidence_sha256"] = "not-sha256"
+        self.assertEqual(verdict(receipt)["reason"], "INVALID_CHECK")
+
     def test_duplicate_json_rejected(self):
         with self.assertRaises(ValueError):
             strict_json('{"schema":1,"schema":2}')
