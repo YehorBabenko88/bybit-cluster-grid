@@ -38,7 +38,9 @@ def verify_zip_bytes(raw, *, expected_digest, expected_files):
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
             entries = archive.infolist()
             names = [x.filename for x in entries]
-            require(len(names) == len(set(names)) and\n                    len(names) == len({name.casefold() for name in names}) and\n                    set(names) == set(expected_files),
+            require(len(names) == len(set(names)) and
+                    len(names) == len({name.casefold() for name in names}) and
+                    set(names) == set(expected_files),
                     "ZIP_INVENTORY")
             require(sum(x.file_size for x in entries) <= 16_000_000, "ZIP_TOTAL_SIZE")
             require(all(not x.is_dir() and x.file_size <= 4_000_000 and
