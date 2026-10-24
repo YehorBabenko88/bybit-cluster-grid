@@ -38,3 +38,20 @@ def test_invalid_selector_never_queries():
     with pytest.raises(SourceSchemaBlocked):
         await inspect_pg_columns(conn, schema="public;DROP", table="candles_1m"))
     assert not conn.calls
+
+
+def test_nullable_and_wrong_type_provenance_reported():
+    class InvalidConnection(FakeConnection):
+        async def fetch(self, query, *args):
+            return [
+                {"column_name": "available_ns", "data_type": "text",
+                 "is_nullable": "YES"},
+                {"column_name": "revision", "data_type": "boolean",
+                 "is_nullable": "NO"},
+            ]
+    result = asyncio.run(inspect_pg_columns(
+        InvalidConnection(set()), schema="public", table="candles_1m"))
+    assert "available_ns" in result["nullable_provenance"]
+    assert "available_ns" in result["wrong_type_provenance"]
+    assert "revision" in result["wrong_type_provenance"]
+    assert result["status"] == "BLOCKED"
