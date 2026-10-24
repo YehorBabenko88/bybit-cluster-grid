@@ -428,6 +428,7 @@
     "tests/test_ls5_native_observer.py::test_transaction_receipt_cannot_promote_fixture_to_authority[case]",
     "tests/test_ls5_native_observer.py::test_transaction_receipt_cannot_promote_fixture_to_authority[crash-claim]",
     "tests/test_ls5_native_observer.py::test_transaction_receipt_cannot_promote_fixture_to_authority[head]",
+    "tests/test_ls5_native_observer.py::test_transaction_snapshot_bytes_are_independently_checked[auto-inherited-control-drift]",
     "tests/test_ls5_native_observer.py::test_transaction_snapshot_bytes_are_independently_checked[descriptor]",
     "tests/test_ls5_native_observer.py::test_transaction_snapshot_bytes_are_independently_checked[identity]",
     "tests/test_ls5_native_observer.py::test_transaction_snapshot_bytes_are_independently_checked[journal-digest]",
@@ -2563,6 +2564,10 @@
     [
       "tests.test_ls5_native_observer",
       "test_transaction_receipt_cannot_promote_fixture_to_authority[head]"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_transaction_snapshot_bytes_are_independently_checked[auto-inherited-control-drift]"
     ],
     [
       "tests.test_ls5_native_observer",

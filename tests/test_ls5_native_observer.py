@@ -174,7 +174,7 @@ def tx_snapshot():
         target_observed=binding['Target'],current_descriptor=binding['New'],journal_base64=base64.b64encode(('\n'.join(lines)+'\n').encode()).decode())
 
 
-@pytest.mark.parametrize('fault',['none','journal-torn','journal-digest','identity','descriptor','replay','unexplained-rollback'])
+@pytest.mark.parametrize('fault',['none','journal-torn','journal-digest','identity','descriptor','replay','unexplained-rollback','auto-inherited-control-drift'])
 def test_transaction_snapshot_bytes_are_independently_checked(fault):
     import base64
     from installer.native_observer_ci import verify_snapshot
@@ -183,6 +183,9 @@ def test_transaction_snapshot_bytes_are_independently_checked(fault):
     if fault=='journal-digest':s['journal_base64']=base64.b64encode(base64.b64decode(s['journal_base64']).replace(b'PREPARED',b'VERIFIED')).decode()
     if fault=='identity':s['target_observed']={**s['target_observed'],'Volume':2}
     if fault=='descriptor':s['current_descriptor']='AAAA'
+    if fault=='auto-inherited-control-drift':
+        raw=bytearray(base64.b64decode(s['binding']['New']));raw[3]^=4
+        s['current_descriptor']=base64.b64encode(raw).decode()
     if fault=='replay':s['binding']={**s['binding'],'Attempt':'2'}
     if fault=='unexplained-rollback':s['current_descriptor']=s['binding']['Old']
     if fault=='none':verify_snapshot(s,'a'*40,'1','1')

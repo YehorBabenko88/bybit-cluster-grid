@@ -20,7 +20,7 @@ PR227/230 runtime schema changes are absent from that tree: import their reviewe
 
 runtime/test subset, not complete profile trees. PR229 narrow coverage is superseded
 
-by PR230's DDL workflow. PR239ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“242 contribute only disjoint profile files.
+by PR230's DDL workflow. PR239ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ242 contribute only disjoint profile files.
 
 Original PR branches remain unchanged. Later source-head drift requires a new review.
 
@@ -108,7 +108,7 @@ not independent cryptographic provenance. No physical attestation is produced.
 
 |---|---|---|
 
-| Fresh schema, migrations1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“48, second preparation | real owner fixture | hosted NOT_RUN |
+| Fresh schema, migrations1ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ48, second preparation | real owner fixture | hosted NOT_RUN |
 
 | App DDL denied / RO DML denied | real distinct roles | hosted NOT_RUN |
 
@@ -220,7 +220,7 @@ owned database removal. Never adopt/delete foreign directories, roles or contain
 
 
 
-Refreshed PR239Ã¢â‚¬â€œ242 to latest queried heads before publication; added their new
+Refreshed PR239ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“242 to latest queried heads before publication; added their new
 
 release-model and independent E2E evidence tests. PR242 SHA regex over-escaped\Z
 
@@ -365,3 +365,15 @@ The Windows9efa0b9 pwsh3.12 cell passed57 managed cases and all31 observer GUID 
 then the separate transaction fixture failed FIXTURE_CUSTODY_CHANGED. Exact stage
 and synthetic descriptor comparison diagnostics are added without relaxing equality.
 No local native execution occurred and no transaction safety PASS is claimed.
+
+### Exact native descriptor diagnostic (106a6c5)
+
+Direct hosted Windows job120863476956 failed commit-native-readback with all three
+identities equal and only descriptor bytes different. The SD control word changed
+from0x9004 to0x9404: SE_DACL_AUTO_INHERITED was set by the API path. Newly-created
+GUID fixtures now request protected+auto-inherited DACL flags at creation, before
+binding the journal. Equality/owner/group/ACE/control checks remain exact; a Python
+negative test changes the control bit and requires rejection. Existing arbitrary
+ACL restoration is not covered or authorized by this controlled fixture contract.
+The original failed native receipt is retained. The fix remains pending actual CI.
+Microsoft flag definitions: https://learn.microsoft.com/en-us/windows/win32/secauthz/security-descriptor-string-format .

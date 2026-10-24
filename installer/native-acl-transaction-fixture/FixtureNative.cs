@@ -25,7 +25,10 @@ internal sealed class OwnedFixture:IDisposable
     if(Native.Id(h).Volume!=Native.Id(parents[0]).Volume)throw new Blocked("FIXTURE_VOLUME");
    }
    string name="native-acl-tx-"+Guid.NewGuid().ToString("D");Path=System.IO.Path.Combine(temp,name);
-   var descriptor=new RawSecurityDescriptor("D:P(A;;FA;;;SY)(A;;FA;;;"+sid+")");
+   // SetSecurityInfo canonicalizes SE_DACL_AUTO_INHERITED on this Windows API path.
+   // Create only our new GUID fixtures in that exact state; never mask control bits
+   // or reinterpret an existing object's descriptor as an acceptable rollback target.
+   var descriptor=new RawSecurityDescriptor("D:PAI(A;;FA;;;SY)(A;;FA;;;"+sid+")");
    Root=FixtureNative.Create(parents[^1],name,true,descriptor);parents.Add(Root);
    Target=FixtureNative.Create(Root,"target.fixture",false,descriptor);parents.Add(Target);
    Journal=FixtureNative.Create(Root,"journal.jsonl",false,descriptor);parents.Add(Journal);
