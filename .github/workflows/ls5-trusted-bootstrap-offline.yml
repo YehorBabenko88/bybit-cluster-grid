@@ -27,6 +27,14 @@ jobs:
         python: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify checked-out source identity
+        shell: bash
+        env:
+          LS5_EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$LS5_EXACT_HEAD"
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
