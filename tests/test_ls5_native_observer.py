@@ -18,6 +18,12 @@ def test_ci_exact_head_and_receipts_required():
     assert 'Remove-Item' not in s and 'fetch-depth: 0' in s
 
 
+def test_ci_alternative_pool_is_literal_github_hosted_only():
+    s=(ROOT/'.github/workflows/ls5-native-observer.yml').read_text()
+    assert "inputs.windows_2022 == true && 'windows-2022' || 'windows-latest'" in s
+    assert 'type: boolean' in s and 'runs-on: ${{ inputs.' not in s and 'self-hosted' not in s
+
+
 def test_executor_authority_stays_blocked():
     s=(ROOT/'installer/ls5-acl-remediation.ps1').read_text()
     assert "if($Apply){throw 'EXECUTE_NOT_AUTHORIZED" in s

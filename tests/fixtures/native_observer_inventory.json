@@ -96,6 +96,7 @@
     "installer/native_observer_artifacts.py"
   ],
   "python_nodes": [
+    "tests/test_ls5_native_observer.py::test_ci_alternative_pool_is_literal_github_hosted_only",
     "tests/test_ls5_native_observer.py::test_ci_exact_head_and_receipts_required",
     "tests/test_ls5_native_observer.py::test_downloaded_archive_consistency_is_not_physical_authority[attempt]",
     "tests/test_ls5_native_observer.py::test_downloaded_archive_consistency_is_not_physical_authority[head]",
@@ -164,6 +165,10 @@
     "tests/test_ls5_native_observer.py::test_valid_receipt_has_no_authority"
   ],
   "python_junit_cases": [
+    [
+      "tests.test_ls5_native_observer",
+      "test_ci_alternative_pool_is_literal_github_hosted_only"
+    ],
     [
       "tests.test_ls5_native_observer",
       "test_ci_exact_head_and_receipts_required"
