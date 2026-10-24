@@ -109,3 +109,12 @@ GitHub Actions associated with latest #244 SHA: full-system-first-boot `40109637
 Source-level blob comparison at latest heads: #239 JUnit evidence parser and #240 PG readiness match #244 exactly. #239 trusted bootstrap still differs (COMMIT vs VERSION active-release semantics), #241 network validator still differs (65,536-byte policy limit absent from #244). These are unresolved composition checks; no G1 authority follows.
 
 **Decision remains PHYSICAL_G1_AUTHORIZATION_RECOMMENDATION=BLOCKED.** Owner permission absent and LS5 host read-only evidence still missing.
+
+
+## 7904990 CI dependency correction — independent status checkpoint
+
+PR244 latest HEAD `79049906cb004e324bec5ef4cc53b85381cab83a`. GitHub confirms the three relevant workflow runs `40110021208` (preflight), `40110021224` (full-system-first-boot), `40110021246` (native observer) are **QUEUED** at inspection, without a verified new-HEAD PASS. Integration owner reports separation of seven legacy PG18 transaction/restore probes from generic PG16 unit collection, a reusable mandatory PG18 job, an always-running aggregate gate that rejects SKIPPED/CANCELLED, and PyYAML 6.0.3 pin. These are developer claims pending independent source/hosted artifact verification at this SHA. Previous run `40109637695` and JUnit digest `97e7976261605940aabf1172d11df4bd6651d23f770ada74670d92951fa26026` belong to SHA `992e0db...` only and must not be promoted.
+
+The previously successful full-system run `40104140684` at SHA `3808cb9f6ecd2f42d5d0c758145b427a58a010e8` has GitHub artifact `12563529069` with external SHA256 `e4b3a0dbe56052865768106032ea6857a0bf4130b307dc05ddc4c758a8e7ee45`; its 11/11 jobs were successful, but no physical LS5/PC4 evidence. The latest HEAD has not inherited that PASS.
+
+**Physical recommendation remains BLOCKED** pending independent host G0 and separately approved G1. Do not start LS5/PC4, production Apply/Cleanup or deployment.
