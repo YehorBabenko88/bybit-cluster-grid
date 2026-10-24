@@ -35,8 +35,8 @@ def stage(state, candidate, *, manifest_valid, files_verified, trusted_custody,
         raise Stop("UNRESOLVED_TRANSACTION")
     if candidate == state.current:
         raise Stop("REPLAY_OR_NOOP")
-    if not all((manifest_valid, files_verified, trusted_custody,
-                runtime_closed, reparse_free, no_writers)):
+    if not all(x is True for x in (manifest_valid, files_verified, trusted_custody,
+                                   runtime_closed, reparse_free, no_writers)):
         raise Stop("UNVERIFIED_STAGE")
     return replace(state, pending=candidate, phase="prepared",
                    journal_previous=state.current, journal_candidate=candidate)
@@ -54,7 +54,7 @@ def commit(state):
 def recover(state, *, target_verified, journal_valid, stable_identity):
     if state.phase == "idle":
         return state
-    if not all((target_verified, journal_valid, stable_identity)):
+    if not all(x is True for x in (target_verified, journal_valid, stable_identity)):
         raise Stop("RECOVERY_UNVERIFIED")
     if state.phase not in ("prepared", "committed"):
         raise Stop("INVALID_PHASE")
