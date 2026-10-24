@@ -96,3 +96,18 @@ def test_forged_consistent_claims_are_only_model_pass():
 def test_unknown_field_is_rejected():
     p,o=sample();o["physical_authorized"]=True
     assert check(p,o)["model_status"]=="FAIL"
+
+@pytest.mark.parametrize("field", ["path_entries", "dll_search_paths"])
+def test_trusted_root_not_automatically_safe_for_loaders(field):
+    p, o = sample()
+    if field == "path_entries":
+        o["environment"]["path_entries"] = [ROOT]
+    else:
+        o["runtime"]["dll_search_paths"] = [ROOT]
+    assert check(p, o)["model_status"] == "FAIL"
+
+
+def test_mismatched_policy_observation_head_blocks():
+    p, o = sample()
+    o["head"] = "0" * 40
+    assert check(p, o)["model_status"] == "FAIL"
