@@ -34,6 +34,8 @@ jobs:
         run: python -m pytest -q -ra tests/test_ls5_trusted_bootstrap.py tests/test_ls5_bootstrap_ci_evidence.py --junitxml=junit.xml
       - name: Exact-HEAD evidence receipts
         if: always()
+        env:
+          LS5_EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python installer/ls5_bootstrap_ci_evidence.py junit.xml evidence
       - name: Upload immutable per-run offline evidence
         if: always()
