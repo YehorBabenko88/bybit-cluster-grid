@@ -38,8 +38,11 @@ try {
    if ($pf.Count -ne 1 -or $af.Count -ne 1) { throw 'FIREWALL_FILTER_INCOMPLETE' }
    $protocol = [string]$pf[0].Protocol
    $localPort = [string]$pf[0].LocalPort
-   $relevant = ($protocol -in @('TCP','6','Any')) -and
-       ($localPort -eq 'Any' -or ($localPort -split ',') | Where-Object { $_.Trim() -in @('22','8765','55432') })
+   $portMatches = $localPort -eq 'Any'
+   foreach ($part in ($localPort -split ',')) {
+     if ($part.Trim() -in @('22','8765','55432')) { $portMatches = $true }
+   }
+   $relevant = ($protocol -in @('TCP','6','Any')) -and $portMatches
    if ($relevant) {
       $result.relevant_firewall_rules += [ordered]@{
         action=[string]$rule.Action
