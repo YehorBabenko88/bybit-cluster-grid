@@ -23,7 +23,7 @@ def invoke(tmp_path, xml):
 
 
 def test_valid_receipt(tmp_path):
-    result = invoke(tmp_path, '<testsuite tests="1" failures="0" errors="0" skipped="0"><testcase name="ok"/></testsuite>')
+    result = invoke(tmp_path, '<testsuite tests="1" failures="0" errors="0" skipped="0"><testcase classname="synthetic" name="ok"/></testsuite>')
     assert result.returncode == 0, result.stderr
     assert (tmp_path / "evidence" / "hashes.json").exists()
     assert (tmp_path / "evidence" / "evidence.jsonl").exists()
@@ -51,3 +51,17 @@ def test_pr_merge_sha_is_not_accepted_as_source_head(tmp_path):
     result = subprocess.run([sys.executable, str(SCRIPT), str(source), str(tmp_path / "evidence")],
                             capture_output=True, text=True, env=env, timeout=10)
     assert result.returncode != 0
+
+
+@pytest.mark.parametrize("xml", [
+    '<testsuite tests="2"><testcase classname="c" name="x"/><testcase classname="c" name="x"/></testsuite>',
+    '<testsuite tests="1"><testcase name="x"/></testsuite>',
+    '<testsuite tests="1"><testcase classname="c"/></testsuite>',
+    '<testsuites>UNTRUSTED<testsuite tests="1"><testcase classname="c" name="x"/></testsuite></testsuites>',
+    '<testsuite tests="1">UNTRUSTED<testcase classname="c" name="x"/></testsuite>',
+    '<testsuite tests="1"><testcase classname="c" name="x">UNTRUSTED</testcase></testsuite>',
+    '<testsuite tests="1"><testcase classname="c" name="x"/>UNTRUSTED</testsuite>',
+])
+def test_ambiguous_bootstrap_junit_never_creates_pass_receipt(tmp_path, xml):
+    assert invoke(tmp_path, xml).returncode != 0
+    assert not (tmp_path / "evidence" / "hashes.json").exists()

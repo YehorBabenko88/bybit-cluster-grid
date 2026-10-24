@@ -20,7 +20,7 @@ PR227/230 runtime schema changes are absent from that tree: import their reviewe
 
 runtime/test subset, not complete profile trees. PR229 narrow coverage is superseded
 
-by PR230's DDL workflow. PR239â€“242 contribute only disjoint profile files.
+by PR230's DDL workflow. PR239Ã¢â‚¬â€œ242 contribute only disjoint profile files.
 
 Original PR branches remain unchanged. Later source-head drift requires a new review.
 
@@ -108,7 +108,7 @@ not independent cryptographic provenance. No physical attestation is produced.
 
 |---|---|---|
 
-| Fresh schema, migrations1â€“48, second preparation | real owner fixture | hosted NOT_RUN |
+| Fresh schema, migrations1Ã¢â‚¬â€œ48, second preparation | real owner fixture | hosted NOT_RUN |
 
 | App DDL denied / RO DML denied | real distinct roles | hosted NOT_RUN |
 
@@ -220,7 +220,7 @@ owned database removal. Never adopt/delete foreign directories, roles or contain
 
 
 
-Refreshed PR239–242 to latest queried heads before publication; added their new
+Refreshed PR239â€“242 to latest queried heads before publication; added their new
 
 release-model and independent E2E evidence tests. PR242 SHA regex over-escaped\Z
 
@@ -329,3 +329,19 @@ refusal within existing deadlines; EOF/protocol/process errors remain fatal, mut
 commands are not retried, and fresh post-recovery data remains mandatory. Transient
 asyncpg setup/closed-connection errors are preserved in the artifact; no driver or
 production fencing behavior is silently changed by this harness correction.
+
+### Independent bootstrap evidence parser regression
+
+QA identified a source differential with PR239 blob
+`f21dfb30553da0a8e079744d580dd7a474d9073b`. Seven independent synthetic
+inputs reproduced false PASS before the fix: duplicate testcase identity, missing
+classname/name, and non-whitespace root/suite/case text or case tail. The
+composition now restores that exact parser blob: ambiguous inputs fail before
+creating a receipt. All19 targeted receipt tests pass locally. This does not
+authenticate a physical run or authorize execution.
+
+The separate PR239 active-release contract has also drifted from this
+composition: PR244 pins the historical release while upstream accepts an
+explicit40-character COMMIT and derives expected source paths from it. Do not
+automatically generalize or execute that physical bootstrap policy; reconciliation
+requires a reviewed exact release/source inventory. It remains a G1 blocker.

@@ -140,5 +140,6 @@ Eight mocked-provider/AST cases per PS5.1/7 passed; no real host collection occu
 
 Hosted-only follow-up identified native metadata-handle sharing limitations; the
 proposed share-bearing read-access/protocol fix must pass GUID fixtures before any
-physical custody claim. Fifty-one previous managed cases passed in hosted780362f;
-new56-case inventory is pending. These changes do not authorize G0 native collection.
+physical custody claim. Hosted297fcb7 passed56 managed cases and the held-leaf rename check
+returned sharing violation32; the subsequent session recheck failed framing.
+The strict UTF8 stream-reader correction and57-case inventory are pending hosted CI. These changes do not authorize G0 native collection.

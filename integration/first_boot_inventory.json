@@ -329,6 +329,13 @@
     "tests/test_ls5_acl_remediation.py::test_unsafe_scope_or_identity[reparse]",
     "tests/test_ls5_acl_remediation.py::test_unsafe_scope_or_identity[unknown-sid]",
     "tests/test_ls5_acl_remediation.py::test_unsafe_scope_or_identity[unknown-task]",
+    "tests/test_ls5_bootstrap_ci_evidence.py::test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"1\"><testcase classname=\"c\" name=\"x\"/>UNTRUSTED</testsuite>]",
+    "tests/test_ls5_bootstrap_ci_evidence.py::test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"1\"><testcase classname=\"c\" name=\"x\">UNTRUSTED</testcase></testsuite>]",
+    "tests/test_ls5_bootstrap_ci_evidence.py::test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"1\"><testcase classname=\"c\"/></testsuite>]",
+    "tests/test_ls5_bootstrap_ci_evidence.py::test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"1\"><testcase name=\"x\"/></testsuite>]",
+    "tests/test_ls5_bootstrap_ci_evidence.py::test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"1\">UNTRUSTED<testcase classname=\"c\" name=\"x\"/></testsuite>]",
+    "tests/test_ls5_bootstrap_ci_evidence.py::test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"2\"><testcase classname=\"c\" name=\"x\"/><testcase classname=\"c\" name=\"x\"/></testsuite>]",
+    "tests/test_ls5_bootstrap_ci_evidence.py::test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuites>UNTRUSTED<testsuite tests=\"1\"><testcase classname=\"c\" name=\"x\"/></testsuite></testsuites>]",
     "tests/test_ls5_bootstrap_ci_evidence.py::test_bad_receipts_fail_closed[<notjunit><testsuite><testcase/></testsuite></notjunit>]",
     "tests/test_ls5_bootstrap_ci_evidence.py::test_bad_receipts_fail_closed[<testsuite tests=\"1\" errors=\"1\"><testcase/></testsuite>]",
     "tests/test_ls5_bootstrap_ci_evidence.py::test_bad_receipts_fail_closed[<testsuite tests=\"1\" failures=\"1\"><testcase/></testsuite>]",
@@ -2155,6 +2162,34 @@
     [
       "tests.test_ls5_acl_remediation",
       "test_unsafe_scope_or_identity[unknown-task]"
+    ],
+    [
+      "tests.test_ls5_bootstrap_ci_evidence",
+      "test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"1\"><testcase classname=\"c\" name=\"x\"/>UNTRUSTED</testsuite>]"
+    ],
+    [
+      "tests.test_ls5_bootstrap_ci_evidence",
+      "test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"1\"><testcase classname=\"c\" name=\"x\">UNTRUSTED</testcase></testsuite>]"
+    ],
+    [
+      "tests.test_ls5_bootstrap_ci_evidence",
+      "test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"1\"><testcase classname=\"c\"/></testsuite>]"
+    ],
+    [
+      "tests.test_ls5_bootstrap_ci_evidence",
+      "test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"1\"><testcase name=\"x\"/></testsuite>]"
+    ],
+    [
+      "tests.test_ls5_bootstrap_ci_evidence",
+      "test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"1\">UNTRUSTED<testcase classname=\"c\" name=\"x\"/></testsuite>]"
+    ],
+    [
+      "tests.test_ls5_bootstrap_ci_evidence",
+      "test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuite tests=\"2\"><testcase classname=\"c\" name=\"x\"/><testcase classname=\"c\" name=\"x\"/></testsuite>]"
+    ],
+    [
+      "tests.test_ls5_bootstrap_ci_evidence",
+      "test_ambiguous_bootstrap_junit_never_creates_pass_receipt[<testsuites>UNTRUSTED<testsuite tests=\"1\"><testcase classname=\"c\" name=\"x\"/></testsuite></testsuites>]"
     ],
     [
       "tests.test_ls5_bootstrap_ci_evidence",
