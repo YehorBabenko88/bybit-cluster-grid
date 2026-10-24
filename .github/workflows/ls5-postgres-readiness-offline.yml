@@ -1,0 +1,35 @@
+name: ls5-postgres-readiness-offline
+on:
+  pull_request:
+    paths:
+      - 'installer/ls5_pg_readiness.py'
+      - 'tests/test_ls5_pg_readiness.py'
+      - 'docs/LS5_POSTGRES_18_READINESS.md'
+      - '.github/workflows/ls5-postgres-readiness-offline.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pg-evidence-contract:
+    if: github.head_ref == 'parallel/ls5-postgres-readiness-20261024' || github.ref_name == 'parallel/ls5-postgres-readiness-20261024'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Verify exact commit
+        shell: bash
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - name: Fail-closed offline integrity tests
+        run: python -m unittest discover -s tests -p test_ls5_pg_readiness.py -v
