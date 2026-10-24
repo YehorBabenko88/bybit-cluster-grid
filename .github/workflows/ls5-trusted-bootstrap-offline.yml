@@ -4,6 +4,7 @@ on:
     paths:
       - "installer/trusted_bootstrap.py"
       - "tests/test_ls5_trusted_bootstrap.py"
+      - "installer/ls5_bootstrap_ci_evidence.py"
       - "docs/LS5_TRUSTED_BOOTSTRAP.md"
       - ".github/workflows/ls5-trusted-bootstrap-offline.yml"
   push:
@@ -28,4 +29,15 @@ jobs:
       - name: Syntax and bytecode validation
         run: python -m py_compile installer/trusted_bootstrap.py tests/test_ls5_trusted_bootstrap.py
       - name: Offline negative regression tests
-        run: python -m pytest -q -ra tests/test_ls5_trusted_bootstrap.py
+        run: python -m pytest -q -ra tests/test_ls5_trusted_bootstrap.py --junitxml=junit.xml
+      - name: Exact-HEAD evidence receipts
+        if: always()
+        run: python installer/ls5_bootstrap_ci_evidence.py junit.xml evidence
+      - name: Upload immutable per-run offline evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ls5-bootstrap-${{ matrix.os }}-py${{ matrix.python }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
