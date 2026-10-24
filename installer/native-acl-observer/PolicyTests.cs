@@ -22,6 +22,8 @@ internal static class PolicyTests
   Test("reparse",()=>Policy.Object(id with{Attributes=0x410},true),"REPARSE");
   Test("hardlink",()=>Policy.Object(id with{Attributes=0,Links=2},false),"HARDLINK");
   Test("identity-unknown",()=>Policy.Object(id with{Volume=0},true),"IDENTITY_UNKNOWN");
+  Test("identity-length-invalid",()=>Policy.Object(id with{FileId="X"},true),"IDENTITY_UNKNOWN");
+  Test("identity-links-zero",()=>Policy.Object(id with{Links=0},true),"IDENTITY_UNKNOWN");
   Test("parent-file",()=>Policy.Object(id with{Attributes=0},true),"PARENT_NOT_DIRECTORY");
   Test("deny-only-group",()=>Policy.GroupFlags(0x10));
   Test("enabled-group",()=>Policy.GroupFlags(4));

@@ -66,7 +66,7 @@ internal static class Policy
  }
  public static void Object(Identity id,bool parent){
   if((id.Attributes&0x400)!=0)throw new Blocked("REPARSE");
-  if(id.Volume==0 || id.FileId.All(c=>c=='0'))throw new Blocked("IDENTITY_UNKNOWN");
+  if(id.Volume==0 || id.Links==0 || !System.Text.RegularExpressions.Regex.IsMatch(id.FileId,"^[0-9A-F]{32}$") || id.FileId.All(c=>c=='0'))throw new Blocked("IDENTITY_UNKNOWN");
   if(parent && (id.Attributes&0x10)==0)throw new Blocked("PARENT_NOT_DIRECTORY");
   if((id.Attributes&0x10)==0 && id.Links!=1)throw new Blocked("HARDLINK");
  }

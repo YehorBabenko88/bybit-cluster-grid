@@ -2,6 +2,8 @@
 
 Status: MUTATOR DESIGN_ONLY / NOT IMPLEMENTED. Read-only observer acceptance is tracked separately in [LS5_NATIVE_OBSERVER_ACCEPTANCE.md](LS5_NATIVE_OBSERVER_ACCEPTANCE.md); transaction design in [LS5_NATIVE_TRANSACTION_EXECUTOR_DESIGN.md](LS5_NATIVE_TRANSACTION_EXECUTOR_DESIGN.md). Based on PR #237 exact HEAD `e25197b169ef0e5f37b5bd0030ee4a97b13965e2`.
 
+This status refers to the **production** executor. A separate [hosted GUID fixture prototype](LS5_NATIVE_FIXTURE_TRANSACTION.md) now contains limited native test-only mutation/journal code. It is not reachable through production Apply and grants no physical authority.
+
 ## Authority boundary
 
 This document is not authorization to inspect, alter, repair, or start LS5/PC4. Physical SID/ACL PC4: 0/10 NOT_RUN. Execute NOT_AUTHORIZED; Cleanup NOT_AUTHORIZED; Deployment NO-GO. No existing `-Apply` refusal may be relaxed by a design-only change.

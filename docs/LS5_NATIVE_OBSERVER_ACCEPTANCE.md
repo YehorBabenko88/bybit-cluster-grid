@@ -4,6 +4,8 @@ Baseline PR238: `116bc11bb4c661c8b77be69c64b88f48a529968a`. This implementation 
 
 **Physical PC4 0/10 NOT_RUN. Execute NOT_AUTHORIZED. Cleanup NOT_AUTHORIZED. Deployment NO-GO.** No LS5/PC4 connection, native observer execution on these hosts, account/policy/service change, secret rotation or physical task activation is authorized. Local compilation and managed synthetic tests do not inspect host ACLs/tokens/files.
 
+Continuation: the frozen inventory now contains 31 hosted observer cases, 42 pure observer policies, 20 separate native transaction fixture cases, 30 pure journal cases and 66 Python tests. The earlier counts below describe the initial observer stage. See [native fixture transaction and cross-PR boundaries](LS5_NATIVE_FIXTURE_TRANSACTION.md) for the executable continuation, artifact inspector and explicit crash/authentication limitations. Production custody/Apply remains BLOCKED.
+
 ## Read-only implementation
 
 `NativeAclObserver` is a .NET8 Windows console prototype, not an installer or executor. No descriptor-setting API exists. It requests READ_CONTROL, FILE_READ_ATTRIBUTES and SYNCHRONIZE (plus directory traversal for held parents); it does not request file content access, WRITE_DAC, WRITE_OWNER or DELETE.

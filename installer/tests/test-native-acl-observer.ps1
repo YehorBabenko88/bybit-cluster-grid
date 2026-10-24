@@ -87,6 +87,36 @@ try {
  $drift=FixtureFile 'drift';$p=Session $drift
  Acl $drift ('D:P(A;;FA;;;SY)(A;;FA;;;'+$current+')(A;;RC;;;WD)')
  $end=Recheck $p;Check 'descriptor-toctou-refused' ($end.code -eq 2 -and $end.value.reason -ceq 'OBSERVATION_CHANGED')
+ $driftParent=Join-Path $script:root 'drift-parent';$null=New-Item -ItemType Directory -Path $driftParent
+ $driftChild=Join-Path $driftParent 'child';[IO.File]::WriteAllText($driftChild,'SYNTHETIC_ONLY')
+ Acl $driftChild ('D:P(A;;FA;;;SY)(A;;FA;;;'+$current+')')
+ $p=Session $driftChild;Acl $driftParent ('D:P(A;;FA;;;SY)(A;;FA;;;'+$current+')(A;;RC;;;WD)')
+ $end=Recheck $p;Check 'parent-descriptor-toctou-refused' ($end.code -eq 2 -and $end.value.reason -ceq 'OBSERVATION_CHANGED')
+ $writerPath=FixtureFile 'preexisting-writer'
+ $writer=[IO.File]::Open($writerPath,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::ReadWrite)
+ try{
+  $p=Session $writerPath;$writer.WriteByte(42);$writer.Flush()
+  $end=Recheck $p
+  Check 'preexisting-writer-not-excluded' ($end.code -eq 0 -and $end.value.status -ceq 'BLOCKED' -and $end.value.reason -ceq 'ALL_PRINCIPALS_WRITERS_AND_BOOTSTRAP_NOT_PROVEN') @{writer_survives=$true}
+ }finally{$writer.Dispose()}
+ # Open DELETE access without deleting anything; existing DELETE handles must conflict with custody opens.
+ Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+public static class NativeObserverCiDeleteHandle {
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,ExactSpelling=true,SetLastError=true)]
+ [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+ public static extern SafeFileHandle CreateFileW(string path,uint access,uint share,IntPtr sa,uint disposition,uint flags,IntPtr template);
+}
+'@
+ $deletePath=FixtureFile 'preexisting-delete-handle'
+ $deleteHandle=[NativeObserverCiDeleteHandle]::CreateFileW($deletePath,0x10000,7,[IntPtr]::Zero,3,0x80,[IntPtr]::Zero)
+ if($deleteHandle.IsInvalid){throw 'DELETE_HANDLE_SETUP_FAILED'}
+ try{
+  $bad=Observe $deletePath
+  Check 'preexisting-delete-handle-refused' ($bad.code -eq 2 -and $bad.value.reason -ceq 'NT_OPEN_FAILED' -and $bad.value.native_error -eq -1073741757)
+ }finally{$deleteHandle.Dispose()}
  $denied=FixtureFile 'group-deny'
  Acl $denied ('D:P(D;;0x2;;;WD)(A;;FA;;;SY)(A;;0x1200a9;;;'+$current+')(A;;0x2;;;WD)')
  $v=Observe $denied;Check 'group-deny-precedes-allow' ($v.code -eq 0 -and $v.value.chain[-1].effectiveRights.WRITE_DATA -ceq 'DACL_DENY')

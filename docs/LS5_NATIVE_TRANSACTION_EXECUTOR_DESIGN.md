@@ -2,6 +2,8 @@
 
 **DESIGN_ONLY. Apply/Execute/Cleanup NOT_AUTHORIZED. Deployment NO-GO. Physical PC4 0/10 NOT_RUN.** The observer does not implement this design. Production refusals remain unconditional; no migration, task activation, secret rotation, deployment, deletion or restoration is implicit.
 
+A separate [native GUID fixture prototype](LS5_NATIVE_FIXTURE_TRANSACTION.md) now implements limited create/DACL/journal/readback and simulated recovery code for hosted CI only. It does not satisfy the production trust, authentication, quiescence or crash-durability prerequisites of this design. No production transaction hook is enabled.
+
 ## Trust and prerequisites
 
 The executor must be a separately reviewed signed native component from independently protected source/toolchain, outside the writable Grid tree. A matching old launcher hash or observer exit0 is insufficient. Its protected approval manifest must bind source HEAD, binary closure, explicit installation scope, volume/file identities, service/custodian SIDs, expected descriptors, independent observer identity, operator authority and expiration/epoch policy.

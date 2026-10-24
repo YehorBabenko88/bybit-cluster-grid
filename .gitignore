@@ -27,6 +27,8 @@ ls5-acl-*.jsonl
 
 installer/native-acl-observer/bin/
 installer/native-acl-observer/obj/
+installer/native-acl-transaction-fixture/bin/
+installer/native-acl-transaction-fixture/obj/
 native-observer*.json
 native-observer*.jsonl
 native-observer*.xml
