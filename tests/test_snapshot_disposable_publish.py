@@ -51,3 +51,18 @@ def test_reused_export_id_with_different_bytes_cannot_replace(tmp_path):
             expected_sha256=hashlib.sha256(changed).hexdigest())
     assert target.read_bytes() == original
     assert not list(directory.glob(".pending-*"))
+
+
+def test_link_failure_cleans_staging(tmp_path, monkeypatch):
+    import os
+    directory = tmp_path / "disposable-snapshots"
+    directory.mkdir()
+    data = b"fixture"
+    def fail_link(source, destination):
+        raise OSError("synthetic link failure")
+    monkeypatch.setattr(os, "link", fail_link)
+    with pytest.raises(OSError, match="synthetic"):
+        publish_disposable_artifact(
+            directory, export_id="failed-export", data=data,
+            expected_sha256=hashlib.sha256(data).hexdigest())
+    assert list(directory.iterdir()) == []
