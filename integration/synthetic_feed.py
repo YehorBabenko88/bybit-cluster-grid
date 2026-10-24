@@ -52,7 +52,8 @@ class SyntheticFeed:
                         else:raise ValueError('unknown synthetic topic')
                         await ws.send_json(payload);self.frames+=1
                     sequence+=1
-                await asyncio.sleep(.3)
+                # Functional first boot, not a throughput benchmark: bounded input.
+                await asyncio.sleep(1.0)
         except (asyncio.CancelledError,ConnectionError,TimeoutError):pass
         finally:self.connections-=1;await ws.close()
         return ws

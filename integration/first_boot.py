@@ -42,6 +42,17 @@ def pilot_workers_stopped(state,expected):
         for row in nodes.values())
 
 
+def workers_recovered(state,expected,now=None):
+    import math
+    current=time.time() if now is None else now
+    nodes=state.get('nodes',{})
+    return set(nodes)==set(expected) and all(
+        row.get('integrity_ok') is True and row.get('db_replay_active') is False and
+        row.get('micro_replay_active') is False and type(row.get('last_seen')) in (int,float) and
+        math.isfinite(row['last_seen']) and 0<=current-row['last_seen']<=3
+        for row in nodes.values())
+
+
 async def status_if_ready(child):
     try:return await child.command('status')
     except RuntimeError as exc:
@@ -172,6 +183,15 @@ async def execute():
                     return state if sorted(flat)==sorted(SYMBOLS) and len(flat)==len(set(flat)) else False
                 await until(assigned);evidence.case('exclusive-assignments')
                 async def fresh_collection():
+                    feed.pause=True;recovery_state={}
+                    async def recovered():
+                        state=await status_if_ready(co)
+                        if state:recovery_state.update(state)
+                        return bool(state) and workers_recovered(state,node_roots)
+                    try:await until(recovered)
+                    except RuntimeError:
+                        (evidence.path/'recovery-diagnostic.json').write_text(json.dumps(dict(gate='replay-completion',worker_status=recovery_state)),encoding='utf-8')
+                        raise
                     await feed.advance()
                     marker=feed.minute_start;sample={}
                     async def fresh():

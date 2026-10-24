@@ -171,3 +171,18 @@ def test_recovery_status_does_not_hide_private_protocol_or_process_failure():
     from integration.first_boot import status_if_ready
     child=SimpleNamespace(command=AsyncMock(side_effect=RuntimeError('CHILD_PIPE_FAILED')))
     with pytest.raises(RuntimeError,match='CHILD_PIPE_FAILED'):asyncio.run(status_if_ready(child))
+
+
+@pytest.mark.parametrize('fault',['none','db-replay','micro-replay','unknown','missing','false-integer','stale','missing-node'])
+def test_recovery_barrier_requires_fresh_explicit_replay_completion(fault):
+    from integration.first_boot import workers_recovered
+    state={'nodes':{n:dict(integrity_ok=True,last_seen=99,db_replay_active=False,micro_replay_active=False) for n in ('a','b')}}
+    row=state['nodes']['b']
+    if fault=='db-replay':row['db_replay_active']=True
+    if fault=='micro-replay':row['micro_replay_active']=True
+    if fault=='unknown':row['micro_replay_active']=None
+    if fault=='missing':row.pop('micro_replay_active')
+    if fault=='false-integer':row['micro_replay_active']=0
+    if fault=='stale':row['last_seen']=90
+    if fault=='missing-node':state['nodes'].pop('b')
+    assert workers_recovered(state,{'a','b'},now=100) is (fault=='none')
