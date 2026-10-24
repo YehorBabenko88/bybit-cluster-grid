@@ -149,7 +149,7 @@ def test_case_insensitive_environment_alias_rejected():
     assert check(p, o)["model_status"] == "FAIL"
 
 
-@pytest.mark.parametrize("key,value", [("A=B", "x"), ("SAFE", "x\\x00y"), ("SAFE", "x\\ny")])
+@pytest.mark.parametrize("key,value", [("A=B", "x"), ("SAFE", "x\x00y"), ("SAFE", "x\ny")])
 def test_malformed_environment_rejected(key, value):
     p, o = sample()
     o["environment"]["variables"][key] = value
