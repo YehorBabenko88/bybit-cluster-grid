@@ -64,7 +64,7 @@ jobs:
           root=ET.parse(path).getroot()
           cases=list(root.iter("testcase"))
           names=[x.get("name") for x in cases]
-          expected={"test_rollback_and_idempotent_replay","test_transaction_advisory_lock_contention","test_disconnect_rolls_back_uncommitted_write","test_unique_key_survives_reconnect","test_savepoint_recovery","test_backup_and_restore"}
+          expected={"test_rollback_and_idempotent_replay","test_transaction_advisory_lock_contention","test_disconnect_rolls_back_uncommitted_write","test_unique_key_survives_reconnect","test_savepoint_recovery","test_wal_durability_configuration","test_backup_and_restore"}
           ok=len(cases)==len(expected) and set(names)==expected and not any(list(x) for x in cases)
           receipt={"schema":"ls5-pg18-ci-1","head":os.environ["EXACT_HEAD"],"sha256":hashlib.sha256(path.read_bytes()).hexdigest(),"testcases":names,"passed":ok,"physical_verified":False,"deployment_authorized":False}
           pathlib.Path("pg18-receipt.json").write_text(json.dumps(receipt,sort_keys=True),encoding="utf-8")
