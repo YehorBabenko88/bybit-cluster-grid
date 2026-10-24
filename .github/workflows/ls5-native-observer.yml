@@ -1,0 +1,38 @@
+name: ls5-native-observer-offline
+on:
+  pull_request:
+    paths:
+      - 'installer/native-acl-observer/**'
+      - '.github/workflows/ls5-native-observer.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  observer-fixture:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build observer
+        shell: pwsh
+        run: dotnet build installer/native-acl-observer/NativeAclObserver.csproj -c Release --nologo
+      - name: Read-only disposable fixture and fail-closed assertions
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $fixture = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $fixture | Out-Null
+          $file = Join-Path $fixture 'test.txt'
+          Set-Content -LiteralPath $file -Value 'fixture'
+          $exe = 'installer/native-acl-observer/bin/Release/net8.0-windows/NativeAclObserver.exe'
+          $result = & $exe $file
+          if ($LASTEXITCODE -ne 0) { throw 'Observer failed on ordinary fixture' }
+          if (($result -notcontains 'status=BLOCKED') -or
+              ($result -notcontains 'host_verified=false') -or
+              ($result -notcontains 'apply_authorized=false') -or
+              ($result -notcontains 'reparse=false')) { throw 'Fail-closed output missing' }
+          $bad = & $exe 2>&1
+          if ($LASTEXITCODE -eq 0) { throw 'Missing path unexpectedly accepted' }
+          Remove-Item -LiteralPath $fixture -Recurse -Force
