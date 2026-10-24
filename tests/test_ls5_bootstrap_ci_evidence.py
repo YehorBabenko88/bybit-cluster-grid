@@ -14,7 +14,7 @@ HEAD = "a" * 40
 def invoke(tmp_path, xml):
     source = tmp_path / "junit.xml"
     source.write_text(xml, encoding="utf-8")
-    env = dict(os.environ, GITHUB_SHA=HEAD, GITHUB_RUN_ID="1", GITHUB_RUN_ATTEMPT="1")
+    env = dict(os.environ, LS5_EXACT_HEAD=HEAD, GITHUB_SHA="b" * 40, GITHUB_RUN_ID="1", GITHUB_RUN_ATTEMPT="1")
     result = subprocess.run(
         [sys.executable, str(SCRIPT), str(source), str(tmp_path / "evidence")],
         capture_output=True, text=True, env=env, timeout=10,
@@ -43,3 +43,11 @@ def test_valid_receipt(tmp_path):
 ])
 def test_bad_receipts_fail_closed(tmp_path, xml):
     assert invoke(tmp_path, xml).returncode != 0
+
+def test_pr_merge_sha_is_not_accepted_as_source_head(tmp_path):
+    source = tmp_path / "junit.xml"
+    source.write_text('<testsuite tests="1"><testcase/></testsuite>', encoding="utf-8")
+    env = dict(os.environ, LS5_EXACT_HEAD=HEAD, GITHUB_SHA=HEAD, GITHUB_EVENT_NAME="pull_request")
+    result = subprocess.run([sys.executable, str(SCRIPT), str(source), str(tmp_path / "evidence")],
+                            capture_output=True, text=True, env=env, timeout=10)
+    assert result.returncode != 0
