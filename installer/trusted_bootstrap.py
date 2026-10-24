@@ -122,8 +122,13 @@ def assess(policy_raw, observation_raw):
             raise ValueError("INCOMPLETE_FILES")
         runtime = o["runtime"]
         exact(runtime, "python_exe pyvenv_cfg site_packages dll_search_paths imports_closed")
-        for name in ("python_exe", "pyvenv_cfg", "site_packages"):
-            if path(runtime[name]) not in normalized:
+        required_runtime = {
+            "python_exe": executable + "\\runtime\\python.exe",
+            "pyvenv_cfg": executable + "\\runtime\\pyvenv.cfg",
+            "site_packages": executable + "\\runtime\\site-packages\\sitecustomize.py",
+        }
+        for name, expected in required_runtime.items():
+            if path(runtime[name]) != expected or expected not in normalized:
                 raise ValueError("RUNTIME_NOT_PINNED")
         if runtime["imports_closed"] is not True:
             raise ValueError("IMPORT_CLOSURE_UNKNOWN")
