@@ -35,6 +35,21 @@ class ReceiptIntegrity(unittest.TestCase):
         self.assertFalse(verify_payload(receipt, "backup_chain", original.decode()))
         self.assertFalse(verify_payload(receipt, "not-a-check", original))
 
+    def test_payload_validator_rejects_physical_promotion(self):
+        receipt = make_receipt()
+        payload = b"offline-evidence"
+        receipt["checks"]["backup_chain"] = {
+            "status": "VERIFIED", "evidence_sha256": hashlib.sha256(payload).hexdigest()}
+        self.assertTrue(verify_payload(receipt, "backup_chain", payload))
+        receipt["physical"] = True
+        self.assertFalse(verify_payload(receipt, "backup_chain", payload))
+        receipt["physical"] = False
+        receipt["schema"] = "untrusted-schema"
+        self.assertFalse(verify_payload(receipt, "backup_chain", payload))
+        receipt["schema"] = "ls5-pg-readiness-1"
+        receipt["checks"]["backup_chain"]["extra"] = "injected"
+        self.assertFalse(verify_payload(receipt, "backup_chain", payload))
+
     def test_duplicate_receipt_key_rejected(self):
         with self.assertRaises(ValueError):
             loads_strict('{"checks":{},"checks":{}}')
