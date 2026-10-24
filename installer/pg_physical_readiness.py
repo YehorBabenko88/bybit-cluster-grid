@@ -43,9 +43,12 @@ def verdict(receipt):
     for name in REQUIRED:
         value = checks[name]
         if (type(value) is not dict or set(value) != {"status", "evidence_sha256"}
+                or type(value["status"]) is not str
                 or value["status"] not in ("VERIFIED", "FAIL", "UNKNOWN")
                 or type(value["evidence_sha256"]) is not str
-                or (value["status"] == "VERIFIED" and not re.fullmatch("[0-9a-f]{64}", value["evidence_sha256"]))):
+                or (value["evidence_sha256"] != ""
+                    and not re.fullmatch("[0-9a-f]{64}", value["evidence_sha256"]))
+                or (value["status"] == "VERIFIED" and value["evidence_sha256"] == "")):
             return dict(blocked, reason="INVALID_CHECK", field=name)
     failed = [k for k in REQUIRED if checks[k]["status"] == "FAIL"]
     unknown = [k for k in REQUIRED if checks[k]["status"] == "UNKNOWN"]
