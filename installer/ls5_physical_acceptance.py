@@ -93,8 +93,9 @@ def validate_metadata(raw, *, expected_head):
 def verify_artifacts(*, head, inventory, junit, jsonl, index):
     """Verify exact inventory, hashes and offline JUnit/JSONL; not evidence provenance."""
     require(type(head) is str and HEAD.fullmatch(head) is not None, "HEAD")
-    require(type(inventory) is list and inventory and len(set(inventory)) == len(inventory)
-            and all(type(x) is str and x and len(x) <= 256 for x in inventory), "INVENTORY")
+    require(type(inventory) is list and inventory and
+            all(type(x) is str and x and len(x) <= 256 for x in inventory), "INVENTORY")
+    require(len(set(inventory)) == len(inventory), "INVENTORY_DUPLICATE")
     hashes = strict_json(index)
     require(type(hashes) is dict and set(hashes) == {"head", "files"} and
             hashes["head"] == head and type(hashes["files"]) is dict and
@@ -110,10 +111,11 @@ def verify_artifacts(*, head, inventory, junit, jsonl, index):
     except (ET.ParseError, ValueError):
         raise AcceptanceBlocked("ACCEPTANCE_XML_INVALID") from None
     require(root.tag == "testsuite" and root.attrib.get("head") == head, "JUNIT_HEAD")
+    require(set(root.attrib) == {"head", "tests", "failures", "errors", "skipped"}, "JUNIT_ATTRIBUTES")
     rows = list(root)
     require(len(rows) == len(inventory) and all(row.tag == "testcase" for row in rows), "JUNIT_COUNT")
     require([row.attrib.get("name") for row in rows] == inventory, "JUNIT_INVENTORY")
-    require(all(len(row) == 0 for row in rows), "JUNIT_UNEXPECTED_OUTCOME")
+    require(all(len(row) == 0 and set(row.attrib) == {"name"} for row in rows), "JUNIT_UNEXPECTED_OUTCOME")
     for key, expected in (("tests", len(rows)), ("failures", 0), ("errors", 0), ("skipped", 0)):
         value = root.attrib.get(key)
         require(type(value) is str and value.isdecimal() and int(value) == expected, "JUNIT_COUNTERS")
