@@ -77,3 +77,23 @@ def test_truthy_attestation_forgery_is_blocked(forgery):
     prepared = stage(State(current=OLD), NEW, **GOOD)
     with pytest.raises(Stop):
         recover(prepared, **dict(RECOVERY, journal_valid=forgery))
+
+@pytest.mark.parametrize("mutation", [
+    dict(pending=NEW), dict(journal_previous=OLD),
+    dict(journal_candidate=NEW), dict(current="INVALID"),
+])
+def test_idle_state_cannot_hide_orphaned_journal(mutation):
+    with pytest.raises(Stop):
+        recover(replace(State(current=OLD), **mutation), **RECOVERY)
+
+
+def test_prepared_pending_conflict_rejected():
+    staged = stage(State(current=OLD), NEW, **GOOD)
+    with pytest.raises(Stop):
+        recover(replace(staged, pending=OLD), **RECOVERY)
+
+
+def test_committed_pending_conflict_rejected():
+    committed = commit(stage(State(current=OLD), NEW, **GOOD))
+    with pytest.raises(Stop):
+        recover(replace(committed, pending=OLD), **RECOVERY)
