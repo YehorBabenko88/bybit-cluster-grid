@@ -57,8 +57,14 @@ def validate_evidence(folder, mode, sha, run_id, attempt):
         raise RuntimeError('BLOCKED_REQUIRED_HASH_MISSING')
     changed = set(subprocess.check_output(['git','diff','--name-only',
         'f99f401aa11b5f0e0ed75046960801f882540216',sha],cwd=ROOT).decode().splitlines())
-    if not changed.issubset(manifest['files']):
+    present=set(subprocess.check_output(['git','ls-tree','-r','--name-only',sha],cwd=ROOT).decode().splitlines())
+    deleted=manifest.get('deleted_paths',[])
+    if type(deleted) is not list or any(type(n) is not str for n in deleted) or deleted!=sorted(changed-present):
+        raise RuntimeError('BLOCKED_DELETED_SOURCE_INVENTORY')
+    if not (changed & present).issubset(manifest['files']):
         raise RuntimeError('BLOCKED_SOURCE_HASH_MISSING')
+    if set(deleted)&set(manifest['files']):
+        raise RuntimeError('BLOCKED_DELETED_SOURCE_HASH')
     for name, expected in manifest['files'].items():
         if name in required:
             data = (folder/name).read_bytes()

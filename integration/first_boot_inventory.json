@@ -47,10 +47,15 @@
     "tests/test_ddl_acceptance.py::test_complete_exact_attempt_passes",
     "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[attempt]",
     "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[clean]",
+    "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[deleted-clean]",
+    "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[deleted-duplicate]",
+    "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[deleted-extra]",
+    "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[deleted-missing]",
     "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[hash]",
     "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[inventory]",
     "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[junit-skip]",
     "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[missing-hash]",
+    "tests/test_ddl_acceptance.py::test_downloaded_evidence_is_not_trusted[retained-hash-missing]",
     "tests/test_ddl_acceptance.py::test_fail_closed_inventory[duplicate]",
     "tests/test_ddl_acceptance.py::test_fail_closed_inventory[failure]",
     "tests/test_ddl_acceptance.py::test_fail_closed_inventory[missing]",
@@ -848,6 +853,20 @@
     "tests/test_wal_tail_repair_io_error.py::test_startup_fails_closed_when_active_wal_tail_cannot_be_opened",
     "tests/test_wal_unreadable_segment.py::test_unreadable_segment_blocks_recovery",
     "tests/test_wal_unterminated_record.py::test_valid_unterminated_last_record_is_separated_from_next_append",
+    "tests/test_windows_preflight.py::test_cli_redacts_realistic_configuration_and_never_authorizes_activation",
+    "tests/test_windows_preflight.py::test_dependency_failure_does_not_echo_child_output",
+    "tests/test_windows_preflight.py::test_diagnostics_never_include_exception_text",
+    "tests/test_windows_preflight.py::test_file_only_enrolled_worker_credentials[-BLOCKED]",
+    "tests/test_windows_preflight.py::test_file_only_enrolled_worker_credentials[None-BLOCKED]",
+    "tests/test_windows_preflight.py::test_file_only_enrolled_worker_credentials[enrolled-secret-PASS]",
+    "tests/test_windows_preflight.py::test_manifest_cannot_escape_or_omit_python",
+    "tests/test_windows_preflight.py::test_manifest_hashes_and_rollback_protocol_files",
+    "tests/test_windows_preflight.py::test_missing_db_tables_and_active_gate_fail_closed_without_ddl",
+    "tests/test_windows_preflight.py::test_partial_retention_columns_are_not_accepted",
+    "tests/test_windows_preflight.py::test_schema_verification_failure_prevents_coordinator_services_and_tasks",
+    "tests/test_windows_preflight.py::test_smoke_is_get_only_does_not_follow_redirects_or_promote_gate[ACTIVE-True-CONTROL_NOT_QUIESCENT]",
+    "tests/test_windows_preflight.py::test_smoke_is_get_only_does_not_follow_redirects_or_promote_gate[INFRA_ONLY-False-CONTROL_NOT_LEADER]",
+    "tests/test_windows_preflight.py::test_smoke_is_get_only_does_not_follow_redirects_or_promote_gate[INFRA_ONLY-True-CONTROL_QUIESCENT_LEADER]",
     "tests/test_worker_assignment_lease.py::test_assignment_expiry_waits_for_reconciliation_lock",
     "tests/test_worker_assignment_lease.py::test_assignment_lease_does_not_revoke_before_first_heartbeat",
     "tests/test_worker_assignment_lease.py::test_assignment_lease_revokes_stale_work",
@@ -1043,6 +1062,22 @@
     ],
     [
       "tests.test_ddl_acceptance",
+      "test_downloaded_evidence_is_not_trusted[deleted-clean]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_downloaded_evidence_is_not_trusted[deleted-duplicate]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_downloaded_evidence_is_not_trusted[deleted-extra]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_downloaded_evidence_is_not_trusted[deleted-missing]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
       "test_downloaded_evidence_is_not_trusted[hash]"
     ],
     [
@@ -1056,6 +1091,10 @@
     [
       "tests.test_ddl_acceptance",
       "test_downloaded_evidence_is_not_trusted[missing-hash]"
+    ],
+    [
+      "tests.test_ddl_acceptance",
+      "test_downloaded_evidence_is_not_trusted[retained-hash-missing]"
     ],
     [
       "tests.test_ddl_acceptance",
@@ -4244,6 +4283,62 @@
     [
       "tests.test_wal_unterminated_record",
       "test_valid_unterminated_last_record_is_separated_from_next_append"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_cli_redacts_realistic_configuration_and_never_authorizes_activation"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_dependency_failure_does_not_echo_child_output"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_diagnostics_never_include_exception_text"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_file_only_enrolled_worker_credentials[-BLOCKED]"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_file_only_enrolled_worker_credentials[None-BLOCKED]"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_file_only_enrolled_worker_credentials[enrolled-secret-PASS]"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_manifest_cannot_escape_or_omit_python"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_manifest_hashes_and_rollback_protocol_files"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_missing_db_tables_and_active_gate_fail_closed_without_ddl"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_partial_retention_columns_are_not_accepted"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_schema_verification_failure_prevents_coordinator_services_and_tasks"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_smoke_is_get_only_does_not_follow_redirects_or_promote_gate[ACTIVE-True-CONTROL_NOT_QUIESCENT]"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_smoke_is_get_only_does_not_follow_redirects_or_promote_gate[INFRA_ONLY-False-CONTROL_NOT_LEADER]"
+    ],
+    [
+      "tests.test_windows_preflight",
+      "test_smoke_is_get_only_does_not_follow_redirects_or_promote_gate[INFRA_ONLY-True-CONTROL_QUIESCENT_LEADER]"
     ],
     [
       "tests.test_worker_assignment_lease",

@@ -37,7 +37,7 @@ def test_missing_artifacts_blocked(tmp_path):
         validate_evidence(tmp_path,'pg18','a'*40,42,2)
 
 
-@pytest.mark.parametrize('mutation',['clean','attempt','junit-skip','inventory','hash','missing-hash'])
+@pytest.mark.parametrize('mutation',['clean','attempt','junit-skip','inventory','hash','missing-hash','deleted-clean','deleted-missing','deleted-extra','deleted-duplicate','retained-hash-missing'])
 def test_downloaded_evidence_is_not_trusted(tmp_path, monkeypatch, mutation):
     from tools import check_ddl_acceptance as gate
     monkeypatch.setattr(gate,'ROOT',tmp_path)
@@ -56,9 +56,22 @@ def test_downloaded_evidence_is_not_trusted(tmp_path, monkeypatch, mutation):
            ('ddl-offline.xml','ddl-offline-events.json','ddl-dependencies.txt')}
     if mutation=='hash': files['ddl-offline.xml']='0'*64
     if mutation=='missing-hash': files.pop('ddl-dependencies.txt')
+    deleted=[]
+    if mutation.startswith('deleted-') or mutation=='retained-hash-missing':
+        def git(args,**kwargs):
+            if 'diff' in args:return b'old.py\nkept.py\n'
+            if 'ls-tree' in args:return b'kept.py\n'
+            if 'show' in args:return b'new-source'
+            raise AssertionError('unexpected git observation')
+        monkeypatch.setattr(gate.subprocess,'check_output',git)
+        files['kept.py']=hashlib.sha256(b'new-source').hexdigest();deleted=['old.py']
+        if mutation=='deleted-missing':deleted=[]
+        if mutation=='deleted-extra':deleted+=['foreign.py']
+        if mutation=='deleted-duplicate':deleted*=2
+        if mutation=='retained-hash-missing':files.pop('kept.py')
     (tmp_path/'ddl-offline-sha256.json').write_text(json.dumps({
-        'sha':'a'*40,'run_id':42,'run_attempt':2,'files':files}))
-    if mutation=='clean':
+        'sha':'a'*40,'run_id':42,'run_attempt':2,'files':files,'deleted_paths':deleted}))
+    if mutation in ('clean','deleted-clean'):
         validate_evidence(tmp_path,'offline','a'*40,42,2)
     else:
         with pytest.raises(RuntimeError,match='BLOCKED'):

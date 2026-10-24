@@ -7,6 +7,12 @@ import pytest
 from installer.windows_preflight import validate_release, database_status, safe_failure, check_dependencies
 
 
+@pytest.fixture(autouse=True)
+def isolated_program_data(monkeypatch,tmp_path):
+    monkeypatch.setenv('ProgramData',str(tmp_path/'programdata'))
+    monkeypatch.setenv('PROGRAMDATA',str(tmp_path/'programdata'))
+
+
 def test_manifest_hashes_and_rollback_protocol_files(tmp_path):
     files={'run_coordinator.py':'pass','grid/control_runtime.py':'pass','grid/collection_ownership.py':'pass','grid/retention.py':'pass'}
     for name,text in files.items():
@@ -109,17 +115,18 @@ def test_cli_redacts_realistic_configuration_and_never_authorizes_activation(mon
     assert json.loads(output)['checks']['telegram']['code']=='TELEGRAM_CONFIGURED'
 
 
-def test_retention_failure_prevents_coordinator_services_and_tasks(monkeypatch):
+def test_schema_verification_failure_prevents_coordinator_services_and_tasks(monkeypatch):
     from grid import coordinator as c
-    for name in ('ensure_instrument_schema','ensure_strategy_schema','ensure_plugin_schema',
-                 'ensure_control_schema','ensure_update_schema','ensure_enrollment_schema','ensure_runtime_gate'):
-        monkeypatch.setattr(c,name,AsyncMock())
-    monkeypatch.setattr(c,'db',type('DB',(),{'pool':object()})())
-    monkeypatch.setattr(c,'ensure_retention_schema',AsyncMock(side_effect=RuntimeError('injected retention failure')))
-    def forbidden(*args):raise AssertionError('service created before retention schema')
+    monkeypatch.setattr(c,'bootstrap_logging',lambda:None)
+    monkeypatch.setattr(c,'install_asyncio_exception_filter',lambda loop:None)
+    preparation=AsyncMock(side_effect=RuntimeError('injected schema contract failure'))
+    monkeypatch.setattr(c,'prepare_database',preparation)
+    def forbidden(*args):raise AssertionError('service created before schema verification')
     monkeypatch.setattr(c,'Storage',forbidden)
-    with pytest.raises(RuntimeError,match='injected retention failure'):
-        asyncio.run(c.start_leader_services(1))
+    monkeypatch.setattr(c,'ControlRuntime',forbidden)
+    with pytest.raises(RuntimeError,match='injected schema contract failure'):
+        asyncio.run(c.startup())
+    preparation.assert_awaited_once()
 
 
 @pytest.mark.parametrize('credential,expected',[('enrolled-secret','PASS'),('','BLOCKED'),(None,'BLOCKED')])
