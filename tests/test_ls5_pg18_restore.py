@@ -21,6 +21,14 @@ USER = "grid_ci"
 
 def run(*args):
     # Client tools come from the same pinned major PostgreSQL image as the service.
+    # Never allow this helper to be called outside its isolated hosted job.
+    if (os.getenv("GITHUB_ACTIONS") != "true"
+            or os.getenv("RUNNER_ENVIRONMENT") != "github-hosted"
+            or os.getenv("RUNNER_OS") != "Linux"
+            or os.getenv("GITHUB_REPOSITORY") != "YehorBabenko88/bybit-cluster-grid"
+            or os.getenv("GRID_DISPOSABLE_PG18") != "YES"
+            or os.getenv("GRID_DISPOSABLE_PG_DSN") != "postgresql://grid_ci:ci_only_disposable@127.0.0.1:55439/grid_ci_disposable"):
+        raise RuntimeError("PG18_RESTORE_SUBPROCESS_GUARD")
     archive_paths = [a for a in args if isinstance(a, str) and a.endswith(".dump")]
     mounts = []
     if archive_paths:
@@ -28,7 +36,7 @@ def run(*args):
         mounts = ["--volume", parent + ":" + parent]
     cmd = ["docker", "run", "--rm", "--network", "host", *mounts,
            "--env", "PGPASSWORD=ci_only_disposable", "postgres:18", *args]
-    return subprocess.run(cmd, check=True, capture_output=True, text=True)
+    return subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=90)
 
 
 class RestoreDrill(unittest.TestCase):
