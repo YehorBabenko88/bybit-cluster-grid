@@ -38,3 +38,6 @@ first-boot-*.json
 first-boot-*.jsonl
 first-boot-*.txt
 first-boot-evidence/
+
+installer/native-g1-controller-fixture/bin/
+installer/native-g1-controller-fixture/obj/

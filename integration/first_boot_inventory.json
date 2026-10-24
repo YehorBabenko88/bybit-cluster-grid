@@ -37,10 +37,37 @@
     "tests/test_control_runtime_fence.py::test_shutdown_cleans_services_even_if_election_already_cleared_lease",
     "tests/test_control_runtime_wiring.py::test_actual_startup_registers_services_with_election_before_any_start",
     "tests/test_control_runtime_wiring.py::test_follower_cannot_reach_control_handlers",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[C:\\\\bad!x.exe]",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[C:\\\\bad\"x.exe]",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[C:\\\\bad%VAR%\\\\tool.exe]",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[C:\\\\bad&calc.exe]",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[C:\\\\bad>x.exe]",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[C:\\\\bad\\n.exe]",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[C:\\\\bad\\x00.exe]",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[C:\\\\bad^x.exe]",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[C:\\\\bad|x.exe]",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[C:\\\\file:stream]",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[\\\\\\\\server\\\\share\\\\tool.exe]",
+    "tests/test_controller_builder.py::test_cmd_path_substitution_refused[relative.bat]",
+    "tests/test_controller_builder.py::test_context_refusal[EXACT_HEAD_SHA-HEAD]",
+    "tests/test_controller_builder.py::test_context_refusal[GITHUB_ACTIONS-false]",
+    "tests/test_controller_builder.py::test_context_refusal[GITHUB_JOB-other]",
+    "tests/test_controller_builder.py::test_context_refusal[GITHUB_REPOSITORY-other/repo]",
+    "tests/test_controller_builder.py::test_context_refusal[GITHUB_RUN_ATTEMPT--1]",
+    "tests/test_controller_builder.py::test_context_refusal[GITHUB_RUN_ID-0]",
+    "tests/test_controller_builder.py::test_context_refusal[RUNNER_ENVIRONMENT-self-hosted]",
+    "tests/test_controller_builder.py::test_ordinary_local_tool_path",
+    "tests/test_controller_builder.py::test_synthetic_context_only",
+    "tests/test_controller_builder.py::test_unknown_platform",
     "tests/test_controller_evidence.py::test_case_mutation[duplicate]",
     "tests/test_controller_evidence.py::test_case_mutation[reorder]",
     "tests/test_controller_evidence.py::test_case_mutation[skip]",
     "tests/test_controller_evidence.py::test_case_mutation[xfail]",
+    "tests/test_controller_evidence.py::test_compiled_probe_inventory_tamper[attempt]",
+    "tests/test_controller_evidence.py::test_compiled_probe_inventory_tamper[compiler]",
+    "tests/test_controller_evidence.py::test_compiled_probe_inventory_tamper[helper]",
+    "tests/test_controller_evidence.py::test_compiled_probe_inventory_tamper[run]",
+    "tests/test_controller_evidence.py::test_compiled_probe_inventory_tamper[source]",
     "tests/test_controller_evidence.py::test_downloaded_receipt_reinspection[jsonl]",
     "tests/test_controller_evidence.py::test_downloaded_receipt_reinspection[manifest]",
     "tests/test_controller_evidence.py::test_downloaded_receipt_reinspection[source]",
@@ -48,6 +75,7 @@
     "tests/test_controller_evidence.py::test_duplicate_json_keys",
     "tests/test_controller_evidence.py::test_exact_inventory[HOSTED_FIXTURE_TESTS]",
     "tests/test_controller_evidence.py::test_exact_inventory[MODEL_TESTS]",
+    "tests/test_controller_evidence.py::test_rehashed_helper_must_match_native_execution_record",
     "tests/test_controller_evidence.py::test_rehashed_semantic_tamper_refused[duplicate-jsonl]",
     "tests/test_controller_evidence.py::test_rehashed_semantic_tamper_refused[xml-text]",
     "tests/test_controller_evidence.py::test_tampered_fields[attempt-3]",
@@ -1090,6 +1118,94 @@
       "test_follower_cannot_reach_control_handlers"
     ],
     [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[C:\\\\bad!x.exe]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[C:\\\\bad\"x.exe]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[C:\\\\bad%VAR%\\\\tool.exe]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[C:\\\\bad&calc.exe]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[C:\\\\bad>x.exe]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[C:\\\\bad\\n.exe]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[C:\\\\bad\\x00.exe]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[C:\\\\bad^x.exe]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[C:\\\\bad|x.exe]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[C:\\\\file:stream]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[\\\\\\\\server\\\\share\\\\tool.exe]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_cmd_path_substitution_refused[relative.bat]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_context_refusal[EXACT_HEAD_SHA-HEAD]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_context_refusal[GITHUB_ACTIONS-false]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_context_refusal[GITHUB_JOB-other]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_context_refusal[GITHUB_REPOSITORY-other/repo]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_context_refusal[GITHUB_RUN_ATTEMPT--1]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_context_refusal[GITHUB_RUN_ID-0]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_context_refusal[RUNNER_ENVIRONMENT-self-hosted]"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_ordinary_local_tool_path"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_synthetic_context_only"
+    ],
+    [
+      "tests.test_controller_builder",
+      "test_unknown_platform"
+    ],
+    [
       "tests.test_controller_evidence",
       "test_case_mutation[duplicate]"
     ],
@@ -1104,6 +1220,26 @@
     [
       "tests.test_controller_evidence",
       "test_case_mutation[xfail]"
+    ],
+    [
+      "tests.test_controller_evidence",
+      "test_compiled_probe_inventory_tamper[attempt]"
+    ],
+    [
+      "tests.test_controller_evidence",
+      "test_compiled_probe_inventory_tamper[compiler]"
+    ],
+    [
+      "tests.test_controller_evidence",
+      "test_compiled_probe_inventory_tamper[helper]"
+    ],
+    [
+      "tests.test_controller_evidence",
+      "test_compiled_probe_inventory_tamper[run]"
+    ],
+    [
+      "tests.test_controller_evidence",
+      "test_compiled_probe_inventory_tamper[source]"
     ],
     [
       "tests.test_controller_evidence",
@@ -1132,6 +1268,10 @@
     [
       "tests.test_controller_evidence",
       "test_exact_inventory[MODEL_TESTS]"
+    ],
+    [
+      "tests.test_controller_evidence",
+      "test_rehashed_helper_must_match_native_execution_record"
     ],
     [
       "tests.test_controller_evidence",

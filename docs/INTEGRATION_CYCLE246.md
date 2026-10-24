@@ -73,7 +73,7 @@ Platform RSA-PSS/SHA256 checks fixture permits against a separately supplied key
 head/run/attempt/nonce, expiry, image digest and held object identities. These are
 test keys, **not owner authorization**, and replay storage is in memory.
 
-The fixed child starts suspended with a capability-free AppContainer and is placed
+The fixed native CI probe (not Grid or Python) starts suspended with a capability-free AppContainer and is placed
 in an unnamed kill-on-close Job with active-process limit one before resume. Held
 process/thread handles, creation time, image path and held image file, token SID,
 capabilities and elevation are checked. No PID lookup is used for termination or
@@ -132,3 +132,5 @@ The hosted launcher now derives a LUA/DISABLE_MAX_PRIVILEGE restricted primary t
 Hosted failure 830b3ac reported integrity 12288 on the newly restricted launcher token: LUA filtering alone did not lower its label. The fixture now lowers ONLY that fresh token to S-1-16-4096 and reads it back before creating a child. The caller token, accounts, policies and ACLs are unchanged. A separate real native case closes the sole held Job handle while its owned child is suspended and requires confirmed child exit. These changes remain pending exact-head native verification.
 
 The fixed child failed initialization with 0xC0000142 after valid low AppContainer token checks. The next hosted fixture gives it a separate CREATE_ONLY GUID window station and private desktop, with explicit low label and user/package rights. Bootstrap station custody excludes unprivileged users until desktop creation; final user/package rights exclude WRITE_DAC/WRITE_OWNER/DELETE. Only newly created station access is published; winsta0/default ACLs are never changed or adopted. Held object names, owner, group, DACL and label are rechecked before effects. The caller process station is restored before child launch. This path needs exact-head native evidence and is not physical authorization.
+
+The private desktop did not cure cmd.exe initialization: 2ccb586 still returned 0xC0000142. Rather than count that exit as success, the fixture now builds a minimal reviewed /APPCONTAINER Win32 child with no CRT and only ExitProcess(0). It is not a mock Coordinator/Worker or a physical readiness test. Create-only package-profile copy, protected exact ACL, stable identity/hash and share-read/no-reparse pin guard the executable. CI includes raw binary and MSVC/source/linker digests. Its fresh build contract rejects remote/relative/ADS/control/shell-expansion paths; four new negative reproductions failed before strengthening path validation. Windows binary compatibility of real Grid/Python remains BLOCKED.
