@@ -34,11 +34,23 @@ async def inspect_pg_columns(connection, *, schema: str, table: str) -> dict:
         "data_type": row["data_type"], "nullable": row["is_nullable"]
     } for row in rows}
     missing = sorted(REQUIRED_PROVENANCE - columns.keys())
+    nullable = sorted(name for name in REQUIRED_PROVENANCE & columns.keys()
+                      if columns[name]["nullable"] != "NO")
+    expected_types = {
+        "event_ns": {"bigint"}, "ingest_ns": {"bigint"},
+        "available_ns": {"bigint"}, "watermark_ns": {"bigint"},
+        "revision": {"integer", "bigint"},
+        "eligible": {"boolean"}, "complete": {"boolean"},
+    }
+    wrong_types = sorted(name for name, allowed in expected_types.items()
+                         if name in columns and columns[name]["data_type"] not in allowed)
     return {
         "status": "BLOCKED",
         "schema": schema,
         "table": table,
         "columns": columns,
         "missing_provenance": missing,
+        "nullable_provenance": nullable,
+        "wrong_type_provenance": wrong_types,
         "reason": "catalog_presence_does_not_attest_historical_provenance",
     }
