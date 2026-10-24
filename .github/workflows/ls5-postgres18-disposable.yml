@@ -1,0 +1,46 @@
+name: ls5-postgres18-disposable
+on:
+  pull_request:
+    paths:
+      - 'tests/test_ls5_pg18_disposable.py'
+      - '.github/workflows/ls5-postgres18-disposable.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pg18-lab:
+    if: github.head_ref == 'parallel/ls5-postgres-readiness-20261024' || github.ref_name == 'parallel/ls5-postgres-readiness-20261024'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: grid_ci_disposable
+          POSTGRES_USER: grid_ci
+          POSTGRES_PASSWORD: ci_only_disposable
+        ports:
+          - 55439:5432
+        options: >-
+          --health-cmd "pg_isready -U grid_ci -d grid_ci_disposable"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      GRID_DISPOSABLE_PG18: 'YES'
+      GRID_DISPOSABLE_PG_DSN: postgresql://grid_ci:ci_only_disposable@127.0.0.1:55439/grid_ci_disposable
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Exact HEAD
+        shell: bash
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: python -m pip install 'psycopg[binary]==3.2.10'
+      - name: PostgreSQL 18 disposable transaction tests
+        run: python -m unittest discover -s tests -p test_ls5_pg18_disposable.py -v
