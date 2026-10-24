@@ -118,17 +118,16 @@ def assess(policy_raw, observation_raw):
         if type(runtime["dll_search_paths"]) is not list or not runtime["dll_search_paths"]:
             raise ValueError("DLL_PATHS_UNKNOWN")
         for d in runtime["dll_search_paths"]:
-            # The policy pins files, not directory custody; these are assertions only.
-            if path(d) == trust or under(path(d), executable):
-                continue
-            raise ValueError("DLL_PATH_UNTRUSTED")
+            # A trusted root alone is not a pinned executable closure.
+            if not under(path(d), executable):
+                raise ValueError("DLL_PATH_UNTRUSTED")
         env = o["environment"]
         exact(env, "variables path_entries cwd_trusted user_site_disabled isolated_python")
         if type(env["variables"]) is not dict or any(k.upper() in DENY_ENV for k in env["variables"]):
             raise ValueError("PYTHON_ENV_POISONED")
         if type(env["path_entries"]) is not list or not env["path_entries"]:
             raise ValueError("PATH_UNKNOWN")
-        if any(not under(path(d), executable) and not under(path(d), trust)
+        if any(not under(path(d), executable)
                for d in env["path_entries"]):
             raise ValueError("PATH_POISONED")
         if env["cwd_trusted"] is not True or env["user_site_disabled"] is not True or env["isolated_python"] is not True:
