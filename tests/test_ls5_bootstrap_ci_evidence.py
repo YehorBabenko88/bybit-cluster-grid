@@ -23,7 +23,7 @@ def invoke(tmp_path, xml):
 
 
 def test_valid_receipt(tmp_path):
-    result = invoke(tmp_path, '<testsuite tests="1" failures="0" errors="0" skipped="0"><testcase name="ok"/></testsuite>')
+    result = invoke(tmp_path, '<testsuite tests="1" failures="0" errors="0" skipped="0"><testcase classname="tests.test_receipt" name="ok"/></testsuite>')
     assert result.returncode == 0, result.stderr
     assert (tmp_path / "evidence" / "hashes.json").exists()
     assert (tmp_path / "evidence" / "evidence.jsonl").exists()
@@ -31,7 +31,7 @@ def test_valid_receipt(tmp_path):
 
 @pytest.mark.parametrize("xml", [
     "<testsuite/>",
-    "<notjunit><testsuite><testcase/></testsuite></notjunit>",
+    "<notjunit><testsuite><testcase classname="tests.test_receipt" name="ok"/></testsuite></notjunit>",
     '<testsuite tests="2"><testcase/></testsuite>',
     '<testsuite tests="1" failures="1"><testcase/></testsuite>',
     '<testsuite tests="1" errors="1"><testcase/></testsuite>',
@@ -51,3 +51,13 @@ def test_pr_merge_sha_is_not_accepted_as_source_head(tmp_path):
     result = subprocess.run([sys.executable, str(SCRIPT), str(source), str(tmp_path / "evidence")],
                             capture_output=True, text=True, env=env, timeout=10)
     assert result.returncode != 0
+
+@pytest.mark.parametrize("xml", [
+    '<testsuite tests="1">INJECTED<testcase classname="x" name="one"/></testsuite>',
+    '<testsuite tests="1"><testcase classname="x" name="one">INJECTED</testcase></testsuite>',
+    '<testsuite tests="2"><testcase classname="x" name="one"/>INJECTED<testcase classname="x" name="two"/></testsuite>',
+    '<testsuite tests="2"><testcase classname="x" name="one"/><testcase classname="x" name="one"/></testsuite>',
+    '<testsuite tests="1"><testcase name="one"/></testsuite>',
+])
+def test_structural_text_and_duplicate_identity_rejected(tmp_path, xml):
+    assert invoke(tmp_path, xml).returncode != 0
