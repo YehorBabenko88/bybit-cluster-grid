@@ -46,11 +46,12 @@ def test_bad_receipts_fail_closed(tmp_path, xml):
 
 def test_pr_merge_sha_is_not_accepted_as_source_head(tmp_path):
     source = tmp_path / "junit.xml"
-    source.write_text('<testsuite tests="1"><testcase/></testsuite>', encoding="utf-8")
+    source.write_text('<testsuite tests="1"><testcase classname="tests.test_receipt" name="ok"/></testsuite>', encoding="utf-8")
     env = dict(os.environ, LS5_EXACT_HEAD=HEAD, GITHUB_SHA=HEAD, GITHUB_EVENT_NAME="pull_request")
     result = subprocess.run([sys.executable, str(SCRIPT), str(source), str(tmp_path / "evidence")],
                             capture_output=True, text=True, env=env, timeout=10)
     assert result.returncode != 0
+    assert "synthetic merge SHA" in (result.stderr + result.stdout)
 
 @pytest.mark.parametrize("xml", [
     '<testsuite tests="1">INJECTED<testcase classname="x" name="one"/></testsuite>',
