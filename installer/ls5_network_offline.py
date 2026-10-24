@@ -4,7 +4,7 @@ import json
 
 NODES = ("LS5", "LS7", "PC1", "PC2", "PC3", "PC4")
 KNOWN = {"LS5": "100.103.160.110", "LS7": "100.112.25.75", "PC4": "100.91.48.20"}
-REQUIRED = {("PC4", "LS5", 22), ("LS5", "PC4", 22)}
+REQUIRED = {("LS5", "PC4", 22)}
 FORBIDDEN_PORTS = {55432}
 RESULT = {"status": "BLOCKED", "physical_ready": False, "execution_authorized": False,
           "physical_tests": "0/10 NOT_RUN", "host_verified": False}
@@ -47,10 +47,12 @@ def evaluate(raw):
         flows = set()
         for flow in obj["flows"]:
             _keys(flow, {"src", "dst", "port", "transport", "purpose"})
+            _require(type(flow["src"]) is str and type(flow["dst"]) is str, "FLOW_ENDPOINT_TYPE")
             _require(flow["src"] in NODES and flow["dst"] in NODES and flow["src"] != flow["dst"], "FLOW_ENDPOINT")
+            _require(obj["nodes"][flow["src"]] is not None and obj["nodes"][flow["dst"]] is not None, "FLOW_UNKNOWN_PEER")
             _require(type(flow["port"]) is int and flow["port"] in (22, 8765), "FLOW_PORT")
-            _require(flow["transport"] == "tailscale", "FLOW_TRANSPORT")
-            _require(flow["purpose"] == ("ssh" if flow["port"] == 22 else "agent_api"), "FLOW_PURPOSE")
+            _require(type(flow["transport"]) is str and flow["transport"] == "tailscale", "FLOW_TRANSPORT")
+            _require(type(flow["purpose"]) is str and flow["purpose"] == ("ssh" if flow["port"] == 22 else "agent_api"), "FLOW_PURPOSE")
             _require(flow["dst"] == "LS5" if flow["port"] == 8765 else flow["dst"] in ("LS5", "PC4"), "FLOW_DEST")
             item = (flow["src"], flow["dst"], flow["port"])
             _require(item not in flows, "DUPLICATE_FLOW")
