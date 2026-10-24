@@ -62,3 +62,16 @@ New PR244 exact HEAD `297fcb7cd12c2d1eaf819242abd3267fa7bd5ee0` adds `docs/LS5_P
 **Do not run** production `run_coordinator.py` or `run_worker.py` as G1 launchers: PR239 audit reports shared .env/token and Apply recovery, and the production coordinator wildcard bind `0.0.0.0:8765`. A loopback-only hosted CI harness is not a two-host Windows runner; a physical network route needs a separate reviewed transport/authentication/bind contract. No external bind, firewall opening, Tailscale/SSH change or physical probe is authorized here.
 
 **Network handoff acceptance matrix:** (1) trusted exact checkout and redacted local G0 snapshots from both machines; (2) Tailscale IP and approved host-key identities freshly observed; (3) existing listeners and port collisions reviewed; (4) PC4→LS5 API reachability and TLS/node credential checks **only after separately authorized probe**; (5) wrong-node credential, token replay, stale heartbeat, reconnect, duplicate delivery and coordinator restart with **real Worker**, no mocks; (6) independent raw evidence/JUnit/JSONL and exact HEAD/run/attempt; (7) fail-closed on unknown or mismatch. All physical entries remain **NOT_RUN/BLOCKED**.
+
+## Hosted CI checkpoint — source/evidence scope
+
+For PR241 exact HEAD `ccd420038aa8da02a319ebab82bf346bba88d936`, GitHub workflow run [40089326453](https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/40089326453) reports **COMPLETED SUCCESS** in all four jobs: Ubuntu/Windows × Python3.11/3.12. Four JUnit ZIP artifact records are present, with GitHub-reported SHA256 digests:
+
+| Job | Artifact ID | GitHub-reported ZIP digest |
+|---|---:|---|
+| Windows 3.11 | 12558685923 | b808e400ed512a08f1534ad1597ecc2bb309e1c7a6d37fa0a4dfdd8fea294e2b |
+| Windows 3.12 | 12558421058 | 92a70b2dbb57a388aa8893ccd5c6acfc726e059eda5d9ce637704f95af5045a4 |
+| Ubuntu 3.11 | 12558282802 | 2b7b0c23ba8c20a0a1cf485054fdccb9f0330aee7058d21a12f308fc5e325f44 |
+| Ubuntu 3.12 | 12558267868 | 22c02a99ee86d25b563bfdc07afa33ad3887a36f052f30410f733cce106b9442 |
+
+The workflow verifies actual checkout SHA before pytest; Windows AST parse-only step is successful. These are GitHub API job/metadata observations, **not independent ZIP-byte/JUnit-content reinspection**. Neither CI success nor synthetic network policy validates actual Tailscale routes, host SSH keys, physical Windows security, two real Workers or G1 authority. Physical G0 remains BLOCKED and G1 NOT_AUTHORIZED.
