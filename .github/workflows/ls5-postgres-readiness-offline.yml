@@ -7,6 +7,8 @@ on:
       - 'tests/test_ls5_pg_evidence_integrity.py'
       - 'installer/pg_physical_readiness.py'
       - 'tests/test_pg_physical_readiness.py'
+      - 'tools/audit_pg245_guard.py'
+      - 'tests/test_pg245_guard_audit.py'
       - 'docs/LS5_POSTGRES_18_READINESS.md'
       - '.github/workflows/ls5-postgres-readiness-offline.yml'
   workflow_dispatch:
@@ -36,6 +38,8 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "$EXPECTED"
       - name: Fail-closed offline integrity tests
         run: python -m unittest discover -s tests -p test_ls5_pg_readiness.py -v
+      - name: Optimized role-secret guard audit regressions
+        run: python -m unittest discover -s tests -p test_pg245_guard_audit.py -v
       - name: Physical readiness never inferred from hosted CI
         run: python -m unittest discover -s tests -p test_pg_physical_readiness.py -v
       - name: Corrupted evidence and mock promotion tests
