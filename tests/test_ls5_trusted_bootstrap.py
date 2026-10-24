@@ -13,6 +13,7 @@ FILES = [
     EXEC + r"\runtime\site-packages\grid.pth",
     EXEC + "\\releases\\" + VERSION + "\\grid\\coordinator.py",
     EXEC + r"\runtime\python311.dll",
+    EXEC + r"\installer\coordinator-launcher.ps1",
 ]
 def sample():
     inventory = {f: ("%064x" % (i+1)) for i, f in enumerate(FILES)}
@@ -110,4 +111,12 @@ def test_trusted_root_not_automatically_safe_for_loaders(field):
 def test_mismatched_policy_observation_head_blocks():
     p, o = sample()
     o["head"] = "0" * 40
+    assert check(p, o)["model_status"] == "FAIL"
+
+@pytest.mark.parametrize("filename_index", [0, 1, 2, 3, 4, 5, 6])
+def test_mandatory_manifest_input_cannot_be_omitted_consistently(filename_index):
+    p, o = sample()
+    filename = FILES[filename_index]
+    del p["inventory"][filename]
+    o["files"] = [entry for entry in o["files"] if entry["path"] != filename]
     assert check(p, o)["model_status"] == "FAIL"
