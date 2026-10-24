@@ -5,7 +5,7 @@ import unittest
 import zipfile
 
 from installer.ls5_e2e_acceptance import (
-    PHASES, FAULTS, AcceptanceBlocked, inspect_e2e, inspect_g0_g1, verify_zip_bytes
+    PHASES, FAULTS, AcceptanceBlocked, inspect_e2e, inspect_g0_g1, verify_zip_bytes, inspect_junit_bytes
 )
 
 HEAD = "e25197b169ef0e5f37b5bd0030ee4a97b13965e2"
@@ -135,6 +135,22 @@ class E2EAcceptanceTests(unittest.TestCase):
             with self.subTest(name=repr(name)), self.assertRaises(AcceptanceBlocked):
                 verify_zip_bytes(raw, expected_digest=hashlib.sha256(raw).hexdigest(),
                                  expected_files={name: hashlib.sha256(b"content").hexdigest()})
+
+    def test_junit_identity_and_structural_tamper(self):
+        valid = b'<testsuite tests="2" failures="0" errors="0" skipped="0"><testcase classname="C" name="A"/><testcase classname="C" name="B"/></testsuite>'
+        result = inspect_junit_bytes(valid)
+        self.assertEqual(result["cases"], 2)
+        self.assertFalse(result["lab_go"])
+        tampered = (
+            valid.replace(b'name="B"', b'name="A"'),
+            valid.replace(b'<testcase classname="C"', b'UNTRUSTED<testcase classname="C"', 1),
+            valid.replace(b'tests="2"', b'tests="1"'),
+            valid.replace(b'classname="C" name="B"', b'name="B"'),
+            valid.replace(b'failures="0"', b'failures="1"'),
+        )
+        for i, raw in enumerate(tampered):
+            with self.subTest(case=i), self.assertRaises(AcceptanceBlocked):
+                inspect_junit_bytes(raw)
 
     def test_g0_g1_queued_and_forged_head(self):
         pins = {n: HEAD for n in range(238, 243)}
