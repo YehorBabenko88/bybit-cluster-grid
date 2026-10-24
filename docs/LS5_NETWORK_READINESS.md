@@ -12,7 +12,7 @@ Baseline: Draft PR #237 exact HEAD `e25197b169ef0e5f37b5bd0030ee4a97b13965e2`. T
 | Source | Destination | Transport/port | Requirement | Status |
 |---|---|---|---|---|
 | LS5 | PC4 | Tailscale TCP/22 | controlled SSH administration, pinned host identity | historical only / BLOCKED |
-| PC4 | LS5 | Tailscale TCP/22 | only if independently authorized operator diagnostics need it | historical reachability not proof / BLOCKED |
+| PC4 | LS5 | Tailscale TCP/22 | optional, only if independently authorized operator diagnostics need it | DENY by default / BLOCKED |
 | PC4 | LS5 | Tailscale TCP/8765 | agent→coordinator, authenticated HTTPS/mTLS or reviewed TLS termination | BLOCKED |
 | LS7, PC1, PC2, PC3 | LS5 | Tailscale TCP/8765 | agent API only for nodes actually running agents; node-scoped credentials | BLOCKED |
 | LS5 | LS7, PC1, PC2, PC3 | Tailscale TCP/22 | SSH only for specifically approved managed nodes; otherwise DENY | BLOCKED |
@@ -32,7 +32,7 @@ This is a **proposed policy**, not an assertion that these flows currently exist
 5. DNS/IPv6: confirm whether IPv6 listeners and non-Tailscale adapters exist. Inspect firewall scope/profile and listening process identity, not just port-open results. Confirm no unintended public NAT/port-forwarding.
 
 ## Offline policy evaluator
-`installer/ls5_network_offline.py` is pure JSON processing: no sockets, subprocess, filesystem, registry, Tailscale or SSH. It rejects wildcard binds, wrong ports, public IPs, direct remote PostgreSQL, lateral SSH, duplicate flows, invalid JSON, malformed/duplicate keys and false/missing security assertions. Even a valid policy yields `status=BLOCKED`, `host_verified=false`, `physical_ready=false`, `execution_authorized=false`. The fixture models **intent only**; all positive security flags are unverified assertions.
+`installer/ls5_network_offline.py` is pure JSON processing: no sockets, subprocess, filesystem, registry, Tailscale or SSH. It rejects wildcard binds, wrong ports, public IPs, direct remote PostgreSQL, lateral SSH, duplicate flows, invalid JSON, malformed/duplicate keys and false/missing security assertions. Even a valid policy yields `status=BLOCKED`, `host_verified=false`, `physical_ready=false`, `execution_authorized=false`. The fixture models **intent only**; all positive security flags are unverified assertions. LS5→PC4 SSH is the only required historical administrative flow in the minimal synthetic policy; PC4→LS5 SSH is optional and must be separately justified. Unknown PC1/PC2/PC3 addresses cannot be used in an allow flow until independently inventoried. This validator is a restrictive planning profile, not a full inventory of legitimate production flows.
 
 ## Future operator-executed read-only physical preflight — NOT AUTHORIZED HERE
 Separate operator authorization and change window required even for read-only observation. Capture timestamp, exact node, command/identity, output SHA256, privacy-redacted receipts and independent witness. STOP on any inconsistent identity, unexpected listener or inability to collect native facts.
