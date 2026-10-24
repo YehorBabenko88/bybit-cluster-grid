@@ -25,4 +25,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install pytest
-      - run: python -m pytest -q tests/test_ls5_trusted_bootstrap.py
+      - name: Syntax and bytecode validation
+        run: python -m py_compile installer/trusted_bootstrap.py tests/test_ls5_trusted_bootstrap.py
+      - name: Offline negative regression tests
+        run: python -m pytest -q -ra tests/test_ls5_trusted_bootstrap.py
