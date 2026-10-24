@@ -294,6 +294,10 @@ def audit_cross_pr_gates(entries, *, expected_base):
     require(type(expected_base) is str and HEAD.fullmatch(expected_base) is not None,
             "CROSS_BASE")
     require(type(entries) is list, "CROSS_ENTRIES")
+    if expected_heads is not None:
+        require(type(expected_heads) is dict and set(expected_heads) == set(INTEGRATION_PRS)
+                and all(type(k) is int and type(v) is str and HEAD.fullmatch(v)
+                        for k, v in expected_heads.items()), "CROSS_PINNED_HEADS")
     seen = {}
     for item in entries:
         require(type(item) is dict and set(item) == {
@@ -306,6 +310,8 @@ def audit_cross_pr_gates(entries, *, expected_base):
                 "CROSS_BASE_MISMATCH")
         require(type(item["head"]) is str and HEAD.fullmatch(item["head"]) is not None,
                 "CROSS_HEAD")
+        if expected_heads is not None:
+            require(item["head"] == expected_heads[pr], "CROSS_HEAD_MISMATCH")
         require(type(item["draft"]) is bool and item["draft"], "CROSS_DRAFT")
         require(item["workflow_conclusion"] in ("success", "failure", "queued",
                 "pending", "in_progress", "skipped", "cancelled", "unknown"),
