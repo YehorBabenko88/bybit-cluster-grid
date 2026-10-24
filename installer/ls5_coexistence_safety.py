@@ -66,7 +66,7 @@ def assess(observation):
         reasons.append("RUN_ID_INVALID")
     if _root(o.root) is None or (type(o.run_id) is str and
             _root(o.root) not in (
-                ntpath.normcase(ntpath.join("C:\\\\", "GridLab", "FirstBoot", o.run_id, "LS5")),
+                ntpath.normcase(ntpath.join("C:\\", "GridLab", "FirstBoot", o.run_id, "LS5")),
                 ntpath.normcase(ntpath.join("C:\\\\", "GridLab", "FirstBoot", o.run_id, "PC4")),
             )):
         reasons.append("ROOT_INVALID")
