@@ -1,0 +1,11 @@
+# Hosted-only controller prototype
+
+This executable has no physical execution or cleanup entry point. Both unknown modes and `--execute`/`--cleanup` refuse. Fixture RSA keys are generated for each managed test/run; the independently supplied public-key fingerprint is outside the signed payload. They are not an owner trust store. Replay tracking is an in-memory fixture set, not a durable anti-rollback service.
+
+`--model-tests` uses only managed parsing/crypto/state functions. `--hosted-fixture-tests` requires exact GitHub hosted Windows source/run/job context before any fixture resources or native process/profile APIs. Never run the latter on LS5, PC4, or other physical hosts. Compilation and all native cases require hosted CI verification; no local native execution was performed.
+
+The child is fixed System32 cmd.exe with constant `/d /c exit 0`, pinned by an open read/share-read image handle and SHA256. Only the held process/thread handles are used. It starts suspended, is placed in an unnamed kill-on-close, active-process-limit-one job without breakaway, and has its AppContainer SID, empty capabilities, non-elevation, job membership, creation time and image checked before resume. The fixed command has no network behavior. Capability-free AppContainer cannot provide the required G1 loopback transport without additional policy; no exemptions, firewall or WFP changes are made. G1 remains BLOCKED.
+
+Held fixture root, marker and journal identities bind permits and flushed journal rows. The guardian retains the handles plus external-in-relation-to-journal checkpoint. Recovery rechecks those same handles at a cooperative barrier; it is not OS crash/reboot evidence or protection against privileged administrators or rollback of all state. Failed flush never advances the guardian or permits resume. Marker disposition is set only on the original owned file handle after confirmed child exit. Journal/root and AppContainer profile are retained for disposable runner teardown; no name-based cleanup, recursive deletion, or profile deletion occurs. Existing system-image hardlinks are not cleanup targets.
+
+All physical phases remain BLOCKED; execute_authorized, cleanup_authorized and host_verified remain false.
