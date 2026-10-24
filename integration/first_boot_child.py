@@ -51,7 +51,7 @@ async def coordinator():
                             state=await begin_server_pilot_validation(co.db.pool,node,co.nodes,co.settings.heartbeat_seconds)
                             value={k:state.get(k) for k in ('mode','phase')}
                         elif action=='status':
-                            keys=('last_seen','operator_stopped','wanted_symbols','active_trade_streams','integrity_ok','collector_session','runtime_state')
+                            keys=('last_seen','operator_stopped','wanted_symbols','active_trade_streams','integrity_ok','collector_session','runtime_state','db_queue_depth','micro_queue_depth','db_replay_active','micro_replay_active')
                             value=dict(nodes={k:{f:v.get(f) for f in keys} for k,v in co.nodes.items()},assignments=co.assignments,instruments=list(co.instruments))
                         else:raise ValueError('private action refused')
                 emit(command['id'],True,value)  # after fence transaction commit

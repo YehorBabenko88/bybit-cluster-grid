@@ -20,7 +20,7 @@ PR227/230 runtime schema changes are absent from that tree: import their reviewe
 
 runtime/test subset, not complete profile trees. PR229 narrow coverage is superseded
 
-by PR230's DDL workflow. PR239ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ242 contribute only disjoint profile files.
+by PR230's DDL workflow. PR239ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“242 contribute only disjoint profile files.
 
 Original PR branches remain unchanged. Later source-head drift requires a new review.
 
@@ -108,7 +108,7 @@ not independent cryptographic provenance. No physical attestation is produced.
 
 |---|---|---|
 
-| Fresh schema, migrations1ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ48, second preparation | real owner fixture | hosted NOT_RUN |
+| Fresh schema, migrations1ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“48, second preparation | real owner fixture | hosted NOT_RUN |
 
 | App DDL denied / RO DML denied | real distinct roles | hosted NOT_RUN |
 
@@ -220,7 +220,7 @@ owned database removal. Never adopt/delete foreign directories, roles or contain
 
 
 
-Refreshed PR239ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“242 to latest queried heads before publication; added their new
+Refreshed PR239ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ242 to latest queried heads before publication; added their new
 
 release-model and independent E2E evidence tests. PR242 SHA regex over-escaped\Z
 
@@ -377,3 +377,15 @@ negative test changes the control bit and requires rejection. Existing arbitrary
 ACL restoration is not covered or authorized by this controlled fixture contract.
 The original failed native receipt is retained. The fix remains pending actual CI.
 Microsoft flag definitions: https://learn.microsoft.com/en-us/windows/win32/secauthz/security-descriptor-string-format .
+
+### PG restart confirmed, controlled restart remains blocked (106a6c5)
+
+Run40091003818 passed23/26 stages,32 PG18 tests and all four offline matrix cells.
+Postmaster start changed11:46:57.079249→11:52:02.914463 UTC with cluster ID
+7700199545428189241 unchanged, followed by fresh canonical data and LIVE receipts.
+PostgreSQL recovery and owned container cleanup both passed. The later full normal
+shutdown/restart failed to produce the required fresh minute within the deadline;
+worker logs show substantial stale micro-WAL replay/quarantine backlog and bounded
+drain timeouts. This is not yet attributed to a production defect. Additional
+read-only count/status diagnostics retain queue/replay state and the named timeout;
+no deadline, replay acknowledgement or fencing check is relaxed.

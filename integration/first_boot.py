@@ -21,7 +21,7 @@ async def until(function,timeout=90):
         value=await function()
         if value:return value
         await asyncio.sleep(.3)
-    raise RuntimeError('FIRST_BOOT_CONDITION_TIMEOUT')
+    raise RuntimeError('FIRST_BOOT_CONDITION_TIMEOUT:'+function.__name__)
 
 
 def registration_is_fresh(nodes,previous,restarted):
@@ -173,12 +173,18 @@ async def execute():
                 await until(assigned);evidence.case('exclusive-assignments')
                 async def fresh_collection():
                     await feed.advance()
-                    marker=feed.minute_start
+                    marker=feed.minute_start;sample={}
                     async def fresh():
                         count=await p['app'].fetchval("SELECT count(DISTINCT symbol) FROM candles_1m WHERE ts=to_timestamp($1/1000.0) AND trade_count=2 AND buy_volume=2 AND sell_volume=1",marker)
                         receipts=await p['app'].fetchval("SELECT count(*) FROM collection_ingest_receipts WHERE disposition='LIVE' AND kind='minute' AND (payload::jsonb->>'start_ms')::bigint=$1",marker)
+                        sample.update(canonical_symbols=count,live_receipts=receipts)
                         return count==2 and receipts>=2
-                    await until(fresh)
+                    try:await until(fresh)
+                    except RuntimeError:
+                        try:observed=await status_if_ready(co)
+                        except Exception:observed=None
+                        (evidence.path/'recovery-diagnostic.json').write_text(json.dumps(dict(marker=marker,last_read=sample,worker_status=observed)),encoding='utf-8')
+                        raise
                 async def persisted():
                     rows=await p['app'].fetch('SELECT symbol,trade_count,buy_volume,sell_volume FROM candles_1m ORDER BY symbol')
                     if len(rows)<2:return False
@@ -227,7 +233,10 @@ async def execute():
                 async with p['owner'].acquire() as c:
                     if await catalog_digest(c)!=before:raise RuntimeError('RUNTIME_SCHEMA_CHANGED')
                 evidence.case('catalog-unchanged')
-    except Exception as exc:error=type(exc).__name__
+    except Exception as exc:
+        error=type(exc).__name__
+        message=str(exc)
+        if message.startswith('FIRST_BOOT_CONDITION_TIMEOUT:') and message.split(':')[-1].replace('_','').isalpha():error+=':'+message
     finally:
         for child in reversed(children):
             try:
