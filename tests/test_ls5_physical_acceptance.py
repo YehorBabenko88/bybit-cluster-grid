@@ -3,7 +3,7 @@ import json
 import unittest
 
 from installer.ls5_physical_acceptance import (
-    AcceptanceBlocked, CASES, STAGES, REQUIRED_WORKFLOWS, audit_workflow_runs, audit_evidence_chain, audit_gate_dependencies, audit_ci_matrix, decide, validate_metadata, verify_artifacts,
+    AcceptanceBlocked, CASES, STAGES, REQUIRED_WORKFLOWS, audit_workflow_runs, audit_evidence_chain, audit_gate_dependencies, audit_ci_matrix, audit_cross_pr_gates, decide, validate_metadata, verify_artifacts,
 )
 
 HEAD = "e25197b169ef0e5f37b5bd0030ee4a97b13965e2"
@@ -207,6 +207,33 @@ class GateTests(unittest.TestCase):
         item = {"name": "preflight", "head": HEAD, "run_id": 42, "attempt": 1,
                 "status": "pending", "conclusion": None}
         self.assertFalse(audit_workflow_runs([item], expected_head=HEAD)["offline_ci_complete"])
+
+
+    def test_cross_pr_g0_g1_fail_closed(self):
+        base = "e25197b169ef0e5f37b5bd0030ee4a97b13965e2"
+        rows = [
+            {"pr": pr, "base": base, "head": HEAD, "draft": True,
+             "workflow_conclusion": "queued", "artifact_verified": False,
+             "changed_files": [f"scope/{pr}.txt"], "contract_review": False}
+            for pr in (238, 239, 240, 241, 242)
+        ]
+        result = audit_cross_pr_gates(rows, expected_base=base)
+        self.assertEqual(result["g0_unverified_prs"], [238, 239, 240, 241, 242])
+        self.assertFalse(result["combined_behavior_tested"])
+        self.assertFalse(result["deployment_go"])
+        approved = [dict(x, workflow_conclusion="success",
+                         artifact_verified=True, contract_review=True) for x in rows]
+        result = audit_cross_pr_gates(approved, expected_base=base)
+        self.assertTrue(result["g0_ready_for_review"])
+        self.assertTrue(result["g1_contracts_documented"])
+        self.assertFalse(result["combined_behavior_tested"])
+        overlap = [dict(x) for x in approved]
+        overlap[1]["changed_files"] = overlap[0]["changed_files"]
+        self.assertTrue(audit_cross_pr_gates(overlap, expected_base=base)["overlapping_files"])
+        for changed in ([dict(rows[0], pr=239)], [dict(rows[0], base="f"*40)],
+                        [dict(rows[0], draft=False)], [dict(rows[0], changed_files=["../bad"])]):
+            with self.subTest(changed=changed), self.assertRaises(AcceptanceBlocked):
+                audit_cross_pr_gates(changed, expected_base=base)
 
 
 if __name__ == "__main__":
