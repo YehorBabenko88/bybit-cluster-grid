@@ -14,6 +14,7 @@ internal static class ControllerPolicy {
   Need(facts.User==user,"CHILD_TOKEN_USER");Need(!facts.Elevated,"CHILD_TOKEN_ELEVATED");Need(facts.Integrity<=maximumIntegrity,"CHILD_TOKEN_INTEGRITY_"+facts.Integrity);
   Need(!facts.Groups.Any(g=>g.Sid=="S-1-5-32-544"&&(g.Attributes&4)!=0&&(g.Attributes&16)==0),"CHILD_ENABLED_ADMINISTRATORS");
  }
+ internal static void ImageObservation(bool queried,bool matches,bool exited,bool preverified){Need(queried?matches:(exited&&preverified),"IMAGE_IDENTITY_OR_UNVERIFIED_EXIT");}
  internal static byte[] Canon<T>(T x)=>JsonSerializer.SerializeToUtf8Bytes(x);
  internal static T Parse<T>(byte[] b){Need(b.Length>0&&b.Length<=16384);try{var x=JsonSerializer.Deserialize<T>(b,new JsonSerializerOptions{MaxDepth=8})!;Need(x!=null&&Canon(x).AsSpan().SequenceEqual(b));return x;}catch(JsonException){throw new Blocked("PARSE_REFUSED");}}
  internal static SignedPermit Sign(Permit p,RSA key)=>new(Convert.ToBase64String(Canon(p)),Convert.ToBase64String(key.SignData(Canon(p),HashAlgorithmName.SHA256,RSASignaturePadding.Pss)));

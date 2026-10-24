@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 internal static class ControllerMain {
- internal static readonly string[] ModelCases={"signed-permit","tampered-data","tampered-signature","wrong-key","wrong-head","wrong-run","wrong-nonce","expired","replay","noncanonical-permit","truncated-journal","unknown-recovery-anchor","invalid-transitions","child-environment-allowlist","child-environment-missing","child-token-user","child-token-enabled-admin","child-token-deny-only-admin","child-token-elevated","child-token-high-integrity"};
+ internal static readonly string[] ModelCases={"signed-permit","tampered-data","tampered-signature","wrong-key","wrong-head","wrong-run","wrong-nonce","expired","replay","noncanonical-permit","truncated-journal","unknown-recovery-anchor","invalid-transitions","child-environment-allowlist","child-environment-missing","child-token-user","child-token-enabled-admin","child-token-deny-only-admin","child-token-elevated","child-token-high-integrity","live-image-query-failure","exited-image-without-preverification","exited-preverified-held-image","queried-image-mismatch"};
  internal static readonly string[] NativeCases={"held-process-identity-job-token","live-cleanup-refused","unknown-cleanup-refused","cooperative-exit","stable-guardian-recovery","bounded-marker-cleanup","forced-owned-process-stop","job-close-kills-owned-suspended-child","flush-failure-retention"};
  static string? executedImageHash;static readonly List<object> cases=new();static void Test(string name,Action a){a();cases.Add(new{name,outcome="PASS"});}
  static void Refuse(Action a){try{a();}catch(Blocked){return;}throw new Blocked("EXPECTED_REFUSAL_MISSING");}
@@ -25,6 +25,11 @@ internal static class ControllerMain {
  Test("child-token-deny-only-admin",()=>ControllerPolicy.ChildToken(ordinary with{Groups=new(){new("S-1-5-32-544",16)}},ordinary.User));
  Test("child-token-elevated",()=>Refuse(()=>ControllerPolicy.ChildToken(ordinary with{Elevated=true},ordinary.User)));
  Test("child-token-high-integrity",()=>Refuse(()=>ControllerPolicy.ChildToken(ordinary with{Integrity=8192},ordinary.User)));
+
+ Test("live-image-query-failure",()=>Refuse(()=>ControllerPolicy.ImageObservation(false,false,false,true)));
+ Test("exited-image-without-preverification",()=>Refuse(()=>ControllerPolicy.ImageObservation(false,false,true,false)));
+ Test("exited-preverified-held-image",()=>ControllerPolicy.ImageObservation(false,false,true,true));
+ Test("queried-image-mismatch",()=>Refuse(()=>ControllerPolicy.ImageObservation(true,false,true,true)));
 
  }
  static void Hosted(){ControllerPolicy.Need(OperatingSystem.IsWindows()&&Env("GITHUB_ACTIONS")=="true"&&Env("RUNNER_ENVIRONMENT")=="github-hosted"&&Env("GITHUB_REPOSITORY")=="YehorBabenko88/bybit-cluster-grid"&&Env("GITHUB_JOB")=="controller-fixture"&&Regex.IsMatch(Env("EXACT_HEAD_SHA"),"^[0-9a-f]{40}$")&&Regex.IsMatch(Env("GITHUB_RUN_ID"),"^[1-9][0-9]{0,19}$")&&Regex.IsMatch(Env("GITHUB_RUN_ATTEMPT"),"^[1-9][0-9]{0,9}$"),"HOSTED_CONTEXT_REQUIRED");

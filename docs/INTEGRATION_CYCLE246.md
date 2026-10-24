@@ -86,7 +86,7 @@ is a held-handle barrier test, **not OS-crash recovery or durable anti-rollback*
 The fixed child exits cooperatively; no general Grid shutdown protocol is proved.
 Job membership is not evidence of protection from a privileged administrator.
 
-The new required CI checks 20 managed and 9 native cases on PowerShell 5.1/7 and
+The new required CI checks 24 managed and 9 native cases on PowerShell 5.1/7 and
 Python 3.11/3.12. A separate job downloads all four artifacts and verifies exact
 case inventory, false physical flags, JUnit, JSONL, SHA256, source blobs and external
 head/run/attempt. This detects inconsistent/tampered receipts; it cannot make a
@@ -134,3 +134,5 @@ Hosted failure 830b3ac reported integrity 12288 on the newly restricted launcher
 The fixed child failed initialization with 0xC0000142 after valid low AppContainer token checks. The next hosted fixture gives it a separate CREATE_ONLY GUID window station and private desktop, with explicit low label and user/package rights. Bootstrap station custody excludes unprivileged users until desktop creation; final user/package rights exclude WRITE_DAC/WRITE_OWNER/DELETE. Only newly created station access is published; winsta0/default ACLs are never changed or adopted. Held object names, owner, group, DACL and label are rechecked before effects. The caller process station is restored before child launch. This path needs exact-head native evidence and is not physical authorization.
 
 The private desktop did not cure cmd.exe initialization: 2ccb586 still returned 0xC0000142. Rather than count that exit as success, the fixture now builds a minimal reviewed /APPCONTAINER Win32 child with no CRT and only ExitProcess(0). It is not a mock Coordinator/Worker or a physical readiness test. Create-only package-profile copy, protected exact ACL, stable identity/hash and share-read/no-reparse pin guard the executable. CI includes raw binary and MSVC/source/linker digests. Its fresh build contract rejects remote/relative/ADS/control/shell-expansion paths; four new negative reproductions failed before strengthening path validation. Windows binary compatibility of real Grid/Python remains BLOCKED.
+
+The minimal child exited 0 on 691807b, then the terminated-image query refused. Post-exit validation now uses the same retained process handle plus matching creation time and the retained executable file; a pre-resume successful image query is mandatory. Missing live image query, missing preverification or any successful mismatching image query refuses. This does not attest process memory or survive handle loss/reboot. Four pure lifecycle cases accompany the real native regression.
