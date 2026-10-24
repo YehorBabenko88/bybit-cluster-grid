@@ -74,7 +74,22 @@
     "physical-volume-root",
     "subst-root-refused",
     "root-final-name-mismatch",
-    "network-root-refused"
+    "network-root-refused",
+    "scalar-probe-insufficient-buffer",
+    "scalar-probe-bad-length",
+    "scalar-probe-access-denied",
+    "scalar-probe-invalid-handle",
+    "scalar-probe-wrong-size",
+    "scalar-probe-unexpected-success",
+    "scalar-elevation-zero",
+    "scalar-elevation-one",
+    "scalar-elevation-invalid",
+    "share-bearing-read-only-access",
+    "session-command-exact",
+    "session-command-eof",
+    "session-command-bom",
+    "session-command-space",
+    "session-utf8-bom-wire-decoded"
   ],
   "source_files": [
     "installer/native-acl-observer/Program.cs",
@@ -131,6 +146,8 @@
     "tests/test_ls5_native_observer.py::test_native_evidence_forgery_is_rejected[wrong-attempt]",
     "tests/test_ls5_native_observer.py::test_native_evidence_forgery_is_rejected[wrong-head]",
     "tests/test_ls5_native_observer.py::test_native_evidence_forgery_is_rejected[wrong-run]",
+    "tests/test_ls5_native_observer.py::test_native_python_receipt_never_turns_skip_or_xfail_into_pass",
+    "tests/test_ls5_native_observer.py::test_native_python_receipt_registers_with_real_pytest_hookspec",
     "tests/test_ls5_native_observer.py::test_native_receipt_rejects_unknown_security_facts[ace-bool-mask]",
     "tests/test_ls5_native_observer.py::test_native_receipt_rejects_unknown_security_facts[ace-kind]",
     "tests/test_ls5_native_observer.py::test_native_receipt_rejects_unknown_security_facts[ace-sid]",
@@ -151,6 +168,7 @@
     "tests/test_ls5_native_observer.py::test_transaction_receipt_cannot_promote_fixture_to_authority[case]",
     "tests/test_ls5_native_observer.py::test_transaction_receipt_cannot_promote_fixture_to_authority[crash-claim]",
     "tests/test_ls5_native_observer.py::test_transaction_receipt_cannot_promote_fixture_to_authority[head]",
+    "tests/test_ls5_native_observer.py::test_transaction_snapshot_bytes_are_independently_checked[auto-inherited-control-drift]",
     "tests/test_ls5_native_observer.py::test_transaction_snapshot_bytes_are_independently_checked[descriptor]",
     "tests/test_ls5_native_observer.py::test_transaction_snapshot_bytes_are_independently_checked[identity]",
     "tests/test_ls5_native_observer.py::test_transaction_snapshot_bytes_are_independently_checked[journal-digest]",
@@ -307,6 +325,14 @@
     ],
     [
       "tests.test_ls5_native_observer",
+      "test_native_python_receipt_never_turns_skip_or_xfail_into_pass"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_native_python_receipt_registers_with_real_pytest_hookspec"
+    ],
+    [
+      "tests.test_ls5_native_observer",
       "test_native_receipt_rejects_unknown_security_facts[ace-bool-mask]"
     ],
     [
@@ -384,6 +410,10 @@
     [
       "tests.test_ls5_native_observer",
       "test_transaction_receipt_cannot_promote_fixture_to_authority[head]"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_transaction_snapshot_bytes_are_independently_checked[auto-inherited-control-drift]"
     ],
     [
       "tests.test_ls5_native_observer",
@@ -468,6 +498,7 @@
   ],
   "transaction_cases": [
     "protected-native-create",
+    "canonical-target-control-baseline",
     "exclusive-target-reopen-refused",
     "exclusive-journal-reopen-refused",
     "exclusive-data-target.fixture-read",

@@ -2,6 +2,8 @@ import asyncio, importlib.util, json, os, sys
 import asyncpg
 from .job_write_fence import job_write
 from .config import settings
+from .db import configure_connection
+from .schema_contract import verify_runtime_schema
 
 class StrategyContext:
     def __init__(self,pool,job):
@@ -30,8 +32,10 @@ async def main():
     attempt=int(os.environ['GRID_STRATEGY_ATTEMPT'])
     node=os.environ['GRID_STRATEGY_NODE']
 
-    pool=await asyncpg.create_pool(dsn,min_size=1,max_size=3,command_timeout=60)
+    pool=await asyncpg.create_pool(dsn,min_size=1,max_size=3,command_timeout=60,
+                                   setup=configure_connection)
     try:
+        await verify_runtime_schema(pool)
         async with pool.acquire() as c:
             row=await c.fetchrow("SELECT * FROM strategy_jobs WHERE id=$1::uuid",job_id)
             if not row: raise RuntimeError("job not found")

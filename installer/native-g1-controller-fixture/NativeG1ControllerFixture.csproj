@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><EnableWindowsTargeting>true</EnableWindowsTargeting><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><TreatWarningsAsErrors>true</TreatWarningsAsErrors><StartupObject>ControllerMain</StartupObject></PropertyGroup>
+ <ItemGroup>
+  <Compile Include="../native-acl-observer/Program.cs" Link="ObserverProgram.cs" />
+  <Compile Include="../native-acl-observer/Native.cs" Link="ObserverNative.cs" />
+  <Compile Include="../native-acl-observer/PolicyTests.cs" Link="ObserverTests.cs" />
+  <Compile Include="../native-acl-transaction-fixture/FixtureNative.cs" Link="FixtureNative.cs" />
+  <Compile Include="../native-acl-transaction-fixture/JournalModel.cs" Link="JournalModel.cs" />
+ </ItemGroup>
+</Project>

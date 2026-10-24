@@ -1,0 +1,92 @@
+name: native-g1-controller-fixture
+on:
+  pull_request:
+    paths: ['installer/native-g1-controller-fixture/**', 'integration/controller_evidence.py', 'tests/test_controller_evidence.py', '.github/workflows/native-g1-controller.yml']
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  controller-fixture:
+    if: ${{ (github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021') && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022' }}
+    runs-on: windows-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+        python: ['3.11', '3.12']
+    env:
+      EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install pinned source-verification dependency
+        run: python -m pip install pytest==9.1.1
+      - name: Compile warnings as errors
+        run: dotnet build installer/native-g1-controller-fixture/NativeG1ControllerFixture.csproj -c Release --nologo
+      - name: Compile fixed AppContainer-compatible native probe, never execute here
+        run: python -m tools.build_controller_child
+      - name: GUID hosted fixtures only; never physical authorization
+        run: |
+          $ErrorActionPreference='Stop'
+          if((& git rev-parse HEAD) -ne $env:EXACT_HEAD_SHA){throw 'CHECKOUT_HEAD_MISMATCH'}
+          New-Item -ItemType Directory controller-evidence | Out-Null
+          Copy-Item -LiteralPath controller-toolchain.json -Destination controller-evidence/toolchain.json
+          Copy-Item -LiteralPath installer/native-g1-controller-fixture/bin/native-child.exe -Destination controller-evidence/fixture-child.exe
+          foreach($mode in @('model','native')){
+            $arg=if($mode -eq 'model'){'--model-tests'}else{'--hosted-fixture-tests'}
+            $rows=@(& ./installer/native-g1-controller-fixture/bin/Release/net8.0-windows/NativeG1ControllerFixture.exe $arg)
+            $result=$LASTEXITCODE
+            if($rows.Count -eq 1){[IO.File]::WriteAllText((Join-Path $PWD ('controller-evidence/'+$mode+'.json')),($rows -join "`n"),[Text.UTF8Encoding]::new($false))}
+            if($result -ne 0 -or $rows.Count -ne 1){$rows | Write-Output;throw 'CONTROLLER_FIXTURE_FAILED'}
+          }
+          python -m integration.controller_evidence create controller-evidence $env:EXACT_HEAD_SHA $env:GITHUB_RUN_ID $env:GITHUB_RUN_ATTEMPT
+          if($LASTEXITCODE -ne 0){throw 'CONTROLLER_RECEIPT_FAILED'}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: controller-${{ matrix.shell }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: controller-evidence
+          if-no-files-found: error
+  required-controller:
+    if: ${{ always() && !cancelled() && (github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021') && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022' }}
+    needs: controller-fixture
+    runs-on: ubuntu-latest
+    env:
+      EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - env:
+          RESULT: ${{ needs.controller-fixture.result }}
+        run: test "$RESULT" = success
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: controller-*-${{ github.event.pull_request.head.sha || github.sha }}
+          path: downloaded-controller
+      - name: Reinspect all four downloaded receipts
+        run: |
+          for shell in powershell pwsh; do
+            for python in 3.11 3.12; do
+              python -m integration.controller_evidence verify "downloaded-controller/controller-$shell-$python-$EXACT_HEAD_SHA" "$EXACT_HEAD_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+            done
+          done

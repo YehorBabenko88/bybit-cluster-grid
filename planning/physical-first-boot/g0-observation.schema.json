@@ -1,0 +1,1271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Unattested observation; never G1 approval",
+  "type": "object",
+  "required": [
+    "checks",
+    "g1_authorized",
+    "g2_authorized",
+    "head",
+    "host_id",
+    "node",
+    "observation_kind",
+    "observed_utc",
+    "run_id",
+    "schema"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "grid-g0-observation-1"
+    },
+    "node": {
+      "enum": [
+        "LS5",
+        "PC4"
+      ]
+    },
+    "head": {
+      "pattern": "^[a-f0-9]{40}$",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "type": "string"
+    },
+    "host_id": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "observed_utc": {
+      "type": "string"
+    },
+    "observation_kind": {
+      "const": "UNATTESTED_READ_ONLY"
+    },
+    "g1_authorized": {
+      "const": false
+    },
+    "g2_authorized": {
+      "const": false
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "authorization",
+        "os",
+        "resources",
+        "python",
+        "dotnet",
+        "powershell",
+        "postgres",
+        "listeners",
+        "processes",
+        "services",
+        "tasks",
+        "tailscale",
+        "ssh",
+        "firewall",
+        "paths",
+        "environment",
+        "source",
+        "accounts",
+        "acl",
+        "health",
+        "connectivity",
+        "database_metadata"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "authorization": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {}
+              }
+            }
+          }
+        },
+        "os": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "architecture": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "version": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "drive": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "free_bytes": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "logical_cpu": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "ram_bytes": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "python": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "file_version": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "path": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "dotnet": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "file_version": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "path": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "powershell": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "file_version": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "path": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "postgres": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "service": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "start_mode": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "state": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "listeners": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "pid": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "port": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "processes": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "created_utc": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "grid_candidate": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "identity_known": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "parent_pid": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "path": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "pid": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "services": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "service": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "start_mode": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "state": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tasks": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "enabled": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "principal_kind": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "state": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tailscale": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "file_version": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "path": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "service": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "state": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "start_mode": {
+                    "type": "string",
+                    "maxLength": 512
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ssh": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "file_version": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "path": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "service": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "state": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "start_mode": {
+                    "type": "string",
+                    "maxLength": 512
+                  }
+                }
+              }
+            }
+          }
+        },
+        "firewall": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "action": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "direction": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "local_port": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "profile": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "protocol": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "paths": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "exists": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "path": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "reparse": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "environment": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "source": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "sha256": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "accounts": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "administrator": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "enabled": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "sid_digest": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "acl": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "ace_count": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "owner_digest": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "path": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "protected": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "reparse": {
+                    "type": [
+                      "string",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "health": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {}
+              }
+            }
+          }
+        },
+        "connectivity": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {}
+              }
+            }
+          }
+        },
+        "database_metadata": {
+          "type": "object",
+          "required": [
+            "status",
+            "reason",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "BLOCKED"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]{1,80}$"
+            },
+            "data": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

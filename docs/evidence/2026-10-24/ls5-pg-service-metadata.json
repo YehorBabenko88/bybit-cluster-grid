@@ -1,0 +1,11 @@
+{
+  "kind": "READ_ONLY_SERVICE_METADATA_NOT_CUSTODY_PROOF",
+  "service": "postgresql-x64-18",
+  "state": "Running",
+  "pid": 4724,
+  "pgdata_from_service_command": "C:\\Program Files\\PostgreSQL\\18\\data",
+  "database_connection": "NOT_PERFORMED",
+  "databases": "BLOCKED_NO_AUTHENTICATED_READONLY_CONNECTION",
+  "roles": "BLOCKED_NO_AUTHENTICATED_READONLY_CONNECTION",
+  "g1_authorized": false
+}

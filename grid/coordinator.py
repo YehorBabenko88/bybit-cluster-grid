@@ -709,15 +709,8 @@ async def startup():
 
 async def start_leader_services(epoch):
     global ingest_storage,background_tasks,ml_orchestrator,scientific_service
-    await ensure_instrument_schema(db.pool)
-    await ensure_strategy_schema(db.pool)
-    await ensure_plugin_schema(db.pool)
-    await ensure_control_schema(db.pool)
-    await ensure_update_schema(db.pool)
-    await ensure_enrollment_schema(db.pool)
-    await ensure_runtime_gate(db.pool)
-    # Retention schema is required by maintenance before background tasks start.
-    await ensure_retention_schema(db.pool)
+    # Schema and app privileges were verified before starting leader election.
+    # No lazy DDL is permitted under the elected runtime token.
     ingest_storage=Storage()
     ingest_storage.pool=db.pool
     await ingest_storage.feature_builder.start(db.pool)

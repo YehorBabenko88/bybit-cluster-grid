@@ -260,7 +260,7 @@ class Worker:
                                 except Exception:
                                     log.exception("instrument metadata refresh failed",extra={"event":"metadata_refresh_failed"})
                             recovery=reply.get("recovery_profile") or {}
-                            self.db.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
+                            self.storage.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
                             self.micro_storage.set_replay_rate(recovery.get("micro_per_second",settings.replay_micro_per_second))
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
                             granted=(local_grants(reply,self.collector_session,assignment_request_started)

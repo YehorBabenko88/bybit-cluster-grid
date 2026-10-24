@@ -28,26 +28,30 @@ async def _ensure_import_row(pool,source_id,handoff):
       source_id,handoff["source_candle_db"],handoff.get("research_db"),
       _dt_ms(handoff.get("research_cutoff_ms")),json.dumps(handoff))
 
-async def _prepare_stage(conn):
-    await conn.execute("""CREATE TEMP TABLE IF NOT EXISTS legacy_ohlcv_stage(
-      symbol text,ts timestamptz,open numeric,high numeric,low numeric,close numeric,volume numeric,turnover numeric)
-      ON COMMIT PRESERVE ROWS""")
-
 async def _merge_batch(conn,records):
+    """Bounded typed values replace TEMP/COPY staging (no DDL/TEMP grant).
+
+    Conditional conflict handling validates under PostgreSQL's unique-key lock,
+    including a concurrent writer between SELECT and INSERT. A conflicting value
+    aborts this batch transaction instead of silently accepting DO NOTHING.
+    """
     if not records:return 0
-    await conn.execute("TRUNCATE legacy_ohlcv_stage")
-    await conn.copy_records_to_table("legacy_ohlcv_stage",
-      records=records,columns=("symbol","ts","open","high","low","close","volume","turnover"))
-    bad=await conn.fetchrow("""SELECT s.symbol,s.ts FROM legacy_ohlcv_stage s JOIN ohlcv_1m o
-      ON o.symbol=s.symbol AND o.ts=s.ts
-      WHERE o.open IS DISTINCT FROM s.open OR o.high IS DISTINCT FROM s.high
-         OR o.low IS DISTINCT FROM s.low OR o.close IS DISTINCT FROM s.close
-         OR o.volume IS DISTINCT FROM s.volume OR o.turnover IS DISTINCT FROM s.turnover LIMIT 1""")
-    if bad:raise RuntimeError(f"OHLCV_DATA_CONFLICT {bad['symbol']} {bad['ts']}")
-    r=await conn.execute("""INSERT INTO ohlcv_1m(symbol,ts,open,high,low,close,volume,turnover,source)
-      SELECT symbol,ts,open,high,low,close,volume,turnover,'LEGACY_SQLITE'
-      FROM legacy_ohlcv_stage ON CONFLICT(symbol,ts) DO NOTHING""")
-    return int(r.split()[-1]) if r else 0
+    columns=[list(values) for values in zip(*records)]
+    result=await conn.fetchrow("""WITH incoming AS (
+      SELECT * FROM unnest($1::text[],$2::timestamptz[],$3::numeric[],$4::numeric[],
+                          $5::numeric[],$6::numeric[],$7::numeric[],$8::numeric[])
+        AS s(symbol,ts,open,high,low,close,volume,turnover)
+    ), merged AS (
+      INSERT INTO public.ohlcv_1m(symbol,ts,open,high,low,close,volume,turnover,source)
+      SELECT symbol,ts,open,high,low,close,volume,turnover,'LEGACY_SQLITE' FROM incoming
+      ON CONFLICT(symbol,ts) DO UPDATE SET open=ohlcv_1m.open
+      WHERE ROW(ohlcv_1m.open,ohlcv_1m.high,ohlcv_1m.low,ohlcv_1m.close,ohlcv_1m.volume,ohlcv_1m.turnover)
+        IS NOT DISTINCT FROM ROW(EXCLUDED.open,EXCLUDED.high,EXCLUDED.low,EXCLUDED.close,EXCLUDED.volume,EXCLUDED.turnover)
+      RETURNING (xmax=0) AS added
+    ) SELECT count(*) AS accepted,count(*) FILTER(WHERE added) AS inserted FROM merged""",*columns)
+    if result['accepted']!=len(records):
+        raise RuntimeError('OHLCV_DATA_CONFLICT')
+    return int(result['inserted'])
 
 async def import_symbol(pool,src,source_id,row,cutoff_ms,batch_size=5000):
     symbol=row["symbol"]; expected_fp=row.get("coverage_fingerprint") or ""
@@ -63,7 +67,6 @@ async def import_symbol(pool,src,source_id,row,cutoff_ms,batch_size=5000):
         raise RuntimeError(f"LEGACY_COVERAGE_MISMATCH {symbol}: handoff={expected} sqlite={count}")
     inserted=0
     async with pool.acquire() as c:
-        await _prepare_stage(c)
         cur=src.execute("""SELECT ts,open,high,low,close,volume,turnover FROM candles
           WHERE symbol=? AND ts<=? ORDER BY ts""",(symbol,int(cutoff_ms)))
         while True:

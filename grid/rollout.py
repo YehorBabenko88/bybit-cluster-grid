@@ -19,13 +19,6 @@ def build_waves(node_ids,canary_node):
 async def begin_stable_rollout(pool,version,node_ids,canary_node):
     waves=build_waves(node_ids,canary_node)
     async with pool.acquire() as c:
-        await c.execute("""
-        CREATE TABLE IF NOT EXISTS rollout_nodes(
-          version text NOT NULL,node_id text NOT NULL,wave integer NOT NULL,
-          status text NOT NULL DEFAULT 'pending',health_acks integer NOT NULL DEFAULT 0,
-          deadline timestamptz,last_error text,updated_at timestamptz NOT NULL DEFAULT now(),
-          PRIMARY KEY(version,node_id)
-        )""")
         for i,wave in enumerate(waves,1):
             for node in wave:
                 await c.execute("""INSERT INTO rollout_nodes(version,node_id,wave,status)
