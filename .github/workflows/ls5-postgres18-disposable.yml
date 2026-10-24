@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'tests/test_ls5_pg18_disposable.py'
+      - 'tests/test_ls5_pg18_restore.py'
       - '.github/workflows/ls5-postgres18-disposable.yml'
   workflow_dispatch:
 permissions:
@@ -46,8 +47,36 @@ jobs:
         env:
           EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
         run: test "$(git rev-parse HEAD)" = "$EXPECTED"
-      - run: python -m pip install 'psycopg[binary]==3.2.10'
-      - name: PostgreSQL 18 disposable transaction tests
-        run: python -m unittest discover -s tests -p test_ls5_pg18_disposable.py -v
-      - name: PostgreSQL 18 logical backup and isolated restore
-        run: python -m unittest discover -s tests -p test_ls5_pg18_restore.py -v
+      - run: python -m pip install 'psycopg[binary]==3.2.10' 'pytest==8.3.5'
+      - name: PostgreSQL 18 disposable transaction and restore tests
+        run: python -m pytest -q tests/test_ls5_pg18_disposable.py tests/test_ls5_pg18_restore.py --junitxml=pg18-junit.xml
+      - name: Verify test inventory and publish SHA256 receipt
+        if: always()
+        shell: bash
+        env:
+          EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib, xml.etree.ElementTree as ET
+          path=pathlib.Path("pg18-junit.xml")
+          if not path.is_file():
+              raise SystemExit("MISSING_JUNIT")
+          root=ET.parse(path).getroot()
+          cases=list(root.iter("testcase"))
+          names=[x.get("name") for x in cases]
+          expected={"test_rollback_and_idempotent_replay","test_transaction_advisory_lock_contention","test_disconnect_rolls_back_uncommitted_write","test_unique_key_survives_reconnect","test_savepoint_recovery","test_backup_and_restore"}
+          ok=len(cases)==len(expected) and set(names)==expected and not any(list(x) for x in cases)
+          receipt={"schema":"ls5-pg18-ci-1","head":os.environ["EXACT_HEAD"],"sha256":hashlib.sha256(path.read_bytes()).hexdigest(),"testcases":names,"passed":ok,"physical_verified":False,"deployment_authorized":False}
+          pathlib.Path("pg18-receipt.json").write_text(json.dumps(receipt,sort_keys=True),encoding="utf-8")
+          if not ok:
+              raise SystemExit("INCOMPLETE_OR_FAILED_JUNIT")
+          PY
+      - name: Upload independent review evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pg18-disposable-evidence
+          path: |
+            pg18-junit.xml
+            pg18-receipt.json
+          if-no-files-found: error
