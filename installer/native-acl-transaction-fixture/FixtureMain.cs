@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 internal static class FixtureMain
 {
  static int Main(string[] args){
+  string stage="startup";
   try{
    if(args.Length==1 && args[0]=="--model-tests"){
     Console.WriteLine(JsonSerializer.Serialize(new{kind="SYNTHETIC_JOURNAL_MODEL",cases=JournalTests.Run(),status="OFFLINE_TEST_PASS",host_verified=false,physical_attestation=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false}));return 0;
@@ -24,7 +25,7 @@ internal static class FixtureMain
    var snapshots=new List<object>();
    void Snapshot(string name,OwnedFixture f){snapshots.Add(new{@case=name,binding=f.Binding,journal_id=f.JournalId,root_observed=Native.Id(f.Root),target_observed=Native.Id(f.Target),
     current_descriptor=FixtureNative.Descriptor(f.Target),journal_base64=Convert.ToBase64String(FixtureNative.Read(f.Journal))});}
-   void Test(string name,Action action){action();cases.Add(new{@case=name,outcome="PASS",kind="HOSTED_GUID_TRANSACTION_TEST",head,run_id=run,attempt,
+   void Test(string name,Action action){stage=name;action();cases.Add(new{@case=name,outcome="PASS",kind="HOSTED_GUID_TRANSACTION_TEST",head,run_id=run,attempt,
     host_verified=false,physical_attestation=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false});}
    OwnedFixture New()=>new(head,run,attempt,sid);
    static void Require(bool value){if(!value)throw new Blocked("FIXTURE_ASSERTION");}
@@ -38,6 +39,7 @@ internal static class FixtureMain
    }
    using(var f=New()){
     Test("protected-native-create",()=>f.Guard(f.Old));
+    Test("canonical-target-control-baseline",()=>Require((new System.Security.AccessControl.RawSecurityDescriptor(Convert.FromBase64String(f.Old),0).ControlFlags&System.Security.AccessControl.ControlFlags.DiscretionaryAclAutoInherited)!=0));
     Test("exclusive-target-reopen-refused",()=>Refused(()=>{using var h=Native.OpenChild(f.Root,"target.fixture",false);},"NT_OPEN_FAILED"));
     Test("exclusive-journal-reopen-refused",()=>Refused(()=>{using var h=Native.OpenChild(f.Root,"journal.jsonl",false);},"NT_OPEN_FAILED"));
     foreach(string leaf in new[]{"target.fixture","journal.jsonl"})foreach(bool write in new[]{false,true}){
@@ -97,7 +99,7 @@ internal static class FixtureMain
    Console.WriteLine(JsonSerializer.Serialize(new{schema=1,status="OFFLINE_FIXTURE_PASS",head,run_id=run,attempt,cases,snapshots,
     crash_model="SIMULATED_BARRIER_REOPEN_RETAINED_ROOT",journal_authentication="NOT_PROVEN",durable_antirollback="BLOCKED",host_verified=false,
     physical_attestation=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false}));return 0;
-  }catch(Exception e){Console.WriteLine(JsonSerializer.Serialize(new{schema=1,status="BLOCKED",reason=e is Blocked b?b.Code:"FIXTURE_FAILURE",host_verified=false,
+  }catch(Exception e){Console.WriteLine(JsonSerializer.Serialize(new{schema=1,status="BLOCKED",reason=e is Blocked b?b.Code:"FIXTURE_FAILURE",stage,diagnostic=e.Data["fixture_diagnostic"],host_verified=false,
    physical_attestation=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false}));return 2;}
  }
 }

@@ -47,6 +47,25 @@ internal static class PolicyTests
   Test("subst-root-refused",()=>Policy.RootMapping(@"\??\C:\fixture",@"\Device\HarddiskVolume3\fixture"),"ROOT_MAPPING_UNPROVEN");
   Test("root-final-name-mismatch",()=>Policy.RootMapping(@"\Device\HarddiskVolume3",@"\Device\HarddiskVolume4\"),"ROOT_MAPPING_UNPROVEN");
   Test("network-root-refused",()=>Policy.RootMapping(@"\Device\Mup\host",@"\Device\Mup\host\"),"ROOT_MAPPING_UNPROVEN");
+  Test("scalar-probe-insufficient-buffer",()=>Policy.ScalarProbe(false,122,4));
+  Test("scalar-probe-bad-length",()=>Policy.ScalarProbe(false,24,4));
+  Test("scalar-probe-access-denied",()=>Policy.ScalarProbe(false,5,4),"TOKEN_SCALAR_PROBE");
+  Test("scalar-probe-invalid-handle",()=>Policy.ScalarProbe(false,6,4),"TOKEN_SCALAR_PROBE");
+  Test("scalar-probe-wrong-size",()=>Policy.ScalarProbe(false,24,8),"TOKEN_SCALAR_PROBE");
+  Test("scalar-probe-unexpected-success",()=>Policy.ScalarProbe(true,122,4),"TOKEN_SCALAR_PROBE");
+  Test("scalar-elevation-zero",()=>Policy.ScalarElevation(0));
+  Test("scalar-elevation-one",()=>Policy.ScalarElevation(1));
+  Test("scalar-elevation-invalid",()=>Policy.ScalarElevation(2),"TOKEN_SCALAR_VALUE");
+  Test("share-bearing-read-only-access",()=>{if((Policy.ShareReadAccess&1)==0 || (Policy.ShareReadAccess&(2|4|0x10000|0x40000|0x80000))!=0)throw new Exception();});
+  Test("session-command-exact",()=>Policy.SessionCommand("recheck"));
+  Test("session-command-eof",()=>Policy.SessionCommand(null),"SESSION_INPUT_EOF");
+  Test("session-command-bom",()=>Policy.SessionCommand("\uFEFFrecheck"),"SESSION_COMMAND_INVALID");
+  Test("session-command-space",()=>Policy.SessionCommand("recheck "),"SESSION_COMMAND_INVALID");
+  Test("session-utf8-bom-wire-decoded",()=>{
+   var wire=new byte[]{0xef,0xbb,0xbf}.Concat(System.Text.Encoding.UTF8.GetBytes("recheck\n")).ToArray();
+   using var stream=new MemoryStream(wire);using var reader=new StreamReader(stream,new System.Text.UTF8Encoding(false,true),true,128,true);
+   Policy.SessionCommand(reader.ReadLine());if(reader.CurrentEncoding.CodePage!=65001)throw new Exception();
+  });
   Console.WriteLine(JsonSerializer.Serialize(new{schema=1,status="OFFLINE_TEST_PASS",physical_attestation=false,host_verified=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false,cases},Program.Json));return 0;
  }
 }

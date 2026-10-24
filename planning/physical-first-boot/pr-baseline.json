@@ -1,0 +1,885 @@
+{
+  "schema": 1,
+  "prs": [
+    {
+      "pr": 238,
+      "head": "7df22d1c5cdc60bcf4e3414dacd35d23fdec7149",
+      "files": {
+        ".github/workflows/ls5-native-observer.yml": {
+          "sha256": "e3a22f5ab6942f9a9997c5466216e2a7bb1a2e10b65c5a0810f91ea5e1ab3fbd",
+          "interface_sha256": "e3a22f5ab6942f9a9997c5466216e2a7bb1a2e10b65c5a0810f91ea5e1ab3fbd"
+        },
+        ".github/workflows/ls5-network-offline.yml": null,
+        ".github/workflows/ls5-physical-acceptance-offline.yml": null,
+        ".github/workflows/ls5-postgres-readiness-offline.yml": null,
+        ".github/workflows/ls5-postgres18-disposable.yml": null,
+        ".github/workflows/ls5-trusted-bootstrap-offline.yml": null,
+        ".gitignore": {
+          "sha256": "529163b5ef0343fa4af1ab62da9c01361761a0f5fc4ffb547d761af815517bf9",
+          "interface_sha256": "529163b5ef0343fa4af1ab62da9c01361761a0f5fc4ffb547d761af815517bf9"
+        },
+        "docs/ISOLATED_AGENT_NETWORK_CONTRACT.md": null,
+        "docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md": null,
+        "docs/LS5_E2E_INDEPENDENT_ACCEPTANCE.md": null,
+        "docs/LS5_NETWORK_READINESS.md": null,
+        "docs/LS5_PG18_CODEX_DISPOSABLE_CONTRACT.md": null,
+        "docs/LS5_PHYSICAL_ACCEPTANCE_MATRIX.md": null,
+        "docs/LS5_POSTGRES_18_READINESS.md": null,
+        "docs/LS5_TRUSTED_BOOTSTRAP.md": null,
+        "docs/LS5_TRUSTED_SOURCE_HANDOFF.md": null,
+        "grid/config.py": {
+          "sha256": "4f252bc2300b5fe1b54ad1f73a356e409067ce601aece4e4fc6dfe3bb4fe0a24",
+          "interface_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "grid/coordinator.py": {
+          "sha256": "6e4b780be4d31d8e70c3d3a32aa152b20645649b28d9e2eb1859a8e3d89fc07e",
+          "interface_sha256": "9a051cf0defd39cdc2b3ad9605c4c2868a97eafe8c9bc640ecaf16edca7a87cb"
+        },
+        "grid/migrations.py": {
+          "sha256": "08614b2bff5a5f28adcbc41ab3345109be5f18732a20549440201b1a733a8a2a",
+          "interface_sha256": "e7cc5d4a5c6af39394fa777331e1e05fd8080d2f6e2aea0e9418b978e8b2abc6"
+        },
+        "grid/schema_contract.py": null,
+        "grid/schema_preparation.py": null,
+        "grid/worker.py": {
+          "sha256": "2e8ba78f11e0f7913ac6e070bf2363380a9591bfaabb49eaf314ed0220c8f3f6",
+          "interface_sha256": "21edf40170aca568c4a48cac0b91388aa234c5d3c65a7046dfe121a4399018d6"
+        },
+        "installer/ls5_bootstrap_ci_evidence.py": null,
+        "installer/ls5_disposable_release_model.py": null,
+        "installer/ls5_e2e_acceptance.py": null,
+        "installer/ls5_network_offline.py": null,
+        "installer/ls5_pg_readiness.py": null,
+        "installer/ls5_physical_acceptance.py": null,
+        "installer/release-runtime-guard.ps1": {
+          "sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2",
+          "interface_sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2"
+        },
+        "installer/trusted_bootstrap.py": null,
+        "installer/windows_preflight.py": {
+          "sha256": "5116707d8ab834e8f488d5b2a33c90897463e8cb246e7c3919f5004dcec23277",
+          "interface_sha256": "dd83588da4ae15a7d866b867222127bfbbedfd120ed47ccf17756e7e85bd4910"
+        },
+        "requirements.txt": {
+          "sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51",
+          "interface_sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51"
+        },
+        "tests/test_ls5_bootstrap_ci_evidence.py": null,
+        "tests/test_ls5_disposable_release_model.py": null,
+        "tests/test_ls5_e2e_acceptance.py": null,
+        "tests/test_ls5_network_offline.py": null,
+        "tests/test_ls5_pg18_disposable.py": null,
+        "tests/test_ls5_pg18_restore.py": null,
+        "tests/test_ls5_pg_evidence_integrity.py": null,
+        "tests/test_ls5_pg_readiness.py": null,
+        "tests/test_ls5_physical_acceptance.py": null,
+        "tests/test_ls5_trusted_bootstrap.py": null,
+        "tools/collect_ls5_network_readonly.ps1": null
+      },
+      "changed_files": [
+        ".github/workflows/ls5-native-observer.yml",
+        ".gitignore",
+        "docs/LS5_NATIVE_ACL_CUSTODY_CONTRACT.md",
+        "docs/LS5_NATIVE_FIXTURE_TRANSACTION.md",
+        "docs/LS5_NATIVE_OBSERVER_ACCEPTANCE.md",
+        "docs/LS5_NATIVE_TRANSACTION_EXECUTOR_DESIGN.md",
+        "docs/superpowers/plans/2026-10-24-native-fixture-transaction.md",
+        "docs/superpowers/plans/2026-10-24-native-observer-acceptance.md",
+        "installer/native-acl-observer/Native.cs",
+        "installer/native-acl-observer/NativeAclObserver.csproj",
+        "installer/native-acl-observer/PolicyTests.cs",
+        "installer/native-acl-observer/Program.cs",
+        "installer/native-acl-transaction-fixture/FixtureMain.cs",
+        "installer/native-acl-transaction-fixture/FixtureNative.cs",
+        "installer/native-acl-transaction-fixture/JournalModel.cs",
+        "installer/native-acl-transaction-fixture/JournalTests.cs",
+        "installer/native-acl-transaction-fixture/NativeAclTransactionFixture.csproj",
+        "installer/native_observer_artifacts.py",
+        "installer/native_observer_ci.py",
+        "installer/tests/test-native-acl-observer.ps1",
+        "tests/fixtures/native_observer_inventory.json",
+        "tests/test_ls5_native_observer.py"
+      ],
+      "complete": true,
+      "ci": [
+        {
+          "name": "ls5-native-observer-offline",
+          "head": "7df22d1c5cdc60bcf4e3414dacd35d23fdec7149",
+          "run_id": 40066150495,
+          "status": "completed",
+          "conclusion": "failure",
+          "artifact_count": 4
+        }
+      ]
+    },
+    {
+      "pr": 239,
+      "head": "0dd0cea71f9fd8105deaefc6cfccc0dfe793a689",
+      "files": {
+        ".github/workflows/ls5-native-observer.yml": null,
+        ".github/workflows/ls5-network-offline.yml": null,
+        ".github/workflows/ls5-physical-acceptance-offline.yml": null,
+        ".github/workflows/ls5-postgres-readiness-offline.yml": null,
+        ".github/workflows/ls5-postgres18-disposable.yml": null,
+        ".github/workflows/ls5-trusted-bootstrap-offline.yml": {
+          "sha256": "504cac6efcfab19408846a0091d5a80af518e0fe18462c57d98f532f8682286b",
+          "interface_sha256": "504cac6efcfab19408846a0091d5a80af518e0fe18462c57d98f532f8682286b"
+        },
+        ".gitignore": {
+          "sha256": "1514cb893ae6558b37cd04f5ac7d3655c3bf070d16c6a66657226d8da8293e8f",
+          "interface_sha256": "1514cb893ae6558b37cd04f5ac7d3655c3bf070d16c6a66657226d8da8293e8f"
+        },
+        "docs/ISOLATED_AGENT_NETWORK_CONTRACT.md": null,
+        "docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md": {
+          "sha256": "55c7b315d8bee2610488bae7a132a79efcd3b87467bd5e073a97f668caee5cca",
+          "interface_sha256": "55c7b315d8bee2610488bae7a132a79efcd3b87467bd5e073a97f668caee5cca"
+        },
+        "docs/LS5_E2E_INDEPENDENT_ACCEPTANCE.md": null,
+        "docs/LS5_NETWORK_READINESS.md": null,
+        "docs/LS5_PG18_CODEX_DISPOSABLE_CONTRACT.md": null,
+        "docs/LS5_PHYSICAL_ACCEPTANCE_MATRIX.md": null,
+        "docs/LS5_POSTGRES_18_READINESS.md": null,
+        "docs/LS5_TRUSTED_BOOTSTRAP.md": {
+          "sha256": "ae75a357b32e4b3def68d0f00a20906e154cc3acbe7954a6e3b36e00fcb054ce",
+          "interface_sha256": "ae75a357b32e4b3def68d0f00a20906e154cc3acbe7954a6e3b36e00fcb054ce"
+        },
+        "docs/LS5_TRUSTED_SOURCE_HANDOFF.md": {
+          "sha256": "0aebaf1b8c32d21395103acb806a898b6a8945bdcdfa08cf2d09818fb6cf4b28",
+          "interface_sha256": "0aebaf1b8c32d21395103acb806a898b6a8945bdcdfa08cf2d09818fb6cf4b28"
+        },
+        "grid/config.py": {
+          "sha256": "4f252bc2300b5fe1b54ad1f73a356e409067ce601aece4e4fc6dfe3bb4fe0a24",
+          "interface_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "grid/coordinator.py": {
+          "sha256": "6e4b780be4d31d8e70c3d3a32aa152b20645649b28d9e2eb1859a8e3d89fc07e",
+          "interface_sha256": "9a051cf0defd39cdc2b3ad9605c4c2868a97eafe8c9bc640ecaf16edca7a87cb"
+        },
+        "grid/migrations.py": {
+          "sha256": "08614b2bff5a5f28adcbc41ab3345109be5f18732a20549440201b1a733a8a2a",
+          "interface_sha256": "e7cc5d4a5c6af39394fa777331e1e05fd8080d2f6e2aea0e9418b978e8b2abc6"
+        },
+        "grid/schema_contract.py": null,
+        "grid/schema_preparation.py": null,
+        "grid/worker.py": {
+          "sha256": "2e8ba78f11e0f7913ac6e070bf2363380a9591bfaabb49eaf314ed0220c8f3f6",
+          "interface_sha256": "21edf40170aca568c4a48cac0b91388aa234c5d3c65a7046dfe121a4399018d6"
+        },
+        "installer/ls5_bootstrap_ci_evidence.py": {
+          "sha256": "4b8a0454a9ada4359e497972097a4dc00189c8a6ecfe1c6528d314f71c2dac23",
+          "interface_sha256": "4defd48b9c032e0825d8c9681550591eb5dffbd8cc992cd0262d6a4954434f58"
+        },
+        "installer/ls5_disposable_release_model.py": {
+          "sha256": "397c2a0a8afd7983c6e9654a47451eba25fd4703a9a5b046b5fdeb10da478b3e",
+          "interface_sha256": "dc6994fede1b8243696106a36b739059d2c7fa00635a4dd9b65f3c6bc32106dc"
+        },
+        "installer/ls5_e2e_acceptance.py": null,
+        "installer/ls5_network_offline.py": null,
+        "installer/ls5_pg_readiness.py": null,
+        "installer/ls5_physical_acceptance.py": null,
+        "installer/release-runtime-guard.ps1": {
+          "sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2",
+          "interface_sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2"
+        },
+        "installer/trusted_bootstrap.py": {
+          "sha256": "3311aef81dfeda1060e4527ace1657c539223606d5278bc752179db0b437e1e8",
+          "interface_sha256": "ab74482dd5512bbe9cec5ed5b0738a60aba03cbf5fb3bbecb2afe4f1255d82f8"
+        },
+        "installer/windows_preflight.py": {
+          "sha256": "5116707d8ab834e8f488d5b2a33c90897463e8cb246e7c3919f5004dcec23277",
+          "interface_sha256": "dd83588da4ae15a7d866b867222127bfbbedfd120ed47ccf17756e7e85bd4910"
+        },
+        "requirements.txt": {
+          "sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51",
+          "interface_sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51"
+        },
+        "tests/test_ls5_bootstrap_ci_evidence.py": {
+          "sha256": "7ae573961d5f1ed9f527b5eadc5a2b7b89beaeb9b9c0ea2b58e8719ea5c1aa43",
+          "interface_sha256": "7ae573961d5f1ed9f527b5eadc5a2b7b89beaeb9b9c0ea2b58e8719ea5c1aa43"
+        },
+        "tests/test_ls5_disposable_release_model.py": {
+          "sha256": "4ea76dedb57966082ff7e212f97ed522a827787dfd55ce02bdea8af7a1aac1b2",
+          "interface_sha256": "288ef28c86046856e571c039cf33929d28bea59920efb90612cf524a05385c5a"
+        },
+        "tests/test_ls5_e2e_acceptance.py": null,
+        "tests/test_ls5_network_offline.py": null,
+        "tests/test_ls5_pg18_disposable.py": null,
+        "tests/test_ls5_pg18_restore.py": null,
+        "tests/test_ls5_pg_evidence_integrity.py": null,
+        "tests/test_ls5_pg_readiness.py": null,
+        "tests/test_ls5_physical_acceptance.py": null,
+        "tests/test_ls5_trusted_bootstrap.py": {
+          "sha256": "bfc19899d8caa05a49ddcac3cacf12fbe8220edde89c4f0b52c092ea5bd65253",
+          "interface_sha256": "6a5ffd0047109d0ac50c727b88d559e0b0035269856f8dd188fa0c2158b137ce"
+        },
+        "tools/collect_ls5_network_readonly.ps1": null
+      },
+      "changed_files": [
+        ".github/workflows/ls5-trusted-bootstrap-offline.yml",
+        "docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md",
+        "docs/LS5_TRUSTED_BOOTSTRAP.md",
+        "docs/LS5_TRUSTED_SOURCE_HANDOFF.md",
+        "installer/ls5_bootstrap_ci_evidence.py",
+        "installer/ls5_disposable_release_model.py",
+        "installer/trusted_bootstrap.py",
+        "tests/test_ls5_bootstrap_ci_evidence.py",
+        "tests/test_ls5_disposable_release_model.py",
+        "tests/test_ls5_trusted_bootstrap.py"
+      ],
+      "complete": true,
+      "ci": [
+        {
+          "name": "ls5-trusted-bootstrap-offline",
+          "head": "0dd0cea71f9fd8105deaefc6cfccc0dfe793a689",
+          "run_id": 40083277609,
+          "status": "completed",
+          "conclusion": "failure",
+          "artifact_count": 0
+        }
+      ]
+    },
+    {
+      "pr": 240,
+      "head": "bc8cd0c5308af3602adbd420a10cdd6e6d08f2b3",
+      "files": {
+        ".github/workflows/ls5-native-observer.yml": null,
+        ".github/workflows/ls5-network-offline.yml": null,
+        ".github/workflows/ls5-physical-acceptance-offline.yml": null,
+        ".github/workflows/ls5-postgres-readiness-offline.yml": {
+          "sha256": "cb974451142bb58ba986ac82c5ad913f8e42195180751bb736cd9d9320228f7f",
+          "interface_sha256": "cb974451142bb58ba986ac82c5ad913f8e42195180751bb736cd9d9320228f7f"
+        },
+        ".github/workflows/ls5-postgres18-disposable.yml": {
+          "sha256": "11c3d892f08b1c063f5f023e07448be51a852397f0c8a773ef087ea85a110ff1",
+          "interface_sha256": "11c3d892f08b1c063f5f023e07448be51a852397f0c8a773ef087ea85a110ff1"
+        },
+        ".github/workflows/ls5-trusted-bootstrap-offline.yml": null,
+        ".gitignore": {
+          "sha256": "1514cb893ae6558b37cd04f5ac7d3655c3bf070d16c6a66657226d8da8293e8f",
+          "interface_sha256": "1514cb893ae6558b37cd04f5ac7d3655c3bf070d16c6a66657226d8da8293e8f"
+        },
+        "docs/ISOLATED_AGENT_NETWORK_CONTRACT.md": null,
+        "docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md": null,
+        "docs/LS5_E2E_INDEPENDENT_ACCEPTANCE.md": null,
+        "docs/LS5_NETWORK_READINESS.md": null,
+        "docs/LS5_PG18_CODEX_DISPOSABLE_CONTRACT.md": {
+          "sha256": "da36d12e51324e49713c4b6353575c345b350719cd7fee79655bf30fcbb19c33",
+          "interface_sha256": "da36d12e51324e49713c4b6353575c345b350719cd7fee79655bf30fcbb19c33"
+        },
+        "docs/LS5_PHYSICAL_ACCEPTANCE_MATRIX.md": null,
+        "docs/LS5_POSTGRES_18_READINESS.md": {
+          "sha256": "33d36cbaa4b440e6292e5f3ca07172839d4a4f3e20dbf8fc5d9666b699f867f1",
+          "interface_sha256": "33d36cbaa4b440e6292e5f3ca07172839d4a4f3e20dbf8fc5d9666b699f867f1"
+        },
+        "docs/LS5_TRUSTED_BOOTSTRAP.md": null,
+        "docs/LS5_TRUSTED_SOURCE_HANDOFF.md": null,
+        "grid/config.py": {
+          "sha256": "4f252bc2300b5fe1b54ad1f73a356e409067ce601aece4e4fc6dfe3bb4fe0a24",
+          "interface_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "grid/coordinator.py": {
+          "sha256": "6e4b780be4d31d8e70c3d3a32aa152b20645649b28d9e2eb1859a8e3d89fc07e",
+          "interface_sha256": "9a051cf0defd39cdc2b3ad9605c4c2868a97eafe8c9bc640ecaf16edca7a87cb"
+        },
+        "grid/migrations.py": {
+          "sha256": "08614b2bff5a5f28adcbc41ab3345109be5f18732a20549440201b1a733a8a2a",
+          "interface_sha256": "e7cc5d4a5c6af39394fa777331e1e05fd8080d2f6e2aea0e9418b978e8b2abc6"
+        },
+        "grid/schema_contract.py": null,
+        "grid/schema_preparation.py": null,
+        "grid/worker.py": {
+          "sha256": "2e8ba78f11e0f7913ac6e070bf2363380a9591bfaabb49eaf314ed0220c8f3f6",
+          "interface_sha256": "21edf40170aca568c4a48cac0b91388aa234c5d3c65a7046dfe121a4399018d6"
+        },
+        "installer/ls5_bootstrap_ci_evidence.py": null,
+        "installer/ls5_disposable_release_model.py": null,
+        "installer/ls5_e2e_acceptance.py": null,
+        "installer/ls5_network_offline.py": null,
+        "installer/ls5_pg_readiness.py": {
+          "sha256": "47edb78c17b09654676dc9508600db203a4e50d3d05693080bda75e3377668bd",
+          "interface_sha256": "78dc49b160dcee07f35d72d69a463f7adaf26b3b7026e64d5fbb600f181b29b0"
+        },
+        "installer/ls5_physical_acceptance.py": null,
+        "installer/release-runtime-guard.ps1": {
+          "sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2",
+          "interface_sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2"
+        },
+        "installer/trusted_bootstrap.py": null,
+        "installer/windows_preflight.py": {
+          "sha256": "5116707d8ab834e8f488d5b2a33c90897463e8cb246e7c3919f5004dcec23277",
+          "interface_sha256": "dd83588da4ae15a7d866b867222127bfbbedfd120ed47ccf17756e7e85bd4910"
+        },
+        "requirements.txt": {
+          "sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51",
+          "interface_sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51"
+        },
+        "tests/test_ls5_bootstrap_ci_evidence.py": null,
+        "tests/test_ls5_disposable_release_model.py": null,
+        "tests/test_ls5_e2e_acceptance.py": null,
+        "tests/test_ls5_network_offline.py": null,
+        "tests/test_ls5_pg18_disposable.py": {
+          "sha256": "fa91848802aa0cedf98025fba6f48829e73f7da80a77f6144b4122ef4af8ca92",
+          "interface_sha256": "39c2c05600ab9836a7e029c450f55d3c3ead5ba21ad4786fcca3cf1378afb16a"
+        },
+        "tests/test_ls5_pg18_restore.py": {
+          "sha256": "029aeb16ec5b41bb33aa8554c1c862e8a4efc6d3eb099c1645cec8f6374b460a",
+          "interface_sha256": "b361e37dd339f39628f85453335a48762e73a8f000e95a8e60aec5cce8018d0d"
+        },
+        "tests/test_ls5_pg_evidence_integrity.py": {
+          "sha256": "a1a091b575a77ce386b3519663508a38ddd06f773d04fb6db4c109290c50d941",
+          "interface_sha256": "b42345c2810357f7b55d235f92a8fbba9ff0cd31780c9c7eaa20b5ed64ea4b79"
+        },
+        "tests/test_ls5_pg_readiness.py": {
+          "sha256": "6119f96d26929ac421d66ac15107b90e46f002f6ffda8374ab0e38cd53741128",
+          "interface_sha256": "ea5ff091e8137ef2dc1e6e30073713a75657d27cc0d011d4c4008e22196483c3"
+        },
+        "tests/test_ls5_physical_acceptance.py": null,
+        "tests/test_ls5_trusted_bootstrap.py": null,
+        "tools/collect_ls5_network_readonly.ps1": null
+      },
+      "changed_files": [
+        ".github/workflows/ls5-postgres-readiness-offline.yml",
+        ".github/workflows/ls5-postgres18-disposable.yml",
+        "docs/LS5_PG18_CODEX_DISPOSABLE_CONTRACT.md",
+        "docs/LS5_POSTGRES_18_READINESS.md",
+        "docs/PR244_PG18_INDEPENDENT_REVIEW.md",
+        "installer/ls5_pg_readiness.py",
+        "tests/test_ls5_pg18_disposable.py",
+        "tests/test_ls5_pg18_restore.py",
+        "tests/test_ls5_pg_evidence_integrity.py",
+        "tests/test_ls5_pg_readiness.py"
+      ],
+      "complete": true,
+      "ci": [
+        {
+          "name": "ls5-postgres-readiness-offline",
+          "head": "bc8cd0c5308af3602adbd420a10cdd6e6d08f2b3",
+          "run_id": 40083267197,
+          "status": "completed",
+          "conclusion": "success",
+          "artifact_count": 0
+        },
+        {
+          "name": "ls5-postgres18-disposable",
+          "head": "bc8cd0c5308af3602adbd420a10cdd6e6d08f2b3",
+          "run_id": 40083267296,
+          "status": "completed",
+          "conclusion": "success",
+          "artifact_count": 1
+        }
+      ]
+    },
+    {
+      "pr": 241,
+      "head": "152be6404d4764ec1bba041c679a5719746e8dbc",
+      "files": {
+        ".github/workflows/ls5-native-observer.yml": null,
+        ".github/workflows/ls5-network-offline.yml": {
+          "sha256": "45fd0391bc2c13692c9e42591c5eb53e3b95bf51027da0c863777fa1b785a708",
+          "interface_sha256": "45fd0391bc2c13692c9e42591c5eb53e3b95bf51027da0c863777fa1b785a708"
+        },
+        ".github/workflows/ls5-physical-acceptance-offline.yml": null,
+        ".github/workflows/ls5-postgres-readiness-offline.yml": null,
+        ".github/workflows/ls5-postgres18-disposable.yml": null,
+        ".github/workflows/ls5-trusted-bootstrap-offline.yml": null,
+        ".gitignore": {
+          "sha256": "1514cb893ae6558b37cd04f5ac7d3655c3bf070d16c6a66657226d8da8293e8f",
+          "interface_sha256": "1514cb893ae6558b37cd04f5ac7d3655c3bf070d16c6a66657226d8da8293e8f"
+        },
+        "docs/ISOLATED_AGENT_NETWORK_CONTRACT.md": {
+          "sha256": "468a3d10ff36d841bff46e9dfeb5ef48b4d0e8958585d31af2488398765e6f29",
+          "interface_sha256": "468a3d10ff36d841bff46e9dfeb5ef48b4d0e8958585d31af2488398765e6f29"
+        },
+        "docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md": null,
+        "docs/LS5_E2E_INDEPENDENT_ACCEPTANCE.md": null,
+        "docs/LS5_NETWORK_READINESS.md": {
+          "sha256": "06a20326a7ba292fde767d5b4060d5aa6b50190ba7b94ed97032b8602f494622",
+          "interface_sha256": "06a20326a7ba292fde767d5b4060d5aa6b50190ba7b94ed97032b8602f494622"
+        },
+        "docs/LS5_PG18_CODEX_DISPOSABLE_CONTRACT.md": null,
+        "docs/LS5_PHYSICAL_ACCEPTANCE_MATRIX.md": null,
+        "docs/LS5_POSTGRES_18_READINESS.md": null,
+        "docs/LS5_TRUSTED_BOOTSTRAP.md": null,
+        "docs/LS5_TRUSTED_SOURCE_HANDOFF.md": null,
+        "grid/config.py": {
+          "sha256": "4f252bc2300b5fe1b54ad1f73a356e409067ce601aece4e4fc6dfe3bb4fe0a24",
+          "interface_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "grid/coordinator.py": {
+          "sha256": "6e4b780be4d31d8e70c3d3a32aa152b20645649b28d9e2eb1859a8e3d89fc07e",
+          "interface_sha256": "9a051cf0defd39cdc2b3ad9605c4c2868a97eafe8c9bc640ecaf16edca7a87cb"
+        },
+        "grid/migrations.py": {
+          "sha256": "08614b2bff5a5f28adcbc41ab3345109be5f18732a20549440201b1a733a8a2a",
+          "interface_sha256": "e7cc5d4a5c6af39394fa777331e1e05fd8080d2f6e2aea0e9418b978e8b2abc6"
+        },
+        "grid/schema_contract.py": null,
+        "grid/schema_preparation.py": null,
+        "grid/worker.py": {
+          "sha256": "2e8ba78f11e0f7913ac6e070bf2363380a9591bfaabb49eaf314ed0220c8f3f6",
+          "interface_sha256": "21edf40170aca568c4a48cac0b91388aa234c5d3c65a7046dfe121a4399018d6"
+        },
+        "installer/ls5_bootstrap_ci_evidence.py": null,
+        "installer/ls5_disposable_release_model.py": null,
+        "installer/ls5_e2e_acceptance.py": null,
+        "installer/ls5_network_offline.py": {
+          "sha256": "35bfc8851cda714f295f1d9c00f823c5da0c7364e74b1b84b93bae1a6c3fc456",
+          "interface_sha256": "a6dcc9b0d0ace0cc28d527bda406d505093d484053c1f07df607166bf9c23e96"
+        },
+        "installer/ls5_pg_readiness.py": null,
+        "installer/ls5_physical_acceptance.py": null,
+        "installer/release-runtime-guard.ps1": {
+          "sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2",
+          "interface_sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2"
+        },
+        "installer/trusted_bootstrap.py": null,
+        "installer/windows_preflight.py": {
+          "sha256": "5116707d8ab834e8f488d5b2a33c90897463e8cb246e7c3919f5004dcec23277",
+          "interface_sha256": "dd83588da4ae15a7d866b867222127bfbbedfd120ed47ccf17756e7e85bd4910"
+        },
+        "requirements.txt": {
+          "sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51",
+          "interface_sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51"
+        },
+        "tests/test_ls5_bootstrap_ci_evidence.py": null,
+        "tests/test_ls5_disposable_release_model.py": null,
+        "tests/test_ls5_e2e_acceptance.py": null,
+        "tests/test_ls5_network_offline.py": {
+          "sha256": "67eda28efd2a3692ab36e6dd81f99757acdadd75c1928e10d097c1b0c78ee8bd",
+          "interface_sha256": "85600e8f556fe3a7c00d074b563d74de5aa228807bc66f3017cf5edd7eed1d6f"
+        },
+        "tests/test_ls5_pg18_disposable.py": null,
+        "tests/test_ls5_pg18_restore.py": null,
+        "tests/test_ls5_pg_evidence_integrity.py": null,
+        "tests/test_ls5_pg_readiness.py": null,
+        "tests/test_ls5_physical_acceptance.py": null,
+        "tests/test_ls5_trusted_bootstrap.py": null,
+        "tools/collect_ls5_network_readonly.ps1": {
+          "sha256": "17869abfb78c19d9b73ab02cd07eaff4bf4ffae34a62fff98e040af97a5486d1",
+          "interface_sha256": "17869abfb78c19d9b73ab02cd07eaff4bf4ffae34a62fff98e040af97a5486d1"
+        }
+      },
+      "changed_files": [
+        ".github/workflows/ls5-network-offline.yml",
+        "docs/ISOLATED_AGENT_NETWORK_CONTRACT.md",
+        "docs/LS5_NETWORK_READINESS.md",
+        "docs/PR244_NETWORK_INDEPENDENT_REVIEW.md",
+        "installer/ls5_network_offline.py",
+        "tests/test_ls5_network_offline.py",
+        "tools/collect_ls5_network_readonly.ps1"
+      ],
+      "complete": true,
+      "ci": [
+        {
+          "name": "ls5-network-offline",
+          "head": "152be6404d4764ec1bba041c679a5719746e8dbc",
+          "run_id": 40083266531,
+          "status": "completed",
+          "conclusion": "success",
+          "artifact_count": 4
+        }
+      ]
+    },
+    {
+      "pr": 242,
+      "head": "d5966963e6671fe3377dcfe408a78f4a20b70f33",
+      "files": {
+        ".github/workflows/ls5-native-observer.yml": null,
+        ".github/workflows/ls5-network-offline.yml": null,
+        ".github/workflows/ls5-physical-acceptance-offline.yml": {
+          "sha256": "c137c1467589536f5bd7bf63108a61f4435bbe09ba004a0c428c8a6fc40adf86",
+          "interface_sha256": "c137c1467589536f5bd7bf63108a61f4435bbe09ba004a0c428c8a6fc40adf86"
+        },
+        ".github/workflows/ls5-postgres-readiness-offline.yml": null,
+        ".github/workflows/ls5-postgres18-disposable.yml": null,
+        ".github/workflows/ls5-trusted-bootstrap-offline.yml": null,
+        ".gitignore": {
+          "sha256": "1514cb893ae6558b37cd04f5ac7d3655c3bf070d16c6a66657226d8da8293e8f",
+          "interface_sha256": "1514cb893ae6558b37cd04f5ac7d3655c3bf070d16c6a66657226d8da8293e8f"
+        },
+        "docs/ISOLATED_AGENT_NETWORK_CONTRACT.md": null,
+        "docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md": null,
+        "docs/LS5_E2E_INDEPENDENT_ACCEPTANCE.md": {
+          "sha256": "c92cab392b5cff9487c267c5eb10ebfa125d6d750a6b7c6f5ca4c55c0321d0f3",
+          "interface_sha256": "c92cab392b5cff9487c267c5eb10ebfa125d6d750a6b7c6f5ca4c55c0321d0f3"
+        },
+        "docs/LS5_NETWORK_READINESS.md": null,
+        "docs/LS5_PG18_CODEX_DISPOSABLE_CONTRACT.md": null,
+        "docs/LS5_PHYSICAL_ACCEPTANCE_MATRIX.md": {
+          "sha256": "4976e056d97736468575582750175a5cdd782b80e9715b3ecdab9a338e4c54de",
+          "interface_sha256": "4976e056d97736468575582750175a5cdd782b80e9715b3ecdab9a338e4c54de"
+        },
+        "docs/LS5_POSTGRES_18_READINESS.md": null,
+        "docs/LS5_TRUSTED_BOOTSTRAP.md": null,
+        "docs/LS5_TRUSTED_SOURCE_HANDOFF.md": null,
+        "grid/config.py": {
+          "sha256": "4f252bc2300b5fe1b54ad1f73a356e409067ce601aece4e4fc6dfe3bb4fe0a24",
+          "interface_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "grid/coordinator.py": {
+          "sha256": "6e4b780be4d31d8e70c3d3a32aa152b20645649b28d9e2eb1859a8e3d89fc07e",
+          "interface_sha256": "9a051cf0defd39cdc2b3ad9605c4c2868a97eafe8c9bc640ecaf16edca7a87cb"
+        },
+        "grid/migrations.py": {
+          "sha256": "08614b2bff5a5f28adcbc41ab3345109be5f18732a20549440201b1a733a8a2a",
+          "interface_sha256": "e7cc5d4a5c6af39394fa777331e1e05fd8080d2f6e2aea0e9418b978e8b2abc6"
+        },
+        "grid/schema_contract.py": null,
+        "grid/schema_preparation.py": null,
+        "grid/worker.py": {
+          "sha256": "2e8ba78f11e0f7913ac6e070bf2363380a9591bfaabb49eaf314ed0220c8f3f6",
+          "interface_sha256": "21edf40170aca568c4a48cac0b91388aa234c5d3c65a7046dfe121a4399018d6"
+        },
+        "installer/ls5_bootstrap_ci_evidence.py": null,
+        "installer/ls5_disposable_release_model.py": null,
+        "installer/ls5_e2e_acceptance.py": {
+          "sha256": "0f300f54c8a80f05d1a6b69497e38d28e6552ed2a72ba615d788f3f26b24d372",
+          "interface_sha256": "8fcf74d7aba6f1e3337f46951227c3c5cd9a47ceebcc7d8fd1dce4beb798a0fa"
+        },
+        "installer/ls5_network_offline.py": null,
+        "installer/ls5_pg_readiness.py": null,
+        "installer/ls5_physical_acceptance.py": {
+          "sha256": "e28b6798936c838e9780dd712652ea89b223b7cacd769a547603930a8b0fbc69",
+          "interface_sha256": "40a7a3c7f5e179ea61a3c3af1263adeb0d1b38eb19f364500617a1079a63618d"
+        },
+        "installer/release-runtime-guard.ps1": {
+          "sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2",
+          "interface_sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2"
+        },
+        "installer/trusted_bootstrap.py": null,
+        "installer/windows_preflight.py": {
+          "sha256": "5116707d8ab834e8f488d5b2a33c90897463e8cb246e7c3919f5004dcec23277",
+          "interface_sha256": "dd83588da4ae15a7d866b867222127bfbbedfd120ed47ccf17756e7e85bd4910"
+        },
+        "requirements.txt": {
+          "sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51",
+          "interface_sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51"
+        },
+        "tests/test_ls5_bootstrap_ci_evidence.py": null,
+        "tests/test_ls5_disposable_release_model.py": null,
+        "tests/test_ls5_e2e_acceptance.py": {
+          "sha256": "6263e044d461a214b0b46c16ac5f7a93d48850ae4d40394540b0f9ba8f86609d",
+          "interface_sha256": "5d87df6a3c04f6f5d8258c1c17f3429ec21a7c86fad622e4262ccf14ae0f2665"
+        },
+        "tests/test_ls5_network_offline.py": null,
+        "tests/test_ls5_pg18_disposable.py": null,
+        "tests/test_ls5_pg18_restore.py": null,
+        "tests/test_ls5_pg_evidence_integrity.py": null,
+        "tests/test_ls5_pg_readiness.py": null,
+        "tests/test_ls5_physical_acceptance.py": {
+          "sha256": "3478a528da0789a7d1a0846e5ca01a39e48f893e0a1e87e6952868679f8685ff",
+          "interface_sha256": "da736f305a3777b7cf012b28ce5b2772011151713e92ae43a3b68d2485f30422"
+        },
+        "tests/test_ls5_trusted_bootstrap.py": null,
+        "tools/collect_ls5_network_readonly.ps1": null
+      },
+      "changed_files": [
+        ".github/workflows/ls5-physical-acceptance-offline.yml",
+        "docs/LS5_E2E_INDEPENDENT_ACCEPTANCE.md",
+        "docs/LS5_PHYSICAL_ACCEPTANCE_MATRIX.md",
+        "installer/ls5_e2e_acceptance.py",
+        "installer/ls5_physical_acceptance.py",
+        "tests/test_ls5_e2e_acceptance.py",
+        "tests/test_ls5_physical_acceptance.py"
+      ],
+      "complete": true,
+      "ci": [
+        {
+          "name": "ls5-physical-acceptance-offline",
+          "head": "d5966963e6671fe3377dcfe408a78f4a20b70f33",
+          "run_id": 40083256039,
+          "status": "completed",
+          "conclusion": "failure",
+          "artifact_count": 0
+        }
+      ]
+    },
+    {
+      "pr": 244,
+      "head": "38e6ab40928cbdd6a2d6d84cbb05b4628167258f",
+      "files": {
+        ".github/workflows/ls5-native-observer.yml": {
+          "sha256": "f8217691acb1eccb10af111fb482a406723a6d8fbb063f3abfd6bbe8f2fa6b82",
+          "interface_sha256": "f8217691acb1eccb10af111fb482a406723a6d8fbb063f3abfd6bbe8f2fa6b82"
+        },
+        ".github/workflows/ls5-network-offline.yml": {
+          "sha256": "9341cb255d4fcbe1dc3277d4639da7734463c7e4d141ad760a39edddeeece16a",
+          "interface_sha256": "9341cb255d4fcbe1dc3277d4639da7734463c7e4d141ad760a39edddeeece16a"
+        },
+        ".github/workflows/ls5-physical-acceptance-offline.yml": {
+          "sha256": "c137c1467589536f5bd7bf63108a61f4435bbe09ba004a0c428c8a6fc40adf86",
+          "interface_sha256": "c137c1467589536f5bd7bf63108a61f4435bbe09ba004a0c428c8a6fc40adf86"
+        },
+        ".github/workflows/ls5-postgres-readiness-offline.yml": {
+          "sha256": "cb974451142bb58ba986ac82c5ad913f8e42195180751bb736cd9d9320228f7f",
+          "interface_sha256": "cb974451142bb58ba986ac82c5ad913f8e42195180751bb736cd9d9320228f7f"
+        },
+        ".github/workflows/ls5-postgres18-disposable.yml": {
+          "sha256": "11c3d892f08b1c063f5f023e07448be51a852397f0c8a773ef087ea85a110ff1",
+          "interface_sha256": "11c3d892f08b1c063f5f023e07448be51a852397f0c8a773ef087ea85a110ff1"
+        },
+        ".github/workflows/ls5-trusted-bootstrap-offline.yml": {
+          "sha256": "005a2fc6aff3e26d947fdbe6030c6e3c71aa0fd49bf2c261d3f8ce25d8c9d34b",
+          "interface_sha256": "005a2fc6aff3e26d947fdbe6030c6e3c71aa0fd49bf2c261d3f8ce25d8c9d34b"
+        },
+        ".gitignore": {
+          "sha256": "34d33c4540486d3f800f04cdf1fd6ce88574fa743c64c4abfe075f2762527853",
+          "interface_sha256": "34d33c4540486d3f800f04cdf1fd6ce88574fa743c64c4abfe075f2762527853"
+        },
+        "docs/ISOLATED_AGENT_NETWORK_CONTRACT.md": {
+          "sha256": "468a3d10ff36d841bff46e9dfeb5ef48b4d0e8958585d31af2488398765e6f29",
+          "interface_sha256": "468a3d10ff36d841bff46e9dfeb5ef48b4d0e8958585d31af2488398765e6f29"
+        },
+        "docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md": {
+          "sha256": "9a78174e3b73fb5dd821194233a68fb6d67f9589a450b630a6c6fec9a45ead5e",
+          "interface_sha256": "9a78174e3b73fb5dd821194233a68fb6d67f9589a450b630a6c6fec9a45ead5e"
+        },
+        "docs/LS5_E2E_INDEPENDENT_ACCEPTANCE.md": {
+          "sha256": "c92cab392b5cff9487c267c5eb10ebfa125d6d750a6b7c6f5ca4c55c0321d0f3",
+          "interface_sha256": "c92cab392b5cff9487c267c5eb10ebfa125d6d750a6b7c6f5ca4c55c0321d0f3"
+        },
+        "docs/LS5_NETWORK_READINESS.md": {
+          "sha256": "06a20326a7ba292fde767d5b4060d5aa6b50190ba7b94ed97032b8602f494622",
+          "interface_sha256": "06a20326a7ba292fde767d5b4060d5aa6b50190ba7b94ed97032b8602f494622"
+        },
+        "docs/LS5_PG18_CODEX_DISPOSABLE_CONTRACT.md": {
+          "sha256": "da36d12e51324e49713c4b6353575c345b350719cd7fee79655bf30fcbb19c33",
+          "interface_sha256": "da36d12e51324e49713c4b6353575c345b350719cd7fee79655bf30fcbb19c33"
+        },
+        "docs/LS5_PHYSICAL_ACCEPTANCE_MATRIX.md": {
+          "sha256": "4976e056d97736468575582750175a5cdd782b80e9715b3ecdab9a338e4c54de",
+          "interface_sha256": "4976e056d97736468575582750175a5cdd782b80e9715b3ecdab9a338e4c54de"
+        },
+        "docs/LS5_POSTGRES_18_READINESS.md": {
+          "sha256": "33d36cbaa4b440e6292e5f3ca07172839d4a4f3e20dbf8fc5d9666b699f867f1",
+          "interface_sha256": "33d36cbaa4b440e6292e5f3ca07172839d4a4f3e20dbf8fc5d9666b699f867f1"
+        },
+        "docs/LS5_TRUSTED_BOOTSTRAP.md": {
+          "sha256": "ae75a357b32e4b3def68d0f00a20906e154cc3acbe7954a6e3b36e00fcb054ce",
+          "interface_sha256": "ae75a357b32e4b3def68d0f00a20906e154cc3acbe7954a6e3b36e00fcb054ce"
+        },
+        "docs/LS5_TRUSTED_SOURCE_HANDOFF.md": {
+          "sha256": "0aebaf1b8c32d21395103acb806a898b6a8945bdcdfa08cf2d09818fb6cf4b28",
+          "interface_sha256": "0aebaf1b8c32d21395103acb806a898b6a8945bdcdfa08cf2d09818fb6cf4b28"
+        },
+        "grid/config.py": {
+          "sha256": "4f252bc2300b5fe1b54ad1f73a356e409067ce601aece4e4fc6dfe3bb4fe0a24",
+          "interface_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "grid/coordinator.py": {
+          "sha256": "db739c57e267abe78b09e260dd72129f21244183019af982dc4e030d8d48e7b0",
+          "interface_sha256": "9a051cf0defd39cdc2b3ad9605c4c2868a97eafe8c9bc640ecaf16edca7a87cb"
+        },
+        "grid/migrations.py": {
+          "sha256": "08614b2bff5a5f28adcbc41ab3345109be5f18732a20549440201b1a733a8a2a",
+          "interface_sha256": "e7cc5d4a5c6af39394fa777331e1e05fd8080d2f6e2aea0e9418b978e8b2abc6"
+        },
+        "grid/schema_contract.py": {
+          "sha256": "1c911fc81fc510401b0d32a00f14232b2782b3bc3291b55adbacfb3338af1804",
+          "interface_sha256": "7b856c8e7e9c8b7de545c1b426c59ba098d4ed8ed70a0fc5b602e0573c850980"
+        },
+        "grid/schema_preparation.py": {
+          "sha256": "737a16c87203fa357fa6280d1a7767e1904f1784802e84744048cc2523c9fc67",
+          "interface_sha256": "314676dee2c0c50e733d8ea8b57865a8a94fb4fa8ae224cc23c5ab04c97b4c27"
+        },
+        "grid/worker.py": {
+          "sha256": "6c4d3512ee3d316329e59e0f69df0a9407964dd4cfe808ce12da79effe48dd7d",
+          "interface_sha256": "21edf40170aca568c4a48cac0b91388aa234c5d3c65a7046dfe121a4399018d6"
+        },
+        "installer/ls5_bootstrap_ci_evidence.py": {
+          "sha256": "76d0b6f9bb72a9b2fac9cfb3003b2d83128459fe023172b7e2a3ce4c0b9cebf7",
+          "interface_sha256": "4defd48b9c032e0825d8c9681550591eb5dffbd8cc992cd0262d6a4954434f58"
+        },
+        "installer/ls5_disposable_release_model.py": {
+          "sha256": "3364ec0a56e8c0734ea7947147e2c17b196ae56ef27af351373a8812606b34bf",
+          "interface_sha256": "dc6994fede1b8243696106a36b739059d2c7fa00635a4dd9b65f3c6bc32106dc"
+        },
+        "installer/ls5_e2e_acceptance.py": {
+          "sha256": "c0c03f55b5909238e9672b4d206f6177ecfd024fde0be9ce87fb36216746435a",
+          "interface_sha256": "8fcf74d7aba6f1e3337f46951227c3c5cd9a47ceebcc7d8fd1dce4beb798a0fa"
+        },
+        "installer/ls5_network_offline.py": {
+          "sha256": "35bfc8851cda714f295f1d9c00f823c5da0c7364e74b1b84b93bae1a6c3fc456",
+          "interface_sha256": "a6dcc9b0d0ace0cc28d527bda406d505093d484053c1f07df607166bf9c23e96"
+        },
+        "installer/ls5_pg_readiness.py": {
+          "sha256": "47edb78c17b09654676dc9508600db203a4e50d3d05693080bda75e3377668bd",
+          "interface_sha256": "78dc49b160dcee07f35d72d69a463f7adaf26b3b7026e64d5fbb600f181b29b0"
+        },
+        "installer/ls5_physical_acceptance.py": {
+          "sha256": "dfb8ccd6a6a311a6e7ab99d1dfb29422da246ec1c59b20b8039ec3d1576aefcd",
+          "interface_sha256": "b90f70fa34d61eef31d318e823b22a4879b7601174211809012231016983dc77"
+        },
+        "installer/release-runtime-guard.ps1": {
+          "sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2",
+          "interface_sha256": "3a549d4c5ed6d7aa741620adc650d7d7cc7e1905a8b9b40449ae20d20c33fee2"
+        },
+        "installer/trusted_bootstrap.py": {
+          "sha256": "f91d97aa572fa73632a86513ea6c56eaf762dea3b3a9a1fd654acbf8a0e16b91",
+          "interface_sha256": "ab74482dd5512bbe9cec5ed5b0738a60aba03cbf5fb3bbecb2afe4f1255d82f8"
+        },
+        "installer/windows_preflight.py": {
+          "sha256": "5116707d8ab834e8f488d5b2a33c90897463e8cb246e7c3919f5004dcec23277",
+          "interface_sha256": "dd83588da4ae15a7d866b867222127bfbbedfd120ed47ccf17756e7e85bd4910"
+        },
+        "requirements.txt": {
+          "sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51",
+          "interface_sha256": "d8584a6bf9c106fa49af80b3ce348c925766b5d7329f7cf692c81cb1e957fa51"
+        },
+        "tests/test_ls5_bootstrap_ci_evidence.py": {
+          "sha256": "2210ad7162d262a94f75817d4dcc90564ddd573fa364c9489a78e007402a79ea",
+          "interface_sha256": "97ad2ead56fa984e7b253824df86360907e29ef5229711c6006c9e2de241cf46"
+        },
+        "tests/test_ls5_disposable_release_model.py": {
+          "sha256": "113b520a12b5aa3f3f1e8a27782404959993311a0bf12d649cb02b431d4a1476",
+          "interface_sha256": "19a4f72151ac78ecdd6202f518bd69a4d30f49c0476353a551b179a02642babe"
+        },
+        "tests/test_ls5_e2e_acceptance.py": {
+          "sha256": "a2e91c5f4b5200d0978955db15fbf386be72b86565c250ae349fcb3efd3d993f",
+          "interface_sha256": "275ef47fb69a0d5dce7589f7760408f631d6680965bbe54311ef8b309ad8391b"
+        },
+        "tests/test_ls5_network_offline.py": {
+          "sha256": "67eda28efd2a3692ab36e6dd81f99757acdadd75c1928e10d097c1b0c78ee8bd",
+          "interface_sha256": "85600e8f556fe3a7c00d074b563d74de5aa228807bc66f3017cf5edd7eed1d6f"
+        },
+        "tests/test_ls5_pg18_disposable.py": {
+          "sha256": "b0715a2c93782f420160cc4168926a36364477ce3d4c46b2b427634bf5f53bce",
+          "interface_sha256": "39c2c05600ab9836a7e029c450f55d3c3ead5ba21ad4786fcca3cf1378afb16a"
+        },
+        "tests/test_ls5_pg18_restore.py": {
+          "sha256": "3a7d18d8a7fdd11050020709d8a3af5e7e8738925b75e01fbdf4b53f8c0c5161",
+          "interface_sha256": "b361e37dd339f39628f85453335a48762e73a8f000e95a8e60aec5cce8018d0d"
+        },
+        "tests/test_ls5_pg_evidence_integrity.py": {
+          "sha256": "a1a091b575a77ce386b3519663508a38ddd06f773d04fb6db4c109290c50d941",
+          "interface_sha256": "b42345c2810357f7b55d235f92a8fbba9ff0cd31780c9c7eaa20b5ed64ea4b79"
+        },
+        "tests/test_ls5_pg_readiness.py": {
+          "sha256": "6119f96d26929ac421d66ac15107b90e46f002f6ffda8374ab0e38cd53741128",
+          "interface_sha256": "ea5ff091e8137ef2dc1e6e30073713a75657d27cc0d011d4c4008e22196483c3"
+        },
+        "tests/test_ls5_physical_acceptance.py": {
+          "sha256": "dba3b6844f527dc1778c7eaa5abf99b589f77b35c298fc9c35ca0c0abed6ae7a",
+          "interface_sha256": "da736f305a3777b7cf012b28ce5b2772011151713e92ae43a3b68d2485f30422"
+        },
+        "tests/test_ls5_trusted_bootstrap.py": {
+          "sha256": "279e456ccd40b59616e8948e3a00bd9d721a98169fb646e72c1a41ed58ec9b9e",
+          "interface_sha256": "a0d7226fefb6dcbe5b7342bfc7639610ce0584c696461092fded1e305ad57a43"
+        },
+        "tools/collect_ls5_network_readonly.ps1": {
+          "sha256": "8d9fc517272a2c76cc89b99ab09f7fe903da505a8b0ab0b5376e94537c77eb58",
+          "interface_sha256": "8d9fc517272a2c76cc89b99ab09f7fe903da505a8b0ab0b5376e94537c77eb58"
+        }
+      },
+      "changed_files": [
+        ".github/workflows/ddl-free-runtime.yml",
+        ".github/workflows/full-system-first-boot.yml",
+        ".github/workflows/ls5-native-observer.yml",
+        ".github/workflows/ls5-network-offline.yml",
+        ".github/workflows/ls5-physical-acceptance-offline.yml",
+        ".github/workflows/ls5-postgres-readiness-offline.yml",
+        ".github/workflows/ls5-postgres18-disposable.yml",
+        ".github/workflows/ls5-trusted-bootstrap-offline.yml",
+        ".gitignore",
+        "docs/FULL_SYSTEM_FIRST_BOOT.md",
+        "docs/ISOLATED_AGENT_NETWORK_CONTRACT.md",
+        "docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md",
+        "docs/LS5_E2E_INDEPENDENT_ACCEPTANCE.md",
+        "docs/LS5_NETWORK_READINESS.md",
+        "docs/LS5_PG18_CODEX_DISPOSABLE_CONTRACT.md",
+        "docs/LS5_PHYSICAL_ACCEPTANCE_MATRIX.md",
+        "docs/LS5_POSTGRES_18_READINESS.md",
+        "docs/LS5_TRUSTED_BOOTSTRAP.md",
+        "docs/LS5_TRUSTED_SOURCE_HANDOFF.md",
+        "docs/PC4_DDL_FREE_INTEGRATION_RUNBOOK.md",
+        "docs/PR227_ADVERSARIAL_ACCEPTANCE.md",
+        "grid/bootstrap_runtime.py",
+        "grid/coordinator.py",
+        "grid/db.py",
+        "grid/fleet_control.py",
+        "grid/legacy_bootstrap_import.py",
+        "grid/ml_compute_entry.py",
+        "grid/resilience.py",
+        "grid/rollout.py",
+        "grid/runtime_gate.py",
+        "grid/schema_contract.py",
+        "grid/schema_preparation.py",
+        "grid/service.py",
+        "grid/storage.py",
+        "grid/strategy_runtime.py",
+        "grid/worker.py",
+        "installer/ls5_bootstrap_ci_evidence.py",
+        "installer/ls5_disposable_release_model.py",
+        "installer/ls5_e2e_acceptance.py",
+        "installer/ls5_network_offline.py",
+        "installer/ls5_pg_readiness.py",
+        "installer/ls5_physical_acceptance.py",
+        "installer/trusted_bootstrap.py",
+        "integration/__init__.py",
+        "integration/first_boot.py",
+        "integration/first_boot_child.py",
+        "integration/first_boot_evidence.py",
+        "integration/first_boot_inventory.json",
+        "integration/first_boot_policy.py",
+        "integration/first_boot_process.py",
+        "integration/first_boot_sources.json",
+        "integration/requirements-first-boot.txt",
+        "integration/synthetic_feed.py",
+        "integration/verify_first_boot_evidence.py",
+        "planning/pc4-pg18/00_readonly.sql",
+        "planning/pc4-pg18/10_bootstrap.sql",
+        "planning/pc4-pg18/20_privileges.sql",
+        "planning/pc4-pg18/30_rollback.sql",
+        "planning/pc4-pg18/_context.sql",
+        "planning/pc4-pg18/_owned.sql",
+        "planning/pc4-pg18/migrations.json",
+        "tests/_pg18_database.py",
+        "tests/fixtures/ddl_offline_inventory.json",
+        "tests/fixtures/ddl_pg18_inventory.json",
+        "tests/fixtures/pc4_pg18_plan_inventory.json",
+        "tests/fixtures/pr227_adversarial_inventory.json",
+        "tests/test_auxiliary_writer_lifecycle.py",
+        "tests/test_ddl_acceptance.py",
+        "tests/test_ddl_free_pg18.py",
+        "tests/test_ddl_free_startup.py",
+        "tests/test_first_boot_evidence.py",
+        "tests/test_first_boot_policy.py",
+        "tests/test_first_boot_regressions.py",
+        "tests/test_ls5_bootstrap_ci_evidence.py",
+        "tests/test_ls5_disposable_release_model.py",
+        "tests/test_ls5_e2e_acceptance.py",
+        "tests/test_ls5_network_offline.py",
+        "tests/test_ls5_pg18_disposable.py",
+        "tests/test_ls5_pg18_restore.py",
+        "tests/test_ls5_pg_evidence_integrity.py",
+        "tests/test_ls5_pg_readiness.py",
+        "tests/test_ls5_physical_acceptance.py",
+        "tests/test_ls5_trusted_bootstrap.py",
+        "tests/test_pc4_pg18_plan.py",
+        "tests/test_pg18_ci_isolation.py",
+        "tests/test_pr227_adversarial_pg18.py",
+        "tests/test_pr227_authorization_boundary.py",
+        "tests/test_pr227_checkout.py",
+        "tests/test_retention_bootstrap_regression.py",
+        "tools/check_ddl_acceptance.py",
+        "tools/check_ddl_free_ci.py",
+        "tools/check_first_boot_offline.py",
+        "tools/check_pr227_adversarial_ci.py",
+        "tools/ci_pg18.py",
+        "tools/collect_ls5_network_readonly.ps1",
+        "tools/verify_pr227_original_evidence.py"
+      ],
+      "complete": true,
+      "ci": [
+        {
+          "name": "full-system-first-boot",
+          "head": "38e6ab40928cbdd6a2d6d84cbb05b4628167258f",
+          "run_id": 40081972021,
+          "status": "completed",
+          "conclusion": "failure",
+          "artifact_count": 9
+        }
+      ]
+    }
+  ]
+}

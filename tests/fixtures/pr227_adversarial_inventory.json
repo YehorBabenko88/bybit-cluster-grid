@@ -1,0 +1,14 @@
+[
+  "test_callable_foreign_security_definer",
+  "test_default_privileges_do_not_create_foreign_seal_writer",
+  "test_extra_table_authority[MAINTAIN]",
+  "test_extra_table_authority[REFERENCES]",
+  "test_extra_table_authority[TRIGGER]",
+  "test_extra_table_authority[TRUNCATE]",
+  "test_foreign_metadata_column_writer",
+  "test_foreign_metadata_owner_reseal",
+  "test_parameter_authority[ALTER SYSTEM]",
+  "test_parameter_authority[SET]",
+  "test_rewrite_rule_drift",
+  "test_sequence_update_authority"
+]
