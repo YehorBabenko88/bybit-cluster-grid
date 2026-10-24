@@ -15,11 +15,25 @@ def main():
         raise SystemExit("missing junit")
     root = ET.parse(source).getroot()
     suites = [root] if root.tag == "testsuite" else list(root.findall("testsuite"))
-    if not suites or any(s.tag != "testsuite" for s in suites):
+    if root.tag not in ("testsuite", "testsuites") or not suites or any(s.tag != "testsuite" for s in suites):
         raise SystemExit("invalid junit suites")
     cases = [c for s in suites for c in s.iter("testcase")]
     if not cases:
         raise SystemExit("zero collected tests")
+    for suite in suites:
+        for field in ("tests", "failures", "errors", "skipped"):
+            if field in suite.attrib:
+                try:
+                    declared = int(suite.attrib[field])
+                except ValueError:
+                    raise SystemExit("invalid junit counter")
+                actual = (len(list(suite.iter("testcase"))) if field == "tests" else
+                          sum(any(case.find(tag) is not None for tag in
+                                  (("failure",) if field == "failures" else
+                                   ("error",) if field == "errors" else ("skipped",)))
+                              for case in suite.iter("testcase")))
+                if declared != actual:
+                    raise SystemExit("junit suite counter mismatch")
     failures = [c for c in cases if any(c.find(tag) is not None for tag in ("failure", "error"))]
     skips = [c for c in cases if c.find("skipped") is not None]
     head = os.environ.get("GITHUB_SHA", "")
