@@ -17,7 +17,8 @@ STATES = ("VERIFIED", "FAIL", "UNKNOWN")
 
 def assess(obj):
     fail = lambda why: {"status": "BLOCKED", "reason": why,
-                        "physical_verified": False, "deployment_authorized": False}
+                        "physical_verified": False, "deployment_authorized": False,
+                        "sql_authorized": False}
     if type(obj) is not dict or set(obj) != {"schema", "head", "checks", "physical"}:
         return fail("INVALID_TOP_LEVEL")
     if obj["schema"] != "ls5-pg-readiness-1" or type(obj["head"]) is not str or not re.fullmatch(r"[0-9a-f]{40}", obj["head"]):
@@ -61,10 +62,15 @@ def verify_payload(receipt, field, payload):
     """Compare receipt digest with exact bytes; never authorize a physical host."""
     if type(payload) is not bytes or type(field) is not str or field not in FIELDS:
         return False
-    if type(receipt) is not dict or type(receipt.get("checks")) is not dict:
+    if (type(receipt) is not dict or receipt.get("schema") != "ls5-pg-readiness-1"
+            or type(receipt.get("head")) is not str
+            or not re.fullmatch(r"[0-9a-f]{40}", receipt["head"])
+            or receipt.get("physical") is not False
+            or type(receipt.get("checks")) is not dict):
         return False
     entry = receipt["checks"].get(field)
-    if type(entry) is not dict or entry.get("status") != "VERIFIED":
+    if (type(entry) is not dict or set(entry) != {"status", "evidence_sha256"}
+            or entry.get("status") != "VERIFIED"):
         return False
     expected = entry.get("evidence_sha256")
     return type(expected) is str and bool(re.fullmatch("[0-9a-f]{64}", expected)) and hashlib.sha256(payload).hexdigest() == expected
