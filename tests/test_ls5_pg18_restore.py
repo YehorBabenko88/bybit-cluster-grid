@@ -33,19 +33,21 @@ def run(*args):
 
 class RestoreDrill(unittest.TestCase):
     def test_backup_and_restore(self):
-        assert os.getenv("GITHUB_ACTIONS") == "true"
-        assert os.getenv("GRID_DISPOSABLE_PG18") == "YES"
-        assert os.getenv("GRID_DISPOSABLE_PG_DSN") == (
-            "postgresql://grid_ci:ci_only_disposable@127.0.0.1:55439/grid_ci_disposable"
-        )
-        assert os.getenv("PGHOST") == HOST
-        assert os.getenv("PGPORT") == str(PORT)
-        assert os.getenv("PGUSER") == USER
-        assert os.getenv("PGDATABASE") == SOURCE
-        assert os.getenv("PGPASSWORD") == "ci_only_disposable"
+        required = {
+            "GITHUB_ACTIONS": "true",
+            "GRID_DISPOSABLE_PG18": "YES",
+            "RUNNER_ENVIRONMENT": "github-hosted",
+            "RUNNER_OS": "Linux",
+            "GITHUB_REPOSITORY": "YehorBabenko88/bybit-cluster-grid",
+            "GRID_DISPOSABLE_PG_DSN": "postgresql://grid_ci:ci_only_disposable@127.0.0.1:55439/grid_ci_disposable",
+            "PGHOST": HOST, "PGPORT": str(PORT), "PGUSER": USER,
+            "PGDATABASE": SOURCE, "PGPASSWORD": "ci_only_disposable",
+        }
+        if any(os.getenv(key) != value for key, value in required.items()):
+            raise RuntimeError("PG18_RESTORE_HOSTED_GUARD")
         with psycopg.connect(os.environ["GRID_DISPOSABLE_PG_DSN"]) as c:
             v = int(c.execute("select current_setting('server_version_num')").fetchone()[0])
-            assert 180000 <= v < 190000
+            if not 180000 <= v < 190000: raise RuntimeError("PG18_RESTORE_VERSION_MISMATCH")
             c.execute("create table if not exists ci_restore_probe (id integer primary key, payload text not null)")
             c.execute("insert into ci_restore_probe values (1,'alpha'),(2,'beta') on conflict (id) do update set payload=excluded.payload")
             c.commit()
@@ -59,7 +61,8 @@ class RestoreDrill(unittest.TestCase):
                 "--host", HOST, "--port", str(PORT), "--username", USER,
                 "--dbname", SOURCE, "--file", str(archive))
             digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-            assert len(digest) == 64 and archive.stat().st_size > 0
+            self.assertEqual(len(digest), 64)
+            self.assertGreater(archive.stat().st_size, 0)
             run("pg_restore", "--list", str(archive))
             run("createdb", "--host", HOST, "--port", str(PORT), "--username", USER, target)
             created_target = True
@@ -70,9 +73,9 @@ class RestoreDrill(unittest.TestCase):
                 with psycopg.connect(
                     f"postgresql://{USER}:ci_only_disposable@{HOST}:{PORT}/{target}"
                 ) as restored:
-                    assert restored.execute("select id,payload from ci_restore_probe order by id").fetchall() == source_rows
+                    self.assertEqual(restored.execute("select id,payload from ci_restore_probe order by id").fetchall(), source_rows)
                     assert restored.execute("select count(*) from pg_constraint where conrelid='ci_restore_probe'::regclass and contype='p'").fetchone()[0] == 1
-                assert hashlib.sha256(archive.read_bytes()).hexdigest() == digest
+                self.assertEqual(hashlib.sha256(archive.read_bytes()).hexdigest(), digest)
             finally:
                 if created_target:
                     run("dropdb", "--host", HOST, "--port", str(PORT),
