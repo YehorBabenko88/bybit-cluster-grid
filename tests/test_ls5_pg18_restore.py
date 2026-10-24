@@ -19,7 +19,15 @@ USER = "grid_ci"
 
 
 def run(*args):
-    return subprocess.run(args, check=True, capture_output=True, text=True)
+    # Client tools come from the same pinned major PostgreSQL image as the service.
+    archive_paths = [a for a in args if isinstance(a, str) and a.endswith(".dump")]
+    mounts = []
+    if archive_paths:
+        parent = str(pathlib.Path(archive_paths[0]).parent)
+        mounts = ["--volume", parent + ":" + parent]
+    cmd = ["docker", "run", "--rm", "--network", "host", *mounts,
+           "--env", "PGPASSWORD=ci_only_disposable", "postgres:18", *args]
+    return subprocess.run(cmd, check=True, capture_output=True, text=True)
 
 
 class RestoreDrill(unittest.TestCase):
