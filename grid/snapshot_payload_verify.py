@@ -30,6 +30,9 @@ def verify_partition_payload(partition: dict, payload: bytes, *, max_bytes: int)
         raise PartitionContractError("Invalid payload JSON") from exc
     if type(rows) is not list or len(rows) != partition["row_count"]:
         raise PartitionContractError("Payload row count mismatch")
+    step = partition.get("timeframe_ns")
+    if type(step) is not int or step <= 0:
+        raise PartitionContractError("Missing explicit regular interval")
     seen = set()
     last = None
     for row in rows:
@@ -42,6 +45,8 @@ def verify_partition_payload(partition: dict, payload: bytes, *, max_bytes: int)
             raise PartitionContractError("Noncausal row")
         if event in seen or (last is not None and event <= last):
             raise PartitionContractError("Duplicate or unordered event")
+        if last is not None and event - last != step:
+            raise PartitionContractError("Gap or misaligned regular interval")
         seen.add(event)
         last = event
     if rows and (rows[0]["event_ns"] != partition["first_event_ns"]
