@@ -97,3 +97,21 @@ def test_committed_pending_conflict_rejected():
     committed = commit(stage(State(current=OLD), NEW, **GOOD))
     with pytest.raises(Stop):
         recover(replace(committed, pending=OLD), **RECOVERY)
+
+def test_interrupted_rollback_never_switches_current_to_unverified_target():
+    old = State(current=OLD)
+    active = recover(commit(stage(old, NEW, **GOOD)), **RECOVERY)
+    rollback_prepared = stage(active, OLD, **GOOD)
+    assert rollback_prepared.current == NEW
+    with pytest.raises(Stop):
+        recover(rollback_prepared, **dict(RECOVERY, target_verified=False))
+    assert recover(rollback_prepared, **RECOVERY).current == NEW
+
+
+def test_partial_rollback_journal_mismatch_blocks():
+    active = recover(commit(stage(State(current=OLD), NEW, **GOOD)), **RECOVERY)
+    rollback_prepared = stage(active, OLD, **GOOD)
+    with pytest.raises(Stop):
+        recover(replace(rollback_prepared, journal_previous=OLD), **RECOVERY)
+    with pytest.raises(Stop):
+        commit(replace(rollback_prepared, current=OLD))
