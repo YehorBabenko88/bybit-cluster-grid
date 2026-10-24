@@ -84,6 +84,10 @@ jobs:
       - run: python -m pip freeze > first-boot-dependencies.txt
       - name: Attest and create only this hosted disposable PostgreSQL 18 container
         run: python tools/ci_pg18.py start
+      - name: Mandatory zero-skip PostgreSQL schema and runtime regressions
+        env:
+          GRID_PG18_TESTS: '1'
+        run: python tools/check_ddl_free_ci.py pg18
       - name: Real foreground CONTROL, two real workers and synthetic loopback end-to-end
         run: python -m integration.first_boot --execute-ci
       - name: Independently verify first boot evidence consistency
@@ -99,6 +103,7 @@ jobs:
             first-boot-evidence/
             first-boot-dependencies.txt
             pg18-provider.json
+            ddl-pg18*
           if-no-files-found: error
   required-first-boot:
     if: always() && !cancelled()

@@ -75,7 +75,7 @@ async def execute():
             await stop_all(children)
     try:
         await feed.start()
-        async with database(False) as (p,roles,options,dbname,admin),runtime_lifetime():
+        async with database(False,cleanup_guard=lambda:all(not c.process or c.process.returncode is not None for c in children)) as (p,roles,options,dbname,admin),runtime_lifetime():
             if await prepare_schema(p['owner'])!='PREPARED':raise RuntimeError('FIRST_BOOT_PREPARATION')
             evidence.case('schema-preparation')
             versions=await p['owner'].fetch('SELECT version FROM schema_migrations ORDER BY version')

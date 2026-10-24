@@ -119,3 +119,27 @@ def test_registration_rejects_stale_session_and_heartbeat():
     assert not registration_is_fresh(old,old,{'a'})
     assert not registration_is_fresh({'a':dict(collector_session='new',last_seen=100,integrity_ok=True)},old,{'a'})
     assert registration_is_fresh({'a':dict(collector_session='new',last_seen=101,integrity_ok=True)},old,{'a'})
+
+
+@pytest.mark.parametrize('proof',[False,None,1,'true'])
+def test_database_cleanup_requires_exact_containment_proof(proof):
+    from tests._pg18_database import require_cleanup_containment
+    with pytest.raises(RuntimeError,match='LIVE_CHILD_OR_UNKNOWN_IDENTITY_RETAIN_DATABASE'):
+        require_cleanup_containment(lambda:proof)
+
+
+def test_database_cleanup_accepts_only_confirmed_containment():
+    from tests._pg18_database import require_cleanup_containment
+    require_cleanup_containment(lambda:True)
+
+
+def test_source_receipt_preserves_deleted_baseline_paths(tmp_path):
+    import subprocess
+    from tools.check_ddl_free_ci import changed_source_receipt
+    def git(*args):return subprocess.check_output(['git',*args],cwd=tmp_path,text=True).strip()
+    git('init','-q');git('config','user.email','unit@example.invalid');git('config','user.name','Synthetic fixture')
+    (tmp_path/'removed.txt').write_text('old');git('add','.');git('commit','-qm','before');base=git('rev-parse','HEAD')
+    (tmp_path/'removed.txt').unlink();(tmp_path/'current.txt').write_text('new');git('add','-A');git('commit','-qm','after')
+    files,deleted=changed_source_receipt(tmp_path,base,'HEAD')
+    import hashlib
+    assert files=={'current.txt':hashlib.sha256(b'new').hexdigest()} and deleted==['removed.txt']

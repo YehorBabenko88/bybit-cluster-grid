@@ -60,6 +60,16 @@ def verify_checkout(root, sha):
             raise RuntimeError('CHECKOUT_DIRTY')
 
 
+def changed_source_receipt(root,baseline,head):
+    names=subprocess.check_output(['git','diff','--name-only','-z',baseline,head],cwd=root).decode().split('\0')
+    current=set(subprocess.check_output(['git','ls-tree','-r','--name-only','-z',head],cwd=root).decode().split('\0'))
+    files={};deleted=[]
+    for name in filter(None,names):
+        if name not in current:deleted.append(name)
+        else:files[name]=hashlib.sha256(subprocess.check_output(['git','show',head+':'+name],cwd=root)).hexdigest()
+    return files,sorted(deleted)
+
+
 class Receipt:
     def __init__(self):
         self.nodes=[]; self.passed=[]; self.bad=[]
@@ -108,12 +118,11 @@ def run(mode):
     assert sorted([c.get('classname'),c.get('name')] for c in cases)==inv['junit_cases']
     assert all(int(s.get(k,0))==0 for s in tree.iter('testsuite') for k in ('errors','failures','skipped'))
     verify_checkout(ROOT, os.environ['EXACT_HEAD_SHA'])
-    names=subprocess.check_output(['git','diff','--name-only','f99f401aa11b5f0e0ed75046960801f882540216','HEAD'],cwd=ROOT).decode().splitlines()
-    files={name:hashlib.sha256(subprocess.check_output(['git','show','HEAD:'+name],cwd=ROOT)).hexdigest() for name in names}
+    files,deleted=changed_source_receipt(ROOT,'f99f401aa11b5f0e0ed75046960801f882540216','HEAD')
     for name in (prefix+'.xml',prefix+'-events.json',
                  *[n for n in ('ddl-dependencies.txt','pg18-provider.json') if Path(n).exists()]):
         files[name]=hashlib.sha256(Path(name).read_bytes()).hexdigest()
-    Path(prefix+'-sha256.json').write_text(json.dumps({'sha':events['sha'],'run_id':events['run_id'],'run_attempt':events['run_attempt'],'files':files},indent=2),encoding='utf-8')
+    Path(prefix+'-sha256.json').write_text(json.dumps({'sha':events['sha'],'run_id':events['run_id'],'run_attempt':events['run_attempt'],'files':files,'deleted_paths':deleted},indent=2),encoding='utf-8')
 
 
 if __name__=='__main__':

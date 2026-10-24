@@ -25,8 +25,13 @@ async def cleanup_admin(admin,options,expected_identity):
         await admin.close();raise
 
 
+def require_cleanup_containment(guard):
+    if guard is not None and guard() is not True:
+        raise RuntimeError('LIVE_CHILD_OR_UNKNOWN_IDENTITY_RETAIN_DATABASE')
+
+
 @asynccontextmanager
-async def database(prepared=True):
+async def database(prepared=True,cleanup_guard=None):
     identity = attest()  # no connection on failed/missing proof
     options = dict(host='127.0.0.1', port=int(os.environ['GRID_PG18_PORT']),
                    password=os.environ['GRID_PG18_PASSWORD'], command_timeout=15)
@@ -70,6 +75,7 @@ async def database(prepared=True):
             await p.close()
         # Cleanup is limited to generated names; restart cannot silently redirect it.
         try:
+            require_cleanup_containment(cleanup_guard)
             if created_database or created_roles:
                 admin=await cleanup_admin(admin,options,identity)
             if created_database:

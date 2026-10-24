@@ -6,6 +6,8 @@
     "tests/test_auxiliary_writer_lifecycle.py::test_raw_ml_training_closes_pool_without_masking_result[False]",
     "tests/test_auxiliary_writer_lifecycle.py::test_raw_ml_training_closes_pool_without_masking_result[True]",
     "tests/test_auxiliary_writer_lifecycle.py::test_standalone_archive_refuses_before_bootstrap_or_exchange",
+    "tests/test_composed_wal_payload_snapshot.py::test_admitted_payload_cannot_drift_from_wal_before_delivery[event]",
+    "tests/test_composed_wal_payload_snapshot.py::test_admitted_payload_cannot_drift_from_wal_before_delivery[minute]",
     "tests/test_control_candidate.py::test_candidate_never_grants_mutations_without_db_fencing",
     "tests/test_control_candidate_epoch_failure.py::test_control_candidate_clears_epoch_on_database_failure",
     "tests/test_control_ingestion_topology.py::test_coordinator_background_tasks_have_shutdown_lifecycle",
@@ -95,6 +97,11 @@
     "tests/test_first_boot_policy.py::test_unknown_ci_context_is_blocked[RUNNER_OS-Windows]",
     "tests/test_first_boot_regressions.py::test_cleanup_admin_does_not_adopt_a_replaced_cluster",
     "tests/test_first_boot_regressions.py::test_cleanup_admin_reconnect_requires_fresh_cluster_attestation",
+    "tests/test_first_boot_regressions.py::test_database_cleanup_accepts_only_confirmed_containment",
+    "tests/test_first_boot_regressions.py::test_database_cleanup_requires_exact_containment_proof[1]",
+    "tests/test_first_boot_regressions.py::test_database_cleanup_requires_exact_containment_proof[False]",
+    "tests/test_first_boot_regressions.py::test_database_cleanup_requires_exact_containment_proof[None]",
+    "tests/test_first_boot_regressions.py::test_database_cleanup_requires_exact_containment_proof[true]",
     "tests/test_first_boot_regressions.py::test_db_less_worker_applies_recovery_rates_without_database",
     "tests/test_first_boot_regressions.py::test_default_reachability_uses_configured_rest_endpoint",
     "tests/test_first_boot_regressions.py::test_invalid_reachability_endpoint_does_not_probe[file:///tmp/x]",
@@ -104,6 +111,7 @@
     "tests/test_first_boot_regressions.py::test_provider_creation_receipt_survives_later_inspect_failure",
     "tests/test_first_boot_regressions.py::test_registration_rejects_stale_session_and_heartbeat",
     "tests/test_first_boot_regressions.py::test_shutdown_pipe_failure_still_contains_owned_process",
+    "tests/test_first_boot_regressions.py::test_source_receipt_preserves_deleted_baseline_paths",
     "tests/test_first_boot_regressions.py::test_teardown_attempts_every_child_before_raising",
     "tests/test_fleet_json_boundary.py::test_json_value_decodes_jsonb_array_text",
     "tests/test_fleet_json_boundary.py::test_json_value_decodes_jsonb_object_text",
@@ -664,6 +672,10 @@
     "tests/test_owned_wal_receipts.py::test_wal_restart_keeps_grant_and_acks_only_durable_receipt[LIVE]",
     "tests/test_owned_wal_receipts.py::test_wal_restart_keeps_grant_and_acks_only_durable_receipt[QUARANTINED]",
     "tests/test_owned_wal_receipts.py::test_wal_restart_keeps_grant_and_acks_only_durable_receipt[UNKNOWN]",
+    "tests/test_ownership_local.py::test_expired_collector_cannot_append_live_data",
+    "tests/test_ownership_local.py::test_immutable_sink_preserves_generation_before_wal_append",
+    "tests/test_ownership_local.py::test_late_reply_cannot_extend_lease_or_relabel_old_sink",
+    "tests/test_ownership_local.py::test_new_ownership_does_not_label_a_partial_start_minute_good",
     "tests/test_pg18_ci_isolation.py::test_bad_container_proof_blocks_before_host_sql[bind]",
     "tests/test_pg18_ci_isolation.py::test_bad_container_proof_blocks_before_host_sql[missing-tmpfs]",
     "tests/test_pg18_ci_isolation.py::test_bad_container_proof_blocks_before_host_sql[nested-mount]",
@@ -712,6 +724,12 @@
     "tests/test_segment_wal.py::test_wal_crc_rejects_corrupt_record",
     "tests/test_segment_wal.py::test_wal_hard_capacity",
     "tests/test_segment_wal.py::test_wal_rotates_segments",
+    "tests/test_spool.py::test_corrupt_entry_does_not_break_recovery",
+    "tests/test_spool.py::test_spool_append_recover_ack",
+    "tests/test_spool.py::test_spool_capacity_is_hard_bounded",
+    "tests/test_storage_canonical_replay.py::test_equal_count_replay_uses_canonical_candle_for_features",
+    "tests/test_storage_footprint_revision.py::test_accepted_revision_replaces_stale_footprint_levels_in_transaction",
+    "tests/test_storage_footprint_revision.py::test_rejected_older_revision_does_not_delete_footprint",
     "tests/test_wal_ack_bounds.py::test_ack_rejects_unallocated_ids_without_advancing_checkpoint",
     "tests/test_wal_ack_order.py::test_ack_cannot_skip_earlier_unprocessed_record",
     "tests/test_wal_bounded_tail_repair.py::test_checkpoint_rejects_noncanonical_decimal_bytes",
@@ -773,6 +791,14 @@
     [
       "tests.test_auxiliary_writer_lifecycle",
       "test_standalone_archive_refuses_before_bootstrap_or_exchange"
+    ],
+    [
+      "tests.test_composed_wal_payload_snapshot",
+      "test_admitted_payload_cannot_drift_from_wal_before_delivery[event]"
+    ],
+    [
+      "tests.test_composed_wal_payload_snapshot",
+      "test_admitted_payload_cannot_drift_from_wal_before_delivery[minute]"
     ],
     [
       "tests.test_control_candidate",
@@ -1132,6 +1158,26 @@
     ],
     [
       "tests.test_first_boot_regressions",
+      "test_database_cleanup_accepts_only_confirmed_containment"
+    ],
+    [
+      "tests.test_first_boot_regressions",
+      "test_database_cleanup_requires_exact_containment_proof[1]"
+    ],
+    [
+      "tests.test_first_boot_regressions",
+      "test_database_cleanup_requires_exact_containment_proof[False]"
+    ],
+    [
+      "tests.test_first_boot_regressions",
+      "test_database_cleanup_requires_exact_containment_proof[None]"
+    ],
+    [
+      "tests.test_first_boot_regressions",
+      "test_database_cleanup_requires_exact_containment_proof[true]"
+    ],
+    [
+      "tests.test_first_boot_regressions",
       "test_db_less_worker_applies_recovery_rates_without_database"
     ],
     [
@@ -1165,6 +1211,10 @@
     [
       "tests.test_first_boot_regressions",
       "test_shutdown_pipe_failure_still_contains_owned_process"
+    ],
+    [
+      "tests.test_first_boot_regressions",
+      "test_source_receipt_preserves_deleted_baseline_paths"
     ],
     [
       "tests.test_first_boot_regressions",
@@ -3407,6 +3457,22 @@
       "test_wal_restart_keeps_grant_and_acks_only_durable_receipt[UNKNOWN]"
     ],
     [
+      "tests.test_ownership_local",
+      "test_expired_collector_cannot_append_live_data"
+    ],
+    [
+      "tests.test_ownership_local",
+      "test_immutable_sink_preserves_generation_before_wal_append"
+    ],
+    [
+      "tests.test_ownership_local",
+      "test_late_reply_cannot_extend_lease_or_relabel_old_sink"
+    ],
+    [
+      "tests.test_ownership_local",
+      "test_new_ownership_does_not_label_a_partial_start_minute_good"
+    ],
+    [
       "tests.test_pg18_ci_isolation",
       "test_bad_container_proof_blocks_before_host_sql[bind]"
     ],
@@ -3597,6 +3663,30 @@
     [
       "tests.test_segment_wal",
       "test_wal_rotates_segments"
+    ],
+    [
+      "tests.test_spool",
+      "test_corrupt_entry_does_not_break_recovery"
+    ],
+    [
+      "tests.test_spool",
+      "test_spool_append_recover_ack"
+    ],
+    [
+      "tests.test_spool",
+      "test_spool_capacity_is_hard_bounded"
+    ],
+    [
+      "tests.test_storage_canonical_replay",
+      "test_equal_count_replay_uses_canonical_candle_for_features"
+    ],
+    [
+      "tests.test_storage_footprint_revision",
+      "test_accepted_revision_replaces_stale_footprint_levels_in_transaction"
+    ],
+    [
+      "tests.test_storage_footprint_revision",
+      "test_rejected_older_revision_does_not_delete_footprint"
     ],
     [
       "tests.test_wal_ack_bounds",
