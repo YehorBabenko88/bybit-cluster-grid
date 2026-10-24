@@ -30,7 +30,7 @@ def verify_zip_bytes(raw, *, expected_digest, expected_files):
             and hashlib.sha256(raw).hexdigest() == expected_digest, "ZIP_DIGEST")
     require(type(expected_files) is dict and bool(expected_files), "ZIP_MANIFEST")
     require(all(type(n) is str and n and not n.startswith("/")
-                and chr(92) not in n and chr(0) not in n
+                and chr(92) not in n and chr(0) not in n and ":" not in n
                 and all(part not in ("", ".", "..") for part in n.split("/"))
                 and type(h) is str and SHA64.fullmatch(h)
                 for n, h in expected_files.items()), "ZIP_MANIFEST_ENTRY")
@@ -38,7 +38,7 @@ def verify_zip_bytes(raw, *, expected_digest, expected_files):
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
             entries = archive.infolist()
             names = [x.filename for x in entries]
-            require(len(names) == len(set(names)) and set(names) == set(expected_files),
+            require(len(names) == len(set(names)) and\n                    len(names) == len({name.casefold() for name in names}) and\n                    set(names) == set(expected_files),
                     "ZIP_INVENTORY")
             require(sum(x.file_size for x in entries) <= 16_000_000, "ZIP_TOTAL_SIZE")
             require(all(not x.is_dir() and x.file_size <= 4_000_000 and
