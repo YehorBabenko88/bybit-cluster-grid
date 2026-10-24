@@ -148,3 +148,23 @@ zero-test green jobs are rejected or marked incomplete. A passing
 self-reported matrix is still **synthetic only** and cannot establish
 artifact provenance or physical readiness. GitHub `pending`, `waiting`,
 and `requested` statuses are valid incomplete states, not PASS.
+
+## Issue #243: combined G0/G1 acceptance and STOP
+
+The independent `audit_cross_pr_gates` composes **untrusted metadata**
+for PR #238 (native custody), #239 (trusted bootstrap), #240 (PG18),
+#241 (network), and #242 (acceptance). It requires exact common base,
+individual immutable HEADs, draft status, unique PR identities, explicit
+workflow conclusion, artifact-verification flag, changed-file inventory and
+contract-review flag. It reports absent PRs, missing G0 evidence, missing
+G1 contract reviews and overlapping paths. Its positive intermediate flags
+are **review prerequisites only**, not integration PASS: no combined build,
+cross-branch behavioral test or trusted physical custody is inferred.
+
+Observed coordination checkpoint: #242 acceptance run 40062596809 had four
+queued jobs and no listed artifacts. Other required workflows were queued,
+pending or skipped. STOP at G0 until all relevant exact-HEAD jobs complete,
+their artifacts are downloaded and independently verified; STOP at G1 for
+any contract incompatibility, overlapping change, unauthenticated evidence,
+mixed attempt or missing integration test. Never merge or deploy on this
+metadata-only assessment.
