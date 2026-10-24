@@ -217,6 +217,13 @@ class GateTests(unittest.TestCase):
              "changed_files": [f"scope/{pr}.txt"], "contract_review": False}
             for pr in (238, 239, 240, 241, 242)
         ]
+        pins = {row["pr"]: row["head"] for row in rows}
+        forged = [dict(row) for row in rows]
+        forged[0]["head"] = "f" * 40
+        with self.assertRaises(AcceptanceBlocked):
+            audit_cross_pr_gates(forged, expected_base=base, expected_heads=pins)
+        self.assertEqual(audit_cross_pr_gates(rows, expected_base=base,
+                         expected_heads=pins)["status"], "BLOCKED")
         result = audit_cross_pr_gates(rows, expected_base=base)
         self.assertEqual(result["g0_unverified_prs"], [238, 239, 240, 241, 242])
         self.assertFalse(result["combined_behavior_tested"])
