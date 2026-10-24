@@ -142,8 +142,13 @@ def assess(policy_raw, observation_raw):
         exact(env, "variables path_entries cwd_trusted user_site_disabled isolated_python")
         if type(env["variables"]) is not dict or any(type(k) is not str or type(v) is not str or k.upper() in DENY_ENV for k,v in env["variables"].items()):
             raise ValueError("PYTHON_ENV_POISONED")
+        if len({k.upper() for k in env["variables"]}) != len(env["variables"]):
+            raise ValueError("ENV_CASE_ALIAS")
         if any(k.upper() in ("PSMODULEPATH", "COMSPEC", "PATHEXT", "VIRTUAL_ENV", "PYTHONIOENCODING") for k in env["variables"]):
             raise ValueError("LOADER_ENV_UNCLASSIFIED")
+        if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", k) or
+               "\\x00" in v or "\\r" in v or "\\n" in v for k, v in env["variables"].items()):
+            raise ValueError("ENV_NAME_OR_VALUE_INVALID")
         if type(env["path_entries"]) is not list or not env["path_entries"]:
             raise ValueError("PATH_UNKNOWN")
         if any(not under(path(d), executable)
