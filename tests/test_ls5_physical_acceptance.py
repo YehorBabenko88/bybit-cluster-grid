@@ -209,6 +209,21 @@ class GateTests(unittest.TestCase):
         self.assertFalse(audit_workflow_runs([item], expected_head=HEAD)["offline_ci_complete"])
 
 
+    def test_rehashed_junit_hidden_text_denied(self):
+        original = bundle()
+        for modified in (
+            original["junit"].replace(b"<testcase ", b"hidden<testcase ", 1),
+            original["junit"].replace(b'/>', b'>hidden</testcase>', 1),
+            original["junit"].replace(b'/><testcase', b'/>hidden<testcase', 1),
+        ):
+            altered = dict(original)
+            altered["junit"] = modified
+            altered["index"] = json.dumps({"head": HEAD, "files": {
+                "results.xml": hashlib.sha256(modified).hexdigest(),
+                "events.jsonl": hashlib.sha256(altered["jsonl"]).hexdigest()}}).encode()
+            with self.subTest(modified=modified), self.assertRaises(AcceptanceBlocked):
+                verify_artifacts(**altered)
+
     def test_cross_pr_g0_g1_fail_closed(self):
         base = "e25197b169ef0e5f37b5bd0030ee4a97b13965e2"
         rows = [
