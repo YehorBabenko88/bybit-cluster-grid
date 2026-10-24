@@ -8,20 +8,27 @@ import psycopg
 class Pg18Integrity(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        assert os.getenv("GRID_DISPOSABLE_PG18") == "YES"
-        assert os.getenv("GITHUB_ACTIONS") == "true"
+        if (os.getenv("GRID_DISPOSABLE_PG18") != "YES"
+                or os.getenv("GITHUB_ACTIONS") != "true"
+                or os.getenv("RUNNER_ENVIRONMENT") != "github-hosted"
+                or os.getenv("RUNNER_OS") != "Linux"
+                or os.getenv("GITHUB_REPOSITORY") != "YehorBabenko88/bybit-cluster-grid"):
+            raise RuntimeError("PG18_DISPOSABLE_HOSTED_GUARD")
         cls.dsn = os.environ["GRID_DISPOSABLE_PG_DSN"]
-        assert cls.dsn == "postgresql://grid_ci:ci_only_disposable@127.0.0.1:55439/grid_ci_disposable"
+        if cls.dsn != "postgresql://grid_ci:ci_only_disposable@127.0.0.1:55439/grid_ci_disposable":
+            raise RuntimeError("PG18_DISPOSABLE_DSN_GUARD")
         with psycopg.connect(cls.dsn) as c:
             host, port, db, version = c.execute("select inet_server_addr()::text, inet_server_port(), current_database(), current_setting('server_version_num')::int").fetchone()
             # Docker publishes host loopback:55439 to container:5432.
             # inet_server_addr() is the container interface, not the client target.
-            assert host is not None, host
-            assert port == 5432, port
-            assert db == "grid_ci_disposable", db
-            assert 180000 <= version < 190000, version
-            assert c.execute("show fsync").fetchone()[0] == "on"
-            assert c.execute("show full_page_writes").fetchone()[0] == "on"
+            self_host = c.info.host
+            if host is None or self_host != "127.0.0.1" or c.info.port != 55439:
+                raise RuntimeError("PG18_DISPOSABLE_LOOPBACK_GUARD")
+            if port != 5432: raise RuntimeError("PG18_CONTAINER_PORT_MISMATCH")
+            if db != "grid_ci_disposable": raise RuntimeError("PG18_DATABASE_MISMATCH")
+            if not 180000 <= version < 190000: raise RuntimeError("PG18_VERSION_MISMATCH")
+            if c.execute("show fsync").fetchone()[0] != "on": raise RuntimeError("PG18_FSYNC_DISABLED")
+            if c.execute("show full_page_writes").fetchone()[0] != "on": raise RuntimeError("PG18_FULL_PAGE_WRITES_DISABLED")
 
     def test_wal_durability_configuration(self):
         with psycopg.connect(self.dsn, autocommit=True) as c:
