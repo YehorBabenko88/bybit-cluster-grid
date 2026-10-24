@@ -173,7 +173,7 @@ def audit_workflow_runs(runs, *, expected_head):
                 and type(item["attempt"]) is int and item["attempt"] > 0,
                 "WORKFLOW_ID")
         require(type(item["status"]) is str and item["status"] in
-                ("queued", "in_progress", "completed"), "WORKFLOW_STATUS")
+                ("pending", "waiting", "requested", "queued", "in_progress", "completed"), "WORKFLOW_STATUS")
         require(item["conclusion"] in (None, "success", "failure", "cancelled",
                                        "skipped", "timed_out", "action_required",
                                        "neutral", "startup_failure"), "WORKFLOW_CONCLUSION")
@@ -250,3 +250,37 @@ def audit_gate_dependencies(gates):
     return {"status": "FAIL" if "FAIL" in gates.values() else "BLOCKED",
             "dependencies_unproven": missing, "execute_authorized": False,
             "cleanup_authorized": False, "deployment_go": False}
+
+
+def audit_ci_matrix(jobs, *, expected_head):
+    """Require four independent OS/Python cells and explicit tests, not just a green workflow."""
+    require(type(expected_head) is str and HEAD.fullmatch(expected_head) is not None, "MATRIX_HEAD")
+    require(type(jobs) is list, "MATRIX_TYPE")
+    expected = {(os_name, version) for os_name in ("ubuntu", "windows")
+                for version in ("3.11", "3.12")}
+    seen = {}
+    for item in jobs:
+        require(type(item) is dict and set(item) == {
+            "head", "os", "python", "job_id", "conclusion",
+            "tests", "failures", "errors", "skipped", "artifact_sha256"
+        }, "MATRIX_SCHEMA")
+        require(type(item["head"]) is str and item["head"] == expected_head, "MATRIX_WRONG_HEAD")
+        cell = (item["os"], item["python"])
+        require(all(type(v) is str for v in cell) and cell in expected, "MATRIX_CELL")
+        require(cell not in seen, "MATRIX_DUPLICATE_CELL")
+        require(type(item["job_id"]) is int and item["job_id"] > 0, "MATRIX_JOB")
+        require(item["conclusion"] in ("success", "failure", "cancelled", "skipped",
+                                       "timed_out", "neutral", None), "MATRIX_CONCLUSION")
+        for key in ("tests", "failures", "errors", "skipped"):
+            require(type(item[key]) is int and item[key] >= 0, "MATRIX_COUNT")
+        require(type(item["artifact_sha256"]) is str and
+                SHA.fullmatch(item["artifact_sha256"]) is not None, "MATRIX_SHA")
+        seen[cell] = item
+    missing = sorted(expected - set(seen))
+    bad = sorted(cell for cell, item in seen.items()
+                 if item["conclusion"] != "success" or item["tests"] < 1
+                 or any(item[k] for k in ("failures", "errors", "skipped")))
+    return {"status": "BLOCKED", "missing_cells": missing,
+            "unaccepted_cells": bad, "synthetic_matrix_complete": not missing and not bad,
+            "independent_artifact_bytes_verified": False,
+            "physical_pass": False, "deployment_go": False}
