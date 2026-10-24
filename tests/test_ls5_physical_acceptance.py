@@ -3,7 +3,7 @@ import json
 import unittest
 
 from installer.ls5_physical_acceptance import (
-    AcceptanceBlocked, CASES, STAGES, REQUIRED_WORKFLOWS, audit_workflow_runs, audit_evidence_chain, audit_gate_dependencies, decide, validate_metadata, verify_artifacts,
+    AcceptanceBlocked, CASES, STAGES, REQUIRED_WORKFLOWS, audit_workflow_runs, audit_evidence_chain, audit_gate_dependencies, audit_ci_matrix, decide, validate_metadata, verify_artifacts,
 )
 
 HEAD = "e25197b169ef0e5f37b5bd0030ee4a97b13965e2"
@@ -177,6 +177,36 @@ class GateTests(unittest.TestCase):
         self.assertEqual(audit_gate_dependencies(stages)["status"], "BLOCKED")
         stages["network_preflight"] = "FAIL"
         self.assertEqual(audit_gate_dependencies(stages)["status"], "FAIL")
+
+    def test_four_cell_ci_matrix_and_false_green(self):
+        jobs = [
+            {"head": HEAD, "os": os_name, "python": version,
+             "job_id": i + 1, "conclusion": "success", "tests": 10,
+             "failures": 0, "errors": 0, "skipped": 0, "artifact_sha256": "a" * 64}
+            for i, (os_name, version) in enumerate(
+                (("ubuntu", "3.11"), ("ubuntu", "3.12"),
+                 ("windows", "3.11"), ("windows", "3.12")))
+        ]
+        result = audit_ci_matrix(jobs, expected_head=HEAD)
+        self.assertTrue(result["synthetic_matrix_complete"])
+        self.assertFalse(result["independent_artifact_bytes_verified"])
+        self.assertFalse(result["deployment_go"])
+        self.assertFalse(audit_ci_matrix(jobs[:-1], expected_head=HEAD)["synthetic_matrix_complete"])
+        for field, value in (("conclusion", "skipped"), ("tests", 0),
+                             ("failures", 1), ("errors", 1), ("skipped", 1)):
+            bad = [dict(x) for x in jobs]
+            bad[0][field] = value
+            with self.subTest(field=field):
+                self.assertFalse(audit_ci_matrix(bad, expected_head=HEAD)["synthetic_matrix_complete"])
+        for bad in ([jobs[0], jobs[0]], [dict(jobs[0], head="f" * 40)],
+                    [dict(jobs[0], tests=True)], [dict(jobs[0], os="macos")]):
+            with self.subTest(bad=bad), self.assertRaises(AcceptanceBlocked):
+                audit_ci_matrix(bad, expected_head=HEAD)
+
+    def test_pending_workflow_is_blocked_not_parser_error(self):
+        item = {"name": "preflight", "head": HEAD, "run_id": 42, "attempt": 1,
+                "status": "pending", "conclusion": None}
+        self.assertFalse(audit_workflow_runs([item], expected_head=HEAD)["offline_ci_complete"])
 
 
 if __name__ == "__main__":
