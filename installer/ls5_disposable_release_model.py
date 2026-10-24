@@ -53,6 +53,10 @@ def commit(state):
 
 def recover(state, *, target_verified, journal_valid, stable_identity):
     if state.phase == "idle":
+        if (state.pending is not None or state.journal_previous is not None or
+                state.journal_candidate is not None):
+            raise Stop("ORPHANED_TRANSACTION")
+        validate_version(state.current)
         return state
     if not all(x is True for x in (target_verified, journal_valid, stable_identity)):
         raise Stop("RECOVERY_UNVERIFIED")
@@ -62,6 +66,10 @@ def recover(state, *, target_verified, journal_valid, stable_identity):
         validate_version(value)
     if state.journal_previous == state.journal_candidate:
         raise Stop("JOURNAL_ALIAS")
+    if state.phase == "prepared" and state.pending != state.journal_candidate:
+        raise Stop("PENDING_JOURNAL_CONFLICT")
+    if state.phase == "committed" and state.pending is not None:
+        raise Stop("COMMITTED_PENDING_CONFLICT")
     if state.current not in (state.journal_previous, state.journal_candidate):
         raise Stop("JOURNAL_CONFLICT")
     target = state.journal_previous if state.phase == "prepared" else state.journal_candidate
