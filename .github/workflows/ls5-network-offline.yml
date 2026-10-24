@@ -5,6 +5,10 @@ on:
       - 'installer/ls5_network_offline.py'
       - 'tests/test_ls5_network_offline.py'
       - 'docs/LS5_NETWORK_READINESS.md'
+      - 'docs/ISOLATED_AGENT_NETWORK_CONTRACT.md'
+      - 'docs/LS5_PC4_G0_NETWORK_HANDOFF.md'
+      - 'docs/NETWORK_PHYSICAL_READINESS.md'
+      - 'docs/PR244_NETWORK_INDEPENDENT_REVIEW.md'
       - 'tools/collect_ls5_network_readonly.ps1'
       - '.github/workflows/ls5-network-offline.yml'
   workflow_dispatch:
