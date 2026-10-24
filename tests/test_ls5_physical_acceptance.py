@@ -3,7 +3,7 @@ import json
 import unittest
 
 from installer.ls5_physical_acceptance import (
-    AcceptanceBlocked, CASES, STAGES, REQUIRED_WORKFLOWS, audit_workflow_runs, decide, validate_metadata, verify_artifacts,
+    AcceptanceBlocked, CASES, STAGES, REQUIRED_WORKFLOWS, audit_workflow_runs, audit_evidence_chain, decide, validate_metadata, verify_artifacts,
 )
 
 HEAD = "e25197b169ef0e5f37b5bd0030ee4a97b13965e2"
@@ -135,6 +135,32 @@ class GateTests(unittest.TestCase):
                     [dict(item, run_id=True)], [dict(item, status="queued")]):
             with self.subTest(bad=bad), self.assertRaises(AcceptanceBlocked):
                 audit_workflow_runs(bad, expected_head=HEAD)
+
+
+    def test_cross_artifact_identity_and_attempt(self):
+        x = {"head": HEAD, "run_id": 1234, "attempt": 2, "artifact_id": 987,
+             "zip_sha256": "a" * 64, "manifest_head": HEAD,
+             "junit_head": HEAD, "jsonl_head": HEAD,
+             "manifest_run_id": 1234, "junit_run_id": 1234,
+             "jsonl_run_id": 1234, "manifest_attempt": 2,
+             "junit_attempt": 2, "jsonl_attempt": 2,
+             "custody": "UNVERIFIED", "source": "GITHUB_HOSTED_SYNTHETIC"}
+        result = audit_evidence_chain(x, expected_head=HEAD)
+        self.assertTrue(result["internal_identity_consistent"])
+        self.assertFalse(result["custody_authenticated"])
+        self.assertFalse(result["deployment_go"])
+        for field, value in (
+            ("head", "f" * 40), ("manifest_head", "f" * 40),
+            ("junit_head", "f" * 40), ("jsonl_head", "f" * 40),
+            ("manifest_run_id", 1235), ("junit_run_id", 1235),
+            ("jsonl_run_id", 1235), ("manifest_attempt", 1),
+            ("junit_attempt", 1), ("jsonl_attempt", 1),
+            ("run_id", True), ("attempt", 0), ("artifact_id", 0),
+            ("zip_sha256", "0"), ("custody", "VERIFIED"),
+            ("source", "PHYSICAL_HOST"),
+        ):
+            with self.subTest(field=field), self.assertRaises(AcceptanceBlocked):
+                audit_evidence_chain(dict(x, **{field: value}), expected_head=HEAD)
 
 
 if __name__ == "__main__":
