@@ -28,6 +28,11 @@ jobs:
       GRID_DISPOSABLE_PG18: 'YES'
       GRID_DISPOSABLE_PG_DSN: postgresql://grid_ci:ci_only_disposable@127.0.0.1:55439/grid_ci_disposable
       PYTHONDONTWRITEBYTECODE: '1'
+      PGHOST: 127.0.0.1
+      PGPORT: '55439'
+      PGUSER: grid_ci
+      PGDATABASE: grid_ci_disposable
+      PGPASSWORD: ci_only_disposable
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -44,3 +49,5 @@ jobs:
       - run: python -m pip install 'psycopg[binary]==3.2.10'
       - name: PostgreSQL 18 disposable transaction tests
         run: python -m unittest discover -s tests -p test_ls5_pg18_disposable.py -v
+      - name: PostgreSQL 18 logical backup and isolated restore
+        run: python -m unittest discover -s tests -p test_ls5_pg18_restore.py -v
