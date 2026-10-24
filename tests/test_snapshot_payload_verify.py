@@ -55,3 +55,11 @@ def test_internal_gap_rejected():
     part["last_event_ns"] = 240
     with pytest.raises(PartitionContractError, match="Gap"):
         verify_partition_payload(part, payload, max_bytes=1000)
+
+
+def test_misaligned_event_rejected():
+    part, payload = fixture([dict(event_ns=1, available_ns=60, revision=1)])
+    part["first_event_ns"] = 1
+    part["last_event_ns"] = 1
+    with pytest.raises(PartitionContractError, match="Noncausal"):
+        verify_partition_payload(part, payload, max_bytes=1000)
