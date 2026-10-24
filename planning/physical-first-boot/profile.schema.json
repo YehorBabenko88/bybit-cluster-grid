@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Offline physical plan only; cross-field checks mandatory",
+  "type": "object",
+  "required": [
+    "candidate_head",
+    "cleanup",
+    "executor",
+    "isolation",
+    "market",
+    "migrations",
+    "nodes",
+    "permissions",
+    "ports",
+    "postgres_version_num",
+    "roles",
+    "run_id",
+    "schema"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "grid-physical-plan-1"
+    },
+    "candidate_head": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "market": {
+      "const": "SYNTHETIC_LOOPBACK_ONLY"
+    },
+    "cleanup": {
+      "const": "RETAIN_UNLESS_SEPARATELY_AUTHORIZED_AND_HANDLE_VERIFIED"
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cleanup",
+        "deployment",
+        "execute",
+        "production_database",
+        "schema2"
+      ],
+      "properties": {
+        "deployment": {
+          "const": false
+        },
+        "cleanup": {
+          "const": false
+        },
+        "execute": {
+          "const": false
+        },
+        "schema2": {
+          "const": false
+        },
+        "production_database": {
+          "const": false
+        }
+      }
+    },
+    "nodes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "LS5",
+        "PC4"
+      ],
+      "properties": {
+        "LS5": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "role",
+            "address",
+            "root"
+          ],
+          "properties": {
+            "role": {
+              "const": "CONTROL"
+            },
+            "address": {
+              "type": "null"
+            },
+            "root": {
+              "type": "string",
+              "maxLength": 240
+            }
+          }
+        },
+        "PC4": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "role",
+            "address",
+            "root"
+          ],
+          "properties": {
+            "role": {
+              "const": "WORKER"
+            },
+            "address": {
+              "type": "null"
+            },
+            "root": {
+              "type": "string",
+              "maxLength": 240
+            }
+          }
+        }
+      }
+    },
+    "ports": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api",
+        "postgres",
+        "synthetic",
+        "worker_tunnel"
+      ],
+      "properties": {
+        "api": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65535,
+          "not": {
+            "enum": [
+              5432,
+              55432,
+              55433,
+              8765
+            ]
+          }
+        },
+        "postgres": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65535,
+          "not": {
+            "enum": [
+              5432,
+              55432,
+              55433,
+              8765
+            ]
+          }
+        },
+        "synthetic": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65535,
+          "not": {
+            "enum": [
+              5432,
+              55432,
+              55433,
+              8765
+            ]
+          }
+        },
+        "worker_tunnel": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65535,
+          "not": {
+            "enum": [
+              5432,
+              55432,
+              55433,
+              8765
+            ]
+          }
+        }
+      }
+    },
+    "isolation": {
+      "const": {
+        "api_bind": "127.0.0.1",
+        "postgres_bind": "127.0.0.1",
+        "postgres_instance": "new_disposable",
+        "network_isolation": "INDEPENDENT_OS_POLICY_REQUIRED",
+        "remote_transport": "EXISTING_APPROVED_SSH_TUNNEL"
+      }
+    },
+    "postgres_version_num": {
+      "const": 180004
+    },
+    "migrations": {
+      "const": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48
+      ]
+    },
+    "roles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner",
+        "app",
+        "readonly"
+      ],
+      "properties": {
+        "owner": {
+          "type": "string",
+          "pattern": "^grid_lab_[a-f0-9]{32}_owner$"
+        },
+        "app": {
+          "type": "string",
+          "pattern": "^grid_lab_[a-f0-9]{32}_app$"
+        },
+        "readonly": {
+          "type": "string",
+          "pattern": "^grid_lab_[a-f0-9]{32}_readonly$"
+        }
+      }
+    },
+    "executor": {
+      "type": "null"
+    }
+  }
+}

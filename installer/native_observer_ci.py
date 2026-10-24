@@ -18,6 +18,15 @@ REFUSALS={'missing-argument-refused':{'ARGUMENT_OR_PLATFORM'},'relative-path-ref
  'preexisting-delete-handle-refused':{'NT_OPEN_FAILED'},'read-control-denied-blocked':{'NT_OPEN_FAILED'}}
 
 
+class PythonReceipt:
+    def __init__(self):self.nodes=[];self.calls=[];self.bad=[]
+    def pytest_collection_finish(self,session):self.nodes.extend(x.nodeid for x in session.items)
+    def pytest_runtest_logreport(self,report):
+        if hasattr(report,'wasxfail') or report.outcome!='passed':
+            self.bad.append([report.nodeid,report.when,report.outcome]);return
+        if report.when=='call':self.calls.append(report.nodeid)
+
+
 def require(ok,code):
     if not ok:raise ValueError(code)
 
@@ -188,13 +197,8 @@ def main():
     junit(inventory['journal_cases'],'native-observer-journal-model.xml','synthetic_journal_model',head,run,attempt)
     import pytest
     from installer.ls5_acl_ci import verify_junit
-    nodes=[];calls=[];bad=[]
-    class Receipt:
-        def pytest_collection_finish(self,session):nodes.extend(x.nodeid for x in session.items)
-        def pytest_runtest_logreport(self,r):
-            if hasattr(r,'wasxfail') or r.outcome!='passed':bad.append([r.nodeid,r.when,r.outcome])
-            if r.when=='call' and r.outcome=='passed':calls.append(r.nodeid)
-    code=pytest.main(['-q','-p','no:cacheprovider','tests/test_ls5_native_observer.py','--basetemp=.ls5-native-pytest','--junitxml=native-observer-python.xml'],plugins=[Receipt()])
+    receipt=PythonReceipt();nodes=receipt.nodes;calls=receipt.calls;bad=receipt.bad
+    code=pytest.main(['-q','-p','no:cacheprovider','tests/test_ls5_native_observer.py','--basetemp=.ls5-native-pytest','--junitxml=native-observer-python.xml'],plugins=[receipt])
     require(code==0 and not bad and sorted(nodes)==sorted(calls)==inventory['python_nodes'],'PYTHON_INVENTORY')
     verify_junit('native-observer-python.xml',nodes,inventory['python_junit_cases'])
     tree=E.parse('native-observer-python.xml')

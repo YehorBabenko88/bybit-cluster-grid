@@ -1,13 +1,13 @@
 import asyncio,logging
 from .bybit import linear_symbols
 from .cold_start import readiness,research_allowed
-from .migrations import apply_migrations
+from .schema_contract import verify_runtime_schema
 
 log=logging.getLogger("bootstrap_runtime")
 
 async def bootstrap_runtime(db,coordinator=None):
     """Idempotent first-run sequence for an empty installation."""
-    await apply_migrations(db.pool)
+    await verify_runtime_schema(db.pool)
     from .config import settings
     symbols=await linear_symbols(settings.bybit_rest_url)
     if not symbols:raise RuntimeError("Bybit discovery returned no linear symbols")

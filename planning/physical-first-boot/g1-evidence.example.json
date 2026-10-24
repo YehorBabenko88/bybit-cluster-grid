@@ -1,0 +1,124 @@
+{
+  "schema": "grid-g1-evidence-plan-1",
+  "status": "PLAN_ONLY",
+  "node": "LS5",
+  "candidate_head": null,
+  "tree": null,
+  "run_id": null,
+  "host_id": null,
+  "os": null,
+  "runtimes": null,
+  "postgres": null,
+  "processes": [],
+  "bindings": [],
+  "started_utc": null,
+  "ended_utc": null,
+  "phases": [
+    {
+      "name": "host_identity",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "baseline",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "trusted_source",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "new_environment",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "postgres_bootstrap",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "coordinator_start",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "worker_start",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "registration",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "heartbeat",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "assignment",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "synthetic_feed",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "postgres_readback",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "worker_shutdown",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "worker_reconnect",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "coordinator_restart",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "recovery",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "db_consistency",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "evidence",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "process_containment",
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    {
+      "name": "cleanup",
+      "status": "NOT_RUN",
+      "evidence": null
+    }
+  ],
+  "faults": [],
+  "cleanup_receipt": null,
+  "independent_review": null,
+  "g1_authorized": false,
+  "g2_authorized": false,
+  "physical_sid_acl": "0/10 NOT_RUN"
+}

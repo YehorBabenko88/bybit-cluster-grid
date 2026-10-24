@@ -30,7 +30,11 @@ internal static class Program
     Console.WriteLine(JsonSerializer.Serialize(new{schema=1,fault_injection=Native.Fault!=null,status="BLOCKED",observation="HELD",host_verified=false,
      physical_attestation=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false,
      effectiveRightsStatus="BLOCKED_MIC_ALL_PRINCIPALS_AND_PRIVILEGES_NOT_PROVEN",chain=rows,token=facts},Json));Console.Out.Flush();
-    var line=Console.In.ReadLineAsync();if(!line.Wait(TimeSpan.FromSeconds(20)) || line.Result!="recheck")throw new Blocked("SESSION_COMMAND_OR_TIMEOUT");
+    // Console.In does not consistently decode redirected stream preambles across shells.
+    using var input=new StreamReader(Console.OpenStandardInput(),new System.Text.UTF8Encoding(false,true),true,128,true);
+    var line=input.ReadLineAsync();if(!line.Wait(TimeSpan.FromSeconds(20)))throw new Blocked("SESSION_COMMAND_TIMEOUT");
+    if(input.CurrentEncoding.CodePage!=65001)throw new Blocked("SESSION_ENCODING");
+    Policy.SessionCommand(line.Result);
    }
    // Reobserve original handles, never resolve the pathname again.
    for(int i=0;i<rows.Count;i++)Policy.Unchanged(rows[i],Native.Observe(handles[i],token,i));
@@ -55,6 +59,21 @@ internal record GroupFact(string Sid,uint Attributes);
 internal record TokenFact(string User,bool Elevated,uint Integrity,List<GroupFact> Groups,string Fingerprint);
 internal static class Policy
 {
+ // Data/list-directory read access is needed for Windows sharing accounting;
+ // attribute/control-only handles do not exclude DELETE opens. No data is read.
+ public const uint ShareReadAccess=0x120081;
+ public static void SessionCommand(string? value){
+  if(value==null)throw new Blocked("SESSION_INPUT_EOF");
+  if(value!="recheck")throw new Blocked("SESSION_COMMAND_INVALID");
+ }
+
+ public static void ScalarProbe(bool success,int error,int size){
+  if(success || size!=4 || (error!=122 && error!=24))throw new Blocked("TOKEN_SCALAR_PROBE",error);
+ }
+ public static bool ScalarElevation(uint value){
+  if(value>1)throw new Blocked("TOKEN_SCALAR_VALUE");return value==1;
+ }
+
  public static string[] Components(string path){
   if(path.Length<4 || path.Length>240 || path[0]<'A' || path[0]>'Z' || path[1]!=':' || path[2]!='\\')throw new Blocked("PATH_FORM");
   if(path.Any(c=>c<32 || c>126 || "/%~*?\"<>|".Contains(c)) || path[3..].Contains(':'))throw new Blocked("PATH_ALIAS");

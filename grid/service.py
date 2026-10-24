@@ -1,6 +1,6 @@
 import asyncio, logging
 from .db import Database
-from .migrations import apply_migrations
+from .schema_contract import verify_runtime_schema
 from .logging_setup import setup_logging
 from .resources import snapshot
 from .config import settings
@@ -8,34 +8,23 @@ from .config import settings
 log=logging.getLogger("service")
 
 async def prepare_database():
+    """Connect and verify only. Schema preparation is an explicit offline command.
+
+    Incompatible schema/privileges are fatal; retries must never hide a partial
+    installation or fall back to owner credentials.
+    """
     db=Database()
-    delay=1
-    while True:
-        try:
-            await db.connect()
-            await db.ensure_schema()
-            await apply_migrations(db.pool)
-            return db
-        except asyncio.CancelledError:
-            if db.pool is not None:
+    try:
+        await db.connect()
+        await verify_runtime_schema(db.pool)
+        return db
+    except BaseException:
+        if db.pool is not None:
+            try:
                 await db.pool.close()
+            finally:
                 db.pool=None
-            raise
-        except Exception:
-            # A failed schema/migration attempt can leave an otherwise live pool
-            # behind. Close it before retrying so repeated startup failures cannot
-            # leak connections or exhaust PostgreSQL.
-            if db.pool is not None:
-                try:
-                    await db.pool.close()
-                except Exception:
-                    log.exception("failed to close database pool after startup error",
-                                  extra={"event":"db_pool_close_failed"})
-                finally:
-                    db.pool=None
-            log.exception("database startup failed",extra={"event":"db_start_retry","delay":delay})
-            await asyncio.sleep(delay)
-            delay=min(30,delay*2)
+        raise
 
 async def health_monitor(stop_event=None):
     while stop_event is None or not stop_event.is_set():

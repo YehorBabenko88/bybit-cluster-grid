@@ -41,6 +41,7 @@ function Session([string]$Path){
  $si=New-Object Diagnostics.ProcessStartInfo
  $si.FileName=$script:exe;$si.Arguments='--session "'+$Path+'"';$si.UseShellExecute=$false
  $si.RedirectStandardInput=$true;$si.RedirectStandardOutput=$true;$si.RedirectStandardError=$true;$si.CreateNoWindow=$true
+ if($si.PSObject.Properties.Name -contains 'StandardInputEncoding'){$si.StandardInputEncoding=[Text.UTF8Encoding]::new($false)}
  $p=New-Object Diagnostics.Process;$p.StartInfo=$si
  if(!$p.Start()){throw 'OBSERVER_SESSION_START'};$script:sessions.Add($p)
  $null=$p.StandardError.ReadToEndAsync()
@@ -51,7 +52,9 @@ function Session([string]$Path){
 }
 function Recheck($Process){
  $stdout=$Process.StandardOutput.ReadToEndAsync()
- $Process.StandardInput.WriteLine('recheck');$Process.StandardInput.Flush()
+ # Write an explicit UTF8/no-BOM wire frame on both .NET Framework and .NET.
+ $bytes=([Text.UTF8Encoding]::new($false)).GetBytes("recheck`n")
+ $Process.StandardInput.BaseStream.Write($bytes,0,$bytes.Length);$Process.StandardInput.BaseStream.Flush()
  if(!$Process.WaitForExit(15000)){throw 'OBSERVER_SHUTDOWN_TIMEOUT'}
  if(!$stdout.Wait(15000)){throw 'OBSERVER_OUTPUT_TIMEOUT'}
  $s=$stdout.Result;$script:lastObservation=[pscustomobject]@{code=$Process.ExitCode;value=($s|ConvertFrom-Json)};return $script:lastObservation

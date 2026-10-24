@@ -29,7 +29,15 @@ internal sealed class OwnedFixture:IDisposable
    Root=FixtureNative.Create(parents[^1],name,true,descriptor);parents.Add(Root);
    Target=FixtureNative.Create(Root,"target.fixture",false,descriptor);parents.Add(Target);
    Journal=FixtureNative.Create(Root,"journal.jsonl",false,descriptor);parents.Add(Journal);
-   JournalId=Native.Id(Journal);journalDescriptor=FixtureNative.Descriptor(Journal);Old=FixtureNative.Descriptor(Target);
+   JournalId=Native.Id(Journal);journalDescriptor=FixtureNative.Descriptor(Journal);
+   // NtCreateFile may clear AUTO_INHERITED even if requested in the input SD.
+   // Canonicalize ONLY this just-created private target before the journal binding.
+   // Require precisely the same owner/group/ACEs and the API's known control-bit result.
+   var targetId=Native.Id(Target);var initial=FixtureNative.Descriptor(Target);
+   var canonical=new RawSecurityDescriptor(Convert.FromBase64String(initial),0);
+   canonical.SetFlags(canonical.ControlFlags|ControlFlags.DiscretionaryAclAutoInherited);
+   FixtureNative.SetDacl(Target,initial);Old=FixtureNative.Descriptor(Target);
+   if(Native.Id(Target)!=targetId || Old!=FixtureNative.Encode(canonical))throw new Blocked("FIXTURE_INITIAL_CANONICALIZATION");
    foreach(var h in parents.Where(h=>h!=Target))custody.Add((h,Native.Id(h),FixtureNative.Descriptor(h)));
    var next=new RawSecurityDescriptor(Convert.FromBase64String(Old),0);
    next.DiscretionaryAcl=new RawSecurityDescriptor("D:P(A;;FA;;;SY)(A;;0x160089;;;"+sid+")").DiscretionaryAcl;
@@ -38,7 +46,12 @@ internal sealed class OwnedFixture:IDisposable
   }catch{Dispose();throw;}
  }
  public void Guard(string expected){
-  if(Native.Id(Root)!=Binding.Root || Native.Id(Target)!=Binding.Target || Native.Id(Journal)!=JournalId || FixtureNative.Descriptor(Target)!=expected)throw new Blocked("FIXTURE_CUSTODY_CHANGED");
+  var root=Native.Id(Root);var target=Native.Id(Target);var journal=Native.Id(Journal);var actual=FixtureNative.Descriptor(Target);
+  if(root!=Binding.Root || target!=Binding.Target || journal!=JournalId || actual!=expected){
+   var failure=new Blocked("FIXTURE_CUSTODY_CHANGED");
+   failure.Data["fixture_diagnostic"]=new{root_matches=root==Binding.Root,target_matches=target==Binding.Target,journal_matches=journal==JournalId,
+    descriptor_matches=actual==expected,actual_fixture_descriptor=actual,expected_fixture_descriptor=expected};throw failure;
+  }
   foreach(var c in custody)if(Native.Id(c.Handle)!=c.Id || FixtureNative.Descriptor(c.Handle)!=c.Sd)throw new Blocked("FIXTURE_ANCESTOR_OR_JOURNAL_DRIFT");
  }
  public void ReopenChildren(){

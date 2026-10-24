@@ -32,3 +32,9 @@ installer/native-acl-transaction-fixture/obj/
 native-observer*.json
 native-observer*.jsonl
 native-observer*.xml
+
+first-boot-*.xml
+first-boot-*.json
+first-boot-*.jsonl
+first-boot-*.txt
+first-boot-evidence/

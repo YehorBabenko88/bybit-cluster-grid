@@ -24,6 +24,10 @@ def test_raw_ml_training_closes_pool_without_masking_result(monkeypatch,failed):
     pool=SimpleNamespace(close=AsyncMock())
     async def connect(self):self.pool=pool
     monkeypatch.setattr(Database,'connect',connect)
+    # This unit isolates training cleanup after successful startup validation;
+    # real validation and restricted-role startup have separate PG18 tests.
+    from grid import service
+    monkeypatch.setattr(service,'verify_runtime_schema',AsyncMock())
     monkeypatch.setattr(ml_compute_entry,'TabularBoostBackend',lambda *a,**kw:None)
     monkeypatch.setattr(ml_compute_entry,'LocalArtifactStore',lambda *a:None)
     class Worker:
