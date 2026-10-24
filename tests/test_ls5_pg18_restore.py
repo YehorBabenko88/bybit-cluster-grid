@@ -9,12 +9,13 @@ import pathlib
 import subprocess
 import tempfile
 import unittest
+import uuid
 import psycopg
 
 HOST = "127.0.0.1"
 PORT = 55439
 SOURCE = "grid_ci_disposable"
-TARGET = "grid_ci_restore"
+TARGET_PREFIX = "grid_ci_restore_"
 USER = "grid_ci"
 
 
@@ -49,6 +50,9 @@ class RestoreDrill(unittest.TestCase):
             c.execute("insert into ci_restore_probe values (1,'alpha'),(2,'beta') on conflict (id) do update set payload=excluded.payload")
             c.commit()
             source_rows = c.execute("select id,payload from ci_restore_probe order by id").fetchall()
+        # Never adopt or DROP a fixed database name. Every run owns a unique target.
+        target = TARGET_PREFIX + uuid.uuid4().hex
+        created_target = False
         with tempfile.TemporaryDirectory(prefix="grid-pg18-backup-") as directory:
             archive = pathlib.Path(directory) / "snapshot.dump"
             run("pg_dump", "--format=custom", "--no-owner", "--no-acl",
@@ -57,20 +61,22 @@ class RestoreDrill(unittest.TestCase):
             digest = hashlib.sha256(archive.read_bytes()).hexdigest()
             assert len(digest) == 64 and archive.stat().st_size > 0
             run("pg_restore", "--list", str(archive))
-            run("createdb", "--host", HOST, "--port", str(PORT), "--username", USER, TARGET)
+            run("createdb", "--host", HOST, "--port", str(PORT), "--username", USER, target)
+            created_target = True
             try:
                 run("pg_restore", "--exit-on-error", "--single-transaction", "--no-owner",
                     "--no-acl", "--host", HOST, "--port", str(PORT), "--username", USER,
-                    "--dbname", TARGET, str(archive))
+                    "--dbname", target, str(archive))
                 with psycopg.connect(
-                    f"postgresql://{USER}:ci_only_disposable@{HOST}:{PORT}/{TARGET}"
+                    f"postgresql://{USER}:ci_only_disposable@{HOST}:{PORT}/{target}"
                 ) as restored:
                     assert restored.execute("select id,payload from ci_restore_probe order by id").fetchall() == source_rows
                     assert restored.execute("select count(*) from pg_constraint where conrelid='ci_restore_probe'::regclass and contype='p'").fetchone()[0] == 1
                 assert hashlib.sha256(archive.read_bytes()).hexdigest() == digest
             finally:
-                run("dropdb", "--if-exists", "--host", HOST, "--port", str(PORT),
-                    "--username", USER, TARGET)
+                if created_target:
+                    run("dropdb", "--host", HOST, "--port", str(PORT),
+                        "--username", USER, target)
 
 
 if __name__ == "__main__":
