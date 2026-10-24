@@ -28,11 +28,16 @@ jobs:
           Set-Content -LiteralPath $file -Value 'fixture'
           $exe = 'installer/native-acl-observer/bin/Release/net8.0-windows/NativeAclObserver.exe'
           $result = & $exe $file
-          if ($LASTEXITCODE -ne 0) { throw 'Observer failed on ordinary fixture' }
+          Write-Host ('Observer output: ' + ($result -join '; '))
+          if ($LASTEXITCODE -ne 0) { throw ('Observer failed on ordinary fixture, exit=' + $LASTEXITCODE) }
           if (($result -notcontains 'status=BLOCKED') -or
               ($result -notcontains 'host_verified=false') -or
               ($result -notcontains 'apply_authorized=false') -or
               ($result -notcontains 'reparse=false')) { throw 'Fail-closed output missing' }
+          $ErrorActionPreference = 'Continue'
           $bad = & $exe 2>&1
-          if ($LASTEXITCODE -eq 0) { throw 'Missing path unexpectedly accepted' }
+          $badExit = $LASTEXITCODE
+          $ErrorActionPreference = 'Stop'
+          Write-Host ('Expected refusal exit=' + $badExit)
+          if ($badExit -eq 0) { throw 'Missing path unexpectedly accepted' }
           Remove-Item -LiteralPath $fixture -Recurse -Force
