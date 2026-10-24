@@ -29,7 +29,7 @@ def verify_zip_bytes(raw, *, expected_digest, expected_files):
             and hashlib.sha256(raw).hexdigest() == expected_digest, "ZIP_DIGEST")
     require(type(expected_files) is dict and bool(expected_files), "ZIP_MANIFEST")
     require(all(type(n) is str and n and not n.startswith("/")
-                and "\\\\" not in n and ".." not in n.split("/")
+                and chr(92) not in n and ".." not in n.split("/")
                 and type(h) is str and SHA64.fullmatch(h)
                 for n, h in expected_files.items()), "ZIP_MANIFEST_ENTRY")
     try:
@@ -40,7 +40,7 @@ def verify_zip_bytes(raw, *, expected_digest, expected_files):
                     "ZIP_INVENTORY")
             require(all(not x.is_dir() and x.file_size <= 4_000_000 and
                         x.compress_size <= 8_000_000 and
-                        not (x.external_attr >> 16) & 0o170000 == 0o120000
+                        ((x.external_attr >> 16) & 0o170000) != 0o120000
                         for x in entries), "ZIP_UNSAFE_ENTRY")
             for entry in entries:
                 payload = archive.read(entry)
