@@ -176,3 +176,44 @@ def test_new_release_manifest_substitution_is_blocked():
     p["active_release"] = candidate
     o["active_release"] = candidate
     assert check(p, o)["model_status"] == "FAIL"
+
+def test_release_observation_substitution_rejected():
+    p, o = sample()
+    o["active_release"] = "c" * 40
+    assert check(p, o)["model_status"] == "FAIL"
+
+
+def test_stale_manifest_for_new_release_rejected():
+    p, o = sample()
+    newer = "d" * 40
+    p["active_release"] = newer
+    o["active_release"] = newer
+    # Both claims agree, but inventory still points to the prior release.
+    assert check(p, o)["model_status"] == "FAIL"
+
+
+def test_wrong_release_path_even_with_new_policy_digest_rejected():
+    p, o = sample()
+    release = "e" * 40
+    old = EXEC + "\\releases\\" + VERSION + "\\grid\\coordinator.py"
+    new = EXEC + "\\releases\\" + release + "\\grid\\coordinator.py"
+    p["active_release"] = release
+    o["active_release"] = release
+    p["inventory"][new] = p["inventory"].pop(old)
+    # Observation file still comes from previous release.
+    assert check(p, o)["model_status"] == "FAIL"
+
+
+def test_policy_head_source_mismatch_rejected():
+    p, o = sample()
+    p["head"] = "f" * 40
+    assert check(p, o)["model_status"] == "FAIL"
+
+
+def test_consistently_forged_source_claims_never_authorize():
+    p, o = sample()
+    p["head"] = o["head"] = "f" * 40
+    result = check(p, o)
+    assert result["host_verified"] is False
+    assert result["execute_authorized"] is False
+    assert result["deployment_authorized"] is False
