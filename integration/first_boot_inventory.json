@@ -38,6 +38,7 @@
     "tests/test_control_runtime_wiring.py::test_actual_startup_registers_services_with_election_before_any_start",
     "tests/test_control_runtime_wiring.py::test_follower_cannot_reach_control_handlers",
     "tests/test_coordination_physical_g1_hardening.py::test_active_release_is_independent_of_trusted_source_head",
+    "tests/test_coordination_physical_g1_hardening.py::test_g0_evidence_bytes_are_preserved_without_git_text_normalization",
     "tests/test_coordination_physical_g1_hardening.py::test_invalid_credentials_fail_before_any_provider_or_connection[False]",
     "tests/test_coordination_physical_g1_hardening.py::test_invalid_credentials_fail_before_any_provider_or_connection[True]",
     "tests/test_coordination_physical_g1_hardening.py::test_network_policy_rejects_oversize_and_bad_unicode",
@@ -1052,6 +1053,10 @@
     [
       "tests.test_coordination_physical_g1_hardening",
       "test_active_release_is_independent_of_trusted_source_head"
+    ],
+    [
+      "tests.test_coordination_physical_g1_hardening",
+      "test_g0_evidence_bytes_are_preserved_without_git_text_normalization"
     ],
     [
       "tests.test_coordination_physical_g1_hardening",

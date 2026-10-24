@@ -86,3 +86,10 @@ def test_release_rebinding_never_loosens_source_binding(attack):
     elif attack=='observation_drift':o['active_release']='a'*40
     else:p['active_release']=o['active_release']='not-a-commit'
     assert check(p,o)['model_status']=='FAIL'
+
+def test_g0_evidence_bytes_are_preserved_without_git_text_normalization():
+    import hashlib
+    root=Path(__file__).resolve().parents[1]
+    target=root/'docs/evidence/2026-10-24/ls5-g0-471085ac68254b378f0fa33cdc762558.json'
+    assert hashlib.sha256(target.read_bytes()).hexdigest()=='19c759a41f71cc1218fb7dda3b8bd293117daa0d6bc5d36440a14c4092f7f14f'
+    assert '/docs/evidence/2026-10-24/*.json -text' in (root/'.gitattributes').read_text()
