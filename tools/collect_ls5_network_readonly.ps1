@@ -42,63 +42,13 @@ try {
    foreach ($part in ($localPort -split ',')) {
      $item = $part.Trim()
      if ($item -in @('22','8765','55432')) { $portMatches = $true; continue }
-     if ($item -match '^(\\d+)\\s*-\\s*(\\d+)
-   $relevant = ($protocol -in @('TCP','6','Any')) -and $portMatches
-   if ($relevant) {
-      $result.relevant_firewall_rules += [ordered]@{
-        action=[string]$rule.Action
-        profile=[string]$rule.Profile
-        protocol=$protocol
-        local_port=$localPort
-        remote_address=@($af[0].RemoteAddress)
-      }
-      if ($result.relevant_firewall_rules.Count -gt $maxRules) { throw 'RELEVANT_RULE_LIMIT' }
-   }
- }
- $result.relevant_rule_count = $result.relevant_firewall_rules.Count
- $result.status = 'UNVERIFIED_READ_ONLY_OBSERVATION'
-} catch {
- $result.status = 'BLOCKED'
- $result.errors = @('INVENTORY_INCOMPLETE_OR_ERROR')
- $result.listeners = @()
- $result.relevant_firewall_rules = @()
- $result.listener_count = 0
- $result.relevant_rule_count = 0
-}
-$result | ConvertTo-Json -Depth 8 -Compress
-) {
-       $low = [int]$Matches[1]; $high = [int]$Matches[2]
+     if ($item.Contains('-')) {
+       $bounds = $item -split '-'
+       if ($bounds.Count -ne 2 -or $bounds[0].Trim() -notmatch '^[0-9]+$' -or $bounds[1].Trim() -notmatch '^[0-9]+$') { throw 'FIREWALL_PORT_EXPRESSION_UNSUPPORTED' }
+       $low = [int]$bounds[0].Trim(); $high = [int]$bounds[1].Trim()
        if ($low -gt $high) { throw 'FIREWALL_PORT_RANGE_INVALID' }
-       foreach ($target in $ports) {
-         if ($low -le $target -and $target -le $high) { $portMatches = $true }
-       }
-     } elseif ($item -notmatch '^\\d+
-   $relevant = ($protocol -in @('TCP','6','Any')) -and $portMatches
-   if ($relevant) {
-      $result.relevant_firewall_rules += [ordered]@{
-        action=[string]$rule.Action
-        profile=[string]$rule.Profile
-        protocol=$protocol
-        local_port=$localPort
-        remote_address=@($af[0].RemoteAddress)
-      }
-      if ($result.relevant_firewall_rules.Count -gt $maxRules) { throw 'RELEVANT_RULE_LIMIT' }
-   }
- }
- $result.relevant_rule_count = $result.relevant_firewall_rules.Count
- $result.status = 'UNVERIFIED_READ_ONLY_OBSERVATION'
-} catch {
- $result.status = 'BLOCKED'
- $result.errors = @('INVENTORY_INCOMPLETE_OR_ERROR')
- $result.listeners = @()
- $result.relevant_firewall_rules = @()
- $result.listener_count = 0
- $result.relevant_rule_count = 0
-}
-$result | ConvertTo-Json -Depth 8 -Compress
- -and $item -ne 'Any') {
-       # Unrecognized service/range expressions may cover a target port.
-       # Refuse a misleading incomplete inventory rather than silently omit.
+       foreach ($target in $ports) { if ($low -le $target -and $target -le $high) { $portMatches = $true } }
+     } elseif ($item -notin @('Any') -and $item -notmatch '^[0-9]+$') {
        throw 'FIREWALL_PORT_EXPRESSION_UNSUPPORTED'
      }
    }
