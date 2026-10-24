@@ -48,6 +48,39 @@ class Pg18Integrity(unittest.TestCase):
             with b.transaction():
                 self.assertTrue(b.execute("select pg_try_advisory_xact_lock(%s)", (key,)).fetchone()[0])
 
+    def test_disconnect_rolls_back_uncommitted_write(self):
+        name = "disconnect_" + uuid.uuid4().hex[:12]
+        with psycopg.connect(self.dsn, autocommit=True) as admin:
+            admin.execute(f"create table {name}(id integer primary key)")
+            try:
+                worker = psycopg.connect(self.dsn, autocommit=True)
+                try:
+                    worker.execute("begin")
+                    worker.execute(f"insert into {name} values (1)")
+                    worker.close()  # network/process disconnect before COMMIT
+                finally:
+                    if not worker.closed:
+                        worker.close()
+                with psycopg.connect(self.dsn, autocommit=True) as verifier:
+                    self.assertEqual(verifier.execute(f"select count(*) from {name}").fetchone()[0], 0)
+            finally:
+                admin.execute(f"drop table if exists {name}")
+
+    def test_unique_key_survives_reconnect(self):
+        name = "replay_" + uuid.uuid4().hex[:12]
+        with psycopg.connect(self.dsn, autocommit=True) as admin:
+            admin.execute(f"create table {name}(operation_id text primary key, value integer)")
+            try:
+                with psycopg.connect(self.dsn, autocommit=True) as first:
+                    with first.transaction():
+                        first.execute(f"insert into {name} values ('event-1', 7)")
+                with psycopg.connect(self.dsn, autocommit=True) as second:
+                    with second.transaction():
+                        second.execute(f"insert into {name} values ('event-1', 7) on conflict do nothing")
+                    self.assertEqual(second.execute(f"select count(*),sum(value) from {name}").fetchone(), (1, 7))
+            finally:
+                admin.execute(f"drop table if exists {name}")
+
     def test_savepoint_recovery(self):
         with psycopg.connect(self.dsn, autocommit=True) as c:
             with c.transaction():
