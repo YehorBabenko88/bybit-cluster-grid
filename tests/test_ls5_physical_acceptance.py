@@ -3,7 +3,7 @@ import json
 import unittest
 
 from installer.ls5_physical_acceptance import (
-    AcceptanceBlocked, CASES, STAGES, REQUIRED_WORKFLOWS, audit_workflow_runs, audit_evidence_chain, decide, validate_metadata, verify_artifacts,
+    AcceptanceBlocked, CASES, STAGES, REQUIRED_WORKFLOWS, audit_workflow_runs, audit_evidence_chain, audit_gate_dependencies, decide, validate_metadata, verify_artifacts,
 )
 
 HEAD = "e25197b169ef0e5f37b5bd0030ee4a97b13965e2"
@@ -161,6 +161,22 @@ class GateTests(unittest.TestCase):
         ):
             with self.subTest(field=field), self.assertRaises(AcceptanceBlocked):
                 audit_evidence_chain(dict(x, **{field: value}), expected_head=HEAD)
+
+    def test_dependency_dag_never_promotes(self):
+        stages = {s: "BLOCKED" for s in STAGES}
+        result = audit_gate_dependencies(stages)
+        self.assertIn("ls5_readonly", result["dependencies_unproven"]["acl_remediation"])
+        self.assertFalse(result["execute_authorized"])
+        for stage in STAGES:
+            stages[stage] = "SYNTHETIC_PASS"
+        result = audit_gate_dependencies(stages)
+        self.assertFalse(result["deployment_go"])
+        self.assertIn("pc4_sid_acl", result["dependencies_unproven"]["limited_pilot"])
+        for stage in STAGES:
+            stages[stage] = "PHYSICAL_PASS"
+        self.assertEqual(audit_gate_dependencies(stages)["status"], "BLOCKED")
+        stages["network_preflight"] = "FAIL"
+        self.assertEqual(audit_gate_dependencies(stages)["status"], "FAIL")
 
 
 if __name__ == "__main__":
