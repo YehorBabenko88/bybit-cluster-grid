@@ -44,7 +44,10 @@ def test_forbidden_flow(flow):
     x=baseline();x["flows"].append(flow);check(x,False)
 
 def test_duplicate_flow(): x=baseline();x["flows"].append(copy.deepcopy(x["flows"][0]));check(x,False)
-def test_missing_ssh_baseline(): x=baseline();x["flows"].pop(0);check(x,False)
+def test_missing_ssh_baseline():
+    x=baseline()
+    x["flows"]=[f for f in x["flows"] if not (f["src"]=="LS5" and f["dst"]=="PC4" and f["port"]==22)]
+    check(x,False)
 def test_wrong_known_ip(): x=baseline();x["nodes"]["LS5"]="100.64.1.1";check(x,False)
 def test_duplicate_ip(): x=baseline();x["nodes"]["PC1"]=x["nodes"]["PC4"];check(x,False)
 def test_unknown_ip_public(): x=baseline();x["nodes"]["PC1"]="8.8.8.8";check(x,False)
