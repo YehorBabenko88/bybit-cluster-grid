@@ -11,8 +11,8 @@ import zipfile
 
 from installer.ls5_physical_acceptance import AcceptanceBlocked, require, strict_json
 
-SHA40 = re.compile(r"[a-f0-9]{40}\\Z")
-SHA64 = re.compile(r"[a-f0-9]{64}\\Z")
+SHA40 = re.compile(r"[a-f0-9]{40}\Z")
+SHA64 = re.compile(r"[a-f0-9]{64}\Z")
 PHASES = ("coordinator_start", "agent_register", "assignment", "synthetic_ingest",
           "postgres_commit", "storage_readback", "shutdown", "restart",
           "recovery_readback")
