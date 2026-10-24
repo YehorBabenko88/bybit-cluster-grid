@@ -126,3 +126,19 @@ def test_loader_environment_overrides_are_blocked(key):
     p, o = sample()
     o["environment"]["variables"][key] = r"C:\Users\Public"
     assert check(p, o)["model_status"] == "FAIL"
+
+@pytest.mark.parametrize("field,replacement", [
+    ("python_exe", FILES[5]),
+    ("pyvenv_cfg", FILES[0]),
+    ("site_packages", FILES[3]),
+])
+def test_runtime_cannot_point_at_another_pinned_file(field, replacement):
+    p, o = sample()
+    o["runtime"][field] = replacement
+    assert check(p, o)["model_status"] == "FAIL"
+
+
+def test_nonstring_environment_value_fails_closed():
+    p, o = sample()
+    o["environment"]["variables"]["SAFE"] = 42
+    assert check(p, o)["model_status"] == "FAIL"
