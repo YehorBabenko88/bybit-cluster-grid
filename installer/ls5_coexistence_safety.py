@@ -64,7 +64,11 @@ def assess(observation):
     o = observation
     if type(o.run_id) is not str or not RUN.fullmatch(o.run_id):
         reasons.append("RUN_ID_INVALID")
-    if _root(o.root) is None or (type(o.run_id) is str and not o.root.startswith("C:\\\\GridLab\\\\FirstBoot\\\\" + o.run_id + "\\\\")):
+    if _root(o.root) is None or (type(o.run_id) is str and
+            _root(o.root) not in (
+                ntpath.normcase(ntpath.join("C:", "GridLab", "FirstBoot", o.run_id, "LS5")),
+                ntpath.normcase(ntpath.join("C:", "GridLab", "FirstBoot", o.run_id, "PC4")),
+            )):
         reasons.append("ROOT_INVALID")
     if type(o.root_file_id) is not str or not o.root_file_id.strip():
         reasons.append("FILE_ID_UNKNOWN")
