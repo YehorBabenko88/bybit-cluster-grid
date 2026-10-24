@@ -80,7 +80,7 @@ def test_attacks_fail_closed(attack):
     assert r["model_status"]=="FAIL" and r["status"]=="BLOCKED"
     assert not r["execute_authorized"]
 
-@pytest.mark.parametrize("raw", ['{}','[]','null','{"a":1,"a":2}','NaN','x'*1048577])
+@pytest.mark.parametrize("raw", ['{}','[]','null','{"a":1,"a":2}','NaN',pytest.param('x'*1048577,id='oversized-json-over-limit')])
 def test_malformed_policy(raw):
     _,o=sample()
     r=assess(raw,json.dumps(o))
