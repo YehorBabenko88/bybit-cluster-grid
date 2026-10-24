@@ -136,3 +136,21 @@ def test_findings_do_not_echo_untrusted_values():
     result=evaluate(json.dumps(x))
     assert result["findings"]==["INVALID_POLICY"]
     assert "PRIVATE_TOKEN_SHOULD_NOT_LEAK" not in json.dumps(result)
+
+@pytest.mark.parametrize("raw",[None,{},[],b"{}",0])
+def test_non_text_policy_input_fails_closed(raw):
+    r=evaluate(raw)
+    assert r["status"]=="BLOCKED" and r["policy_valid"] is False
+    assert r["findings"]==["INVALID_POLICY"]
+
+def test_oversized_json_policy_fails_closed_before_decoding():
+    raw=json.dumps(baseline())+" " * 65536
+    r=evaluate(raw)
+    assert r["policy_valid"] is False
+    assert r["findings"]==["INVALID_POLICY"]
+
+def test_multibyte_policy_limit_is_in_bytes_not_characters():
+    raw=json.dumps(baseline(),ensure_ascii=False)+"é"*32768
+    r=evaluate(raw)
+    assert r["policy_valid"] is False
+    assert r["findings"]==["INVALID_POLICY"]
