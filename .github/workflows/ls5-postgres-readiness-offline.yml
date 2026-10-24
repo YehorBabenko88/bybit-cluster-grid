@@ -5,6 +5,8 @@ on:
       - 'installer/ls5_pg_readiness.py'
       - 'tests/test_ls5_pg_readiness.py'
       - 'tests/test_ls5_pg_evidence_integrity.py'
+      - 'installer/pg_physical_readiness.py'
+      - 'tests/test_pg_physical_readiness.py'
       - 'docs/LS5_POSTGRES_18_READINESS.md'
       - '.github/workflows/ls5-postgres-readiness-offline.yml'
   workflow_dispatch:
@@ -34,5 +36,7 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "$EXPECTED"
       - name: Fail-closed offline integrity tests
         run: python -m unittest discover -s tests -p test_ls5_pg_readiness.py -v
+      - name: Physical readiness never inferred from hosted CI
+        run: python -m unittest discover -s tests -p test_pg_physical_readiness.py -v
       - name: Corrupted evidence and mock promotion tests
         run: python -m unittest discover -s tests -p test_ls5_pg_evidence_integrity.py -v
