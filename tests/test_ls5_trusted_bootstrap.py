@@ -120,3 +120,9 @@ def test_mandatory_manifest_input_cannot_be_omitted_consistently(filename_index)
     del p["inventory"][filename]
     o["files"] = [entry for entry in o["files"] if entry["path"] != filename]
     assert check(p, o)["model_status"] == "FAIL"
+
+@pytest.mark.parametrize("key", ["PSModulePath", "COMSPEC", "PATHEXT", "VIRTUAL_ENV", "PYTHONIOENCODING"])
+def test_loader_environment_overrides_are_blocked(key):
+    p, o = sample()
+    o["environment"]["variables"][key] = r"C:\Users\Public"
+    assert check(p, o)["model_status"] == "FAIL"
