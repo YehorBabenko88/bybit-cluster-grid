@@ -108,10 +108,15 @@
     "tests/test_first_boot_regressions.py::test_database_cleanup_requires_exact_containment_proof[true]",
     "tests/test_first_boot_regressions.py::test_db_less_worker_applies_recovery_rates_without_database",
     "tests/test_first_boot_regressions.py::test_default_reachability_uses_configured_rest_endpoint",
+    "tests/test_first_boot_regressions.py::test_fleet_stop_ack_does_not_replace_worker_stop_observation[change0]",
+    "tests/test_first_boot_regressions.py::test_fleet_stop_ack_does_not_replace_worker_stop_observation[change1]",
+    "tests/test_first_boot_regressions.py::test_fleet_stop_ack_does_not_replace_worker_stop_observation[change2]",
+    "tests/test_first_boot_regressions.py::test_fleet_stop_ack_does_not_replace_worker_stop_observation[change3]",
     "tests/test_first_boot_regressions.py::test_invalid_reachability_endpoint_does_not_probe[file:///tmp/x]",
     "tests/test_first_boot_regressions.py::test_invalid_reachability_endpoint_does_not_probe[http://127.0.0.1:0]",
     "tests/test_first_boot_regressions.py::test_invalid_reachability_endpoint_does_not_probe[https://]",
     "tests/test_first_boot_regressions.py::test_invalid_reachability_endpoint_does_not_probe[https://user:secret@example.invalid]",
+    "tests/test_first_boot_regressions.py::test_pilot_requires_complete_zero_activity_worker_snapshots",
     "tests/test_first_boot_regressions.py::test_provider_creation_receipt_survives_later_inspect_failure",
     "tests/test_first_boot_regressions.py::test_registration_rejects_stale_session_and_heartbeat",
     "tests/test_first_boot_regressions.py::test_shutdown_pipe_failure_still_contains_owned_process",
@@ -1267,6 +1272,22 @@
     ],
     [
       "tests.test_first_boot_regressions",
+      "test_fleet_stop_ack_does_not_replace_worker_stop_observation[change0]"
+    ],
+    [
+      "tests.test_first_boot_regressions",
+      "test_fleet_stop_ack_does_not_replace_worker_stop_observation[change1]"
+    ],
+    [
+      "tests.test_first_boot_regressions",
+      "test_fleet_stop_ack_does_not_replace_worker_stop_observation[change2]"
+    ],
+    [
+      "tests.test_first_boot_regressions",
+      "test_fleet_stop_ack_does_not_replace_worker_stop_observation[change3]"
+    ],
+    [
+      "tests.test_first_boot_regressions",
       "test_invalid_reachability_endpoint_does_not_probe[file:///tmp/x]"
     ],
     [
@@ -1280,6 +1301,10 @@
     [
       "tests.test_first_boot_regressions",
       "test_invalid_reachability_endpoint_does_not_probe[https://user:secret@example.invalid]"
+    ],
+    [
+      "tests.test_first_boot_regressions",
+      "test_pilot_requires_complete_zero_activity_worker_snapshots"
     ],
     [
       "tests.test_first_boot_regressions",

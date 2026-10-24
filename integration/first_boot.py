@@ -33,6 +33,15 @@ def registration_is_fresh(nodes,previous,restarted):
     return True
 
 
+def pilot_workers_stopped(state,expected):
+    nodes=state.get('nodes',{})
+    return set(nodes)==set(expected) and all(
+        row.get('operator_stopped') is True and row.get('integrity_ok') is True and
+        type(row.get('wanted_symbols')) is int and row['wanted_symbols']==0 and
+        type(row.get('active_trade_streams')) is int and row['active_trade_streams']==0
+        for row in nodes.values())
+
+
 async def execute():
     require_ci()
     from tools.check_ddl_free_ci import verify_checkout
@@ -139,6 +148,9 @@ async def execute():
                 async def stopped():
                     h=await health();return h and h['runtime_state']=='STOPPED'
                 await until(stopped);evidence.case('fleet-stop-ack')
+                async def worker_stop_observed():
+                    state=await co.command('status');return pilot_workers_stopped(state,node_roots)
+                await until(worker_stop_observed)
                 for n in node_roots:await co.command('pilot-validate',n)
                 evidence.case('pilot-validation');await co.command('fleet-resume')
                 async def active():

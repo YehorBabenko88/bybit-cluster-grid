@@ -30,7 +30,8 @@ internal static class Program
     Console.WriteLine(JsonSerializer.Serialize(new{schema=1,fault_injection=Native.Fault!=null,status="BLOCKED",observation="HELD",host_verified=false,
      physical_attestation=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false,
      effectiveRightsStatus="BLOCKED_MIC_ALL_PRINCIPALS_AND_PRIVILEGES_NOT_PROVEN",chain=rows,token=facts},Json));Console.Out.Flush();
-    var line=Console.In.ReadLineAsync();if(!line.Wait(TimeSpan.FromSeconds(20)) || line.Result!="recheck")throw new Blocked("SESSION_COMMAND_OR_TIMEOUT");
+    var line=Console.In.ReadLineAsync();if(!line.Wait(TimeSpan.FromSeconds(20)))throw new Blocked("SESSION_COMMAND_TIMEOUT");
+    Policy.SessionCommand(line.Result);
    }
    // Reobserve original handles, never resolve the pathname again.
    for(int i=0;i<rows.Count;i++)Policy.Unchanged(rows[i],Native.Observe(handles[i],token,i));
@@ -55,6 +56,14 @@ internal record GroupFact(string Sid,uint Attributes);
 internal record TokenFact(string User,bool Elevated,uint Integrity,List<GroupFact> Groups,string Fingerprint);
 internal static class Policy
 {
+ // Data/list-directory read access is needed for Windows sharing accounting;
+ // attribute/control-only handles do not exclude DELETE opens. No data is read.
+ public const uint ShareReadAccess=0x120081;
+ public static void SessionCommand(string? value){
+  if(value==null)throw new Blocked("SESSION_INPUT_EOF");
+  if(value!="recheck")throw new Blocked("SESSION_COMMAND_INVALID");
+ }
+
  public static void ScalarProbe(bool success,int error,int size){
   if(success || size!=4 || (error!=122 && error!=24))throw new Blocked("TOKEN_SCALAR_PROBE",error);
  }

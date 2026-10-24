@@ -297,3 +297,18 @@ are frozen in the native inventory; local .NET SDK is absent, so these cases awa
 hosted compilation/execution rather than being claimed locally passed. No native
 security calls ran locally. Manual G0 source commands avoid Git status/diff against
 untrusted configuration because clean filters may execute external code.
+
+Hosted780362f native ordinary observation and all51 managed cases PASS, but rename
+case returned rename_win32=0 with session failure. Metadata-only leaf handles do not
+participate in the sharing accounting needed to refuse DELETE opens. Observer now
+requests read-data/list-directory access (no reading/writing content, no DELETE) so
+sharing checks apply; denial remains BLOCKED. Rename assertion is not weakened. Five
+additional frozen managed cases cover the read-only access mask and exact no-BOM
+session protocol. Parent writes explicit UTF8 bytes; reader rejects EOF/BOM/whitespace.
+This needs hosted validation and never enables physical Apply/Execute/Cleanup.
+Reference: https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-iochecklinkshareaccess
+
+Hosted780362f E2E reached14/26 stages (heartbeat, infra and fleet stop), then pilot
+validation refused. Harness now waits for all actual zero-activity/operator-stopped
+worker snapshots after global STOP ACK, preserving every production validation guard.
+The next hosted run must prove this removes the timing gap; no full PASS claimed.

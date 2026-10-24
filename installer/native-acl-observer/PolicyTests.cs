@@ -56,6 +56,11 @@ internal static class PolicyTests
   Test("scalar-elevation-zero",()=>Policy.ScalarElevation(0));
   Test("scalar-elevation-one",()=>Policy.ScalarElevation(1));
   Test("scalar-elevation-invalid",()=>Policy.ScalarElevation(2),"TOKEN_SCALAR_VALUE");
+  Test("share-bearing-read-only-access",()=>{if((Policy.ShareReadAccess&1)==0 || (Policy.ShareReadAccess&(2|4|0x10000|0x40000|0x80000))!=0)throw new Exception();});
+  Test("session-command-exact",()=>Policy.SessionCommand("recheck"));
+  Test("session-command-eof",()=>Policy.SessionCommand(null),"SESSION_INPUT_EOF");
+  Test("session-command-bom",()=>Policy.SessionCommand("\uFEFFrecheck"),"SESSION_COMMAND_INVALID");
+  Test("session-command-space",()=>Policy.SessionCommand("recheck "),"SESSION_COMMAND_INVALID");
   Console.WriteLine(JsonSerializer.Serialize(new{schema=1,status="OFFLINE_TEST_PASS",physical_attestation=false,host_verified=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false,cases},Program.Json));return 0;
  }
 }

@@ -137,3 +137,8 @@ source ancestors are checked for reparse before hashing. PATH entries are screen
 before tool lookup. This does not prove mapped-drive/ancestor TOCTOU or hostile
 provider isolation; those remain native-custody prerequisites, not metadata guarantees.
 Eight mocked-provider/AST cases per PS5.1/7 passed; no real host collection occurred.
+
+Hosted-only follow-up identified native metadata-handle sharing limitations; the
+proposed share-bearing read-access/protocol fix must pass GUID fixtures before any
+physical custody claim. Fifty-one previous managed cases passed in hosted780362f;
+new56-case inventory is pending. These changes do not authorize G0 native collection.

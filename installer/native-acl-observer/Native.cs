@@ -16,7 +16,7 @@ internal static class Native
 {
  internal static string? Fault;
  static void Inject(string name){if(Fault==name)throw new Blocked("INJECTED_"+name);}
- const uint Read=0x120080,Share=3,OBJ_DONT_REPARSE=0x1000;
+ const uint Read=Policy.ShareReadAccess,Share=3,OBJ_DONT_REPARSE=0x1000;
  [StructLayout(LayoutKind.Sequential)]struct UnicodeName{public ushort Length,MaximumLength;public IntPtr Buffer;}
  [StructLayout(LayoutKind.Sequential)]struct ObjectAttributes{public int Length;public IntPtr RootDirectory,ObjectName;public uint Attributes;public IntPtr SecurityDescriptor,SecurityQualityOfService;}
  [StructLayout(LayoutKind.Sequential)]struct IoStatus{public IntPtr Status,Information;}

@@ -83,7 +83,12 @@
     "scalar-probe-unexpected-success",
     "scalar-elevation-zero",
     "scalar-elevation-one",
-    "scalar-elevation-invalid"
+    "scalar-elevation-invalid",
+    "share-bearing-read-only-access",
+    "session-command-exact",
+    "session-command-eof",
+    "session-command-bom",
+    "session-command-space"
   ],
   "source_files": [
     "installer/native-acl-observer/Program.cs",

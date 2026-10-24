@@ -143,3 +143,18 @@ def test_source_receipt_preserves_deleted_baseline_paths(tmp_path):
     files,deleted=changed_source_receipt(tmp_path,base,'HEAD')
     import hashlib
     assert files=={'current.txt':hashlib.sha256(b'new').hexdigest()} and deleted==['removed.txt']
+
+
+@pytest.mark.parametrize('change',[dict(operator_stopped=False),dict(wanted_symbols=1),dict(active_trade_streams=1),dict(integrity_ok=False)])
+def test_fleet_stop_ack_does_not_replace_worker_stop_observation(change):
+    from integration.first_boot import pilot_workers_stopped
+    state=dict(nodes={'a':dict(operator_stopped=True,wanted_symbols=0,active_trade_streams=0,integrity_ok=True,**{})})
+    state['nodes']['a'].update(change)
+    assert not pilot_workers_stopped(state,{'a'})
+
+
+def test_pilot_requires_complete_zero_activity_worker_snapshots():
+    from integration.first_boot import pilot_workers_stopped
+    state=dict(nodes={'a':dict(operator_stopped=True,wanted_symbols=0,active_trade_streams=0,integrity_ok=True)})
+    assert pilot_workers_stopped(state,{'a'})
+    assert not pilot_workers_stopped(state,{'a','b'})
