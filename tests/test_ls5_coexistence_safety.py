@@ -70,3 +70,22 @@ def test_existing_grid_and_new_grid_can_coexist_only_as_claimed_model():
     result = assess(valid())
     assert result["status"] == "OFFLINE_MODEL_PASS"
     assert result["bootstrap_physical_readiness"] == "NO-GO"
+
+@pytest.mark.parametrize("sid", [
+    "S-1-5-21-4294967296-2-3",
+    "S-1-5-21-01-2-3",
+    "S-1-5-21-1-2-999999999999999999999999",
+    "S-1-5-21-١-2-3",
+    "S-1-5-21-1-2",
+])
+def test_noncanonical_sid_rejected(sid):
+    result = assess(replace(valid(), root_owner_sid=sid))
+    assert result["status"] == "BLOCKED"
+    assert "ROOT_OWNER_UNKNOWN" in result["reasons"]
+
+
+def test_other_run_root_rejected():
+    other = "c" * 32
+    result = assess(replace(valid(), root="C:\\GridLab\\FirstBoot\\" + other + "\\LS5"))
+    assert result["status"] == "BLOCKED"
+    assert "ROOT_INVALID" in result["reasons"]
