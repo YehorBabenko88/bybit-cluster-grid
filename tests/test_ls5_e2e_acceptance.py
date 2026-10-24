@@ -114,6 +114,28 @@ class E2EAcceptanceTests(unittest.TestCase):
                                  expected_files={name: hashlib.sha256(
                                      b"outside" if symlink else b"payload").hexdigest()})
 
+    def test_zip_total_expansion_budget(self):
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+            for i in range(5):
+                z.writestr(f"chunk-{i}.bin", b"x" * 3_800_000)
+        raw = out.getvalue()
+        with zipfile.ZipFile(io.BytesIO(raw)) as z:
+            hashes = {n: hashlib.sha256(z.read(n)).hexdigest() for n in z.namelist()}
+        with self.assertRaises(AcceptanceBlocked):
+            verify_zip_bytes(raw, expected_digest=hashlib.sha256(raw).hexdigest(),
+                             expected_files=hashes)
+
+    def test_zip_ambiguous_member_names(self):
+        for name in ("a//b", "a/./b", "./a", "a/" + chr(0) + "b"):
+            out = io.BytesIO()
+            with zipfile.ZipFile(out, "w") as z:
+                z.writestr(name, b"content")
+            raw = out.getvalue()
+            with self.subTest(name=repr(name)), self.assertRaises(AcceptanceBlocked):
+                verify_zip_bytes(raw, expected_digest=hashlib.sha256(raw).hexdigest(),
+                                 expected_files={name: hashlib.sha256(b"content").hexdigest()})
+
     def test_g0_g1_queued_and_forged_head(self):
         pins = {n: HEAD for n in range(238, 243)}
         rows = [{"pr": n, "head": HEAD, "workflow": "queued", "run_id": n,
