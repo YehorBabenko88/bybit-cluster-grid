@@ -35,3 +35,19 @@ def test_non_disposable_directory_rejected(tmp_path):
         publish_disposable_artifact(
             tmp_path, export_id="export-3", data=b"test",
             expected_sha256=hashlib.sha256(b"test").hexdigest())
+
+
+def test_reused_export_id_with_different_bytes_cannot_replace(tmp_path):
+    directory = tmp_path / "disposable-snapshots"
+    directory.mkdir()
+    original = b"first snapshot"
+    changed = b"second snapshot"
+    target = publish_disposable_artifact(
+        directory, export_id="same-id", data=original,
+        expected_sha256=hashlib.sha256(original).hexdigest())
+    with pytest.raises((PublicationBlocked, FileExistsError)):
+        publish_disposable_artifact(
+            directory, export_id="same-id", data=changed,
+            expected_sha256=hashlib.sha256(changed).hexdigest())
+    assert target.read_bytes() == original
+    assert not list(directory.glob(".pending-*"))
