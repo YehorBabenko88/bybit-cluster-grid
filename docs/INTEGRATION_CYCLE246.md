@@ -86,7 +86,7 @@ is a held-handle barrier test, **not OS-crash recovery or durable anti-rollback*
 The fixed child exits cooperatively; no general Grid shutdown protocol is proved.
 Job membership is not evidence of protection from a privileged administrator.
 
-The new required CI checks 13 managed and 8 native cases on PowerShell 5.1/7 and
+The new required CI checks 19 managed and 8 native cases on PowerShell 5.1/7 and
 Python 3.11/3.12. A separate job downloads all four artifacts and verifies exact
 case inventory, false physical flags, JUnit, JSONL, SHA256, source blobs and external
 head/run/attempt. This detects inconsistent/tampered receipts; it cannot make a
@@ -100,7 +100,7 @@ rehashed JSONL with duplicate outcome FAIL/PASS keys, and rehashed JUnit with hi
 PHYSICAL_PASS testcase text. The previous checks accepted both. Canonical JSONL rows
 and rejection of structural XML text now refuse both, even after manifest rehash.
 These are consistency checks, never proof of an honest producer or physical authority.
-The child environment is explicit SystemRoot/WINDIR only; no CI credentials inherited.
+The child environment is explicit LOCALAPPDATA/SystemRoot/WINDIR only; no CI credentials inherited.
 
 ## P0/P1/P2 and G0/G1 verdict
 

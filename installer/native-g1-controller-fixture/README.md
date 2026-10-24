@@ -10,4 +10,4 @@ Held fixture root, marker and journal identities bind permits and flushed journa
 
 All physical phases remain BLOCKED; execute_authorized, cleanup_authorized and host_verified remain false.
 
-The child receives an explicit Unicode environment containing only SystemRoot and WINDIR; CI credentials, PATH and arbitrary parent configuration are not inherited.
+The child receives an explicit Unicode environment containing only LOCALAPPDATA, SystemRoot and WINDIR; CI credentials, PATH and arbitrary parent configuration are not inherited.

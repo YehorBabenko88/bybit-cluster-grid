@@ -6,6 +6,14 @@ internal record Permit(int Schema,string Head,string Run,string Attempt,string N
 internal record SignedPermit(string Payload,string Signature);
 internal static class ControllerPolicy {
  internal static void Need(bool b,string code="CONTROLLER_REFUSED"){if(!b)throw new Blocked(code);}
+ internal static string ChildEnvironment(string windows,string local){
+  foreach(string path in new[]{windows,local})Need(path!=null&&path.Length<=2048&&Regex.IsMatch(path,@"^[A-Za-z]:\\")&&!path.Any(c=>c<32),"REQUIRED_CHILD_KNOWN_FOLDER");
+  return "LOCALAPPDATA="+local+"\0SystemRoot="+windows+"\0WINDIR="+windows+"\0\0";
+ }
+ internal static void ChildToken(TokenFact facts,string user){
+  Need(facts.User==user&&!facts.Elevated&&facts.Integrity<=4096,"CHILD_TOKEN_IDENTITY_OR_INTEGRITY");
+  Need(!facts.Groups.Any(g=>g.Sid=="S-1-5-32-544"&&(g.Attributes&4)!=0&&(g.Attributes&16)==0),"CHILD_ENABLED_ADMINISTRATORS");
+ }
  internal static byte[] Canon<T>(T x)=>JsonSerializer.SerializeToUtf8Bytes(x);
  internal static T Parse<T>(byte[] b){Need(b.Length>0&&b.Length<=16384);try{var x=JsonSerializer.Deserialize<T>(b,new JsonSerializerOptions{MaxDepth=8})!;Need(x!=null&&Canon(x).AsSpan().SequenceEqual(b));return x;}catch(JsonException){throw new Blocked("PARSE_REFUSED");}}
  internal static SignedPermit Sign(Permit p,RSA key)=>new(Convert.ToBase64String(Canon(p)),Convert.ToBase64String(key.SignData(Canon(p),HashAlgorithmName.SHA256,RSASignaturePadding.Pss)));
