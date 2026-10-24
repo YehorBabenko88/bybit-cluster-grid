@@ -43,6 +43,18 @@ def _root(value):
     return ntpath.normcase(ntpath.normpath(value))
 
 
+def _sid(value):
+    if type(value) is not str:
+        return False
+    parts = value.split("-")
+    if len(parts) != 8 or parts[:4] != ["S", "1", "5", "21"]:
+        return False
+    if any(not part.isascii() or not part.isdecimal() or
+           (len(part) > 1 and part[0] == "0") for part in parts[4:]):
+        return False
+    return all(0 <= int(part) <= 4294967295 for part in parts[4:])
+
+
 def assess(observation):
     reasons = []
     if type(observation) is not Observation:
@@ -52,13 +64,13 @@ def assess(observation):
     o = observation
     if type(o.run_id) is not str or not RUN.fullmatch(o.run_id):
         reasons.append("RUN_ID_INVALID")
-    if _root(o.root) is None or (type(o.run_id) is str and o.run_id not in o.root):
+    if _root(o.root) is None or (type(o.run_id) is str and not o.root.startswith("C:\\\\GridLab\\\\FirstBoot\\\\" + o.run_id + "\\\\")):
         reasons.append("ROOT_INVALID")
     if type(o.root_file_id) is not str or not o.root_file_id.strip():
         reasons.append("FILE_ID_UNKNOWN")
-    if type(o.root_owner_sid) is not str or not re.fullmatch(r"S-1-5-21-(?:[0-9]+-){2}[0-9]+", o.root_owner_sid):
+    if not _sid(o.root_owner_sid):
         reasons.append("ROOT_OWNER_UNKNOWN")
-    if type(o.process_owner_sid) is not str or o.process_owner_sid != o.root_owner_sid:
+    if not _sid(o.process_owner_sid) or o.process_owner_sid != o.root_owner_sid:
         reasons.append("PROCESS_OWNER_MISMATCH")
     if type(o.process_pid) is not int or o.process_pid <= 0:
         reasons.append("PID_UNKNOWN")
