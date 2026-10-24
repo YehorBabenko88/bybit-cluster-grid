@@ -47,7 +47,7 @@ def _sid(value):
     if type(value) is not str:
         return False
     parts = value.split("-")
-    if len(parts) != 8 or parts[:4] != ["S", "1", "5", "21"]:
+    if len(parts) != 7 or parts[:4] != ["S", "1", "5", "21"]:
         return False
     if any(not part.isascii() or not part.isdecimal() or
            (len(part) > 1 and part[0] == "0") for part in parts[4:]):
