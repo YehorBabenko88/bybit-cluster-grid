@@ -17,6 +17,9 @@ $result=[ordered]@{
 try {
  $tasks=@(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskName -in @('BybitClusterGridCoordinator','BybitClusterGridAgent','BybitClusterGridArchivePipeline') })
  $result.tasks=@($tasks | ForEach-Object { [ordered]@{name=$_.TaskName;state=[string]$_.State} })
+ if (@($tasks | Where-Object { [string]$_.State -ne 'Disabled' }).Count -gt 0) {
+   $result.stop_reasons+= 'GRID_TASK_PRESENT_NOT_DISABLED_DO_NOT_MUTATE'
+ }
  $result.task_inventory='OBSERVED'
 } catch { $result.stop_reasons+= 'TASK_INVENTORY_UNAVAILABLE' }
 try {
@@ -36,5 +39,7 @@ try {
  $result.port_inventory='OBSERVED'
 } catch { $result.stop_reasons+= 'PORT_INVENTORY_UNAVAILABLE' }
 if ($result.listeners.Count -gt 0) { $result.stop_reasons+= 'EXISTING_LISTENER_DO_NOT_REUSE' }
+# This observer cannot establish source provenance, trusted process identity or port freedom
+# outside its narrow inventory. Never interpret an empty listener list as G1 authorization.
 if ($result.stop_reasons.Count -eq 0) { $result.status='OBSERVATION_ONLY' }
 $result | ConvertTo-Json -Depth 6
