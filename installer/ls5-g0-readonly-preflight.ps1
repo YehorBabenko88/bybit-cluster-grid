@@ -7,7 +7,6 @@ No secrets, command lines, environment variables, task actions, SQL or file muta
 [CmdletBinding()]
 param([ValidateSet('CONTROL','WORKER')][string]$Role='CONTROL')
 $ErrorActionPreference='Stop'
-$ErrorActionPreference='Stop'
 $ports=@(8765,55432)
 $result=[ordered]@{
  schema='grid-g0-readonly-1'; role=$Role; host=$env:COMPUTERNAME
