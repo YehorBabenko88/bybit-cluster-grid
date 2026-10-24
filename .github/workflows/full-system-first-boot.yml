@@ -48,6 +48,8 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'RUNTIME_GUARD_FAILED'}
           & powershell.exe -NoProfile -NonInteractive -File installer/tests/test-legacy-rollback.ps1 -Python (Get-Command python).Source
           if($LASTEXITCODE -ne 0){throw 'LEGACY_ROLLBACK_FAILED'}
+          & powershell.exe -NoProfile -NonInteractive -File installer/tests/test-physical-g0-observer.ps1 | Tee-Object first-boot-g0-ps51.txt
+          if($LASTEXITCODE -ne 0){throw 'G0_PS51_MOCKED_FIXTURES_FAILED'}
       - name: PowerShell 7 syntax only
         shell: pwsh
         run: |
@@ -55,6 +57,10 @@ jobs:
             $t=$null;$e=$null
             [void][Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$t,[ref]$e)
             if($e.Count){throw 'PS7_PARSE_FAILED'}
+          }
+          if($env:RUNNER_OS -eq 'Windows'){
+            & pwsh -NoProfile -NonInteractive -File installer/tests/test-physical-g0-observer.ps1 | Tee-Object first-boot-g0-ps7.txt
+            if($LASTEXITCODE -ne 0){throw 'G0_PS7_MOCKED_FIXTURES_FAILED'}
           }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

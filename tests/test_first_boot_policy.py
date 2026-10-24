@@ -57,3 +57,21 @@ def test_subtest_report_cannot_inflate_primary_inventory_or_hide_failure():
     assert receipt.passed==[] and len(receipt.subtests)==1
     report.outcome='failed';receipt.pytest_runtest_logreport(report)
     assert receipt.bad
+
+
+
+def test_connected_sendmsg_validates_actual_loopback_peer_without_address():
+    import socket
+    from types import SimpleNamespace
+    from integration.first_boot_policy import guard_network_event
+    sock=SimpleNamespace(family=socket.AF_INET,getpeername=lambda:('127.0.0.1',19441))
+    guard_network_event('socket.sendmsg',(sock,None))
+
+
+@pytest.mark.parametrize('peer',[('8.8.8.8',443),('api.bybit.com',443),None])
+def test_connected_sendmsg_still_blocks_external_or_unknown_peer(peer):
+    import socket
+    from types import SimpleNamespace
+    from integration.first_boot_policy import guard_network_event
+    sock=SimpleNamespace(family=socket.AF_INET,getpeername=lambda:peer)
+    with pytest.raises(PermissionError):guard_network_event('socket.sendmsg',(sock,None))

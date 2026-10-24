@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Planning-only evidence template: not physical results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "status",
+    "node",
+    "candidate_head",
+    "tree",
+    "run_id",
+    "host_id",
+    "os",
+    "runtimes",
+    "postgres",
+    "processes",
+    "bindings",
+    "started_utc",
+    "ended_utc",
+    "phases",
+    "faults",
+    "cleanup_receipt",
+    "independent_review",
+    "g1_authorized",
+    "g2_authorized",
+    "physical_sid_acl"
+  ],
+  "properties": {
+    "schema": {
+      "const": "grid-g1-evidence-plan-1"
+    },
+    "status": {
+      "const": "PLAN_ONLY"
+    },
+    "node": {
+      "enum": [
+        "LS5",
+        "PC4"
+      ]
+    },
+    "candidate_head": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      ]
+    },
+    "tree": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      ]
+    },
+    "run_id": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      ]
+    },
+    "host_id": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      ]
+    },
+    "os": {
+      "const": null
+    },
+    "runtimes": {
+      "const": null
+    },
+    "postgres": {
+      "const": null
+    },
+    "processes": {
+      "const": []
+    },
+    "bindings": {
+      "const": []
+    },
+    "started_utc": {
+      "const": null
+    },
+    "ended_utc": {
+      "const": null
+    },
+    "phases": {
+      "const": [
+        {
+          "name": "host_identity",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "baseline",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "trusted_source",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "new_environment",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "postgres_bootstrap",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "coordinator_start",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "worker_start",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "registration",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "heartbeat",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "assignment",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "synthetic_feed",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "postgres_readback",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "worker_shutdown",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "worker_reconnect",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "coordinator_restart",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "recovery",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "db_consistency",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "evidence",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "process_containment",
+          "status": "NOT_RUN",
+          "evidence": null
+        },
+        {
+          "name": "cleanup",
+          "status": "NOT_RUN",
+          "evidence": null
+        }
+      ]
+    },
+    "faults": {
+      "const": []
+    },
+    "cleanup_receipt": {
+      "const": null
+    },
+    "independent_review": {
+      "const": null
+    },
+    "g1_authorized": {
+      "const": false
+    },
+    "g2_authorized": {
+      "const": false
+    },
+    "physical_sid_acl": {
+      "const": "0/10 NOT_RUN"
+    }
+  }
+}

@@ -86,8 +86,9 @@ internal static class Native
  }
  static byte[] TokenBytes(SafeAccessTokenHandle t,int type){
   Inject("TOKEN_QUERY");
-  GetTokenInformation(t,type,IntPtr.Zero,0,out int size);
-  if(Marshal.GetLastWin32Error()!=122 || size<4 || size>1048576)throw new Blocked("TOKEN_SIZE_UNKNOWN");
+  bool probe=GetTokenInformation(t,type,IntPtr.Zero,0,out int size);
+  int probeError=Marshal.GetLastWin32Error();
+  if(probe || probeError!=122 || size<4 || size>1048576)throw new Blocked($"TOKEN_SIZE_UNKNOWN_T{type}_N{size}_P{(probe?1:0)}",probeError);
   IntPtr p=Marshal.AllocHGlobal(size);
   try{if(!GetTokenInformation(t,type,p,size,out int used) || used!=size)throw new Blocked("TOKEN_QUERY_FAILED");
    var b=new byte[size];Marshal.Copy(p,b,0,size);return b;

@@ -3,6 +3,7 @@ import ipaddress
 import os
 from pathlib import Path
 import re
+import socket
 import sys
 from urllib.parse import urlsplit
 
@@ -32,6 +33,21 @@ def loopback_endpoint(url):
     return parsed.hostname,port
 
 
+def guard_network_event(event,args):
+    sock,address=args[0],args[1]
+    if address is None and event in ('socket.sendmsg','socket.sendto'):
+        # Connected sendmsg has no destination argument. Validate the actual peer,
+        # never infer that missing destination means local or permit Unix sockets.
+        if sock.family not in (socket.AF_INET,socket.AF_INET6):
+            raise PermissionError('FIRST_BOOT_SOCKET_FAMILY_BLOCKED')
+        try:address=sock.getpeername()
+        except OSError:raise PermissionError('FIRST_BOOT_PEER_UNKNOWN') from None
+    if not isinstance(address,tuple) or not address:raise PermissionError('FIRST_BOOT_UNIX_NETWORK_BLOCKED')
+    try:local=ipaddress.ip_address(address[0]).is_loopback
+    except ValueError:local=False
+    if not local:raise PermissionError('FIRST_BOOT_EXTERNAL_NETWORK_BLOCKED')
+
+
 def install_child_guard(root):
     """Python audit guard, not a kernel sandbox or protection against native extensions."""
     root=Path(root).resolve(strict=True)
@@ -42,11 +58,7 @@ def install_child_guard(root):
         if candidate!=root and root not in candidate.parents:raise PermissionError('FIRST_BOOT_OUTSIDE_OWNED_FIXTURE')
     def audit(event,args):
         if event in ('socket.connect','socket.bind','socket.sendto','socket.sendmsg'):
-            address=args[1]
-            if not isinstance(address,tuple):raise PermissionError('FIRST_BOOT_UNIX_NETWORK_BLOCKED')
-            try:local=ipaddress.ip_address(address[0]).is_loopback
-            except ValueError:local=False
-            if not local:raise PermissionError('FIRST_BOOT_EXTERNAL_NETWORK_BLOCKED')
+            guard_network_event(event,args)
         elif event=='socket.getaddrinfo':
             try:local=ipaddress.ip_address(args[0]).is_loopback
             except ValueError:local=False

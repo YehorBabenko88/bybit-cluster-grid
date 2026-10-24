@@ -77,6 +77,10 @@
     "tests/test_ddl_free_startup.py::test_windows_synthetic_suites_use_fresh_powershell_process_exit_status",
     "tests/test_first_boot_evidence.py::test_e2e_summary_never_accepts_blocked_or_physical_promotion",
     "tests/test_first_boot_evidence.py::test_owned_evidence_path_cannot_escape_or_follow_symlink",
+    "tests/test_first_boot_policy.py::test_connected_sendmsg_still_blocks_external_or_unknown_peer[None]",
+    "tests/test_first_boot_policy.py::test_connected_sendmsg_still_blocks_external_or_unknown_peer[peer0]",
+    "tests/test_first_boot_policy.py::test_connected_sendmsg_still_blocks_external_or_unknown_peer[peer1]",
+    "tests/test_first_boot_policy.py::test_connected_sendmsg_validates_actual_loopback_peer_without_address",
     "tests/test_first_boot_policy.py::test_default_entrypoint_is_plan_only",
     "tests/test_first_boot_policy.py::test_execute_refuses_before_provider_on_local_host",
     "tests/test_first_boot_policy.py::test_lab_endpoints_refuse_external_alias_credentials_and_reserved_ports[http://127.0.0.1.evil:99]",
@@ -701,6 +705,45 @@
     "tests/test_pg18_ci_isolation.py::test_untrusted_environment_never_calls_provider[GITHUB_RUN_ID-]",
     "tests/test_pg18_ci_isolation.py::test_untrusted_environment_never_calls_provider[RUNNER_ENVIRONMENT-self-hosted]",
     "tests/test_pg18_ci_isolation.py::test_untrusted_environment_never_calls_provider[RUNNER_OS-Windows]",
+    "tests/test_physical_first_boot_program.py::test_authority_cannot_be_enabled[cleanup]",
+    "tests/test_physical_first_boot_program.py::test_authority_cannot_be_enabled[deployment]",
+    "tests/test_physical_first_boot_program.py::test_authority_cannot_be_enabled[execute]",
+    "tests/test_physical_first_boot_program.py::test_authority_cannot_be_enabled[production_database]",
+    "tests/test_physical_first_boot_program.py::test_authority_cannot_be_enabled[schema2]",
+    "tests/test_physical_first_boot_program.py::test_complete_self_report_does_not_attest_host_or_authorize_g1",
+    "tests/test_physical_first_boot_program.py::test_duplicate_ports_and_external_market_blocked",
+    "tests/test_physical_first_boot_program.py::test_failed_gate_is_no_go_and_missing_host_is_blocked",
+    "tests/test_physical_first_boot_program.py::test_formal_profile_and_snapshot_schemas_match_offline_contract",
+    "tests/test_physical_first_boot_program.py::test_g1_evidence_plan_cannot_claim_actual_execution",
+    "tests/test_physical_first_boot_program.py::test_inadequate_isolation_blocked[change0]",
+    "tests/test_physical_first_boot_program.py::test_inadequate_isolation_blocked[change1]",
+    "tests/test_physical_first_boot_program.py::test_inadequate_isolation_blocked[change2]",
+    "tests/test_physical_first_boot_program.py::test_only_allowlisted_environment_names_accepted[data0]",
+    "tests/test_physical_first_boot_program.py::test_only_allowlisted_environment_names_accepted[data1]",
+    "tests/test_physical_first_boot_program.py::test_path_alias_and_production_roots_blocked[C:\\\\GridLab\\\\FirstBoot\\\\..\\\\PC4]",
+    "tests/test_physical_first_boot_program.py::test_path_alias_and_production_roots_blocked[C:\\\\GridLab\\\\FirstBoot\\\\bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\\\LS5:stream]",
+    "tests/test_physical_first_boot_program.py::test_path_alias_and_production_roots_blocked[C:\\\\GridLab\\\\FirstBoot\\\\bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\\\ls5]",
+    "tests/test_physical_first_boot_program.py::test_path_alias_and_production_roots_blocked[C:\\\\ProgramData\\\\Grid]",
+    "tests/test_physical_first_boot_program.py::test_path_alias_and_production_roots_blocked[\\\\\\\\server\\\\share]",
+    "tests/test_physical_first_boot_program.py::test_port_conflict_and_existing_planned_root_are_no_go",
+    "tests/test_physical_first_boot_program.py::test_reserved_or_invalid_ports_blocked[0]",
+    "tests/test_physical_first_boot_program.py::test_reserved_or_invalid_ports_blocked[22]",
+    "tests/test_physical_first_boot_program.py::test_reserved_or_invalid_ports_blocked[5432]",
+    "tests/test_physical_first_boot_program.py::test_reserved_or_invalid_ports_blocked[55432]",
+    "tests/test_physical_first_boot_program.py::test_reserved_or_invalid_ports_blocked[55433]",
+    "tests/test_physical_first_boot_program.py::test_reserved_or_invalid_ports_blocked[65536]",
+    "tests/test_physical_first_boot_program.py::test_reserved_or_invalid_ports_blocked[8765]",
+    "tests/test_physical_first_boot_program.py::test_reserved_or_invalid_ports_blocked[True]",
+    "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[forged_authority]",
+    "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[future]",
+    "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[head]",
+    "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[host_alias]",
+    "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[missing]",
+    "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[run_id]",
+    "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[secret]",
+    "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[stale]",
+    "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[unknown]",
+    "tests/test_physical_first_boot_program.py::test_valid_profile_is_plan_only_not_execution",
     "tests/test_pr227_authorization_boundary.py::test_blocked_runbook_has_no_executable_coordinator_launch",
     "tests/test_pr227_authorization_boundary.py::test_empty_resume_currently_opens_active_without_ack",
     "tests/test_pr227_authorization_boundary.py::test_persisted_active_does_not_prove_operator_authorization",
@@ -709,6 +752,28 @@
     "tests/test_pr227_checkout.py::test_checkout_substitution_rejected",
     "tests/test_pr227_checkout.py::test_checkout_wrong_head_rejected",
     "tests/test_pr227_checkout.py::test_staged_substitution_rejected",
+    "tests/test_pr_compatibility_watch.py::test_changed_head_and_shared_source_identifies_owner",
+    "tests/test_pr_compatibility_watch.py::test_consistent_sources_and_green_metadata_are_not_acceptance",
+    "tests/test_pr_compatibility_watch.py::test_duplicate_json_keys_and_nonfinite_are_rejected",
+    "tests/test_pr_compatibility_watch.py::test_no_args_cli_is_plan_only_without_github_access",
+    "tests/test_pr_compatibility_watch.py::test_non_success_or_skipped_never_passes[cancelled]",
+    "tests/test_pr_compatibility_watch.py::test_non_success_or_skipped_never_passes[failure]",
+    "tests/test_pr_compatibility_watch.py::test_non_success_or_skipped_never_passes[in_progress]",
+    "tests/test_pr_compatibility_watch.py::test_non_success_or_skipped_never_passes[pending]",
+    "tests/test_pr_compatibility_watch.py::test_non_success_or_skipped_never_passes[queued]",
+    "tests/test_pr_compatibility_watch.py::test_non_success_or_skipped_never_passes[skipped]",
+    "tests/test_pr_compatibility_watch.py::test_non_success_or_skipped_never_passes[timed_out]",
+    "tests/test_pr_compatibility_watch.py::test_non_success_or_skipped_never_passes[waiting]",
+    "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[bad_path]",
+    "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[duplicate_pr]",
+    "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[false_count]",
+    "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[missing_ci]",
+    "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[missing_file]",
+    "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[missing_pr]",
+    "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[newer_queued]",
+    "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[no_artifact]",
+    "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[partial]",
+    "tests/test_pr_compatibility_watch.py::test_unknown_or_truncated_metadata_blocks[wrong_head]",
     "tests/test_retention_bootstrap_regression.py::test_coordinator_bootstraps_retention_before_background_tasks",
     "tests/test_retention_bootstrap_regression.py::test_empty_retention_dataset_has_no_phantom_backlog",
     "tests/test_retention_bootstrap_regression.py::test_existing_overdue_rows_keep_estimate",
@@ -1075,6 +1140,22 @@
     [
       "tests.test_first_boot_evidence",
       "test_owned_evidence_path_cannot_escape_or_follow_symlink"
+    ],
+    [
+      "tests.test_first_boot_policy",
+      "test_connected_sendmsg_still_blocks_external_or_unknown_peer[None]"
+    ],
+    [
+      "tests.test_first_boot_policy",
+      "test_connected_sendmsg_still_blocks_external_or_unknown_peer[peer0]"
+    ],
+    [
+      "tests.test_first_boot_policy",
+      "test_connected_sendmsg_still_blocks_external_or_unknown_peer[peer1]"
+    ],
+    [
+      "tests.test_first_boot_policy",
+      "test_connected_sendmsg_validates_actual_loopback_peer_without_address"
     ],
     [
       "tests.test_first_boot_policy",
@@ -3573,6 +3654,162 @@
       "test_untrusted_environment_never_calls_provider[RUNNER_OS-Windows]"
     ],
     [
+      "tests.test_physical_first_boot_program",
+      "test_authority_cannot_be_enabled[cleanup]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_authority_cannot_be_enabled[deployment]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_authority_cannot_be_enabled[execute]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_authority_cannot_be_enabled[production_database]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_authority_cannot_be_enabled[schema2]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_complete_self_report_does_not_attest_host_or_authorize_g1"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_duplicate_ports_and_external_market_blocked"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_failed_gate_is_no_go_and_missing_host_is_blocked"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_formal_profile_and_snapshot_schemas_match_offline_contract"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_g1_evidence_plan_cannot_claim_actual_execution"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_inadequate_isolation_blocked[change0]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_inadequate_isolation_blocked[change1]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_inadequate_isolation_blocked[change2]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_only_allowlisted_environment_names_accepted[data0]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_only_allowlisted_environment_names_accepted[data1]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_path_alias_and_production_roots_blocked[C:\\\\GridLab\\\\FirstBoot\\\\..\\\\PC4]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_path_alias_and_production_roots_blocked[C:\\\\GridLab\\\\FirstBoot\\\\bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\\\LS5:stream]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_path_alias_and_production_roots_blocked[C:\\\\GridLab\\\\FirstBoot\\\\bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\\\ls5]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_path_alias_and_production_roots_blocked[C:\\\\ProgramData\\\\Grid]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_path_alias_and_production_roots_blocked[\\\\\\\\server\\\\share]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_port_conflict_and_existing_planned_root_are_no_go"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_reserved_or_invalid_ports_blocked[0]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_reserved_or_invalid_ports_blocked[22]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_reserved_or_invalid_ports_blocked[5432]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_reserved_or_invalid_ports_blocked[55432]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_reserved_or_invalid_ports_blocked[55433]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_reserved_or_invalid_ports_blocked[65536]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_reserved_or_invalid_ports_blocked[8765]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_reserved_or_invalid_ports_blocked[True]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_snapshot_corruption_or_unknown_never_ready[forged_authority]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_snapshot_corruption_or_unknown_never_ready[future]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_snapshot_corruption_or_unknown_never_ready[head]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_snapshot_corruption_or_unknown_never_ready[host_alias]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_snapshot_corruption_or_unknown_never_ready[missing]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_snapshot_corruption_or_unknown_never_ready[run_id]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_snapshot_corruption_or_unknown_never_ready[secret]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_snapshot_corruption_or_unknown_never_ready[stale]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_snapshot_corruption_or_unknown_never_ready[unknown]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_valid_profile_is_plan_only_not_execution"
+    ],
+    [
       "tests.test_pr227_authorization_boundary",
       "test_blocked_runbook_has_no_executable_coordinator_launch"
     ],
@@ -3603,6 +3840,94 @@
     [
       "tests.test_pr227_checkout",
       "test_staged_substitution_rejected"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_changed_head_and_shared_source_identifies_owner"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_consistent_sources_and_green_metadata_are_not_acceptance"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_duplicate_json_keys_and_nonfinite_are_rejected"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_no_args_cli_is_plan_only_without_github_access"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_non_success_or_skipped_never_passes[cancelled]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_non_success_or_skipped_never_passes[failure]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_non_success_or_skipped_never_passes[in_progress]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_non_success_or_skipped_never_passes[pending]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_non_success_or_skipped_never_passes[queued]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_non_success_or_skipped_never_passes[skipped]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_non_success_or_skipped_never_passes[timed_out]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_non_success_or_skipped_never_passes[waiting]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_unknown_or_truncated_metadata_blocks[bad_path]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_unknown_or_truncated_metadata_blocks[duplicate_pr]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_unknown_or_truncated_metadata_blocks[false_count]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_unknown_or_truncated_metadata_blocks[missing_ci]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_unknown_or_truncated_metadata_blocks[missing_file]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_unknown_or_truncated_metadata_blocks[missing_pr]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_unknown_or_truncated_metadata_blocks[newer_queued]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_unknown_or_truncated_metadata_blocks[no_artifact]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_unknown_or_truncated_metadata_blocks[partial]"
+    ],
+    [
+      "tests.test_pr_compatibility_watch",
+      "test_unknown_or_truncated_metadata_blocks[wrong_head]"
     ],
     [
       "tests.test_retention_bootstrap_regression",

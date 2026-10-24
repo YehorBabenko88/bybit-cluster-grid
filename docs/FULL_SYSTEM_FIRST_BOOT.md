@@ -274,3 +274,17 @@ The required pg18 job also runs all32 exact-inventory PostgreSQL schema/runtime 
 before first boot, with zero skips. The DDL receipt previously tried git show for
 paths deleted relative to its old baseline, impossible on composed source trees;
 a generated-repository regression verifies explicit deleted_paths alongside hashes.
+
+## First actual hosted attempt (exact38e6ab4)
+
+Run40081972021 completed FAILURE. All4 offline OS/Python cells SUCCESS. All32 actual
+PostgreSQL18 contract tests PASS (JUnit errors/failures/skips0). Real Coordinator PID11516
+and Workers11523/11524 started in disposable hosted Linux, migration preparation and
+real enrollment passed, then heartbeat failed before two-real-workers readiness.
+Audit hook incorrectly rejected connected socket.sendmsg with destination None;
+regression now resolves actual loopback peer and still rejects external/unknown peers.
+All3 observed process exits were0 and owned cleanup passed. No full E2E PASS:17 required
+stages missing. Native4 cells failed TOKEN_SIZE_UNKNOWN before ordinary observation;
+new bounded numeric API diagnostics retain the refusal and await hosted evidence.
+PG artifact12556681100 digest4da78e72ce879fa36bbdc3f4351c86a3ed34120c44ba16a4e2d1fa936d121554.
+Physical readiness is unchanged: BLOCKED/NO-GO. This does not attest LS5 or PC4.
