@@ -86,7 +86,7 @@ is a held-handle barrier test, **not OS-crash recovery or durable anti-rollback*
 The fixed child exits cooperatively; no general Grid shutdown protocol is proved.
 Job membership is not evidence of protection from a privileged administrator.
 
-The new required CI checks 24 managed and 9 native cases on PowerShell 5.1/7 and
+The new required CI checks 33 managed and 10 native cases on PowerShell 5.1/7 and
 Python 3.11/3.12. A separate job downloads all four artifacts and verifies exact
 case inventory, false physical flags, JUnit, JSONL, SHA256, source blobs and external
 head/run/attempt. This detects inconsistent/tampered receipts; it cannot make a
@@ -138,3 +138,13 @@ The private desktop did not cure cmd.exe initialization: 2ccb586 still returned 
 The minimal child exited 0 on 691807b, then the terminated-image query refused. Post-exit validation now uses the same retained process handle plus matching creation time and the retained executable file; a pre-resume successful image query is mandatory. Missing live image query, missing preverification or any successful mismatching image query refuses. This does not attest process memory or survive handle loss/reboot. Four pure lifecycle cases accompany the real native regression.
 
 P0 source-audit correction: create-suspended then AssignProcessToJobObject had a controller-death gap. The fixture now supplies PROC_THREAD_ATTRIBUTE_JOB_LIST at process creation (Windows 10+/Server 2016+), checks membership immediately and provides no post-create-assignment fallback. The sole unnamed Job handle is not inherited; existing native membership and close-last-handle termination cases must pass. This closes that API ordering gap, but no OS reboot/durable authorization claim follows.
+
+## Terminal marker disposition correction
+
+Native 18bc job120959168532 reached cooperative exit and held-handle recovery, then the old exact marker identity guard refused after disposition (root/journal/descriptor unchanged). The dedicated terminal guard now requires original one-link identity, the same held file ID/volume/attributes, zero accessible links and FILE_STANDARD_INFO DeletePending=true/non-directory; normal custody guard remains unchanged. The original permit identity is immutable. All ancestor, marker descriptor, root and journal checks remain exact. Hosted verification must establish this precise observed state; unknown states refuse.
+
+The final journal phase is MARKER_DELETE_PENDING, never CLEANED: scheduling deletion is not proof of deletion after closing the last handle. Terminal recovery is only a same-process held-handle barrier. Nine new pure pending-state cases cover one exact-state acceptance and eight identity/link/state substitution refusals. A separate native failed terminal flush must retain CLEANUP_INTENT in memory and reject recovery of the unconfirmed terminal record, without falsely claiming marker retention or completed cleanup. Physical cleanup remains NOT_AUTHORIZED.
+
+Reference: https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_standard_info and https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/5afa7f66-619c-48f3-955f-68c4ece704ae .
+
+Any journal append/flush exception poisons further writes and recovery in that guardian instance; object-only custody reads remain possible. Retrying a write after an uncertain flush cannot silently duplicate a phase. The injected flush failure writes a complete but unconfirmed record, not necessarily a truncated record.

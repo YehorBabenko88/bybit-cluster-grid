@@ -45,9 +45,11 @@ internal sealed class OwnedFixture:IDisposable
    if(!FixtureNative.ProtectedFor(FixtureNative.Descriptor(Root),sid) || !FixtureNative.ProtectedFor(Old,sid) || !FixtureNative.ProtectedFor(FixtureNative.Descriptor(Journal),sid))throw new Blocked("FIXTURE_INITIAL_CUSTODY");
   }catch{Dispose();throw;}
  }
- public void Guard(string expected){
+ public void Guard(string expected)=>GuardCore(expected,Binding.Target);
+ public void GuardMarkerDeletePending()=>GuardCore(Old,FixtureNative.PendingMarker(Target,Binding.Target));
+ void GuardCore(string expected,Identity expectedTarget){
   var root=Native.Id(Root);var target=Native.Id(Target);var journal=Native.Id(Journal);var actual=FixtureNative.Descriptor(Target);
-  if(root!=Binding.Root || target!=Binding.Target || journal!=JournalId || actual!=expected){
+  if(root!=Binding.Root || target!=expectedTarget || journal!=JournalId || actual!=expected){
    var failure=new Blocked("FIXTURE_CUSTODY_CHANGED");
    failure.Data["fixture_diagnostic"]=new{root_matches=root==Binding.Root,target_matches=target==Binding.Target,journal_matches=journal==JournalId,
     descriptor_matches=actual==expected,actual_fixture_descriptor=actual,expected_fixture_descriptor=expected};throw failure;
@@ -67,6 +69,18 @@ internal sealed class OwnedFixture:IDisposable
 }
 internal static class FixtureNative
 {
+ [StructLayout(LayoutKind.Sequential)]struct StandardInfo{public long AllocationSize,EndOfFile;public uint Links;public byte DeletePending,Directory;}
+ [DllImport("kernel32.dll",SetLastError=true)]static extern bool GetFileInformationByHandleEx(SafeFileHandle h,int kind,out StandardInfo info,uint size);
+ public static void ValidatePendingMarker(Identity before,Identity after,uint links,bool pending,bool directory){
+  // Only the diagnosed one-link -> zero-accessible-links terminal state is admitted.
+  Policy.Object(before,false);
+  if(before.Links!=1 || after!=(before with{Links=0}) || links!=0 || !pending || directory)throw new Blocked("FIXTURE_MARKER_PENDING_IDENTITY_OR_STATE");
+ }
+ public static Identity PendingMarker(SafeFileHandle handle,Identity before){
+  Need(GetFileInformationByHandleEx(handle,1,out var info,(uint)Marshal.SizeOf<StandardInfo>()),"MARKER_STANDARD_INFO");
+  var after=Native.Id(handle);ValidatePendingMarker(before,after,info.Links,info.DeletePending==1,info.Directory!=0);return after;
+ }
+
  [StructLayout(LayoutKind.Sequential)]struct U{public ushort Length,MaximumLength;public IntPtr Buffer;}
  [StructLayout(LayoutKind.Sequential)]struct A{public int Length;public IntPtr RootDirectory,ObjectName;public uint Attributes;public IntPtr SecurityDescriptor,SecurityQualityOfService;}
  [StructLayout(LayoutKind.Sequential)]struct I{public IntPtr Status,Information;}

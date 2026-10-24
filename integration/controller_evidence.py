@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-MODEL = 'signed-permit tampered-data tampered-signature wrong-key wrong-head wrong-run wrong-nonce expired replay noncanonical-permit truncated-journal unknown-recovery-anchor invalid-transitions child-environment-allowlist child-environment-missing child-token-user child-token-enabled-admin child-token-deny-only-admin child-token-elevated child-token-high-integrity live-image-query-failure exited-image-without-preverification exited-preverified-held-image queried-image-mismatch'.split()
-NATIVE = 'held-process-identity-job-token live-cleanup-refused unknown-cleanup-refused cooperative-exit stable-guardian-recovery bounded-marker-cleanup forced-owned-process-stop job-close-kills-owned-suspended-child flush-failure-retention'.split()
+MODEL = 'signed-permit tampered-data tampered-signature wrong-key wrong-head wrong-run wrong-nonce expired replay noncanonical-permit truncated-journal unknown-recovery-anchor invalid-transitions child-environment-allowlist child-environment-missing child-token-user child-token-enabled-admin child-token-deny-only-admin child-token-elevated child-token-high-integrity live-image-query-failure exited-image-without-preverification exited-preverified-held-image queried-image-mismatch pending-marker-valid pending-marker-volume pending-marker-fileid pending-marker-attributes pending-marker-original-links pending-marker-current-links pending-marker-standard-links pending-marker-not-pending pending-marker-directory'.split()
+NATIVE = 'held-process-identity-job-token live-cleanup-refused unknown-cleanup-refused cooperative-exit stable-guardian-recovery bounded-marker-cleanup forced-owned-process-stop job-close-kills-owned-suspended-child flush-failure-retention pending-flush-failure-not-cleaned'.split()
 ROOT = Path(__file__).resolve().parents[1]
 FIELDS = {'schema','kind','status','reason','cases','tested_image_sha256','head','repository','run_id','attempt','host_verified','execute_authorized','cleanup_authorized','physical','g1'}
 
