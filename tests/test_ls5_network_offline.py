@@ -154,3 +154,11 @@ def test_multibyte_policy_limit_is_in_bytes_not_characters():
     r=evaluate(raw)
     assert r["policy_valid"] is False
     assert r["findings"]==["INVALID_POLICY"]
+
+@pytest.mark.parametrize("raw",["\\ud800", "\\udfff", '{"x":"\\ud800"}'])
+def test_unpaired_unicode_surrogate_is_blocked(raw):
+    r=evaluate(raw)
+    assert r["status"]=="BLOCKED"
+    assert r["policy_valid"] is False
+    assert r["findings"]==["INVALID_POLICY"]
+    assert r["execution_authorized"] is False
