@@ -66,8 +66,8 @@ def evaluate(raw):
         out["policy_valid"] = True
         out["findings"] = ["STATIC_POLICY_ONLY", "LIVE_LISTENERS_UNVERIFIED", "FIREWALL_UNVERIFIED",
                            "TAILSCALE_ACL_UNVERIFIED", "TLS_AUTH_UNVERIFIED", "SSH_IDENTITY_UNVERIFIED"]
-    except (ValueError, TypeError, KeyError, AttributeError) as exc:
-        out["findings"] = [str(exc)[:80] or "INVALID_POLICY"]
+    except (ValueError, TypeError, KeyError, AttributeError):
+        out["findings"] = ["INVALID_POLICY"]
     return out
 
 def _require(condition, code):
