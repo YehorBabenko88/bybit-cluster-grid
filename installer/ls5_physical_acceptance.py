@@ -142,3 +142,53 @@ def decide(stage_statuses):
     return {"status": "FAIL" if "FAIL" in stage_statuses.values() else "BLOCKED",
             "physical_ready": False, "deployment_go": False,
             "reason": "NO_INDEPENDENT_PHYSICAL_AUTHORITY"}
+
+
+REQUIRED_WORKFLOWS = frozenset((
+    "integration-evidence-audit", "physical-deployment-harness",
+    "ls5-acl-remediation", "commissioning-manifest", "composed-safety-gate",
+    "isolated-postgres-offline", "preflight", "windows-commissioning",
+    "windows-bundle", "ls5-physical-acceptance-offline",
+))
+
+
+def audit_workflow_runs(runs, *, expected_head):
+    """Check workflow conclusions at exact HEAD; never confer physical authority.
+
+    A green workflow conclusion is not proof that artifacts were downloaded,
+    independently rehashed, or that any host was tested.
+    """
+    require(type(expected_head) is str and HEAD.fullmatch(expected_head) is not None,
+            "EXPECTED_HEAD")
+    require(type(runs) is list, "WORKFLOWS_TYPE")
+    seen = {}
+    for item in runs:
+        require(type(item) is dict and set(item) == {
+            "name", "head", "run_id", "attempt", "status", "conclusion"
+        }, "WORKFLOW_SCHEMA")
+        name, head = item["name"], item["head"]
+        require(type(name) is str and 0 < len(name) <= 120, "WORKFLOW_NAME")
+        require(type(head) is str and head == expected_head, "WORKFLOW_HEAD")
+        require(type(item["run_id"]) is int and item["run_id"] > 0
+                and type(item["attempt"]) is int and item["attempt"] > 0,
+                "WORKFLOW_ID")
+        require(type(item["status"]) is str and item["status"] in
+                ("queued", "in_progress", "completed"), "WORKFLOW_STATUS")
+        require(item["conclusion"] in (None, "success", "failure", "cancelled",
+                                       "skipped", "timed_out", "action_required",
+                                       "neutral", "startup_failure"), "WORKFLOW_CONCLUSION")
+        require((item["status"] == "completed") == (item["conclusion"] is not None),
+                "WORKFLOW_COMPLETION")
+        require(name not in seen, "WORKFLOW_DUPLICATE")
+        seen[name] = item
+    missing = sorted(REQUIRED_WORKFLOWS - set(seen))
+    bad = sorted(name for name in REQUIRED_WORKFLOWS & set(seen)
+                 if seen[name]["status"] != "completed"
+                 or seen[name]["conclusion"] != "success")
+    skipped = sorted(name for name, item in seen.items()
+                     if item["conclusion"] == "skipped")
+    return {"status": "BLOCKED", "missing_required": missing,
+            "not_successful_required": bad, "skipped_workflows": skipped,
+            "offline_ci_complete": not missing and not bad,
+            "artifacts_independently_verified": False,
+            "physical_pass": False, "deployment_go": False}
