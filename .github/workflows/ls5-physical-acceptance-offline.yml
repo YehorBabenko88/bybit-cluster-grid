@@ -3,7 +3,9 @@ on:
   pull_request:
     paths:
       - 'installer/ls5_physical_acceptance.py'
+      - 'installer/ls5_e2e_acceptance.py'
       - 'tests/test_ls5_physical_acceptance.py'
+      - 'tests/test_ls5_e2e_acceptance.py'
       - 'docs/LS5_PHYSICAL_ACCEPTANCE_MATRIX.md'
       - '.github/workflows/ls5-physical-acceptance-offline.yml'
   push:
@@ -34,4 +36,6 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Offline-only adversarial tests
-        run: python -m unittest discover -s tests -p test_ls5_physical_acceptance.py -v
+        run: |
+          python -m unittest discover -s tests -p test_ls5_physical_acceptance.py -v
+          python -m unittest discover -s tests -p test_ls5_e2e_acceptance.py -v

@@ -322,6 +322,31 @@
     "tests/test_ls5_bootstrap_ci_evidence.py::test_bad_receipts_fail_closed[<testsuite]",
     "tests/test_ls5_bootstrap_ci_evidence.py::test_pr_merge_sha_is_not_accepted_as_source_head",
     "tests/test_ls5_bootstrap_ci_evidence.py::test_valid_receipt",
+    "tests/test_ls5_disposable_release_model.py::test_commit_requires_prepared_journal",
+    "tests/test_ls5_disposable_release_model.py::test_disposable_install_stage_commit_stop_restart_rollback_model",
+    "tests/test_ls5_disposable_release_model.py::test_interrupted_stage_restores_previous",
+    "tests/test_ls5_disposable_release_model.py::test_replay_and_concurrent_stage_are_blocked",
+    "tests/test_ls5_disposable_release_model.py::test_tampered_journal_and_pointer_are_blocked",
+    "tests/test_ls5_disposable_release_model.py::test_untrusted_recovery_is_blocked[journal_valid]",
+    "tests/test_ls5_disposable_release_model.py::test_untrusted_recovery_is_blocked[stable_identity]",
+    "tests/test_ls5_disposable_release_model.py::test_untrusted_recovery_is_blocked[target_verified]",
+    "tests/test_ls5_disposable_release_model.py::test_untrusted_stage_is_blocked[files_verified]",
+    "tests/test_ls5_disposable_release_model.py::test_untrusted_stage_is_blocked[manifest_valid]",
+    "tests/test_ls5_disposable_release_model.py::test_untrusted_stage_is_blocked[no_writers]",
+    "tests/test_ls5_disposable_release_model.py::test_untrusted_stage_is_blocked[reparse_free]",
+    "tests/test_ls5_disposable_release_model.py::test_untrusted_stage_is_blocked[runtime_closed]",
+    "tests/test_ls5_disposable_release_model.py::test_untrusted_stage_is_blocked[trusted_custody]",
+    "tests/test_ls5_disposable_release_model.py::test_version_path_unicode_and_case_alias_rejected[../evil]",
+    "tests/test_ls5_disposable_release_model.py::test_version_path_unicode_and_case_alias_rejected[AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA]",
+    "tests/test_ls5_disposable_release_model.py::test_version_path_unicode_and_case_alias_rejected[C:\\\\bad]",
+    "tests/test_ls5_disposable_release_model.py::test_version_path_unicode_and_case_alias_rejected[\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9]",
+    "tests/test_ls5_disposable_release_model.py::test_version_path_unicode_and_case_alias_rejected[]",
+    "tests/test_ls5_disposable_release_model.py::test_version_path_unicode_and_case_alias_rejected[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_faults_and_phases_incomplete",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_full_producer_claim_never_go",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_g0_g1_queued_and_forged_head",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_rehashed_zip_and_fake_entry",
     "tests/test_ls5_native_observer.py::test_ci_alternative_pool_is_literal_github_hosted_only",
     "tests/test_ls5_native_observer.py::test_ci_exact_head_and_receipts_required",
     "tests/test_ls5_native_observer.py::test_downloaded_archive_consistency_is_not_physical_authority[attempt]",
@@ -2014,6 +2039,106 @@
       "test_valid_receipt"
     ],
     [
+      "tests.test_ls5_disposable_release_model",
+      "test_commit_requires_prepared_journal"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_disposable_install_stage_commit_stop_restart_rollback_model"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_interrupted_stage_restores_previous"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_replay_and_concurrent_stage_are_blocked"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_tampered_journal_and_pointer_are_blocked"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_untrusted_recovery_is_blocked[journal_valid]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_untrusted_recovery_is_blocked[stable_identity]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_untrusted_recovery_is_blocked[target_verified]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_untrusted_stage_is_blocked[files_verified]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_untrusted_stage_is_blocked[manifest_valid]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_untrusted_stage_is_blocked[no_writers]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_untrusted_stage_is_blocked[reparse_free]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_untrusted_stage_is_blocked[runtime_closed]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_untrusted_stage_is_blocked[trusted_custody]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_version_path_unicode_and_case_alias_rejected[../evil]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_version_path_unicode_and_case_alias_rejected[AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_version_path_unicode_and_case_alias_rejected[C:\\\\bad]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_version_path_unicode_and_case_alias_rejected[\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_version_path_unicode_and_case_alias_rejected[]"
+    ],
+    [
+      "tests.test_ls5_disposable_release_model",
+      "test_version_path_unicode_and_case_alias_rejected[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_faults_and_phases_incomplete"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_full_producer_claim_never_go"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_g0_g1_queued_and_forged_head"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_head_attempt_and_duplicate_phase"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_rehashed_zip_and_fake_entry"
+    ],
+    [
       "tests.test_ls5_native_observer",
       "test_ci_alternative_pool_is_literal_github_hosted_only"
     ],
@@ -3635,6 +3760,14 @@
     ]
   ],
   "subtests": [
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase:75fe1dcd3baddb517cc6c8f300086590a082bc6d0c12d58847ca56a107fd78a6",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase:8e13bf25e71424338025de90a2c9910b9c9ac73d161908cc37165eabdf9cb1fc",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase:9403e5cceca9a1375238c326d3f007ffafdec91aab102db32fe45b5fc2100470",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase:c697107d1c67aa62eb1d93570893a99f55c0e528aa0382a11b19df30b0d90e5b",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase:e7bf0e93165c1780c2531982c36286ba5901e71e80f60a95069bbb7cb998a87f",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_rehashed_zip_and_fake_entry:0fc9331aa3db2bb88d3c038213743e919dffb514463e790830232d65c29a7d93",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_rehashed_zip_and_fake_entry:6d6fffe28a8f210118f2a5c149f2bb71c8fafd74762cf54a2e2559689933e59a",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_rehashed_zip_and_fake_entry:8e07f573f65f3ca1435f0bf16615b079d9ce7a4b8aad7c1fb45d613d43f4ac1e",
     "tests/test_ls5_pg_readiness.py::PgReadinessTests::test_each_failure_is_fail:0198a5aab776134bb35ff982b6c7c5854bf5fc6097f7b70a3165531cd9ca48a5",
     "tests/test_ls5_pg_readiness.py::PgReadinessTests::test_each_failure_is_fail:20ef64307eb47e6a5e80f014f1d617926b1079776831b813593d9a619b5fe99e",
     "tests/test_ls5_pg_readiness.py::PgReadinessTests::test_each_failure_is_fail:24298de870cf4d3f5e95ec011d27f70543a5e10b3a756ec3245b41fc43c7cdb6",

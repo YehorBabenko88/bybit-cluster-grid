@@ -27,7 +27,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: native-observer-${{ github.ref }}
+  group: native-observer-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   observer-fixture:

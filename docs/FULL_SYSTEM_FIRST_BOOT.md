@@ -44,7 +44,7 @@ identity before SQL. It cannot authorize execution on PC4 or LS5.
 Hosted workflow `full-system-first-boot`: four offline OS/Python combinations,
 reused native Windows workflow, disposable `pg18`, required aggregate with downloaded
 artifact reinspection. All dependencies must conclude success; skipped is rejected.
-726 exact primary tests and 130 subtests are independently inventoried. E2E has 26
+The exact primary test and subtest inventory is frozen in integration/first_boot_inventory.json; are independently inventoried. E2E has 26
 required cases; any missing stage is BLOCKED and fails JUnit. Receipts bind source
 SHA256, head/tree, run/attempt, process exits and all evidence bytes. Consistency is
 not independent cryptographic provenance. No physical attestation is produced.
@@ -108,3 +108,8 @@ tokens, observer/STOP separation and approved evidence custody. Air-gap remains 
 Rollback of this development work is branch abandonment only; no physical resources
 were changed. Hosted failures retain hashed evidence and stop owned children before
 owned database removal. Never adopt/delete foreign directories, roles or containers.
+
+Refreshed PR239–242 to latest queried heads before publication; added their new
+release-model and independent E2E evidence tests. PR242 SHA regex over-escaped\Z
+and rejected all valid digests; four positive-path tests reproduced this, fixed
+locally without changing source PR242. All acceptance results remain BLOCKED/NO-GO.

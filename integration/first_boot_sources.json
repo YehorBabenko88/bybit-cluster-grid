@@ -29,23 +29,27 @@
     },
     {
       "pr": 239,
-      "head": "fd48312b80cfa81e966ab40705b8c8d613d15bea",
-      "branch": "parallel/ls5-trusted-bootstrap-20261024"
+      "head": "ec2f635f1802ed4d0f3bbb6341d5f2d570a4cf25",
+      "branch": "parallel/ls5-trusted-bootstrap-20261024",
+      "previous_frozen_head": "fd48312b80cfa81e966ab40705b8c8d613d15bea"
     },
     {
       "pr": 240,
-      "head": "da9ebeaded04319e030462219887e879ab32674b",
-      "branch": "parallel/ls5-postgres-readiness-20261024"
+      "head": "3bb49c2c99dc461aec52f014432511e1fd694a28",
+      "branch": "parallel/ls5-postgres-readiness-20261024",
+      "previous_frozen_head": "da9ebeaded04319e030462219887e879ab32674b"
     },
     {
       "pr": 241,
-      "head": "cd51db5bf837890a79d60ea089ec5bd9bc332600",
-      "branch": "parallel/ls5-network-preflight-20261024"
+      "head": "28ac9672d39ec644278feb4a0cbd2edec56876f8",
+      "branch": "parallel/ls5-network-preflight-20261024",
+      "previous_frozen_head": "cd51db5bf837890a79d60ea089ec5bd9bc332600"
     },
     {
       "pr": 242,
-      "head": "8f52cf50bbfeda82aa99cb9f00956c6c2e7df8ba",
-      "branch": "parallel/ls5-physical-acceptance-20261024"
+      "head": "9bb27867aa33fdddadc24aa3f3f4ea4a67218a7c",
+      "branch": "parallel/ls5-physical-acceptance-20261024",
+      "previous_frozen_head": "8f52cf50bbfeda82aa99cb9f00956c6c2e7df8ba"
     }
   ],
   "composition": [
@@ -453,6 +457,16 @@
   "integration_notes": [
     "PR230 DDL workflow imported; PR229 narrower workflow superseded",
     "Only selected runtime and disjoint profile paths; no complete-tree overlay",
-    "Integration-owned fixes recorded in docs/FULL_SYSTEM_FIRST_BOOT.md"
+    "Integration-owned fixes recorded in docs/FULL_SYSTEM_FIRST_BOOT.md",
+    "Refreshed .github/workflows/ls5-trusted-bootstrap-offline.yml from ec2f635f1802ed4d0f3bbb6341d5f2d570a4cf25",
+    "Refreshed docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md from ec2f635f1802ed4d0f3bbb6341d5f2d570a4cf25",
+    "Refreshed installer/ls5_disposable_release_model.py from ec2f635f1802ed4d0f3bbb6341d5f2d570a4cf25",
+    "Refreshed tests/test_ls5_disposable_release_model.py from ec2f635f1802ed4d0f3bbb6341d5f2d570a4cf25",
+    "Refreshed docs/LS5_PG18_CODEX_DISPOSABLE_CONTRACT.md from 3bb49c2c99dc461aec52f014432511e1fd694a28",
+    "Refreshed docs/ISOLATED_AGENT_NETWORK_CONTRACT.md from 28ac9672d39ec644278feb4a0cbd2edec56876f8",
+    "Refreshed .github/workflows/ls5-physical-acceptance-offline.yml from 9bb27867aa33fdddadc24aa3f3f4ea4a67218a7c",
+    "Refreshed docs/LS5_E2E_INDEPENDENT_ACCEPTANCE.md from 9bb27867aa33fdddadc24aa3f3f4ea4a67218a7c",
+    "Refreshed installer/ls5_e2e_acceptance.py from 9bb27867aa33fdddadc24aa3f3f4ea4a67218a7c",
+    "Refreshed tests/test_ls5_e2e_acceptance.py from 9bb27867aa33fdddadc24aa3f3f4ea4a67218a7c"
   ]
 }
