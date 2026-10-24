@@ -18,6 +18,12 @@ on:
         type: boolean
         required: false
         default: false
+  workflow_call:
+    inputs:
+      windows_2022:
+        type: boolean
+        required: false
+        default: false
 permissions:
   contents: read
 concurrency:

@@ -10,9 +10,12 @@ from grid.retention_v2 import retention_backlog
 
 def test_coordinator_bootstraps_retention_before_background_tasks():
     from grid import coordinator
-    source = inspect.getsource(coordinator.start_leader_services)
-    assert source.index("await ensure_retention_schema(db.pool)") < source.index("asyncio.create_task(maintenance_scheduler")
-    assert source.index("await ensure_retention_schema(db.pool)") < source.index("asyncio.create_task(retention_scheduler")
+    source = inspect.getsource(coordinator.startup)
+    assert source.index('await prepare_database()') < source.index('control_runtime.start()')
+    from grid import service, schema_preparation
+    assert 'verify_runtime_schema(db.pool)' in inspect.getsource(service.prepare_database)
+    assert 'ensure_retention_schema' in inspect.getsource(schema_preparation.prepare_schema)
+    assert 'ensure_retention_schema' not in inspect.getsource(coordinator.start_leader_services)
 
 
 def test_empty_retention_dataset_has_no_phantom_backlog():
