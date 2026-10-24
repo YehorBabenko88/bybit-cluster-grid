@@ -68,7 +68,7 @@ def evaluate(raw):
         out["policy_valid"] = True
         out["findings"] = ["STATIC_POLICY_ONLY", "LIVE_LISTENERS_UNVERIFIED", "FIREWALL_UNVERIFIED",
                            "TAILSCALE_ACL_UNVERIFIED", "TLS_AUTH_UNVERIFIED", "SSH_IDENTITY_UNVERIFIED"]
-    except (ValueError, TypeError, KeyError, AttributeError):
+    except (ValueError, TypeError, KeyError, AttributeError, UnicodeError):
         out["findings"] = ["INVALID_POLICY"]
     return out
 
