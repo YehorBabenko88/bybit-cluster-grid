@@ -96,6 +96,24 @@ class E2EAcceptanceTests(unittest.TestCase):
             verify_zip_bytes(bytes(tampered), expected_digest=hashlib.sha256(raw).hexdigest(),
                              expected_files=digests)
 
+    def test_zip_windows_separator_and_symlink_rejected(self):
+        import stat
+        for name, symlink in (("..\\\\escape", False), ("evidence-link", True)):
+            out = io.BytesIO()
+            with zipfile.ZipFile(out, "w") as z:
+                if symlink:
+                    info = zipfile.ZipInfo(name)
+                    info.create_system = 3
+                    info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                    z.writestr(info, b"outside")
+                else:
+                    z.writestr(name, b"payload")
+            raw = out.getvalue()
+            with self.subTest(name=name), self.assertRaises(AcceptanceBlocked):
+                verify_zip_bytes(raw, expected_digest=hashlib.sha256(raw).hexdigest(),
+                                 expected_files={name: hashlib.sha256(
+                                     b"outside" if symlink else b"payload").hexdigest()})
+
     def test_g0_g1_queued_and_forged_head(self):
         pins = {n: HEAD for n in range(238, 243)}
         rows = [{"pr": n, "head": HEAD, "workflow": "queued", "run_id": n,
