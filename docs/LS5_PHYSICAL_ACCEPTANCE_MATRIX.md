@@ -108,3 +108,19 @@ forged PASS, wrong HEAD, schema-2 aliases, duplicate JSON keys, missing,
 reordered or duplicate test cases, JUnit mismatch, SHA mismatch and fake
 PHYSICAL_PASS. No host connections, native calls, SQL, ACL, service/task
 changes, VM, deployment, merge or physical testing.
+
+## Exact-head workflow coverage audit
+
+`audit_workflow_runs` checks strict workflow records containing name, exact
+commit SHA, run ID, attempt, lifecycle status and conclusion. It rejects
+duplicate workflow names, mixed HEADs, invalid attempts and contradictory
+completed/conclusion states. It requires ten relevant workflow names,
+including the independent acceptance workflow; missing, queued, skipped,
+cancelled or failed required workflows prevent `offline_ci_complete`.
+
+Even when all required workflow conclusions are success, the output is
+**BLOCKED**, with `artifacts_independently_verified=false`,
+`physical_pass=false`, and `deployment_go=false`. This helper audits a
+caller-supplied manifest, **not GitHub's authenticated API**: independent
+fetching of the actual workflow runs and downloaded artifacts is mandatory.
+A skipped unrelated workflow is listed, never counted as a successful test.
