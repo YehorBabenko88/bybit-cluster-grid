@@ -137,3 +137,12 @@ Archive artifact `12558810048`, GitHub digest and independently calculated local
 Eight independent *copied-archive* mutations (summary HEAD, run, attempt, tree; JUnit failure count; JSONL forged event; manifest inventory; PG XML byte change) were rejected by a local checker pinned to the original archive SHA256 and summary context. **Limitation:** because these tests preserve the original externally trusted archive SHA256, they primarily demonstrate digest-based tamper detection, not resistance to a malicious producer who can recompute all internal hashes. No physical proof or lab GO can follow from these checks.
 
 **Verdict: hosted CI FAILURE, E2E BLOCKED (22/26), G0 BLOCKED, G1 NOT_AUTHORIZED, Deployment NO-GO.** Future acceptance requires independently witnessed PostgreSQL restart/recovery and full stage completion on a new exact HEAD/run/attempt; no host connection authorized.
+
+
+## New integration HEAD checkpoint — queued/skipped are not PASS
+
+GitHub PR API: #238 `7df22d1c5cdc60bcf4e3414dacd35d23fdec7149`, #239 `4fad7f6f8430c36c893511c32a623b74a8539881`, #240 `9e5b392c4499127402eafe489f98cdb3c27855fa`, #241 `f8fe36f55451806bd9f7c6f71817fc4154815689`, #242 `2a7391b131e34032350f3b250b24f84cfeac6e52` (before this update), #244 `9efa0b947ea7f588437bb562da6f2b3729283709`.
+
+At inspection, GitHub reports workflow runs for #244 latest SHA including queued and skipped; no independent complete required E2E evidence has been accepted for this SHA. The prior 22/26 report belongs exclusively to SHA `297fcb7cd12c2d1eaf819242abd3267fa7bd5ee0`, run `40088816153`, and must never be re-used as new HEAD acceptance.
+
+Fresh Git blob comparison on latest heads: #240 `installer/ls5_pg_readiness.py` and #241 `installer/ls5_network_offline.py` are byte-identical to #244 (`233b5ac01f2b1d17be6f3e82c63b78cf4b464067` and `daabde0da4a95adbae893b7f979ea322453c7bd7`). #239 `installer/trusted_bootstrap.py` differs (`d1ab542d522f27ac351802f5fade5255b3ade3c2` vs `83c87c64de0fa049113b298f459ad4e004da9798`); #239 `installer/ls5_bootstrap_ci_evidence.py` differs (`f21dfb30553da0a8e079744d580dd7a474d9073b` vs `6edd5e2933e4ce5bd12ff4de5a510d9336fc39e5`). Previously identified source-level duplicate-JUnit-identity/structural-text regression persists in #244. Required negative CI proof remains pending. **Current exact HEAD: BLOCKED / NO-GO.**
