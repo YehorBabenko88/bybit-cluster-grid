@@ -3,7 +3,7 @@ import json
 import unittest
 
 from installer.ls5_physical_acceptance import (
-    AcceptanceBlocked, CASES, STAGES, decide, validate_metadata, verify_artifacts,
+    AcceptanceBlocked, CASES, STAGES, REQUIRED_WORKFLOWS, audit_workflow_runs, decide, validate_metadata, verify_artifacts,
 )
 
 HEAD = "e25197b169ef0e5f37b5bd0030ee4a97b13965e2"
@@ -108,6 +108,33 @@ class GateTests(unittest.TestCase):
         x = {s: "BLOCKED" for s in STAGES}
         x["acl_remediation"] = "FAIL"
         self.assertEqual(decide(x)["status"], "FAIL")
+
+    def test_required_workflows_and_skips_never_physical(self):
+        runs = [
+            {"name": name, "head": HEAD, "run_id": i + 1, "attempt": 1,
+             "status": "completed", "conclusion": "success"}
+            for i, name in enumerate(sorted(REQUIRED_WORKFLOWS))
+        ]
+        result = audit_workflow_runs(runs, expected_head=HEAD)
+        self.assertTrue(result["offline_ci_complete"])
+        self.assertFalse(result["artifacts_independently_verified"])
+        self.assertFalse(result["deployment_go"])
+        for status, conclusion in (("completed", "skipped"), ("queued", None),
+                                   ("completed", "failure")):
+            modified = [dict(x) for x in runs]
+            modified[0].update(status=status, conclusion=conclusion)
+            with self.subTest(status=status, conclusion=conclusion):
+                result = audit_workflow_runs(modified, expected_head=HEAD)
+                self.assertFalse(result["offline_ci_complete"])
+        self.assertFalse(audit_workflow_runs(runs[:-1], expected_head=HEAD)["offline_ci_complete"])
+
+    def test_workflow_wrong_head_and_duplicate_denied(self):
+        item = {"name": "preflight", "head": HEAD, "run_id": 42, "attempt": 1,
+                "status": "completed", "conclusion": "success"}
+        for bad in ([item, item], [dict(item, head="f" * 40)],
+                    [dict(item, run_id=True)], [dict(item, status="queued")]):
+            with self.subTest(bad=bad), self.assertRaises(AcceptanceBlocked):
+                audit_workflow_runs(bad, expected_head=HEAD)
 
 
 if __name__ == "__main__":
