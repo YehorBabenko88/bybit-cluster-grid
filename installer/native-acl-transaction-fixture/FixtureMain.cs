@@ -39,6 +39,7 @@ internal static class FixtureMain
    }
    using(var f=New()){
     Test("protected-native-create",()=>f.Guard(f.Old));
+    Test("canonical-target-control-baseline",()=>Require((new System.Security.AccessControl.RawSecurityDescriptor(Convert.FromBase64String(f.Old),0).ControlFlags&System.Security.AccessControl.ControlFlags.DiscretionaryAclAutoInherited)!=0));
     Test("exclusive-target-reopen-refused",()=>Refused(()=>{using var h=Native.OpenChild(f.Root,"target.fixture",false);},"NT_OPEN_FAILED"));
     Test("exclusive-journal-reopen-refused",()=>Refused(()=>{using var h=Native.OpenChild(f.Root,"journal.jsonl",false);},"NT_OPEN_FAILED"));
     foreach(string leaf in new[]{"target.fixture","journal.jsonl"})foreach(bool write in new[]{false,true}){

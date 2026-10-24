@@ -25,14 +25,19 @@ internal sealed class OwnedFixture:IDisposable
     if(Native.Id(h).Volume!=Native.Id(parents[0]).Volume)throw new Blocked("FIXTURE_VOLUME");
    }
    string name="native-acl-tx-"+Guid.NewGuid().ToString("D");Path=System.IO.Path.Combine(temp,name);
-   // SetSecurityInfo canonicalizes SE_DACL_AUTO_INHERITED on this Windows API path.
-   // Create only our new GUID fixtures in that exact state; never mask control bits
-   // or reinterpret an existing object's descriptor as an acceptable rollback target.
-   var descriptor=new RawSecurityDescriptor("D:PAI(A;;FA;;;SY)(A;;FA;;;"+sid+")");
+   var descriptor=new RawSecurityDescriptor("D:P(A;;FA;;;SY)(A;;FA;;;"+sid+")");
    Root=FixtureNative.Create(parents[^1],name,true,descriptor);parents.Add(Root);
    Target=FixtureNative.Create(Root,"target.fixture",false,descriptor);parents.Add(Target);
    Journal=FixtureNative.Create(Root,"journal.jsonl",false,descriptor);parents.Add(Journal);
-   JournalId=Native.Id(Journal);journalDescriptor=FixtureNative.Descriptor(Journal);Old=FixtureNative.Descriptor(Target);
+   JournalId=Native.Id(Journal);journalDescriptor=FixtureNative.Descriptor(Journal);
+   // NtCreateFile may clear AUTO_INHERITED even if requested in the input SD.
+   // Canonicalize ONLY this just-created private target before the journal binding.
+   // Require precisely the same owner/group/ACEs and the API's known control-bit result.
+   var targetId=Native.Id(Target);var initial=FixtureNative.Descriptor(Target);
+   var canonical=new RawSecurityDescriptor(Convert.FromBase64String(initial),0);
+   canonical.SetFlags(canonical.ControlFlags|ControlFlags.DiscretionaryAclAutoInherited);
+   FixtureNative.SetDacl(Target,initial);Old=FixtureNative.Descriptor(Target);
+   if(Native.Id(Target)!=targetId || Old!=FixtureNative.Encode(canonical))throw new Blocked("FIXTURE_INITIAL_CANONICALIZATION");
    foreach(var h in parents.Where(h=>h!=Target))custody.Add((h,Native.Id(h),FixtureNative.Descriptor(h)));
    var next=new RawSecurityDescriptor(Convert.FromBase64String(Old),0);
    next.DiscretionaryAcl=new RawSecurityDescriptor("D:P(A;;FA;;;SY)(A;;0x160089;;;"+sid+")").DiscretionaryAcl;

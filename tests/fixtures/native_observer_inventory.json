@@ -488,6 +488,7 @@
   ],
   "transaction_cases": [
     "protected-native-create",
+    "canonical-target-control-baseline",
     "exclusive-target-reopen-refused",
     "exclusive-journal-reopen-refused",
     "exclusive-data-target.fixture-read",
