@@ -115,6 +115,9 @@ def verify_artifacts(*, head, inventory, junit, jsonl, index):
     rows = list(root)
     require(len(rows) == len(inventory) and all(row.tag == "testcase" for row in rows), "JUNIT_COUNT")
     require([row.attrib.get("name") for row in rows] == inventory, "JUNIT_INVENTORY")
+    require((root.text or "").strip() == "" and
+            all((row.text or "").strip() == "" and (row.tail or "").strip() == ""
+                for row in rows), "JUNIT_HIDDEN_TEXT")
     require(all(len(row) == 0 and set(row.attrib) == {"name"} for row in rows), "JUNIT_UNEXPECTED_OUTCOME")
     for key, expected in (("tests", len(rows)), ("failures", 0), ("errors", 0), ("skipped", 0)):
         value = root.attrib.get(key)
