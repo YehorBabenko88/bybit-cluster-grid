@@ -20,6 +20,12 @@ def main():
     cases = [c for s in suites for c in s.iter("testcase")]
     if not cases:
         raise SystemExit("zero collected tests")
+    if any((element.text or "").strip() or (element.tail or "").strip()
+           for element in (root, *suites, *cases)):
+        raise SystemExit("unexpected junit structural text")
+    identities = [(case.attrib.get("classname"), case.attrib.get("name")) for case in cases]
+    if any(not cls or not name for cls, name in identities) or len(set(identities)) != len(identities):
+        raise SystemExit("missing or duplicate junit testcase identity")
     for suite in suites:
         for field in ("tests", "failures", "errors", "skipped"):
             if field in suite.attrib:
