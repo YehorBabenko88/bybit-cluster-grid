@@ -87,6 +87,12 @@
   "python_nodes": [
     "tests/test_ls5_native_observer.py::test_ci_exact_head_and_receipts_required",
     "tests/test_ls5_native_observer.py::test_executor_authority_stays_blocked",
+    "tests/test_ls5_native_observer.py::test_inconsistent_native_chain_is_rejected[bool-depth]",
+    "tests/test_ls5_native_observer.py::test_inconsistent_native_chain_is_rejected[different-volume]",
+    "tests/test_ls5_native_observer.py::test_inconsistent_native_chain_is_rejected[duplicate-id]",
+    "tests/test_ls5_native_observer.py::test_inconsistent_native_chain_is_rejected[file-parent]",
+    "tests/test_ls5_native_observer.py::test_inconsistent_native_chain_is_rejected[missing-delete-child]",
+    "tests/test_ls5_native_observer.py::test_inconsistent_native_chain_is_rejected[zero-id]",
     "tests/test_ls5_native_observer.py::test_native_evidence_forgery_is_rejected[bool-exit]",
     "tests/test_ls5_native_observer.py::test_native_evidence_forgery_is_rejected[hardlink]",
     "tests/test_ls5_native_observer.py::test_native_evidence_forgery_is_rejected[missing-right]",
@@ -106,6 +112,7 @@
     "tests/test_ls5_native_observer.py::test_native_receipt_rejects_unknown_security_facts[missing-token]",
     "tests/test_ls5_native_observer.py::test_native_receipt_rejects_unknown_security_facts[token-digest]",
     "tests/test_ls5_native_observer.py::test_observer_requires_relative_no_follow_chain",
+    "tests/test_ls5_native_observer.py::test_session_drains_output_before_waiting",
     "tests/test_ls5_native_observer.py::test_valid_receipt_has_no_authority"
   ],
   "python_junit_cases": [
@@ -116,6 +123,30 @@
     [
       "tests.test_ls5_native_observer",
       "test_executor_authority_stays_blocked"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_inconsistent_native_chain_is_rejected[bool-depth]"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_inconsistent_native_chain_is_rejected[different-volume]"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_inconsistent_native_chain_is_rejected[duplicate-id]"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_inconsistent_native_chain_is_rejected[file-parent]"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_inconsistent_native_chain_is_rejected[missing-delete-child]"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_inconsistent_native_chain_is_rejected[zero-id]"
     ],
     [
       "tests.test_ls5_native_observer",
@@ -192,6 +223,10 @@
     [
       "tests.test_ls5_native_observer",
       "test_observer_requires_relative_no_follow_chain"
+    ],
+    [
+      "tests.test_ls5_native_observer",
+      "test_session_drains_output_before_waiting"
     ],
     [
       "tests.test_ls5_native_observer",

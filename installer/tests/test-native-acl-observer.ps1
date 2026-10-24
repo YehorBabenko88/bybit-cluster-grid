@@ -43,15 +43,18 @@ function Session([string]$Path){
  $si.RedirectStandardInput=$true;$si.RedirectStandardOutput=$true;$si.RedirectStandardError=$true;$si.CreateNoWindow=$true
  $p=New-Object Diagnostics.Process;$p.StartInfo=$si
  if(!$p.Start()){throw 'OBSERVER_SESSION_START'};$script:sessions.Add($p)
+ $null=$p.StandardError.ReadToEndAsync()
  $read=$p.StandardOutput.ReadLineAsync();if(!$read.Wait(15000)){throw 'SESSION_INITIAL_TIMEOUT'}
  $value=$read.Result|ConvertFrom-Json
- if($value.observation -cne 'HELD' -or $value.status -cne 'BLOCKED'){throw 'SESSION_NOT_HELD'}
+ if($value.observation -cne 'HELD' -or $value.status -cne 'BLOCKED'){throw ('SESSION_NOT_HELD:'+ $value.reason)}
  return $p
 }
 function Recheck($Process){
+ $stdout=$Process.StandardOutput.ReadToEndAsync()
  $Process.StandardInput.WriteLine('recheck');$Process.StandardInput.Flush()
  if(!$Process.WaitForExit(15000)){throw 'OBSERVER_SHUTDOWN_TIMEOUT'}
- $s=$Process.StandardOutput.ReadToEnd();$script:lastObservation=[pscustomobject]@{code=$Process.ExitCode;value=($s|ConvertFrom-Json)};return $script:lastObservation
+ if(!$stdout.Wait(15000)){throw 'OBSERVER_OUTPUT_TIMEOUT'}
+ $s=$stdout.Result;$script:lastObservation=[pscustomobject]@{code=$Process.ExitCode;value=($s|ConvertFrom-Json)};return $script:lastObservation
 }
 try {
  $file=FixtureFile 'ordinary.txt';$r=Observe $file
@@ -93,6 +96,7 @@ try {
  $v=Observe $allow;Check 'owner-write-dac-detected' ($v.code -eq 0 -and $v.value.chain[-1].effectiveRights.WRITE_DAC -ceq 'DACL_ALLOW')
  $parent=Join-Path $script:root 'delete-child';$null=New-Item -ItemType Directory -Path $parent
  $f=Join-Path $parent 'child';[IO.File]::WriteAllText($f,'SYNTHETIC_ONLY')
+ Acl $f ('D:P(A;;FA;;;SY)(A;;0x1200a9;;;'+$current+')')
  Acl $parent ('D:P(A;;FA;;;SY)(A;;0x1200a9;;;'+$current+')(A;;0x40;;;WD)')
  $v=Observe $f;Check 'parent-delete-child-detected' ($v.code -eq 0 -and $v.value.chain[-2].effectiveRights.DELETE_CHILD -ceq 'DACL_ALLOW')
  $noRead=FixtureFile 'no-read-control'
@@ -105,12 +109,14 @@ try {
  }
  $null=Observe $heldFile;Check 'no-physical-attestation' $true
 } finally {
+ $releaseFailed=$false
  foreach($p in $script:sessions){
-  if(!$p.HasExited){$p.StandardInput.Close();if(!$p.WaitForExit(25000)){throw 'SESSION_NOT_RELEASED'}}
-  $p.Dispose()
+  if(!$p.HasExited){$p.StandardInput.Close();if(!$p.WaitForExit(25000)){$releaseFailed=$true}}
+  if($p.HasExited){$p.Dispose()}
  }
  $lines=@($script:events|ForEach-Object {$_|ConvertTo-Json -Compress -Depth 32}) -join "`n"
  [IO.File]::WriteAllText((Join-Path $env:GITHUB_WORKSPACE 'native-observer.jsonl'),$lines+"`n",(New-Object Text.UTF8Encoding($false)))
+ if($releaseFailed){throw 'SESSION_NOT_RELEASED'}
  # Retain every fixture. No cleanup, account changes or production claims.
 }
 $global:LASTEXITCODE=0

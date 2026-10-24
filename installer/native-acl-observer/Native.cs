@@ -31,7 +31,7 @@ internal static class Native
  [DllImport("kernel32.dll",SetLastError=true)]static extern bool GetFileInformationByHandle(SafeFileHandle h,out FileInfo info);
  [DllImport("kernel32.dll",SetLastError=true)]static extern bool GetFileInformationByHandleEx(SafeFileHandle h,int c,out FileId id,uint size);
  [DllImport("kernel32.dll")]static extern uint GetFileType(SafeFileHandle h);
- [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern bool GetVolumeInformationByHandleW(SafeFileHandle h,StringBuilder name,uint n,out uint serial,out uint max,out uint flags,StringBuilder fs,uint fsSize);
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true,ExactSpelling=true)]static extern bool GetVolumeInformationByHandleW(SafeFileHandle h,StringBuilder name,uint n,out uint serial,out uint max,out uint flags,StringBuilder fs,uint fsSize);
  [DllImport("advapi32.dll")]static extern uint GetSecurityInfo(SafeFileHandle h,int type,uint requested,out IntPtr owner,out IntPtr group,out IntPtr dacl,out IntPtr sacl,out IntPtr descriptor);
  [DllImport("advapi32.dll")]static extern uint GetSecurityDescriptorLength(IntPtr p);
  [DllImport("advapi32.dll")]static extern bool IsValidSecurityDescriptor(IntPtr p);
@@ -43,29 +43,29 @@ internal static class Native
  [DllImport("advapi32.dll",SetLastError=true)]static extern bool DuplicateTokenEx(SafeAccessTokenHandle t,uint access,IntPtr sa,int level,int type,out SafeAccessTokenHandle copy);
  [DllImport("advapi32.dll",SetLastError=true)]static extern bool GetTokenInformation(SafeAccessTokenHandle t,int info,IntPtr buffer,int size,out int required);
  [DllImport("advapi32.dll",SetLastError=true)]static extern bool AccessCheck(IntPtr sd,SafeAccessTokenHandle t,uint desired,ref Mapping mapping,IntPtr privileges,ref uint length,out uint granted,out bool allowed);
- [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern uint QueryDosDeviceW(string name,StringBuilder target,uint size);
- [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern uint GetFinalPathNameByHandleW(SafeFileHandle h,StringBuilder name,uint size,uint flags);
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true,ExactSpelling=true)]static extern uint QueryDosDeviceW(string name,StringBuilder target,uint size);
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true,ExactSpelling=true)]static extern uint GetFinalPathNameByHandleW(SafeFileHandle h,StringBuilder name,uint size,uint flags);
  public static SafeFileHandle OpenRoot(string root){
   var mapping=new StringBuilder(32768);
   if(QueryDosDeviceW(root[..2],mapping,32768)==0)throw new Blocked("ROOT_MAPPING_UNPROVEN");
-  var h=CreateFile("\\\\?\\"+root,Read,Share,IntPtr.Zero,3,0x02200000,IntPtr.Zero);
+  var h=CreateFile("\\\\?\\"+root,Read|0x20,Share,IntPtr.Zero,3,0x02200000,IntPtr.Zero);
   try{
-   if(h.IsInvalid)throw new Blocked("ROOT_OPEN_FAILED");
+   if(h.IsInvalid)throw new Blocked("ROOT_OPEN_FAILED",Marshal.GetLastWin32Error());
    var final=new StringBuilder(32768);uint length=GetFinalPathNameByHandleW(h,final,32768,2);
    if(length==0 || length>=32768)throw new Blocked("ROOT_MAPPING_UNPROVEN");
    Policy.RootMapping(mapping.ToString(),final.ToString());return h;
   }catch{h.Dispose();throw;}
  }
- public static SafeFileHandle OpenChild(SafeFileHandle parent,string name){
+ public static SafeFileHandle OpenChild(SafeFileHandle parent,string name,bool directory){
   IntPtr text=IntPtr.Zero,u=IntPtr.Zero;
   try{
    text=Marshal.StringToHGlobalUni(name);var n=new UnicodeName{Length=checked((ushort)(name.Length*2)),MaximumLength=checked((ushort)((name.Length+1)*2)),Buffer=text};
    u=Marshal.AllocHGlobal(Marshal.SizeOf<UnicodeName>());Marshal.StructureToPtr(n,u,false);
    // parent is retained by caller; one component only; do not follow reparses.
    var a=new ObjectAttributes{Length=Marshal.SizeOf<ObjectAttributes>(),RootDirectory=parent.DangerousGetHandle(),ObjectName=u,Attributes=0x40|OBJ_DONT_REPARSE};
-   int status=NtCreateFile(out var child,Read,ref a,out _,IntPtr.Zero,0,Share,1,0x00200020,IntPtr.Zero,0);
+   int status=NtCreateFile(out var child,Read|(directory?0x20u:0u),ref a,out _,IntPtr.Zero,0,Share,1,0x00200020|(directory?1u:0u),IntPtr.Zero,0);
    GC.KeepAlive(parent);
-   if(status!=0 || child.IsInvalid){child.Dispose();throw new Blocked("NT_OPEN_FAILED");}return child;
+   if(status!=0 || child.IsInvalid){child.Dispose();throw new Blocked("NT_OPEN_FAILED",status);}return child;
   }finally{if(u!=IntPtr.Zero)Marshal.FreeHGlobal(u);if(text!=IntPtr.Zero)Marshal.FreeHGlobal(text);}
  }
  public static Identity Id(SafeFileHandle h){
@@ -134,7 +134,7 @@ internal static class Native
   var id=Id(h);Policy.Object(id,false);
   Inject("DESCRIPTOR");
   uint error=GetSecurityInfo(h,1,7,out _,out _,out _,out _,out IntPtr sd);
-  if(error!=0){if(sd!=IntPtr.Zero)LocalFree(sd);throw new Blocked("SECURITY_INFO_FAILED");}
+  if(error!=0){if(sd!=IntPtr.Zero)LocalFree(sd);throw new Blocked("SECURITY_INFO_FAILED",unchecked((int)error));}
   try{
    if(sd==IntPtr.Zero)throw new Blocked("DESCRIPTOR_MISSING");
    uint size=GetSecurityDescriptorLength(sd);
@@ -153,7 +153,7 @@ internal static class Native
     uint length=1024;IntPtr privileges=Marshal.AllocHGlobal((int)length);
     try{var mapping=new Mapping{Read=0x120089,Write=0x120116,Execute=0x1200A0,All=0x1F01FF};
      Inject("ACCESS_CHECK");Inject("PRIVILEGE");
-     if(!AccessCheck(sd,token,pair.Value,ref mapping,privileges,ref length,out uint granted,out bool allowed))throw new Blocked("ACCESS_CHECK_FAILED");
+     if(!AccessCheck(sd,token,pair.Value,ref mapping,privileges,ref length,out uint granted,out bool allowed))throw new Blocked("ACCESS_CHECK_FAILED",Marshal.GetLastWin32Error());
      if(length>1024 || (allowed && (granted&pair.Value)!=pair.Value))throw new Blocked("ACCESS_CHECK_STRUCTURE");
      int usedPrivileges=Marshal.ReadInt32(privileges);
      if(usedPrivileges<0 || usedPrivileges>80)throw new Blocked("PRIVILEGE_SET_INVALID");

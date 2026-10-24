@@ -73,3 +73,22 @@ def test_native_evidence_forgery_is_rejected(fault):
     if fault=='native-error':r['payload']['code']=2
     if fault=='skip':r['outcome']='SKIP'
     with pytest.raises(ValueError):verify_rows([r],[r['case']],'a'*40,'1','1')
+
+
+@pytest.mark.parametrize('fault',['zero-id','different-volume','file-parent','missing-delete-child','duplicate-id','bool-depth'])
+def test_inconsistent_native_chain_is_rejected(fault):
+    from installer.native_observer_ci import verify_rows
+    r=receipt();chain=r['payload']['value']['chain']
+    if fault=='zero-id':chain[0]['identity']['fileId']='0'*32
+    if fault=='different-volume':chain[1]['identity']['volume']=2
+    if fault=='file-parent':chain[0]['identity']['attributes']=0
+    if fault=='missing-delete-child':del chain[0]['effectiveRights']['DELETE_CHILD']
+    if fault=='duplicate-id':chain[1]['identity']['fileId']=chain[0]['identity']['fileId']
+    if fault=='bool-depth':chain[0]['depth']=False
+    with pytest.raises(ValueError):verify_rows([r],[r['case']],'a'*40,'1','1')
+
+
+def test_session_drains_output_before_waiting():
+    source=(ROOT/'installer/tests/test-native-acl-observer.ps1').read_text()
+    body=source.split('function Recheck(',1)[1].split('\ntry {',1)[0]
+    assert body.index('ReadToEndAsync') < body.index('WaitForExit')

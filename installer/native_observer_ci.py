@@ -57,9 +57,13 @@ def verify_rows(rows,expected,head,run,attempt):
             require(report.get('effectiveRightsStatus')=='BLOCKED_MIC_ALL_PRINCIPALS_AND_PRIVILEGES_NOT_PROVEN','EFFECTIVE_UNKNOWN')
             token_facts(report.get('token'))
             chain=report.get('chain');require(type(chain) is list and len(chain)>3,'ANCESTOR_CHAIN')
+            identities=set();volume=chain[0].get('identity',{}).get('volume')
             for depth,o in enumerate(chain):
-                i=o.get('identity',{});require(o.get('depth')==depth and re.fullmatch('[0-9A-F]{32}',i.get('fileId','')),'IDENTITY')
-                require(type(i.get('volume')) is int and 0<i['volume']<2**64,'VOLUME')
+                i=o.get('identity',{});require(type(o.get('depth')) is int and o['depth']==depth and re.fullmatch('[0-9A-F]{32}',i.get('fileId','')),'IDENTITY')
+                require(i.get('fileId')!='0'*32,'ZERO_ID')
+                require(type(i.get('volume')) is int and 0<i['volume']<2**64 and i['volume']==volume,'VOLUME')
+                key=(i['volume'],i['fileId']);require(key not in identities,'DUPLICATE_ID');identities.add(key)
+                require(depth==len(chain)-1 or i.get('attributes',0)&0x10!=0,'PARENT_DIRECTORY')
                 require(type(i.get('attributes')) is int and i['attributes']&0x400==0,'REPARSE')
                 require(i['attributes']&0x10 or type(i.get('links')) is int and i['links']==1,'LINKS')
                 require(re.fullmatch('[0-9A-F]{64}',o.get('descriptorSha256','')),'DESCRIPTOR_HASH')
@@ -69,6 +73,7 @@ def verify_rows(rows,expected,head,run,attempt):
                     require(type(ace) is dict and set(ace)=={'sid','mask','flags','type'} and valid_sid(ace['sid']),'ACE_SID')
                     require(type(ace['mask']) is int and -2**31<=ace['mask']<2**31 and type(ace['flags']) is int and 0<=ace['flags']<=31 and ace['type'] in ('AccessAllowed','AccessDenied'),'ACE_TYPE')
                 rights=o.get('effectiveRights',{});require({'DELETE','WRITE_DAC','WRITE_OWNER','WRITE_DATA','APPEND_DATA'}<=set(rights),'RIGHTS_INCOMPLETE')
+                require(not(i['attributes']&0x10) or 'DELETE_CHILD' in rights,'PARENT_DELETE_CHILD_MISSING')
                 require(all(x in ('DACL_ALLOW','DACL_DENY','BLOCKED_PRIVILEGED_ACCESS') for x in rights.values()),'RIGHTS_UNKNOWN')
             if case.startswith('held-'):
                 require(row.get('details')=={'rename_win32':32},'RENAME_NOT_PROVEN')

@@ -21,7 +21,7 @@ internal static class Program
    var components=Policy.Components(args[injected?2:(session?1:0)]);
    using var token=Native.CaptureToken();var facts=Native.TokenFacts(token);var rows=new List<Observation>();
    for(int i=0;i<components.Length;i++){
-    var h=i==0?Native.OpenRoot(components[0]):Native.OpenChild(handles[^1],components[i]);handles.Add(h);
+    var h=i==0?Native.OpenRoot(components[0]):Native.OpenChild(handles[^1],components[i],i<components.Length-1);handles.Add(h);
     var row=Native.Observe(h,token,i);Policy.Object(row.Identity,i<components.Length-1);
     if(rows.Count>0 && row.Identity.Volume!=rows[0].Identity.Volume)throw new Blocked("VOLUME_CHANGED");
     rows.Add(row);
@@ -43,11 +43,11 @@ internal static class Program
     ArgumentException or NotSupportedException or OverflowException or System.Security.SecurityException){
    Console.WriteLine(JsonSerializer.Serialize(new {schema=1,fault_injection=Native.Fault!=null,status="BLOCKED",observation="REJECTED",host_verified=false,
     physical_attestation=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false,
-    reason=e is Blocked b?b.Code:"NATIVE_API_OR_STRUCTURE_FAILURE"},Json));return 2;
+    native_error=e is Blocked error?error.NativeError:null,reason=e is Blocked b?b.Code:"NATIVE_API_OR_STRUCTURE_FAILURE"},Json));return 2;
   }finally{for(int i=handles.Count-1;i>=0;i--)handles[i].Dispose();}
  }
 }
-internal sealed class Blocked(string code):Exception(code){public string Code{get;}=code;}
+internal sealed class Blocked(string code,int? nativeError=null):Exception(code){public string Code{get;}=code;public int? NativeError{get;}=nativeError;}
 internal record Identity(ulong Volume,string FileId,uint Links,uint Attributes);
 internal record AceFact(string Sid,int Mask,int Flags,string Type);
 internal record Observation(int Depth,Identity Identity,string Owner,string Group,string DescriptorSha256,bool Protected,List<AceFact> Aces,Dictionary<string,string> EffectiveRights);

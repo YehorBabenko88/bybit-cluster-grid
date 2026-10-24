@@ -1,6 +1,6 @@
 # LS5 native ACL custody executor — security contract (design stage)
 
-Status: DESIGN_ONLY / NOT IMPLEMENTED. Based on PR #237 exact HEAD `e25197b169ef0e5f37b5bd0030ee4a97b13965e2`.
+Status: MUTATOR DESIGN_ONLY / NOT IMPLEMENTED. Read-only observer acceptance is tracked separately in [LS5_NATIVE_OBSERVER_ACCEPTANCE.md](LS5_NATIVE_OBSERVER_ACCEPTANCE.md); transaction design in [LS5_NATIVE_TRANSACTION_EXECUTOR_DESIGN.md](LS5_NATIVE_TRANSACTION_EXECUTOR_DESIGN.md). Based on PR #237 exact HEAD `e25197b169ef0e5f37b5bd0030ee4a97b13965e2`.
 
 ## Authority boundary
 
