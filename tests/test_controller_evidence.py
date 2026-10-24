@@ -55,3 +55,19 @@ def test_downloaded_receipt_reinspection(tmp_path,monkeypatch,tamper):
     else:
         p=tmp_path/('junit.xml' if tamper=='xml' else 'events.jsonl');p.write_bytes(p.read_bytes()+b' ')
     with pytest.raises(ValueError):c.receipt(tmp_path,HEAD,'12','2')
+
+
+@pytest.mark.parametrize('tamper',['xml-text','duplicate-jsonl'])
+def test_rehashed_semantic_tamper_refused(tmp_path,monkeypatch,tamper):
+    import hashlib
+    monkeypatch.setattr(c,'source_hashes',lambda head:{'source':'a'*64})
+    for file,kind in [('model.json','MODEL_TESTS'),('native.json','HOSTED_FIXTURE_TESTS')]:
+        (tmp_path/file).write_text(json.dumps(sample(kind)),encoding='utf-8')
+    c.receipt(tmp_path,HEAD,'12','2',create=True)
+    path=tmp_path/('junit.xml' if tamper=='xml-text' else 'events.jsonl')
+    raw=path.read_text(encoding='utf-8')
+    if tamper=='xml-text':raw=raw.replace(' />','>PHYSICAL_PASS</testcase>',1)
+    else:raw=raw.replace('"outcome": "PASS"','"outcome": "FAIL", "outcome": "PASS"',1)
+    path.write_text(raw,encoding='utf-8')
+    p=tmp_path/'manifest.json';manifest=json.loads(p.read_text());manifest['files'][path.name]=hashlib.sha256(path.read_bytes()).hexdigest();p.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError):c.receipt(tmp_path,HEAD,'12','2')

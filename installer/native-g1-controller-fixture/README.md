@@ -9,3 +9,5 @@ The child is fixed System32 cmd.exe with constant `/d /c exit 0`, pinned by an o
 Held fixture root, marker and journal identities bind permits and flushed journal rows. The guardian retains the handles plus external-in-relation-to-journal checkpoint. Recovery rechecks those same handles at a cooperative barrier; it is not OS crash/reboot evidence or protection against privileged administrators or rollback of all state. Failed flush never advances the guardian or permits resume. Marker disposition is set only on the original owned file handle after confirmed child exit. Journal/root and AppContainer profile are retained for disposable runner teardown; no name-based cleanup, recursive deletion, or profile deletion occurs. Existing system-image hardlinks are not cleanup targets.
 
 All physical phases remain BLOCKED; execute_authorized, cleanup_authorized and host_verified remain false.
+
+The child receives an explicit Unicode environment containing only SystemRoot and WINDIR; CI credentials, PATH and arbitrary parent configuration are not inherited.

@@ -48,6 +48,8 @@
     "tests/test_controller_evidence.py::test_duplicate_json_keys",
     "tests/test_controller_evidence.py::test_exact_inventory[HOSTED_FIXTURE_TESTS]",
     "tests/test_controller_evidence.py::test_exact_inventory[MODEL_TESTS]",
+    "tests/test_controller_evidence.py::test_rehashed_semantic_tamper_refused[duplicate-jsonl]",
+    "tests/test_controller_evidence.py::test_rehashed_semantic_tamper_refused[xml-text]",
     "tests/test_controller_evidence.py::test_tampered_fields[attempt-3]",
     "tests/test_controller_evidence.py::test_tampered_fields[cases-value12]",
     "tests/test_controller_evidence.py::test_tampered_fields[cleanup_authorized-True]",
@@ -1130,6 +1132,14 @@
     [
       "tests.test_controller_evidence",
       "test_exact_inventory[MODEL_TESTS]"
+    ],
+    [
+      "tests.test_controller_evidence",
+      "test_rehashed_semantic_tamper_refused[duplicate-jsonl]"
+    ],
+    [
+      "tests.test_controller_evidence",
+      "test_rehashed_semantic_tamper_refused[xml-text]"
     ],
     [
       "tests.test_controller_evidence",

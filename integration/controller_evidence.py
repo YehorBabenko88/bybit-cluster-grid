@@ -80,9 +80,10 @@ def receipt(folder, head, run, attempt, *, create=False):
     need(xml.tag == 'testsuite' and xml.attrib == dict(tests=str(len(names)),failures='0',errors='0',skipped='0',head=head,run_id=run,attempt=attempt))
     need([c.attrib for c in xml] == [dict(classname='native_controller_ci_fixture',name=n) for n in names])
     need(all(c.tag == 'testcase' and len(c) == 0 for c in xml))
+    need(all(not (node.text or '').strip() and not (node.tail or '').strip() for node in xml.iter()))
     rows = (folder/'events.jsonl').read_text(encoding='utf-8').splitlines()
     expected = [dict(name=n,head=head,run_id=run,attempt=attempt,outcome='PASS',assurance='CI_FIXTURE_ONLY',physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False) for n in names]
-    need([json.loads(r) for r in rows] == expected)
+    need(rows == [json.dumps(r) for r in expected])
     return dict(tests=len(names),head=head,physical='0/10 NOT_RUN',g1='BLOCKED')
 
 

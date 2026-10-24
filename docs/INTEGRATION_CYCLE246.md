@@ -93,6 +93,15 @@ head/run/attempt. This detects inconsistent/tampered receipts; it cannot make a
 malicious producer into an independent witness. No GITHUB_ACTIONS, GITHUB_SHA or
 RUNNER_ENVIRONMENT substitution is used.
 
+## Additional evidence mutation regressions
+
+Two independent mutations of the new receipt were reproduced before correction:
+rehashed JSONL with duplicate outcome FAIL/PASS keys, and rehashed JUnit with hidden
+PHYSICAL_PASS testcase text. The previous checks accepted both. Canonical JSONL rows
+and rejection of structural XML text now refuse both, even after manifest rehash.
+These are consistency checks, never proof of an honest producer or physical authority.
+The child environment is explicit SystemRoot/WINDIR only; no CI credentials inherited.
+
 ## P0/P1/P2 and G0/G1 verdict
 
 | Priority | Remaining condition | Verdict |
