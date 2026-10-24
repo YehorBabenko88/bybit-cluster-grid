@@ -43,3 +43,8 @@ Remaining P0 physical boundaries are in LS5_PC4_G1_AUTHORIZATION_REQUEST.md. Cur
 read-only LS5 observation is partial, PC4 not contacted, G1 executable controller
 absent. No executable G1 manifest can honestly be marked ready. Generic owner
 approval cannot repair those prerequisites. Execute/Cleanup remain unauthorized.
+
+G0 producer/consumer regression discovered during actual authorized read-only
+observation: SSH/Tailscale start_mode was emitted but not in the consumer/schema
+allowlist. Added the exact bounded string field to both; unknown keys and wrong
+types remain rejected. No collector changes, authorization promotion or host writes.

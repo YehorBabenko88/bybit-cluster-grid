@@ -108,3 +108,25 @@ def test_g1_evidence_plan_cannot_claim_actual_execution():
     jsonschema.validate(example,schema)
     example['phases'][0]['status']='PASS'
     with pytest.raises(jsonschema.ValidationError):jsonschema.validate(example,schema)
+
+@pytest.mark.parametrize('service',['ssh','tailscale'])
+def test_service_start_mode_metadata_matches_g0_producer(service):
+    p=make_profile(HEAD,RUN); nodes=[snapshot('LS5'),snapshot('PC4')]
+    nodes[0]['checks'][service]={'status':'BLOCKED','reason':'SERVICE_STATE_NOT_VERSION_OR_ROUTE_PROOF',
+        'data':[{'service':service,'state':'Running','start_mode':'Auto'}]}
+    result=assess_snapshots(p,nodes,NOW)
+    assert result['offline_valid'] is True
+    assert result['g0']=='BLOCKED' and not result['host_verified']
+    import json
+    from pathlib import Path
+    import jsonschema
+    schema=json.loads((Path(__file__).resolve().parents[1]/'planning/physical-first-boot/g0-observation.schema.json').read_text())
+    jsonschema.validate(nodes[0],schema)
+    nodes[0]['checks'][service]['data'][0]['unexpected_field']='Auto'
+    assert assess_snapshots(p,nodes,NOW)['offline_valid'] is False
+
+@pytest.mark.parametrize('value',[None,True,0,[]])
+def test_service_start_mode_unknown_type_is_blocked(value):
+    nodes=[snapshot('LS5'),snapshot('PC4')]
+    nodes[0]['checks']['ssh']['data']=[{'service':'sshd','state':'Running','start_mode':value}]
+    assert assess_snapshots(make_profile(HEAD,RUN),nodes,NOW)['offline_valid'] is False

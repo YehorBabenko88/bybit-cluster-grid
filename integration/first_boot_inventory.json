@@ -787,6 +787,12 @@
     "tests/test_physical_first_boot_program.py::test_reserved_or_invalid_ports_blocked[65536]",
     "tests/test_physical_first_boot_program.py::test_reserved_or_invalid_ports_blocked[8765]",
     "tests/test_physical_first_boot_program.py::test_reserved_or_invalid_ports_blocked[True]",
+    "tests/test_physical_first_boot_program.py::test_service_start_mode_metadata_matches_g0_producer[ssh]",
+    "tests/test_physical_first_boot_program.py::test_service_start_mode_metadata_matches_g0_producer[tailscale]",
+    "tests/test_physical_first_boot_program.py::test_service_start_mode_unknown_type_is_blocked[0]",
+    "tests/test_physical_first_boot_program.py::test_service_start_mode_unknown_type_is_blocked[None]",
+    "tests/test_physical_first_boot_program.py::test_service_start_mode_unknown_type_is_blocked[True]",
+    "tests/test_physical_first_boot_program.py::test_service_start_mode_unknown_type_is_blocked[value3]",
     "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[forged_authority]",
     "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[future]",
     "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[head]",
@@ -4049,6 +4055,30 @@
     [
       "tests.test_physical_first_boot_program",
       "test_reserved_or_invalid_ports_blocked[True]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_service_start_mode_metadata_matches_g0_producer[ssh]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_service_start_mode_metadata_matches_g0_producer[tailscale]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_service_start_mode_unknown_type_is_blocked[0]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_service_start_mode_unknown_type_is_blocked[None]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_service_start_mode_unknown_type_is_blocked[True]"
+    ],
+    [
+      "tests.test_physical_first_boot_program",
+      "test_service_start_mode_unknown_type_is_blocked[value3]"
     ],
     [
       "tests.test_physical_first_boot_program",

@@ -742,6 +742,10 @@
                       "boolean",
                       "null"
                     ]
+                  },
+                  "start_mode": {
+                    "type": "string",
+                    "maxLength": 512
                   }
                 }
               }
@@ -806,6 +810,10 @@
                       "boolean",
                       "null"
                     ]
+                  },
+                  "start_mode": {
+                    "type": "string",
+                    "maxLength": 512
                   }
                 }
               }

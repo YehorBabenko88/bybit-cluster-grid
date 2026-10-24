@@ -16,7 +16,7 @@ DATA_KEYS={
  'postgres':{'service','state','start_mode'},'listeners':{'address','port','pid'},
  'processes':{'pid','parent_pid','name','path','created_utc','grid_candidate','identity_known'},
  'services':{'service','state','start_mode'},'tasks':{'name','state','enabled','principal_kind'},
- 'tailscale':{'service','state','path','file_version'},'ssh':{'service','state','path','file_version'},
+ 'tailscale':{'service','state','start_mode','path','file_version'},'ssh':{'service','state','start_mode','path','file_version'},
  'firewall':{'action','direction','profile','protocol','local_port'},
  'paths':{'path','exists','reparse'},'environment':{'name'},
  'source':{'path','sha256'},'accounts':{'name','sid_digest','enabled','administrator'},
@@ -99,6 +99,7 @@ def assess_snapshots(profile,snapshots,now):
                 need(type(row['data']) is list and len(row['data'])<=128,'DATA_SIZE')
                 for d in row['data']:
                     need(type(d) is dict and set(d)<=DATA_KEYS[name],'UNSAFE_DATA_FIELDS')
+                    if name in ('tailscale','ssh') and 'start_mode' in d:need(type(d['start_mode']) is str,'START_MODE_TYPE')
                     if name=='environment':need(set(d)=={'name'} and d['name'] in ENV_NAMES,'ENV_NAME')
                     if name=='listeners':
                         need(type(d.get('port')) is int and 1<=d['port']<=65535,'PORT_TYPE')
