@@ -43,8 +43,9 @@ jobs:
           foreach($mode in @('model','native')){
             $arg=if($mode -eq 'model'){'--model-tests'}else{'--hosted-fixture-tests'}
             $rows=@(& ./installer/native-g1-controller-fixture/bin/Release/net8.0-windows/NativeG1ControllerFixture.exe $arg)
-            if($LASTEXITCODE -ne 0 -or $rows.Count -ne 1){$rows | Write-Output;throw 'CONTROLLER_FIXTURE_FAILED'}
-            [IO.File]::WriteAllText((Join-Path $PWD ('controller-evidence/'+$mode+'.json')),($rows -join "`n"),[Text.UTF8Encoding]::new($false))
+            $result=$LASTEXITCODE
+            if($rows.Count -eq 1){[IO.File]::WriteAllText((Join-Path $PWD ('controller-evidence/'+$mode+'.json')),($rows -join "`n"),[Text.UTF8Encoding]::new($false))}
+            if($result -ne 0 -or $rows.Count -ne 1){$rows | Write-Output;throw 'CONTROLLER_FIXTURE_FAILED'}
           }
           python -m integration.controller_evidence create controller-evidence $env:EXACT_HEAD_SHA $env:GITHUB_RUN_ID $env:GITHUB_RUN_ATTEMPT
           if($LASTEXITCODE -ne 0){throw 'CONTROLLER_RECEIPT_FAILED'}
