@@ -67,3 +67,33 @@ G0 hosted exact-HEAD CI and artifacts: pending. G1 cross-PR integrated behavior:
 The original offline assessor assumed one historical hardcoded release ID. It now validates any **exact 40-character lowercase commit ID**, but requires the matching coordinator executable path and all listed inventory hashes to agree with that same release. The integration candidate PR244 HEAD is `38e6ab40928cbdd6a2d6d84cbb05b4628167258f`; this value is a test fixture, **not** a trusted signed source or approval to activate. Both the candidate and its manifest must be independently verified. A release version change without updating the inventory must fail closed.
 
 The PR244 full-system foreground entrypoint is `python -m integration.first_boot --execute-ci`, subject to its own CI-only gates and disposable PG18/native prerequisites. Do not substitute the standalone offline assessor or disposable release-state model for that E2E execution. Neither this PR nor PR244 authorizes physical bootstrap, release switching, Scheduled Task creation or production service startup.
+
+## G0 physical host inventory: read-only only, owner/operator execution
+
+After explicit operator confirmation that read-only G0 may run, on **each** host from a trusted checkout, run:
+
+```powershell
+# LS5, CONTROL
+powershell.exe -NoProfile -NonInteractive -File .\installer\ls5-g0-readonly-preflight.ps1 -Role CONTROL
+# PC4, WORKER
+powershell.exe -NoProfile -NonInteractive -File .\installer\ls5-g0-readonly-preflight.ps1 -Role WORKER
+```
+
+Output JSON contains host, UTC time, task name/state, selected process PID/name/creation timestamp and listeners on 8765/55432. It intentionally does **not** read or print command lines, task actions, tokens, env, credentials or production database contents. Output `OBSERVATION_ONLY` is not READY/GO. `EXISTING_LISTENER_DO_NOT_REUSE` forbids reusing a port; `*_INVENTORY_UNAVAILABLE` requires STOP, not a guess. No process is killed, no service/task changed. PID alone is not process identity; native signed handle/token observer in PR238 is separately required to defend PID reuse.
+
+## G1 disposable staging design — not authorized for physical hosts
+
+Use unique, owner-reviewed isolated absolute directories on **each host**, with no overlap or reparse ancestor to installed Grid or PostgreSQL. Select different ephemeral loopback-only ports after read-only collision checks; never reuse 8765/55432 or existing coordinator credentials, service data, database or Tailscale interfaces. New staging paths and ports require G1 owner approval before any physical writes or bind. Pin SHA256 for each file, manifest, runtime binary and dependencies; verify closed Python import/.pth/sitecustomize/DLL paths and read-only native source custody. Do not use existing `coordinator-launcher.ps1` for G1: its hardcoded `0.0.0.0:8765`, ProgramData .env import and auto-token write violate isolation. Do not use existing `launcher.ps1` either: it imports ProgramData .env and invokes release recovery with `-Apply`. Both are production task launchers, not disposable lab entrypoints.
+
+Foreground CI-only entrypoint is PR244 `python -m integration.first_boot --execute-ci` under its own attested disposable PG18 and synthetic loopback feed; first verify it does not bind existing listeners, use production credentials or access physical services. Required runbook phases: source/hash readback → isolated directory and ownership attestation → port check → disposable PG18 role/database (separate G1 approval) → foreground Coordinator and Worker children → stop only tracked children by stable handle+creation time → hash/manifest/journal re-read → interrupt staging fault tests → rollback only owned paths → verify all child processes exited → record JUnit/JSONL/SHA256. **Never cleanup by PID alone, prefix match, or recursive deletion without trusted owner marker + native path containment and reparse checks.** Any unknown child, stale handle, changed path identity, existing listener or uncertain database owner => STOP and retain evidence, not delete.
+
+## Source compatibility matrix
+
+| Boundary | PR239 | PR238 / PR244 | Result |
+| --- | --- | --- | --- |
+| Release identity | Dynamic 40-hex pinned inventory; never grants execution | PR244 integration HEAD pinned separately | Offline model compatible; native signature pending |
+| Process identity | G0 PID+creation timestamp observation only | PR238 native token/handle custody | Native proof not integrated, G1 BLOCKED |
+| Foreground launch | Existing task launchers unsafe for disposable isolation | PR244 uses `integration.first_boot --execute-ci` | Use PR244 harness only after independent source check |
+| PostgreSQL | No DB mutations | PR244 disposable PG18 / 32 tests | Hosted PG JUnit reported PASS, whole job FAIL; no G1 authorization |
+| Worker heartbeat | No network mutations | PR244 17 BLOCKED due to socket audit guard | P1 E2E fix and fresh exact-head artifact required |
+| Windows native | No ACL writes | PR238 observer TOKEN_SIZE_UNKNOWN | Native G2 BLOCKED |
