@@ -124,3 +124,16 @@ Even when all required workflow conclusions are success, the output is
 caller-supplied manifest, **not GitHub's authenticated API**: independent
 fetching of the actual workflow runs and downloaded artifacts is mandatory.
 A skipped unrelated workflow is listed, never counted as a successful test.
+
+## Artifact-chain adversarial reconciliation
+
+The offline `audit_evidence_chain` additionally binds source HEAD, GitHub
+run ID, rerun attempt, artifact ID and ZIP SHA256 to corresponding manifest,
+JUnit and JSONL identity fields. It rejects mixed HEADs, stale rerun attempts,
+cross-run splicing, malformed SHA and attempts to claim verified custody or a
+physical producer. This is an **identity-consistency model** only: the supplied
+ZIP digest has not been independently downloaded or checked by this function.
+Independent reviewer must retrieve artifact bytes through GitHub's authenticated
+artifact API, pin artifact ID/run attempt, compute ZIP SHA256 and inner file
+digests, inspect exact JUnit inventory and compare the immutable producer
+source at the same HEAD. A consistent forged chain still cannot grant PASS.
