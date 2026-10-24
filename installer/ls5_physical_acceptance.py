@@ -222,3 +222,31 @@ def audit_evidence_chain(chain, *, expected_head):
             "zip_bytes_independently_verified": False,
             "custody_authenticated": False, "physical_pass": False,
             "deployment_go": False}
+
+
+def audit_gate_dependencies(gates):
+    """No stage can inherit authorization from another; only report readiness gaps."""
+    order = (
+        ("ls5_readonly", ()),
+        ("acl_remediation", ("ls5_readonly",)),
+        ("trusted_bootstrap", ("acl_remediation",)),
+        ("postgres_readiness", ("trusted_bootstrap",)),
+        ("network_preflight", ("trusted_bootstrap",)),
+        ("coordinator_start", ("postgres_readiness", "network_preflight")),
+        ("pc4_provisioning", ("coordinator_start",)),
+        ("custody_verification", ("pc4_provisioning",)),
+        ("collect_local", ("custody_verification",)),
+        ("pc4_sid_acl", ("collect_local",)),
+        ("limited_pilot", ("pc4_sid_acl",)),
+        ("rollback", ("limited_pilot",)),
+    )
+    require(type(gates) is dict and set(gates) == {name for name, _ in order}, "GATE_SET")
+    allowed = {"NOT_RUN", "BLOCKED", "FAIL", "SYNTHETIC_PASS",
+               "HOST_READONLY_PASS", "PHYSICAL_PASS"}
+    require(all(type(v) is str and v in allowed for v in gates.values()), "GATE_STATUS")
+    missing = {}
+    for stage, deps in order:
+        missing[stage] = [d for d in deps if gates[d] != "PHYSICAL_PASS"]
+    return {"status": "FAIL" if "FAIL" in gates.values() else "BLOCKED",
+            "dependencies_unproven": missing, "execute_authorized": False,
+            "cleanup_authorized": False, "deployment_go": False}
