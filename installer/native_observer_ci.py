@@ -39,12 +39,17 @@ def token_facts(t):
 def verify_rows(rows,expected,head,run,attempt):
     require([r.get('case') for r in rows]==expected,'CASE_INVENTORY')
     for row in rows:
+        require(set(row)==set(AUTH)|{'case','outcome','head','run_id','attempt','kind','payload','details'},'ROW_SCHEMA')
         require(row.get('head')==head and row.get('run_id')==run and row.get('attempt')==attempt,'CONTEXT')
         require(row.get('outcome')=='PASS' and row.get('kind')=='HOSTED_GUID_OBSERVER_TEST','OUTCOME')
         require(all(row.get(k) is False for k in AUTH),'FALSE_AUTHORITY')
-        payload=row.get('payload');require(type(payload) is dict and type(payload.get('code')) is int,'PAYLOAD')
+        payload=row.get('payload');require(type(payload) is dict and set(payload)=={'code','value'} and type(payload.get('code')) is int,'PAYLOAD')
         report=payload.get('value');require(type(report) is dict and report.get('status')=='BLOCKED','BLOCKED_REQUIRED')
         require(all(report.get(k) is False for k in AUTH),'OBSERVER_AUTHORITY')
+        common=set(AUTH)|{'schema','fault_injection','status','observation','reason'}
+        extra={'native_error'} if report.get('observation')=='REJECTED' else {'effectiveRightsStatus','token','chain'}
+        require(set(report)==common|extra and type(report.get('schema')) is int and report['schema']==1,'REPORT_SCHEMA')
+        if 'native_error' in report:require(report['native_error'] is None or type(report['native_error']) is int,'NATIVE_ERROR_SCHEMA')
         case=row['case']
         if case.startswith('injected-'):
             require(payload['code']==2 and report.get('observation')=='REJECTED' and report.get('reason')=='INJECTED_'+case.removeprefix('injected-') and report.get('fault_injection') is True,'INJECTED_REFUSAL')
@@ -55,6 +60,7 @@ def verify_rows(rows,expected,head,run,attempt):
         else:
             require(payload['code']==0 and report.get('observation')=='OBSERVED','EXPECTED_OBSERVATION')
             require(report.get('effectiveRightsStatus')=='BLOCKED_MIC_ALL_PRINCIPALS_AND_PRIVILEGES_NOT_PROVEN','EFFECTIVE_UNKNOWN')
+            require(report.get('reason')=='ALL_PRINCIPALS_WRITERS_AND_BOOTSTRAP_NOT_PROVEN','OBSERVATION_REASON')
             token_facts(report.get('token'))
             chain=report.get('chain');require(type(chain) is list and len(chain)>3,'ANCESTOR_CHAIN')
             identities=set();volume=chain[0].get('identity',{}).get('volume')

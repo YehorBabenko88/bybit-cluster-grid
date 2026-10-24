@@ -32,7 +32,7 @@ def receipt():
         owner='S-1-5-18',group='S-1-5-18',descriptorSha256='A'*64,protected=True,
         aces=[dict(sid='S-1-5-18',mask=0x1f01ff,flags=0,type='AccessAllowed')],
         effectiveRights={k:'DACL_ALLOW' for k in ['DELETE','WRITE_DAC','WRITE_OWNER','WRITE_DATA','APPEND_DATA','DELETE_CHILD']}) for i in range(4)]
-    report=dict(fault_injection=False,status='BLOCKED',observation='OBSERVED',effectiveRightsStatus='BLOCKED_MIC_ALL_PRINCIPALS_AND_PRIVILEGES_NOT_PROVEN',token=token,chain=chain)
+    report=dict(schema=1,reason='ALL_PRINCIPALS_WRITERS_AND_BOOTSTRAP_NOT_PROVEN',fault_injection=False,status='BLOCKED',observation='OBSERVED',effectiveRightsStatus='BLOCKED_MIC_ALL_PRINCIPALS_AND_PRIVILEGES_NOT_PROVEN',token=token,chain=chain)
     flags={k:False for k in ['physical_attestation','host_verified','apply_authorized','execute_authorized','cleanup_authorized']}
     report.update(flags)
     return dict(case='ordinary-read-only-observation',head='a'*40,run_id='1',attempt='1',outcome='PASS',kind='HOSTED_GUID_OBSERVER_TEST',payload=dict(code=0,value=report),details=None,**flags)
@@ -92,3 +92,13 @@ def test_session_drains_output_before_waiting():
     source=(ROOT/'installer/tests/test-native-acl-observer.ps1').read_text()
     body=source.split('function Recheck(',1)[1].split('\ntry {',1)[0]
     assert body.index('ReadToEndAsync') < body.index('WaitForExit')
+
+
+@pytest.mark.parametrize('fault',['schema','extra-row','extra-report'])
+def test_unknown_evidence_schema_is_rejected(fault):
+    from installer.native_observer_ci import verify_rows
+    r=receipt()
+    if fault=='schema':r['payload']['value']['schema']=2
+    if fault=='extra-row':r['physical_pass']=True
+    if fault=='extra-report':r['payload']['value']['deployment_authorized']=True
+    with pytest.raises(ValueError):verify_rows([r],[r['case']],'a'*40,'1','1')

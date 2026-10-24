@@ -11,6 +11,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Win32.SafeHandles;
+[assembly:DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
 internal static class Native
 {
  internal static string? Fault;

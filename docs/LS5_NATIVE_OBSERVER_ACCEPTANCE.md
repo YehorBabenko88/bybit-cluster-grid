@@ -32,7 +32,7 @@ Exit 0 means an observation completed. Every report still says `status=BLOCKED`,
 
 - 40 managed synthetic cases: aliases, file types/IDs, links, group flags, token-buffer bounds, descriptor/identity/rights drift and drive-root mapping. These never invoke the native observation APIs.
 - 28 hosted GUID fixture cases per shell/runtime cell, including six explicitly labelled injected refusals. Native cases cover owner/group/ACE reads, captured-token DACL decisions, group deny precedence, WRITE_OWNER, owner WRITE_DAC, parent DELETE_CHILD, missing READ_CONTROL, missing objects, junction/symlink/hardlink refusal, live rename exclusion and deterministic descriptor drift while handles remain held.
-- 29 Python source/evidence negative tests: fake authority, altered run/HEAD, missing token/rights, forged token digest, malformed ACE/SID/types, links, missing chain, false exits and SKIP.
+- 32 Python source/evidence negative tests: fake authority, altered run/HEAD, missing token/rights, forged token digest, malformed ACE/SID/types, links, missing chain, false exits and SKIP.
 
 The new workflow builds with warnings as errors on GitHub-hosted Windows and runs PowerShell5.1/7 x Python3.11/3.12. Every native fixture is freshly created under RUNNER_TEMP with a GUID; no existing installation is adopted, no users created, no tasks/services touched, no recursive cleanup performed. ACL changes are fixture setup only. Remaining fixtures expire with the disposable runner.
 
