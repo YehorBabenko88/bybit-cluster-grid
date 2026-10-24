@@ -92,6 +92,18 @@ def assess(policy_raw, observation_raw):
             if type(digest) is not str or not SHA.fullmatch(digest):
                 raise ValueError("DIGEST")
             normalized[normalized_name] = digest
+        # Minimum critical executable inputs; this does not prove transitive closure.
+        mandatory = (
+            executable + "\\runtime\\python.exe",
+            executable + "\\runtime\\pyvenv.cfg",
+            executable + "\\runtime\\python311.dll",
+            executable + "\\runtime\\site-packages\\sitecustomize.py",
+            executable + "\\runtime\\site-packages\\grid.pth",
+            executable + "\\releases\\" + VERSION + "\\grid\\coordinator.py",
+            executable + "\\installer\\coordinator-launcher.ps1",
+        )
+        if not set(mandatory).issubset(normalized):
+            raise ValueError("MANDATORY_EXECUTABLE_INPUT_MISSING")
         if type(o["files"]) is not list or len(o["files"]) != len(normalized):
             raise ValueError("FILE_SET")
         seen = set()
