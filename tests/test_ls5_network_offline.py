@@ -54,3 +54,21 @@ def test_duplicate_json_key():
     assert evaluate(raw)["policy_valid"] is False
 @pytest.mark.parametrize("raw",['NaN','[]','null','{','{"schema":1,"schema":2}'])
 def test_invalid_json(raw): assert evaluate(raw)["policy_valid"] is False
+
+
+def test_reverse_ssh_is_optional():
+    x=baseline()
+    x["flows"]=[f for f in x["flows"] if not (f["src"]=="PC4" and f["dst"]=="LS5" and f["port"]==22)]
+    check(x,True)
+
+@pytest.mark.parametrize("node",["PC1","PC2","PC3"])
+def test_unknown_peer_cannot_be_granted_flow(node):
+    x=baseline()
+    x["flows"].append({"src":node,"dst":"LS5","port":8765,"transport":"tailscale","purpose":"agent_api"})
+    check(x,False)
+
+@pytest.mark.parametrize("field,value", [("src",["PC4"]),("dst",{"node":"LS5"}),("transport",["tailscale"]),("purpose",["ssh"])])
+def test_nested_type_spoofing(field,value):
+    x=baseline()
+    x["flows"][0][field]=value
+    check(x,False)
