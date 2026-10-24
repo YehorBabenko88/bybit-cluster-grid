@@ -79,7 +79,7 @@ powershell.exe -NoProfile -NonInteractive -File .\installer\ls5-g0-readonly-pref
 powershell.exe -NoProfile -NonInteractive -File .\installer\ls5-g0-readonly-preflight.ps1 -Role WORKER
 ```
 
-Output JSON contains host, UTC time, task name/state, selected process PID/name/creation timestamp and listeners on 8765/55432. It intentionally does **not** read or print command lines, task actions, tokens, env, credentials or production database contents. Output `OBSERVATION_ONLY` is not READY/GO. `EXISTING_LISTENER_DO_NOT_REUSE` forbids reusing a port; `*_INVENTORY_UNAVAILABLE` requires STOP, not a guess. No process is killed, no service/task changed. PID alone is not process identity; native signed handle/token observer in PR238 is separately required to defend PID reuse.
+Output JSON contains host, UTC time, task name/state, selected process PID/name/creation timestamp and listeners on 8765/55432. It intentionally does **not** read or print command lines, task actions, tokens, env, credentials or production database contents. Output `OBSERVATION_ONLY` is not READY/GO. `GRID_TASK_PRESENT_NOT_DISABLED_DO_NOT_MUTATE` records a potentially active Grid task without disabling it; `EXISTING_LISTENER_DO_NOT_REUSE` forbids reusing a port; `*_INVENTORY_UNAVAILABLE` requires STOP, not a guess. No process is killed, no service/task changed. PID alone is not process identity; native signed handle/token observer in PR238 is separately required to defend PID reuse.
 
 ## G1 disposable staging design — not authorized for physical hosts
 
@@ -97,3 +97,7 @@ Foreground CI-only entrypoint is PR244 `python -m integration.first_boot --execu
 | PostgreSQL | No DB mutations | PR244 disposable PG18 / 32 tests | Hosted PG JUnit reported PASS, whole job FAIL; no G1 authorization |
 | Worker heartbeat | No network mutations | PR244 17 BLOCKED due to socket audit guard | P1 E2E fix and fresh exact-head artifact required |
 | Windows native | No ACL writes | PR238 observer TOKEN_SIZE_UNKNOWN | Native G2 BLOCKED |
+
+### Current integration checkpoint (2026-10-24)
+
+PR244 exact HEAD `9efa0b947ea7f588437bb562da6f2b3729283709` is newer than the previously accepted offline bootstrap evidence; its run `40090215672` was QUEUED at review time. The same HEAD's `preflight` run `40090215623` reports FAILURE; do not infer root cause without logs. Existing PR239 offline CI run `40088805006` PASS covers PR239 HEAD `a9f71801ace7e39ac558aa364a48ef5d37876e10` only. New G0 task-collision detection has no hosted PASS yet. Neither historical CI evidence nor this G0 observer establishes physical process ancestry or G1 authorization.
