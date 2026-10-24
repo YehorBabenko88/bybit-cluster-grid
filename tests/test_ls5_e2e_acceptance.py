@@ -68,6 +68,34 @@ class E2EAcceptanceTests(unittest.TestCase):
                 verify_zip_bytes(raw, expected_digest=hashlib.sha256(raw).hexdigest(),
                                  expected_files=files)
 
+    def test_exact_head_run_attempt_positive_and_tampering(self):
+        valid = make_report()
+        self.assertFalse(self.inspect(valid)["lab_go"])
+        for field, replacement in (("head", "b" * 40),
+                                   ("run_id", 102), ("attempt", 2)):
+            forged = dict(valid, **{field: replacement})
+            with self.subTest(field=field), self.assertRaises(AcceptanceBlocked):
+                self.inspect(forged)
+
+    def test_self_consistent_zip_is_not_provenance(self):
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("results.xml", b'<testsuite tests="26" failures="0"/>')
+            z.writestr("events.jsonl", b'{"status":"PASS"}\\n')
+        raw = out.getvalue()
+        with zipfile.ZipFile(io.BytesIO(raw)) as z:
+            digests = {n: hashlib.sha256(z.read(n)).hexdigest() for n in z.namelist()}
+        verdict = verify_zip_bytes(raw, expected_digest=hashlib.sha256(raw).hexdigest(),
+                                   expected_files=digests)
+        self.assertTrue(verdict["zip_consistent"])
+        self.assertFalse(verdict["origin_authenticated"])
+        self.assertFalse(verdict["lab_go"])
+        tampered = bytearray(raw)
+        tampered[-8] ^= 1
+        with self.assertRaises(AcceptanceBlocked):
+            verify_zip_bytes(bytes(tampered), expected_digest=hashlib.sha256(raw).hexdigest(),
+                             expected_files=digests)
+
     def test_g0_g1_queued_and_forged_head(self):
         pins = {n: HEAD for n in range(238, 243)}
         rows = [{"pr": n, "head": HEAD, "workflow": "queued", "run_id": n,
