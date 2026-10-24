@@ -23,6 +23,16 @@ class Pg18Integrity(unittest.TestCase):
             assert c.execute("show fsync").fetchone()[0] == "on"
             assert c.execute("show full_page_writes").fetchone()[0] == "on"
 
+    def test_wal_durability_configuration(self):
+        with psycopg.connect(self.dsn, autocommit=True) as c:
+            settings=dict(c.execute("select name,setting from pg_settings where name in ('fsync','full_page_writes','synchronous_commit','wal_level')").fetchall())
+            self.assertEqual(settings["fsync"], "on")
+            self.assertEqual(settings["full_page_writes"], "on")
+            self.assertEqual(settings["synchronous_commit"], "on")
+            self.assertIn(settings["wal_level"], ("replica", "logical"))
+            before=c.execute("select pg_current_wal_lsn()::text").fetchone()[0]
+            self.assertRegex(before, r"^[0-9A-F]+/[0-9A-F]+$")
+
     def test_rollback_and_idempotent_replay(self):
         name = "probe_" + uuid.uuid4().hex[:12]
         with psycopg.connect(self.dsn, autocommit=True) as c:
