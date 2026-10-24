@@ -6,6 +6,7 @@ on:
       - "tests/test_ls5_trusted_bootstrap.py"
       - "installer/ls5_bootstrap_ci_evidence.py"
       - "docs/LS5_TRUSTED_BOOTSTRAP.md"
+      - "docs/LS5_TRUSTED_SOURCE_HANDOFF.md"
       - ".github/workflows/ls5-trusted-bootstrap-offline.yml"
   push:
     branches:
