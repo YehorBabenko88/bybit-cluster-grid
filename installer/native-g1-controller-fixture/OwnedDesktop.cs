@@ -42,8 +42,8 @@ internal sealed class OwnedDesktop:IDisposable {
    try{uint info=0x17;Need(SetUserObjectSecurity(station,ref info,next),"PUBLISH_OWNED_STATION_ACCESS");}
    finally{Marshal.FreeHGlobal(next);}
    Guard();
-  }catch{if(switched){Need(SetProcessWindowStation(old),"RESTORE_WINDOW_STATION_ON_FAILURE");switched=false;}Dispose();throw;}
-  finally{if(switched)Need(SetProcessWindowStation(old),"RESTORE_WINDOW_STATION_FINALLY");Marshal.FreeHGlobal(p);}
+  }catch{try{if(switched){Need(SetProcessWindowStation(old),"RESTORE_WINDOW_STATION_ON_FAILURE");switched=false;}}finally{Dispose();}throw;}
+  finally{try{if(switched)Need(SetProcessWindowStation(old),"RESTORE_WINDOW_STATION_FINALLY");}finally{Marshal.FreeHGlobal(p);}}
  }
  static byte[] AclBytes(GenericAcl acl){var b=new byte[acl.BinaryLength];acl.GetBinaryForm(b,0);return b;}
  static void Verify(IntPtr handle,string name,byte[] expected){

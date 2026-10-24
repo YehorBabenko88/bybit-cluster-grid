@@ -1,7 +1,7 @@
 name: native-g1-controller-fixture
 on:
   pull_request:
-    paths: ['installer/native-g1-controller-fixture/**', 'integration/controller_evidence.py', 'tests/test_controller_evidence.py', '.github/workflows/native-g1-controller.yml']
+    paths: ['installer/native-g1-controller-fixture/**', 'installer/native-acl-observer/**', 'installer/native-acl-transaction-fixture/**', 'tools/build_controller_child.py', 'tests/test_controller_builder.py', 'integration/controller_evidence.py', 'tests/test_controller_evidence.py', '.github/workflows/native-g1-controller.yml']
   workflow_dispatch:
   workflow_call:
 permissions:
