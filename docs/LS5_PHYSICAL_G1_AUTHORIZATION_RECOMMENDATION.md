@@ -98,3 +98,14 @@ be refreshed before G1.
 No execution permission granted or implied. The owner alone may approve
 a future tightly scoped G1 after independent G0 review. No host
 commands, merge, deployment, production Apply/Rollback, or cleanup.
+
+
+## Refreshed exact-head gate checkpoint
+
+PR238 `7df22d1c5cdc60bcf4e3414dacd35d23fdec7149`, PR239 `8f0e2713f6e04000d29a370a6b2b2852a4cec6ff`, PR240 `6e8a2e63b7d250780a7276383bc20c15b820c76e`, PR241 `184a87d778c76a2cd2a0f8a14f4f5ee18bbeedaa`, PR242 `3f17728a44f09558852644df90447a60bcdd1dbb` (before this document update), PR244 `992e0db83c45e1dca35f22c14ccc6b49a13bac32`.
+
+GitHub Actions associated with latest #244 SHA: full-system-first-boot `40109637611`, native observer `40109637610`, preflight `40109637695`, windows-bundle `40109637645`, physical acceptance `40109637894`, physical-deployment-harness `40109637696` all **QUEUED** at observation. No exact-HEAD hosted PASS is available yet. Previous `3808cb9...` 11/11 full-system success cannot be inherited by this new SHA.
+
+Source-level blob comparison at latest heads: #239 JUnit evidence parser and #240 PG readiness match #244 exactly. #239 trusted bootstrap still differs (COMMIT vs VERSION active-release semantics), #241 network validator still differs (65,536-byte policy limit absent from #244). These are unresolved composition checks; no G1 authority follows.
+
+**Decision remains PHYSICAL_G1_AUTHORIZATION_RECOMMENDATION=BLOCKED.** Owner permission absent and LS5 host read-only evidence still missing.
