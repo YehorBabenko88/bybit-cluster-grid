@@ -6,12 +6,14 @@ NODES = ("LS5", "LS7", "PC1", "PC2", "PC3", "PC4")
 KNOWN = {"LS5": "100.103.160.110", "LS7": "100.112.25.75", "PC4": "100.91.48.20"}
 REQUIRED = {("LS5", "PC4", 22)}
 FORBIDDEN_PORTS = {55432}
+MAX_POLICY_BYTES = 65536
 RESULT = {"status": "BLOCKED", "physical_ready": False, "execution_authorized": False,
           "physical_tests": "0/10 NOT_RUN", "host_verified": False}
 
 def evaluate(raw):
     out = dict(RESULT, policy_valid=False, findings=[])
     try:
+        _require(type(raw) is str and len(raw.encode("utf-8")) <= MAX_POLICY_BYTES, "POLICY_SIZE_OR_TYPE")
         obj = json.loads(raw, object_pairs_hook=_unique, parse_constant=_reject_constant)
         _keys(obj, {"schema", "nodes", "listeners", "flows", "security"})
         _require(obj["schema"] == "grid-network-offline-1", "SCHEMA")
