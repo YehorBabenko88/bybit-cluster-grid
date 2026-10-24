@@ -1,0 +1,97 @@
+name: ls5-native-observer-offline
+on:
+  pull_request:
+    paths:
+      - 'installer/native-acl-observer/**'
+      - 'installer/native-acl-transaction-fixture/**'
+      - 'installer/native_observer_ci.py'
+      - 'installer/native_observer_artifacts.py'
+      - 'installer/tests/test-native-acl-observer.ps1'
+      - 'tests/test_ls5_native_observer.py'
+      - 'tests/fixtures/native_observer_inventory.json'
+      - 'docs/LS5_NATIVE*'
+      - '.github/workflows/ls5-native-observer.yml'
+  workflow_dispatch:
+    inputs:
+      windows_2022:
+        description: 'Try the alternate GitHub-hosted Windows 2022 pool only'
+        type: boolean
+        required: false
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: native-observer-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  observer-fixture:
+    if: github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021'
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.windows_2022 == true && 'windows-2022' || 'windows-latest' }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+        python: ['3.11', '3.12']
+    env:
+      EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      TEST_SHELL: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install pytest==9.1.1
+      - name: Build read-only observer, warnings fail
+        run: dotnet build installer/native-acl-observer/NativeAclObserver.csproj -c Release --nologo
+      - name: Build separate test-only transaction executable, warnings fail
+        run: dotnet build installer/native-acl-transaction-fixture/NativeAclTransactionFixture.csproj -c Release --nologo
+      - name: Frozen pure managed cases, no native calls
+        shell: pwsh
+        run: |
+          $r=@(& ./installer/native-acl-observer/bin/Release/net8.0-windows/NativeAclObserver.exe --self-test)
+          if($LASTEXITCODE -ne 0 -or $r.Count -ne 1){throw 'PURE_MANAGED_CASE_FAILED'}
+          [IO.File]::WriteAllText((Join-Path $PWD 'native-observer-pure.json'),($r -join "`n"),[Text.UTF8Encoding]::new($false))
+      - name: Hosted GUID native negative fixtures, no physical proof
+        shell: pwsh
+        run: |
+          $r=@(& $env:TEST_SHELL -NoProfile -File ./installer/tests/test-native-acl-observer.ps1)
+          if($LASTEXITCODE -ne 0 -or $r -notcontains 'NATIVE_GUID_CASES=31; PHYSICAL_NOT_RUN; NO_AUTHORITY'){throw 'NATIVE_CASES_FAILED'}
+          $r
+      - name: Isolated native transaction and journal model, never production Apply
+        shell: pwsh
+        run: |
+          foreach($mode in @('model-tests','hosted-fixture-tests')){
+            $r=@(& ./installer/native-acl-transaction-fixture/bin/Release/net8.0-windows/NativeAclTransactionFixture.exe ('--'+$mode))
+            if($LASTEXITCODE -ne 0 -or $r.Count -ne 1){throw ('TRANSACTION_FIXTURE_FAILED:'+($r -join "`n"))}
+            $name=if($mode -eq 'model-tests'){'native-observer-journal-model.json'}else{'native-observer-transaction.json'}
+            [IO.File]::WriteAllText((Join-Path $PWD $name),($r -join "`n"),[Text.UTF8Encoding]::new($false))
+          }
+      - name: Verify exact HEAD, JUnit, JSONL and SHA256
+        run: python -m installer.native_observer_ci --verify
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: native-observer-${{ matrix.shell }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            native-observer*.json
+            native-observer*.jsonl
+            native-observer*.xml
+            installer/native-acl-observer/bin/Release/net8.0-windows/*
+            installer/native-acl-transaction-fixture/bin/Release/net8.0-windows/*
+          if-no-files-found: error
+  required-observer-gate:
+    if: ${{ always() && !cancelled() && github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021' }}
+    needs: [observer-fixture]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULT: ${{ needs.observer-fixture.result }}
+        run: test "$RESULT" = success
