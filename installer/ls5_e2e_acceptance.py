@@ -8,6 +8,7 @@ import io
 import json
 import re
 import zipfile
+import xml.etree.ElementTree as ET
 
 from installer.ls5_physical_acceptance import AcceptanceBlocked, require, strict_json
 
@@ -29,18 +30,23 @@ def verify_zip_bytes(raw, *, expected_digest, expected_files):
             and hashlib.sha256(raw).hexdigest() == expected_digest, "ZIP_DIGEST")
     require(type(expected_files) is dict and bool(expected_files), "ZIP_MANIFEST")
     require(all(type(n) is str and n and not n.startswith("/")
-                and "\\" not in n and ":" not in n and ".." not in n.split("/")
+                and chr(92) not in n and chr(0) not in n and ":" not in n
+                and all(part not in ("", ".", "..") for part in n.split("/"))
                 and type(h) is str and SHA64.fullmatch(h)
                 for n, h in expected_files.items()), "ZIP_MANIFEST_ENTRY")
     try:
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
             entries = archive.infolist()
             names = [x.filename for x in entries]
-            require(len(names) == len(set(names)) and set(names) == set(expected_files),
+            require(len(names) == len(set(names)) and
+                    len(names) == len({name.casefold() for name in names}) and
+                    set(names) == set(expected_files),
                     "ZIP_INVENTORY")
+            require(sum(x.file_size for x in entries) <= 16_000_000, "ZIP_TOTAL_SIZE")
             require(all(not x.is_dir() and x.file_size <= 4_000_000 and
+                        not (x.flag_bits & 0x1) and
                         x.compress_size <= 8_000_000 and
-                        not (x.external_attr >> 16) & 0o170000 == 0o120000
+                        ((x.external_attr >> 16) & 0o170000) != 0o120000
                         for x in entries), "ZIP_UNSAFE_ENTRY")
             for entry in entries:
                 payload = archive.read(entry)
@@ -122,3 +128,38 @@ def inspect_g0_g1(prs, *, expected_heads):
     return {"status": "BLOCKED", "missing_prs": missing,
             "g0_g1_unverified": blocked, "reported_complete": not missing and not blocked,
             "cross_branch_executed": False, "lab_go": False, "deployment_go": False}
+
+
+def inspect_junit_bytes(raw):
+    """Fail-closed structural JUnit check; never certifies hosted provenance."""
+    require(type(raw) is bytes and 0 < len(raw) <= 4_000_000, "JUNIT_BYTES")
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        raise AcceptanceBlocked("JUNIT_XML") from None
+    require(root.tag in ("testsuite", "testsuites"), "JUNIT_ROOT")
+    suites = [root] if root.tag == "testsuite" else list(root)
+    require(bool(suites) and all(x.tag == "testsuite" for x in suites), "JUNIT_SUITES")
+    cases = [case for suite in suites for case in suite.findall("testcase")]
+    require(bool(cases), "JUNIT_ZERO_CASES")
+    require(all(not (node.text or "").strip() and not (node.tail or "").strip()
+                for node in root.iter() if node.tag in ("testsuites", "testsuite", "testcase")),
+            "JUNIT_STRUCTURAL_TEXT")
+    identities = [(case.get("classname"), case.get("name")) for case in cases]
+    require(all(c and n for c, n in identities) and len(set(identities)) == len(identities),
+            "JUNIT_DUPLICATE_IDENTITY")
+    for suite in suites:
+        members = suite.findall("testcase")
+        for field, actual in (
+            ("tests", len(members)),
+            ("failures", sum(c.find("failure") is not None for c in members)),
+            ("errors", sum(c.find("error") is not None for c in members)),
+            ("skipped", sum(c.find("skipped") is not None for c in members)),
+        ):
+            require(field in suite.attrib and suite.attrib[field].isdigit()
+                    and int(suite.attrib[field]) == actual, "JUNIT_COUNTER")
+    blocked = any(c.find("failure") is not None or c.find("error") is not None
+                  or c.find("skipped") is not None for c in cases)
+    return {"status": "BLOCKED", "cases": len(cases),
+            "producer_failures_or_skips": blocked, "origin_authenticated": False,
+            "lab_go": False, "deployment_go": False}

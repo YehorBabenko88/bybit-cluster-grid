@@ -85,6 +85,7 @@ def test_provider_failure_is_fail_closed(monkeypatch):
 
 
 def test_isolation_failure_never_connects_or_creates_database(monkeypatch):
+    monkeypatch.setenv("GRID_PG18_PASSWORD", "a"*64)
     import asyncio
     import _pg18_database as fixture
     def denied():raise RuntimeError('proof denied')

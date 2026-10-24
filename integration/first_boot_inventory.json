@@ -37,6 +37,16 @@
     "tests/test_control_runtime_fence.py::test_shutdown_cleans_services_even_if_election_already_cleared_lease",
     "tests/test_control_runtime_wiring.py::test_actual_startup_registers_services_with_election_before_any_start",
     "tests/test_control_runtime_wiring.py::test_follower_cannot_reach_control_handlers",
+    "tests/test_coordination_physical_g1_hardening.py::test_active_release_is_independent_of_trusted_source_head",
+    "tests/test_coordination_physical_g1_hardening.py::test_invalid_credentials_fail_before_any_provider_or_connection[False]",
+    "tests/test_coordination_physical_g1_hardening.py::test_invalid_credentials_fail_before_any_provider_or_connection[True]",
+    "tests/test_coordination_physical_g1_hardening.py::test_network_policy_rejects_oversize_and_bad_unicode",
+    "tests/test_coordination_physical_g1_hardening.py::test_pg18_credential_validation_survives_optimized_python",
+    "tests/test_coordination_physical_g1_hardening.py::test_release_rebinding_never_loosens_source_binding[bad_commit]",
+    "tests/test_coordination_physical_g1_hardening.py::test_release_rebinding_never_loosens_source_binding[missing_release_path]",
+    "tests/test_coordination_physical_g1_hardening.py::test_release_rebinding_never_loosens_source_binding[observation_drift]",
+    "tests/test_coordination_physical_g1_hardening.py::test_valid_policy_byte_boundary[65536-True]",
+    "tests/test_coordination_physical_g1_hardening.py::test_valid_policy_byte_boundary[65537-False]",
     "tests/test_ddl_acceptance.py::test_adversarial_receipt_is_fail_closed[bad-inventory]",
     "tests/test_ddl_acceptance.py::test_adversarial_receipt_is_fail_closed[clean]",
     "tests/test_ddl_acceptance.py::test_adversarial_receipt_is_fail_closed[empty-hashes]",
@@ -381,11 +391,18 @@
     "tests/test_ls5_disposable_release_model.py::test_version_path_unicode_and_case_alias_rejected[\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9\\xe9]",
     "tests/test_ls5_disposable_release_model.py::test_version_path_unicode_and_case_alias_rejected[]",
     "tests/test_ls5_disposable_release_model.py::test_version_path_unicode_and_case_alias_rejected[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_exact_head_run_attempt_positive_and_tampering",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_faults_and_phases_incomplete",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_full_producer_claim_never_go",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_g0_g1_queued_and_forged_head",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_junit_identity_and_structural_tamper",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_rehashed_zip_and_fake_entry",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_self_consistent_zip_is_not_provenance",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_ambiguous_member_names",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_total_expansion_budget",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_windows_drive_and_case_collision",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_windows_separator_and_symlink_rejected",
     "tests/test_ls5_native_observer.py::test_ci_alternative_pool_is_literal_github_hosted_only",
     "tests/test_ls5_native_observer.py::test_ci_exact_head_and_receipts_required",
     "tests/test_ls5_native_observer.py::test_downloaded_archive_consistency_is_not_physical_authority[attempt]",
@@ -1031,6 +1048,46 @@
     [
       "tests.test_control_runtime_wiring",
       "test_follower_cannot_reach_control_handlers"
+    ],
+    [
+      "tests.test_coordination_physical_g1_hardening",
+      "test_active_release_is_independent_of_trusted_source_head"
+    ],
+    [
+      "tests.test_coordination_physical_g1_hardening",
+      "test_invalid_credentials_fail_before_any_provider_or_connection[False]"
+    ],
+    [
+      "tests.test_coordination_physical_g1_hardening",
+      "test_invalid_credentials_fail_before_any_provider_or_connection[True]"
+    ],
+    [
+      "tests.test_coordination_physical_g1_hardening",
+      "test_network_policy_rejects_oversize_and_bad_unicode"
+    ],
+    [
+      "tests.test_coordination_physical_g1_hardening",
+      "test_pg18_credential_validation_survives_optimized_python"
+    ],
+    [
+      "tests.test_coordination_physical_g1_hardening",
+      "test_release_rebinding_never_loosens_source_binding[bad_commit]"
+    ],
+    [
+      "tests.test_coordination_physical_g1_hardening",
+      "test_release_rebinding_never_loosens_source_binding[missing_release_path]"
+    ],
+    [
+      "tests.test_coordination_physical_g1_hardening",
+      "test_release_rebinding_never_loosens_source_binding[observation_drift]"
+    ],
+    [
+      "tests.test_coordination_physical_g1_hardening",
+      "test_valid_policy_byte_boundary[65536-True]"
+    ],
+    [
+      "tests.test_coordination_physical_g1_hardening",
+      "test_valid_policy_byte_boundary[65537-False]"
     ],
     [
       "tests.test_ddl_acceptance",
@@ -2410,6 +2467,10 @@
     ],
     [
       "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_exact_head_run_attempt_positive_and_tampering"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
       "test_faults_and_phases_incomplete"
     ],
     [
@@ -2426,7 +2487,31 @@
     ],
     [
       "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_junit_identity_and_structural_tamper"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
       "test_rehashed_zip_and_fake_entry"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_self_consistent_zip_is_not_provenance"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_zip_ambiguous_member_names"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_zip_total_expansion_budget"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_zip_windows_drive_and_case_collision"
+    ],
+    [
+      "tests.test_ls5_e2e_acceptance.E2EAcceptanceTests",
+      "test_zip_windows_separator_and_symlink_rejected"
     ],
     [
       "tests.test_ls5_native_observer",
@@ -4430,14 +4515,30 @@
     ]
   ],
   "subtests": [
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_exact_head_run_attempt_positive_and_tampering:75fe1dcd3baddb517cc6c8f300086590a082bc6d0c12d58847ca56a107fd78a6",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_exact_head_run_attempt_positive_and_tampering:9403e5cceca9a1375238c326d3f007ffafdec91aab102db32fe45b5fc2100470",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_exact_head_run_attempt_positive_and_tampering:c697107d1c67aa62eb1d93570893a99f55c0e528aa0382a11b19df30b0d90e5b",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase:75fe1dcd3baddb517cc6c8f300086590a082bc6d0c12d58847ca56a107fd78a6",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase:8e13bf25e71424338025de90a2c9910b9c9ac73d161908cc37165eabdf9cb1fc",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase:9403e5cceca9a1375238c326d3f007ffafdec91aab102db32fe45b5fc2100470",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase:c697107d1c67aa62eb1d93570893a99f55c0e528aa0382a11b19df30b0d90e5b",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_head_attempt_and_duplicate_phase:e7bf0e93165c1780c2531982c36286ba5901e71e80f60a95069bbb7cb998a87f",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_junit_identity_and_structural_tamper:13583d413b4d24aff135165540d5312fb80b218a87882ff0784c6f046bc7184d",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_junit_identity_and_structural_tamper:3889b49b6eaa314d0674952ed2b02c04ea38aaab9d38ae58111252d45d57a9f3",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_junit_identity_and_structural_tamper:6203714f72c900c45c17fae9e2893addd10ee92ca1e4025871404ac8964de446",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_junit_identity_and_structural_tamper:73e1214cdd5a0f1b57dfe5a93368e5367162b1a20d5b078c856efc962f0e6788",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_junit_identity_and_structural_tamper:b129aa1ff2c0ccc1ea87ef2d2da3c3d817f4b4cf8e43b1d7fdf4c64739fb9f40",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_rehashed_zip_and_fake_entry:0fc9331aa3db2bb88d3c038213743e919dffb514463e790830232d65c29a7d93",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_rehashed_zip_and_fake_entry:6d6fffe28a8f210118f2a5c149f2bb71c8fafd74762cf54a2e2559689933e59a",
     "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_rehashed_zip_and_fake_entry:8e07f573f65f3ca1435f0bf16615b079d9ce7a4b8aad7c1fb45d613d43f4ac1e",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_ambiguous_member_names:1d6f813a72bf47384034005034c5916c48086349df2ec65aaeffee52c8b65a80",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_ambiguous_member_names:90467c596ff26ea813c0072774db7d2f77112d97c30a281a07789040aa0b4a4e",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_ambiguous_member_names:ab652f04baf80132493dcf2d03629cd08d94fcd92cadd8c7b60aa5d7ea02bb40",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_ambiguous_member_names:bd7d59fee2909fa75c9d8b075f69b6911d803f77775bb0afcd4d21913ec1dcce",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_windows_drive_and_case_collision:7d3d60d08100aa0427beef82e2e80a572dc2ed5a10a7462c4123235967ffe84e",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_windows_drive_and_case_collision:7d9d81e7aa3934245002fe9cbf3140aa3c406d9000a3302f33dd3cc30337bd3a",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_windows_separator_and_symlink_rejected:036d7fc952c953be154ab672c177b75ae8072b52ef1166064dd1aa34ba97fdbd",
+    "tests/test_ls5_e2e_acceptance.py::E2EAcceptanceTests::test_zip_windows_separator_and_symlink_rejected:e03b24f7539eae9ba8102909b9ee3f6aa590d04656e650fd21a77703446e44c9",
     "tests/test_ls5_pg_readiness.py::PgReadinessTests::test_each_failure_is_fail:0198a5aab776134bb35ff982b6c7c5854bf5fc6097f7b70a3165531cd9ca48a5",
     "tests/test_ls5_pg_readiness.py::PgReadinessTests::test_each_failure_is_fail:20ef64307eb47e6a5e80f014f1d617926b1079776831b813593d9a619b5fe99e",
     "tests/test_ls5_pg_readiness.py::PgReadinessTests::test_each_failure_is_fail:24298de870cf4d3f5e95ec011d27f70543a5e10b3a756ec3245b41fc43c7cdb6",

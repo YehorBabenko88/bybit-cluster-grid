@@ -73,7 +73,8 @@ def assess(policy_raw, observation_raw):
             raise ValueError("SCHEMA")
         if type(p["head"]) is not str or not COMMIT.fullmatch(p["head"]) or o["head"] != p["head"]:
             raise ValueError("HEAD")
-        if p["active_release"] != VERSION or o["active_release"] != VERSION:
+        release = p["active_release"]
+        if type(release) is not str or not COMMIT.fullmatch(release) or o["active_release"] != release:
             raise ValueError("ACTIVE_RELEASE")
         trust = path(p["trusted_root"])
         executable = path(p["executable_root"])
@@ -99,7 +100,7 @@ def assess(policy_raw, observation_raw):
             executable + "\\runtime\\python311.dll",
             executable + "\\runtime\\site-packages\\sitecustomize.py",
             executable + "\\runtime\\site-packages\\grid.pth",
-            executable + "\\releases\\" + VERSION + "\\grid\\coordinator.py",
+            executable + "\\releases\\" + release + "\\grid\\coordinator.py",
             executable + "\\installer\\coordinator-launcher.ps1",
         )
         if not set(mandatory).issubset(normalized):

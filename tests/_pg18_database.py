@@ -32,9 +32,13 @@ def require_cleanup_containment(guard):
 
 @asynccontextmanager
 async def database(prepared=True,cleanup_guard=None):
+    # Validate before provider, connection or SQL; assertions disappear under -O.
+    secret = os.environ.get('GRID_PG18_PASSWORD')
+    if type(secret) is not str or len(secret) != 64 or any(ch not in '0123456789abcdef' for ch in secret):
+        raise RuntimeError('PG18_INVALID_ROLE_SECRET_NO_MUTATIONS')
     identity = attest()  # no connection on failed/missing proof
     options = dict(host='127.0.0.1', port=int(os.environ['GRID_PG18_PORT']),
-                   password=os.environ['GRID_PG18_PASSWORD'], command_timeout=15)
+                   password=secret, command_timeout=15)
     admin = await asyncpg.connect(**options,user='grid',database='grid',
                                  server_settings={'default_transaction_read_only':'on'})
     name='ddl18_'+uuid.uuid4().hex
@@ -50,8 +54,6 @@ async def database(prepared=True,cleanup_guard=None):
         await admin.execute('SET default_transaction_read_only=off')
         for role in roles.values():
             # Synthetic per-run random credential, masked by provider. No DSN/argv/artifact secret.
-            secret=os.environ['GRID_PG18_PASSWORD']
-            assert len(secret)==64 and all(ch in '0123456789abcdef' for ch in secret)
             await admin.execute(f'CREATE ROLE "{role}" LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD \'{secret}\'')
             created_roles.append(role)
         await admin.execute(f'CREATE DATABASE "{name}" OWNER "{roles["owner"]}" TEMPLATE template0')
