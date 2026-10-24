@@ -131,3 +131,16 @@ The G1 runbook describes future commands but expressly states no physical execut
 Hosted PR244 HEAD `79049906cb004e324bec5ef4cc53b85381cab83a`: preflight `40110021208` SUCCESS, native `40110021246` SUCCESS, full-system E2E `40110021224` still QUEUED at review. This is not a complete hosted acceptance.
 
 **PHYSICAL_G1_AUTHORIZATION_RECOMMENDATION=BLOCKED.**
+
+
+## G0 owner handoff 576e770 — independent metadata review
+
+PR244 comment `6386862684` contains a producer-published base64 ZIP, JSON file-hash index and a separate G1 request. Candidate exact HEAD `576e77086f645ac9eb3b0d26a43fc967155d24da`, reported tree `cccc6995fef9d6f5d2770a2d339ba487dcc2be94`, 32-character run `2f33034e4f104f0cad09a8867c269ecb`. Claimed ZIP SHA256 `5f9a9d974602d97b82ce132d8f660dcb896b6856550bb10ea972aa0f958b4504` and G1 request SHA256 `3d52d106236e39139aa6a82b5cd54d50c746c1e48c6c8e99aa065c5624ecf631`. The author-provided index lists `ls5-g0.json`, `pc4-g0.json`, `assessment.json`, `transport.json` with per-file SHA256. **Independent raw ZIP decode and byte hashing are pending; no hash PASS is claimed in this checkpoint.** A self-consistent producer ZIP does not attest host identities.
+
+The G1 request was parsed independently as JSON from the published comment: `schema=grid-g1-command-request-1`, `status=BLOCKED`, `candidate_head` and `run_id` match the published index, `authorization.execute/cleanup/deployment=false`, 20 `g1_commands`, all `argv=null` and `status=BLOCKED`; both LS5/PC4 G0 records say `host_verified=false` and `EXACT_HEAD_UNATTESTED`. No executable G1 command manifest exists. This is **not** approval to execute raw runbook templates.
+
+Reported metadata identifies existing PostgreSQL listeners LS5 TCP/55432 PID5472 and PC4 TCP/5432 PID7028, with process/ACL/token/custody/DB role/egress identity gaps. These claims require independent host G0 validation; do not connect to or mutate the listeners. Unknown LS5 process identity prevents a credible guarantee of noninterference with its running coordinator. The G0 collector's SSH alias/key pin report is not an authorization token.
+
+**P0:** G1 Windows handle-bound controller missing, no verified exclusive custody or independently approved G0, no separate owner execution/cleanup authorization. **P1:** source and G0 provenance, process/network/PG isolation, STOP and recovery need witnessed evidence. **P2:** byte-exact ZIP/index and G1 request hash check still pending; perform copied-byte tamper tests and ensure no secret values in any archive field before any further consideration.
+
+**PHYSICAL_G1_AUTHORIZATION_RECOMMENDATION=BLOCKED**; Physical 0/10 NOT_RUN; Execute/Cleanup NOT_AUTHORIZED; Deployment NO-GO.
