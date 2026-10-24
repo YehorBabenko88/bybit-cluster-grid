@@ -34,6 +34,8 @@ def evaluate(raw):
             _require(listener["node"] == "LS5", "LISTENER_NODE")
             _require(listener["service"] in ("coordinator", "postgres"), "LISTENER_SERVICE")
             _require(type(listener["bind"]) is str and listener["bind"] in ("127.0.0.1", KNOWN["LS5"]), "UNSAFE_BIND")
+            if listener["service"] == "postgres":
+                _require(listener["bind"] == "127.0.0.1", "POSTGRES_LOOPBACK_ONLY")
             _require(type(listener["port"]) is int, "PORT_TYPE")
             _require(listener["port"] == {"coordinator": 8765, "postgres": 55432}[listener["service"]], "PORT")
             _require(listener["exposure"] == "PRIVATE_ONLY", "EXPOSURE")
