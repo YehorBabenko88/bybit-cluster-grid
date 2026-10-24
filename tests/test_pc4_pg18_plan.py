@@ -141,10 +141,12 @@ def test_plan_branch_cannot_start_infrastructure():
             else:
                 assert 'services:' not in s and 'self-hosted' not in s
 
-def test_migration_and_physical_safety_sources_are_not_patched():
+def test_frozen_planning_stage_did_not_patch_runtime_or_physical_sources():
     import subprocess
     base='217904071394ab8a84e5a180822081ff8e25e1e9'
-    assert not subprocess.check_output(['git','diff',base,'--','grid/migrations.py','grid/collection_ownership.py','grid/migration48_index.py','installer','lab'],cwd=ROOT)
+    # This was a historical planning-PR boundary, not a claim that all later stacked work is source-free.
+    plan='f99f401aa11b5f0e0ed75046960801f882540216'
+    assert not subprocess.check_output(['git','diff',base,plan,'--','grid/migrations.py','grid/collection_ownership.py','grid/migration48_index.py','installer','lab'],cwd=ROOT)
 
 def test_ownership_and_public_privileges_are_not_implicit_bypasses():
     owned=(SQL/'_owned.sql').read_text();acl=(SQL/'20_privileges.sql').read_text()

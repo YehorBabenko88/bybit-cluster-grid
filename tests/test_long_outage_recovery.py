@@ -91,7 +91,7 @@ def test_worker_applies_dynamic_replay_rate_and_pause_is_quiet():
     from pathlib import Path
     w=Path("grid/worker.py").read_text(encoding="utf-8")
     assert 'reply.get("recovery_profile")' in w
-    assert "self.db.set_replay_rate" in w
+    assert "self.storage.set_replay_rate" in w
     assert "self.micro_storage.set_replay_rate" in w
     for name in ("grid/storage.py","grid/micro_event_storage.py"):
         s=Path(name).read_text(encoding="utf-8")
