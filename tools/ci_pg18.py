@@ -11,6 +11,8 @@ import time
 IMAGE = 'postgres:18.4'
 ROOT = '/var/lib/postgresql'
 PGDATA = ROOT + '/18/docker'
+# CI-only lifetime holder: restarting postgres must not exit/remove the tmpfs container.
+SUPERVISOR = 'docker-entrypoint.sh postgres & exec sleep infinity'
 
 
 def hosted():
@@ -61,6 +63,9 @@ def attest():
     port = os.environ.get('GRID_PG18_PORT','')
     if (c['Id'] != cid or c['State']['Running'] is not True
             or c['Config']['Image'] != IMAGE or c['Image'] != os.environ.get('GRID_PG18_IMAGE_ID')
+            or c['HostConfig'].get('Init') is not True
+            or c['Config'].get('Entrypoint') != ['/bin/bash']
+            or c['Config'].get('Cmd') != ['-c',SUPERVISOR]
             or any(c['Config'].get('Labels',{}).get(k)!=v for k,v in labels().items())
             or [x for x in env if x.startswith('PGDATA=')] != ['PGDATA='+PGDATA]
             or not {'POSTGRES_USER=grid','POSTGRES_DB=grid'} <= set(env)
@@ -95,11 +100,11 @@ def start():
     secretfile.write_text('POSTGRES_PASSWORD='+secret+'\nPOSTGRES_USER=grid\nPOSTGRES_DB=grid\nPGDATA='+PGDATA+'\n')
     secretfile.chmod(0o600)
     docker('pull',IMAGE)
-    args = ['run','--detach','--rm','--env-file',str(secretfile),'--tmpfs',ROOT+':rw',
+    args = ['run','--detach','--rm','--init','--entrypoint','/bin/bash','--env-file',str(secretfile),'--tmpfs',ROOT+':rw',
             '-p','127.0.0.1::5432']
     for k,v in labels().items():
         args += ['--label',k+'='+v]
-    cid = docker(*args,IMAGE)
+    cid = docker(*args,IMAGE,'-c',SUPERVISOR)
     # The container is the only fixture this provider ever creates/removes.
     if not re.fullmatch(r'[0-9a-f]{64}',cid):
         raise RuntimeError('PG18_BAD_CREATED_CONTAINER_ID')

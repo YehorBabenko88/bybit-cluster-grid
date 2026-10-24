@@ -20,7 +20,7 @@ PR227/230 runtime schema changes are absent from that tree: import their reviewe
 
 runtime/test subset, not complete profile trees. PR229 narrow coverage is superseded
 
-by PR230's DDL workflow. PR239Ã¢â‚¬â€œ242 contribute only disjoint profile files.
+by PR230's DDL workflow. PR239ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“242 contribute only disjoint profile files.
 
 Original PR branches remain unchanged. Later source-head drift requires a new review.
 
@@ -108,7 +108,7 @@ not independent cryptographic provenance. No physical attestation is produced.
 
 |---|---|---|
 
-| Fresh schema, migrations1Ã¢â‚¬â€œ48, second preparation | real owner fixture | hosted NOT_RUN |
+| Fresh schema, migrations1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“48, second preparation | real owner fixture | hosted NOT_RUN |
 
 | App DDL denied / RO DML denied | real distinct roles | hosted NOT_RUN |
 
@@ -220,7 +220,7 @@ owned database removal. Never adopt/delete foreign directories, roles or contain
 
 
 
-Refreshed PR239â€“242 to latest queried heads before publication; added their new
+Refreshed PR239Ã¢â‚¬â€œ242 to latest queried heads before publication; added their new
 
 release-model and independent E2E evidence tests. PR242 SHA regex over-escaped\Z
 
@@ -345,3 +345,23 @@ composition: PR244 pins the historical release while upstream accepts an
 explicit40-character COMMIT and derives expected source paths from it. Do not
 automatically generalize or execute that physical bootstrap policy; reconciliation
 requires a reviewed exact release/source inventory. It remains a G1 blocker.
+
+### Actual PG restart fixture defect (9efa0b9)
+
+Hosted run40090215672 again reached22/26 stages with32 PostgreSQL tests passing.
+The official container made postgres its lifetime process; pg_ctl restart stopped
+it and --rm removed the container/tmpfs. Subsequent connection-refused and cleanup
+inspect failures are fixture lifecycle failures, not established Grid recovery
+defects. CI now uses a fixed, attested bash/sleep lifetime holder plus Docker --init;
+PostgreSQL still runs via the image entrypoint and is genuinely restarted with pg_ctl.
+Image identity, entrypoint, command, init, labels, tmpfs, loopback port and cluster
+identity must all match. Five mocked negative/creation tests reproduced the omission
+and now pass. Recovery also requires a changed actual pg_postmaster_start_time in
+the same attested cluster and fresh pipeline data. No persistent host volumes added.
+Docker semantics: https://docs.docker.com/engine/storage/tmpfs/ and
+https://docs.docker.com/engine/containers/multi-service_container/ .
+
+The Windows9efa0b9 pwsh3.12 cell passed57 managed cases and all31 observer GUID cases,
+then the separate transaction fixture failed FIXTURE_CUSTODY_CHANGED. Exact stage
+and synthetic descriptor comparison diagnostics are added without relaxing equality.
+No local native execution occurred and no transaction safety PASS is claimed.

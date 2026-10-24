@@ -208,9 +208,16 @@ async def execute():
                 await co.stop(crash=True);co=await start_control();await until(health,120);await until(all_registered);await fresh_collection()
                 evidence.case('coordinator-crash-recovery')
                 # This restarts PostgreSQL INSIDE the attested container, preserving tmpfs mount/cluster ID.
-                identity=attest();docker('exec','--user','postgres',os.environ['GRID_PG18_CONTAINER'],'pg_ctl','-D',PGDATA,'restart','-m','fast','-w','-t','20')
+                identity=attest()
+                def postmaster_start():
+                    return docker('exec',os.environ['GRID_PG18_CONTAINER'],'psql','-X','-U','grid','-d','grid','-Atc','SELECT pg_postmaster_start_time()::text')
+                previous_start=postmaster_start()
+                docker('exec','--user','postgres',os.environ['GRID_PG18_CONTAINER'],'pg_ctl','-D',PGDATA,'restart','-m','fast','-w','-t','20')
                 if attest()!=identity:raise RuntimeError('POSTGRES_RESTART_CHANGED_CLUSTER')
-                await until(health,120);await until(all_registered);await fresh_collection();await persisted();evidence.case('postgres-restart-recovery')
+                current_start=postmaster_start()
+                if not previous_start or not current_start or previous_start==current_start:raise RuntimeError('POSTGRES_RESTART_NOT_OBSERVED')
+                await until(health,120);await until(all_registered);await fresh_collection();await persisted()
+                evidence.case('postgres-restart-recovery',dict(system_identifier=identity,previous_postmaster_start=previous_start,current_postmaster_start=current_start))
                 for child in worker_children.values():await child.stop()
                 await co.stop();co=await start_control();await until(health,120)
                 for n in node_roots:await start_worker(n)

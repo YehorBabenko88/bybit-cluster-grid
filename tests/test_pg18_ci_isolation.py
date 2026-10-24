@@ -32,10 +32,11 @@ def test_untrusted_environment_never_calls_provider(monkeypatch,key,value):
 def proof(monkeypatch):
     environment(monkeypatch)
     c={'Id':'a'*64,'Image':'sha256:'+'b'*64,'State':{'Running':True},
-       'Config':{'Image':ci.IMAGE,'Labels':ci.labels(),
+       'Config':{'Image':ci.IMAGE,'Labels':ci.labels(),'Entrypoint':['/bin/bash'],
+                 'Cmd':['-c','docker-entrypoint.sh postgres & exec sleep infinity'],
                  'Env':['PGDATA='+ci.PGDATA,'POSTGRES_USER=grid','POSTGRES_DB=grid']},
        'NetworkSettings':{'Ports':{'5432/tcp':[{'HostIp':'127.0.0.1','HostPort':'49100'}]}},
-       'HostConfig':{'Binds':None,'Privileged':False,'Tmpfs':{ci.ROOT:'rw'}},'Mounts':[]}
+       'HostConfig':{'Binds':None,'Privileged':False,'Init':True,'Tmpfs':{ci.ROOT:'rw'}},'Mounts':[]}
     def docker(*args):
         if args[:2]==('context','inspect'):
             return json.dumps([{'Endpoints':{'docker':{'Host':'unix:///var/run/docker.sock'}}}])
@@ -111,3 +112,31 @@ def test_provider_cannot_pull_or_run_before_local_daemon_proof(monkeypatch,tmp_p
         ci.start()
     assert calls==[('context','inspect','default')]
     assert not (tmp_path/'grid-pg18-ci.env').exists()
+
+
+@pytest.mark.parametrize('attack',['missing-init','pg-as-pid1','substituted-command','additional-command'])
+def test_restart_supervisor_proof_cannot_be_substituted(monkeypatch,attack):
+    c=proof(monkeypatch)
+    if attack=='missing-init':c['HostConfig']['Init']=False
+    elif attack=='pg-as-pid1':c['Config']['Entrypoint']=['docker-entrypoint.sh']
+    elif attack=='substituted-command':c['Config']['Cmd']=['postgres']
+    else:c['Config']['Cmd'].append('unexpected')
+    with pytest.raises(RuntimeError,match='PROOF_REJECTED'):ci.attest()
+
+def test_created_container_keeps_pg_restart_separate_from_container_lifetime(monkeypatch,tmp_path):
+    environment(monkeypatch)
+    monkeypatch.setattr(ci,'local_daemon',lambda:None)
+    monkeypatch.setattr(ci.secrets,'token_hex',lambda n:'0'*64)
+    monkeypatch.setenv('RUNNER_TEMP',str(tmp_path));monkeypatch.setenv('GITHUB_ENV',str(tmp_path/'env'))
+    calls=[]
+    def docker(*args):
+        calls.append(args)
+        if args[0]=='run':return 'a'*64
+        if args[0]=='inspect':raise RuntimeError('stop mock before native operation')
+        return ''
+    monkeypatch.setattr(ci,'docker',docker)
+    with pytest.raises(RuntimeError):ci.start()
+    command=next(c for c in calls if c[0]=='run')
+    assert '--init' in command
+    assert command[command.index('--entrypoint')+1]=='/bin/bash'
+    assert command[-3:]==(ci.IMAGE,'-c','docker-entrypoint.sh postgres & exec sleep infinity')
