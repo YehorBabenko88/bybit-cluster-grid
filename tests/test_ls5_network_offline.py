@@ -117,3 +117,13 @@ def test_schema_only_cannot_authorize():
 @pytest.mark.parametrize("value",[True,False,0,1,None,{},[]])
 def test_authority_field_injection_rejected(value):
     x=baseline(); x["execution_authorized"]=value; check(x,False)
+
+
+@pytest.mark.parametrize("raw", ["[" * 1500 + "]" * 1500, '{"x":' * 1200 + "0" + "}" * 1200])
+def test_deep_json_fails_closed_without_exception(raw):
+    # Payload is within the byte budget but may exceed json.loads recursion depth.
+    r = evaluate(raw)
+    assert r["policy_valid"] is False
+    assert r["physical_ready"] is False
+    assert r["execution_authorized"] is False
+    assert r["status"] == "BLOCKED"
