@@ -12,6 +12,8 @@ RESULT = {"status": "BLOCKED", "physical_ready": False, "execution_authorized": 
 def evaluate(raw):
     out = dict(RESULT, policy_valid=False, findings=[])
     try:
+        if type(raw) is not str or len(raw.encode('utf-8')) > 65536:
+            raise ValueError('POLICY_SIZE_OR_TYPE')
         obj = json.loads(raw, object_pairs_hook=_unique, parse_constant=_reject_constant)
         _keys(obj, {"schema", "nodes", "listeners", "flows", "security"})
         _require(obj["schema"] == "grid-network-offline-1", "SCHEMA")
@@ -66,7 +68,7 @@ def evaluate(raw):
         out["policy_valid"] = True
         out["findings"] = ["STATIC_POLICY_ONLY", "LIVE_LISTENERS_UNVERIFIED", "FIREWALL_UNVERIFIED",
                            "TAILSCALE_ACL_UNVERIFIED", "TLS_AUTH_UNVERIFIED", "SSH_IDENTITY_UNVERIFIED"]
-    except (ValueError, TypeError, KeyError, AttributeError):
+    except (ValueError, TypeError, KeyError, AttributeError, UnicodeError):
         out["findings"] = ["INVALID_POLICY"]
     return out
 
