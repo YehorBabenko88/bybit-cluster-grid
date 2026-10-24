@@ -118,3 +118,16 @@ PR244 latest HEAD `79049906cb004e324bec5ef4cc53b85381cab83a`. GitHub confirms th
 The previously successful full-system run `40104140684` at SHA `3808cb9f6ecd2f42d5d0c758145b427a58a010e8` has GitHub artifact `12563529069` with external SHA256 `e4b3a0dbe56052865768106032ea6857a0bf4130b307dc05ddc4c758a8e7ee45`; its 11/11 jobs were successful, but no physical LS5/PC4 evidence. The latest HEAD has not inherited that PASS.
 
 **Physical recommendation remains BLOCKED** pending independent host G0 and separately approved G1. Do not start LS5/PC4, production Apply/Cleanup or deployment.
+
+
+## Independent PR245 optimized-Python and G0 review
+
+PR245 Draft exact HEAD `0892a1c850787d024a782ff3e44286c191529232`. Source inspection of `tests/_pg18_database.py` confirms that the per-role credential guard is now an explicit `if type(secret) is not str or len(secret) != 64 or any(...): raise RuntimeError('PG18_INVALID_ROLE_SECRET_NO_MUTATIONS')`, not an `assert`; thus CPython `-O` compilation does not remove the guard. Its test `test_pg18_credential_validation_survives_optimized_python` checks AST shape and source text, **not actual `python -O` execution**. A fully independent negative runtime test must run an invalid secret through a disposable mocked/attested PG18 fixture with optimized Python and assert zero CREATE ROLE/CREATE DATABASE/SET write side effects. Do not perform that test on LS5 or installed PostgreSQL. This is a remaining **P1 acceptance gap**, not evidence that the explicit guard is broken.
+
+The new `integration/physical_program.py` profile requires execute/cleanup/deployment/production_database/schema2 all false, generated GUID-run paths and roles, unique ports 29441–29444 avoiding 8765/55432/5432, loopback binds, no executor, and `BLOCKED` G1. `assess_snapshots` accepts only two fresh <=900s `UNATTESTED_READ_ONLY` observations, never produces host_verified=true, and records collisions. The G0 PowerShell collector defaults to PlanOnly and `-G0Approved` is merely an operator assertion; it is not a cryptographic owner approval. It intentionally does not read environment secret values or connect to PostgreSQL/network endpoints. Therefore its partial observations cannot prove effective firewall/TLS/ACL or production noninterference.
+
+The G1 runbook describes future commands but expressly states no physical executor exists. A user manually executing individual templates would bypass the intended guarded orchestration. STOP until independent handle-bound Windows controller, process/job ownership, signed source closure, disposable DB identity, approved OS-level egress policy, full G0 and separate owner authorization are available. No production Apply/Rollback or cleanup.
+
+Hosted PR244 HEAD `79049906cb004e324bec5ef4cc53b85381cab83a`: preflight `40110021208` SUCCESS, native `40110021246` SUCCESS, full-system E2E `40110021224` still QUEUED at review. This is not a complete hosted acceptance.
+
+**PHYSICAL_G1_AUTHORIZATION_RECOMMENDATION=BLOCKED.**
