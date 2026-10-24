@@ -53,7 +53,10 @@ def evaluate(raw):
             _require(type(flow["port"]) is int and flow["port"] in (22, 8765), "FLOW_PORT")
             _require(type(flow["transport"]) is str and flow["transport"] == "tailscale", "FLOW_TRANSPORT")
             _require(type(flow["purpose"]) is str and flow["purpose"] == ("ssh" if flow["port"] == 22 else "agent_api"), "FLOW_PURPOSE")
-            _require(flow["dst"] == "LS5" if flow["port"] == 8765 else flow["dst"] in ("LS5", "PC4"), "FLOW_DEST")
+            if flow["port"] == 8765:
+                _require(flow["dst"] == "LS5" and flow["src"] != "LS5", "FLOW_API_DIRECTION")
+            else:
+                _require((flow["src"], flow["dst"]) in {("LS5", "PC4"), ("PC4", "LS5")}, "FLOW_SSH_DIRECTION")
             item = (flow["src"], flow["dst"], flow["port"])
             _require(item not in flows, "DUPLICATE_FLOW")
             flows.add(item)
