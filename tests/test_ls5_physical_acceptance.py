@@ -85,11 +85,15 @@ class GateTests(unittest.TestCase):
         mutations = []
         x = dict(original); x["head"] = "f" * 40; mutations.append(x)
         x = dict(original); x["inventory"] = ["one", "one"]; mutations.append(x)
+        x = dict(original); x["inventory"] = [1, 1]; mutations.append(x)
+        x = dict(original); x["inventory"] = [{"name": "one"}]; mutations.append(x)
         x = dict(original); x["inventory"] = ["two", "one"]; mutations.append(x)
         x = dict(original); x["junit"] = x["junit"].replace(b'failures="0"', b'failures="1"'); mutations.append(x)
         x = dict(original); x["jsonl"] = x["jsonl"] + b'{"head":"wrong"}\n'; mutations.append(x)
         x = dict(original); x["index"] = x["index"].replace(b'"files":', b'"files": {}, "files":'); mutations.append(x)
         x = dict(original); x["junit"] = b'<!DOCTYPE testsuite>' + x["junit"]; mutations.append(x)
+        x = dict(original); x["junit"] = x["junit"].replace(b'<testcase name="one"/>', b'<testcase name="one" extra="forged"/>'); mutations.append(x)
+        x = dict(original); x["junit"] = x["junit"].replace(b'tests="2"', b'tests="2" extra="forged"'); mutations.append(x)
         x = dict(original); x["jsonl"] = x["jsonl"].replace(b'"SYNTHETIC_PASS"', b'"PHYSICAL_PASS"'); mutations.append(x)
         for i, x in enumerate(mutations):
             with self.subTest(i=i), self.assertRaises(AcceptanceBlocked):
