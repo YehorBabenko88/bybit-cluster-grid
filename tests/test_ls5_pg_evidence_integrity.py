@@ -50,6 +50,15 @@ class ReceiptIntegrity(unittest.TestCase):
         receipt["checks"]["backup_chain"]["extra"] = "injected"
         self.assertFalse(verify_payload(receipt, "backup_chain", payload))
 
+    def test_partial_receipt_cannot_verify_single_payload(self):
+        receipt = make_receipt()
+        payload = b"legitimate-offline-blob"
+        receipt["checks"]["backup_chain"] = {
+            "status": "VERIFIED", "evidence_sha256": hashlib.sha256(payload).hexdigest()}
+        self.assertTrue(verify_payload(receipt, "backup_chain", payload))
+        del receipt["checks"]["db_roles"]
+        self.assertFalse(verify_payload(receipt, "backup_chain", payload))
+
     def test_duplicate_receipt_key_rejected(self):
         with self.assertRaises(ValueError):
             loads_strict('{"checks":{},"checks":{}}')
