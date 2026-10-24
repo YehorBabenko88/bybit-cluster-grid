@@ -85,3 +85,32 @@ def test_lateral_or_wrong_direction_blocked(src,dst,port,purpose):
         assert x["nodes"]["LS7"] is not None
     x["flows"].append({"src":src,"dst":dst,"port":port,"transport":"tailscale","purpose":purpose})
     check(x,False)
+
+@pytest.mark.parametrize("service,field,value",[
+ ("coordinator","node","PC4"),
+ ("postgres","bind","0.0.0.0"),
+ ("postgres","bind","100.103.160.110"),
+ ("postgres","port",8765),
+ ("postgres","exposure","TAILNET"),
+])
+def test_listener_isolation(service,field,value):
+    x=baseline()
+    listener=next(z for z in x["listeners"] if z["service"]==service)
+    listener[field]=value
+    check(x,False)
+
+def test_missing_listener():
+    x=baseline(); x["listeners"].pop(); check(x,False)
+
+def test_duplicate_listener():
+    x=baseline(); x["listeners"][1]=copy.deepcopy(x["listeners"][0]); check(x,False)
+
+def test_schema_only_cannot_authorize():
+    x=baseline(); check(x,True)
+    r=evaluate(json.dumps(x))
+    assert r["status"]=="BLOCKED" and r["host_verified"] is False
+    assert r["physical_ready"] is False and r["execution_authorized"] is False
+
+@pytest.mark.parametrize("value",[True,False,0,1,None,{},[]])
+def test_authority_field_injection_rejected(value):
+    x=baseline(); x["execution_authorized"]=value; check(x,False)
