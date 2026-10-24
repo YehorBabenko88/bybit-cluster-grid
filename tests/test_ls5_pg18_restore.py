@@ -74,7 +74,7 @@ class RestoreDrill(unittest.TestCase):
                     f"postgresql://{USER}:ci_only_disposable@{HOST}:{PORT}/{target}"
                 ) as restored:
                     self.assertEqual(restored.execute("select id,payload from ci_restore_probe order by id").fetchall(), source_rows)
-                    assert restored.execute("select count(*) from pg_constraint where conrelid='ci_restore_probe'::regclass and contype='p'").fetchone()[0] == 1
+                    self.assertEqual(restored.execute("select count(*) from pg_constraint where conrelid='ci_restore_probe'::regclass and contype='p'").fetchone()[0], 1)
                 self.assertEqual(hashlib.sha256(archive.read_bytes()).hexdigest(), digest)
             finally:
                 if created_target:
