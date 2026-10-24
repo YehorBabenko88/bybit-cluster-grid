@@ -30,7 +30,10 @@ internal static class Program
     Console.WriteLine(JsonSerializer.Serialize(new{schema=1,fault_injection=Native.Fault!=null,status="BLOCKED",observation="HELD",host_verified=false,
      physical_attestation=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false,
      effectiveRightsStatus="BLOCKED_MIC_ALL_PRINCIPALS_AND_PRIVILEGES_NOT_PROVEN",chain=rows,token=facts},Json));Console.Out.Flush();
-    var line=Console.In.ReadLineAsync();if(!line.Wait(TimeSpan.FromSeconds(20)))throw new Blocked("SESSION_COMMAND_TIMEOUT");
+    // Console.In does not consistently decode redirected stream preambles across shells.
+    using var input=new StreamReader(Console.OpenStandardInput(),new System.Text.UTF8Encoding(false,true),true,128,true);
+    var line=input.ReadLineAsync();if(!line.Wait(TimeSpan.FromSeconds(20)))throw new Blocked("SESSION_COMMAND_TIMEOUT");
+    if(input.CurrentEncoding.CodePage!=65001)throw new Blocked("SESSION_ENCODING");
     Policy.SessionCommand(line.Result);
    }
    // Reobserve original handles, never resolve the pathname again.

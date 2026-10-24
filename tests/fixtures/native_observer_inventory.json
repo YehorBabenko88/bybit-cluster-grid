@@ -88,7 +88,8 @@
     "session-command-exact",
     "session-command-eof",
     "session-command-bom",
-    "session-command-space"
+    "session-command-space",
+    "session-utf8-bom-wire-decoded"
   ],
   "source_files": [
     "installer/native-acl-observer/Program.cs",

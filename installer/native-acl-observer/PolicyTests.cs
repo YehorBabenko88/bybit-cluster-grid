@@ -61,6 +61,11 @@ internal static class PolicyTests
   Test("session-command-eof",()=>Policy.SessionCommand(null),"SESSION_INPUT_EOF");
   Test("session-command-bom",()=>Policy.SessionCommand("\uFEFFrecheck"),"SESSION_COMMAND_INVALID");
   Test("session-command-space",()=>Policy.SessionCommand("recheck "),"SESSION_COMMAND_INVALID");
+  Test("session-utf8-bom-wire-decoded",()=>{
+   var wire=new byte[]{0xef,0xbb,0xbf}.Concat(System.Text.Encoding.UTF8.GetBytes("recheck\n")).ToArray();
+   using var stream=new MemoryStream(wire);using var reader=new StreamReader(stream,new System.Text.UTF8Encoding(false,true),true,128,true);
+   Policy.SessionCommand(reader.ReadLine());if(reader.CurrentEncoding.CodePage!=65001)throw new Exception();
+  });
   Console.WriteLine(JsonSerializer.Serialize(new{schema=1,status="OFFLINE_TEST_PASS",physical_attestation=false,host_verified=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false,cases},Program.Json));return 0;
  }
 }

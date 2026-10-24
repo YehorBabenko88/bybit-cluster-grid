@@ -312,3 +312,11 @@ Hosted780362f E2E reached14/26 stages (heartbeat, infra and fleet stop), then pi
 validation refused. Harness now waits for all actual zero-activity/operator-stopped
 worker snapshots after global STOP ACK, preserving every production validation guard.
 The next hosted run must prove this removes the timing gap; no full PASS claimed.
+
+Hosted297fcb7 proved56 managed cases PASS and held-leaf rename now denied withWin32=32.
+Session recheck still failed SESSION_COMMAND_INVALID. The observer now uses an explicit
+strict UTF8 StreamReader on the redirected pipe with standard BOM decoding, rejects
+other detected encodings, and validates exact decoded command. A57th pure in-memory
+wire case verifies BOM decoding; the policy still rejects a BOM in decoded text.
+No command text is logged and no file/share/authority guard is relaxed. Full Windows
+fixture acceptance awaits the next run.
