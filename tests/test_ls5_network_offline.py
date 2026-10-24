@@ -117,3 +117,22 @@ def test_schema_only_cannot_authorize():
 @pytest.mark.parametrize("value",[True,False,0,1,None,{},[]])
 def test_authority_field_injection_rejected(value):
     x=baseline(); x["execution_authorized"]=value; check(x,False)
+
+@pytest.mark.parametrize("bind",["0.0.0.0","::","100.103.160.110","100.91.48.20"])
+def test_postgres_never_binds_outside_loopback(bind):
+    x=baseline()
+    next(v for v in x["listeners"] if v["service"]=="postgres")["bind"]=bind
+    check(x,False)
+
+@pytest.mark.parametrize("node",["PC1","PC2","PC3"])
+def test_unknown_worker_address_cannot_be_public(node):
+    x=baseline()
+    x["nodes"][node]="203.0.113.42"
+    check(x,False)
+
+def test_findings_do_not_echo_untrusted_values():
+    x=baseline()
+    x["listeners"][0]["bind"]="PRIVATE_TOKEN_SHOULD_NOT_LEAK"
+    result=evaluate(json.dumps(x))
+    assert result["findings"]==["INVALID_POLICY"]
+    assert "PRIVATE_TOKEN_SHOULD_NOT_LEAK" not in json.dumps(result)
