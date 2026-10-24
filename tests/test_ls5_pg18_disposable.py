@@ -22,9 +22,8 @@ class Pg18Integrity(unittest.TestCase):
 
     def test_rollback_and_idempotent_replay(self):
         name = "probe_" + uuid.uuid4().hex[:12]
-        with psycopg.connect(self.dsn) as c:
+        with psycopg.connect(self.dsn, autocommit=True) as c:
             c.execute(f"create table {name}(operation_id text primary key, amount int not null)")
-            c.commit()
             try:
                 with self.assertRaises(RuntimeError):
                     with c.transaction():
@@ -37,11 +36,10 @@ class Pg18Integrity(unittest.TestCase):
                 self.assertEqual(c.execute(f"select count(*),sum(amount) from {name}").fetchone(), (1, 1))
             finally:
                 c.execute(f"drop table if exists {name}")
-                c.commit()
 
     def test_transaction_advisory_lock_contention(self):
         key = 91424018
-        with psycopg.connect(self.dsn) as a, psycopg.connect(self.dsn) as b:
+        with psycopg.connect(self.dsn, autocommit=True) as a, psycopg.connect(self.dsn, autocommit=True) as b:
             with a.transaction():
                 self.assertTrue(a.execute("select pg_try_advisory_xact_lock(%s)", (key,)).fetchone()[0])
                 with b.transaction():
@@ -50,7 +48,7 @@ class Pg18Integrity(unittest.TestCase):
                 self.assertTrue(b.execute("select pg_try_advisory_xact_lock(%s)", (key,)).fetchone()[0])
 
     def test_savepoint_recovery(self):
-        with psycopg.connect(self.dsn) as c:
+        with psycopg.connect(self.dsn, autocommit=True) as c:
             with c.transaction():
                 with self.assertRaises(psycopg.errors.DivisionByZero):
                     with c.transaction():
