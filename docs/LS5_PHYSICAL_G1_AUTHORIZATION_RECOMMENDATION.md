@@ -160,3 +160,12 @@ Retrieved PR244 comment `6386862684` and separate base64 request comment `638691
 PR244 exact HEAD `576e77086f645ac9eb3b0d26a43fc967155d24da`: hosted DDL `40112870589`, preflight `40112870681`, native `40112870617`, and full-system `40112870668` all reported SUCCESS in latest GitHub workflow snapshot. This is hosted evidence only; physical G0 remains BLOCKED and G1 NOT_AUTHORIZED. A separate manual dispatch must be checked under its own run/attempt before acceptance. No production/host action performed by QA.
 
 **PHYSICAL_G1_AUTHORIZATION_RECOMMENDATION=BLOCKED.**
+
+
+## Cycle246 handoff (not yet independently byte-attested)
+
+PR244 latest exact source HEAD `bed8ee9ee42934c1e39b918561c7c21f27c96459`; GitHub comment `6387398791` publishes two separate raw-base64 ZIP payloads: paired LS5/PC4 G0 (claimed SHA256 `8fef6e08feb8f4fba32550c256b764a2c67f987907e543ca68d19dcd5e625a46`) and G0 supplements plus blocked G1 request (claimed SHA256 `a3c7d0e5fe5e951cdfb03c33378674938716897591fba64e23c50f497071cdff`); request claimed SHA256 `174a68b3d8b820ff587e83b441552481d22541feee3ca99dd340344e5b26a8f9`. Both payloads were located, but **independent raw-byte decoding, per-file hash verification and tamper execution are not yet completed**. Do not treat these values as accepted evidence.
+
+New producer-observed facts requiring independent confirmation: PC4 Collector/Storage local users Enabled=True; LS5 ProgramData Grid root has inherited Users mask 278, DACL not protected; PostgreSQL services run as NetworkService, PGDATA metadata owner Administrators. The first two are **P0 custody/account isolation concerns**. The G0 collector may fail to inventory accounts if one absent account throws; a separate read-only per-account supplement reportedly captured both present accounts. The Windows native controller is only a CI fixture, not physical handle custody, reboot-proof journal or owner authorization. An AppContainer without required loopback cannot be silently weakened for G1. Physical SID/ACL 0/10 NOT_RUN; G1 20 blocked phases, Execute/Cleanup NOT_AUTHORIZED, Deployment NO-GO.
+
+**PHYSICAL_G1_AUTHORIZATION_RECOMMENDATION=BLOCKED.**
