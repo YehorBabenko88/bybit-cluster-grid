@@ -7,6 +7,8 @@ authorized by this module. This CLI never opens a database or network socket.
 from __future__ import annotations
 import argparse
 import json
+import os
+import stat
 from pathlib import Path
 
 BLOCKERS = (
@@ -33,10 +35,26 @@ def plan() -> dict:
 
 def verify_receipt_structure(path: Path) -> dict:
     """Non-authenticating structure inspection; NEVER returns VERIFIED."""
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > 65536:
-        return {"status": "BLOCKED", "reason": "unsafe_or_oversized_receipt"}
+    if path.is_symlink() or not path.is_file():
+        return {"status": "BLOCKED", "reason": "unsafe_receipt_path"}
     try:
-        payload = json.loads(path.read_bytes())
+        flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(path, flags)
+        with os.fdopen(fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size > 65536:
+                return {"status": "BLOCKED", "reason": "unsafe_or_oversized_receipt"}
+            raw = stream.read(65537)
+        if len(raw) > 65536:
+            return {"status": "BLOCKED", "reason": "oversized_receipt"}
+        def unique_pairs(pairs):
+            obj = {}
+            for key, value in pairs:
+                if key in obj:
+                    raise ValueError("duplicate JSON key")
+                obj[key] = value
+            return obj
+        payload = json.loads(raw, object_pairs_hook=unique_pairs)
     except (OSError, ValueError, UnicodeError):
         return {"status": "BLOCKED", "reason": "invalid_receipt"}
     if not isinstance(payload, dict):
