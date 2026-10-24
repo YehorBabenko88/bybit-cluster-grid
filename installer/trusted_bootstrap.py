@@ -147,7 +147,7 @@ def assess(policy_raw, observation_raw):
         if any(k.upper() in ("PSMODULEPATH", "COMSPEC", "PATHEXT", "VIRTUAL_ENV", "PYTHONIOENCODING") for k in env["variables"]):
             raise ValueError("LOADER_ENV_UNCLASSIFIED")
         if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", k) or
-               "\\x00" in v or "\\r" in v or "\\n" in v for k, v in env["variables"].items()):
+               "\x00" in v or "\r" in v or "\n" in v for k, v in env["variables"].items()):
             raise ValueError("ENV_NAME_OR_VALUE_INVALID")
         if type(env["path_entries"]) is not list or not env["path_entries"]:
             raise ValueError("PATH_UNKNOWN")
