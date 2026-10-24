@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 internal static class ControllerMain {
- internal static readonly string[] ModelCases={"signed-permit","tampered-data","tampered-signature","wrong-key","wrong-head","wrong-run","wrong-nonce","expired","replay","noncanonical-permit","truncated-journal","unknown-recovery-anchor","invalid-transitions","child-environment-allowlist","child-environment-missing","child-token-user","child-token-enabled-admin","child-token-deny-only-admin","child-token-high-integrity"};
+ internal static readonly string[] ModelCases={"signed-permit","tampered-data","tampered-signature","wrong-key","wrong-head","wrong-run","wrong-nonce","expired","replay","noncanonical-permit","truncated-journal","unknown-recovery-anchor","invalid-transitions","child-environment-allowlist","child-environment-missing","child-token-user","child-token-enabled-admin","child-token-deny-only-admin","child-token-elevated","child-token-high-integrity"};
  internal static readonly string[] NativeCases={"held-process-identity-job-token","live-cleanup-refused","unknown-cleanup-refused","cooperative-exit","stable-guardian-recovery","bounded-marker-cleanup","forced-owned-process-stop","flush-failure-retention"};
  static readonly List<object> cases=new();static void Test(string name,Action a){a();cases.Add(new{name,outcome="PASS"});}
  static void Refuse(Action a){try{a();}catch(Blocked){return;}throw new Blocked("EXPECTED_REFUSAL_MISSING");}
@@ -23,6 +23,7 @@ internal static class ControllerMain {
  Test("child-token-user",()=>Refuse(()=>ControllerPolicy.ChildToken(ordinary,"S-1-5-21-1-2-3-1002")));
  Test("child-token-enabled-admin",()=>Refuse(()=>ControllerPolicy.ChildToken(ordinary with{Groups=new(){new("S-1-5-32-544",4)}},ordinary.User)));
  Test("child-token-deny-only-admin",()=>ControllerPolicy.ChildToken(ordinary with{Groups=new(){new("S-1-5-32-544",16)}},ordinary.User));
+ Test("child-token-elevated",()=>Refuse(()=>ControllerPolicy.ChildToken(ordinary with{Elevated=true},ordinary.User)));
  Test("child-token-high-integrity",()=>Refuse(()=>ControllerPolicy.ChildToken(ordinary with{Integrity=8192},ordinary.User)));
 
  }

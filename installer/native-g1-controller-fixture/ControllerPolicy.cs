@@ -10,8 +10,8 @@ internal static class ControllerPolicy {
   foreach(string path in new[]{windows,local})Need(path!=null&&path.Length<=2048&&Regex.IsMatch(path,@"^[A-Za-z]:\\")&&!path.Any(c=>c<32),"REQUIRED_CHILD_KNOWN_FOLDER");
   return "LOCALAPPDATA="+local+"\0SystemRoot="+windows+"\0WINDIR="+windows+"\0\0";
  }
- internal static void ChildToken(TokenFact facts,string user){
-  Need(facts.User==user&&!facts.Elevated&&facts.Integrity<=4096,"CHILD_TOKEN_IDENTITY_OR_INTEGRITY");
+ internal static void ChildToken(TokenFact facts,string user,uint maximumIntegrity=4096){
+  Need(facts.User==user,"CHILD_TOKEN_USER");Need(!facts.Elevated,"CHILD_TOKEN_ELEVATED");Need(facts.Integrity<=maximumIntegrity,"CHILD_TOKEN_INTEGRITY_"+facts.Integrity);
   Need(!facts.Groups.Any(g=>g.Sid=="S-1-5-32-544"&&(g.Attributes&4)!=0&&(g.Attributes&16)==0),"CHILD_ENABLED_ADMINISTRATORS");
  }
  internal static byte[] Canon<T>(T x)=>JsonSerializer.SerializeToUtf8Bytes(x);

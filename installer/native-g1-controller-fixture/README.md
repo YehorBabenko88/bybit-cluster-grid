@@ -11,3 +11,5 @@ Held fixture root, marker and journal identities bind permits and flushed journa
 All physical phases remain BLOCKED; execute_authorized, cleanup_authorized and host_verified remain false.
 
 The child receives an explicit Unicode environment containing only LOCALAPPDATA, SystemRoot and WINDIR; CI credentials, PATH and arbitrary parent configuration are not inherited.
+
+The hosted launcher now derives a LUA/DISABLE_MAX_PRIVILEGE restricted primary token and checks user, non-elevation, disabled administrator group and at-most-medium integrity before CreateProcessAsUser. The AppContainer child must additionally have low integrity before resume. No logon credentials, policy changes or privilege-escalation fallback are accepted. These paths require actual hosted verification.
