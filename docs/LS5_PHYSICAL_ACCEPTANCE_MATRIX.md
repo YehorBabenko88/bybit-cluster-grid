@@ -137,3 +137,14 @@ Independent reviewer must retrieve artifact bytes through GitHub's authenticated
 artifact API, pin artifact ID/run attempt, compute ZIP SHA256 and inner file
 digests, inspect exact JUnit inventory and compare the immutable producer
 source at the same HEAD. A consistent forged chain still cannot grant PASS.
+
+## CI matrix anti-shortcut gate
+
+`audit_ci_matrix` requires exactly one job for each Ubuntu/Windows ×
+Python 3.11/3.12 cell, matching exact HEAD, positive test count, zero
+failures/errors/skips and successful job conclusion. Duplicate, missing,
+unrecognized OS, incorrect SHA, boolean masquerading as integer, and
+zero-test green jobs are rejected or marked incomplete. A passing
+self-reported matrix is still **synthetic only** and cannot establish
+artifact provenance or physical readiness. GitHub `pending`, `waiting`,
+and `requested` statuses are valid incomplete states, not PASS.
