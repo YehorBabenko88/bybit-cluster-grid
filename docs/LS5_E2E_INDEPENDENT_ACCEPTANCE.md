@@ -109,3 +109,22 @@ Pinned source HEADs (GitHub PR API): #238 `7df22d1c5cdc60bcf4e3414dacd35d23fdec7
 **Negative evidence acceptance:** mutate exact HEAD, tree, run ID, attempt, source hashes, JUnit counts/statuses, JSONL event inventory, ZIP member bytes/names, manifest hashes and archive digest independently; reject producer-only PASS, missing stages, duplicate or unknown entries, skipped/queued gates, non-owned cleanup and missing original process/network/DB evidence. Preserve original artifact bytes and compare to the trusted GitHub artifact digest. Passing synthetic mutation checks does not prove complete E2E or host custody.
 
 **Independent verdict: CI FIRST_BOOT FAIL / LAB NO-GO; physical LS5→PC4 G0 BLOCKED, G1 NOT_AUTHORIZED, PC4 0/10 NOT_RUN, deployment NO-GO.**
+
+
+## Source differential review, refreshed heads (2026-10-24)
+
+#238 `7df22d1c5cdc60bcf4e3414dacd35d23fdec7149`; #239 `41404048275adb610eac881550e2fa30dc54b326`; #240 `e908a9aa557efa6fb515cbaacb364757e5f283f8`; #241 `b97c9d2ba0bccf40e6a85861dddeade40dfde3b9`; #242 pre-update `6a0b1469b6c0562b06be28993235d4e1c778ce55`; #244 `780362f39246498a85ca268ece4fb274b11d5745`.
+
+GitHub blob SHA direct comparison:
+- #240/#244 `installer/ls5_pg_readiness.py`: both `233b5ac01f2b1d17be6f3e82c63b78cf4b464067` (same).
+- #241/#244 `installer/ls5_network_offline.py`: both `daabde0da4a95adbae893b7f979ea322453c7bd7` (same).
+- #239/#244 `installer/trusted_bootstrap.py`: `d1ab542d522f27ac351802f5fade5255b3ade3c2` vs `83c87c64de0fa049113b298f459ad4e004da9798` (different).
+- #239/#244 `installer/ls5_bootstrap_ci_evidence.py`: `f21dfb30553da0a8e079744d580dd7a474d9073b` vs `6edd5e2933e4ce5bd12ff4de5a510d9336fc39e5` (different).
+- #242/#244 `installer/ls5_e2e_acceptance.py`: `723d2462c3c39c778c19541fbc0c59db461fbfc1` vs `2091a4a13a119ee5dc8811d3378e1896ca5ebd48` (different).
+- #242/#244 `installer/ls5_physical_acceptance.py`: `cb182a788256632ae3582d8b136982094ad980fe` vs `ba3b255bd66f14d41100660025cbdfbd21b6f494` (different).
+
+**Confirmed P1 source-level parser differential:** PR #239's `installer/ls5_bootstrap_ci_evidence.py` rejects non-whitespace JUnit root/suite/case text/tails and duplicate/missing `(classname,name)` testcase identities; PR #244's exact file lacks these checks. Minimal reproducer: JUnit `<testsuite tests="2" failures="0" errors="0" skipped="0"><testcase classname="C" name="N"/><testcase classname="C" name="N"/></testsuite>` plus valid LS5_EXACT_HEAD and output path: #244 producer proceeds to `PASS` receipt while #239 rejects duplicate identities. A suite with injected non-whitespace structural text is likewise not rejected by #244. This is source-level differential; execute in an isolated harness before claiming runtime repro. Notify integration owner; do not modify their PR.
+
+**P2 contract drift:** PR #239 `trusted_bootstrap.py` validates `active_release` as 40-hex commit, PR #244 compares it to `VERSION`. Requires owner decision about release version semantics, fixtures and trusted manifest; a blob mismatch alone does not establish unsafe deployment.
+
+All other shared paths remain pending exact-blob comparison. **No physical GO.**
