@@ -72,6 +72,12 @@ jobs:
           expected={"test_rollback_and_idempotent_replay","test_transaction_advisory_lock_contention","test_disconnect_rolls_back_uncommitted_write","test_unique_key_survives_reconnect","test_savepoint_recovery","test_wal_durability_configuration","test_backup_and_restore"}
           suites = [root] if root.tag == "testsuite" else list(root) if root.tag == "testsuites" else []
           valid_structure = bool(suites) and all(s.tag == "testsuite" for s in suites)
+          valid_tree = (root.tag == "testsuite" or root.tag == "testsuites") and all(
+              node.tag in {"testsuites", "testsuite", "testcase", "properties", "property",
+                           "system-out", "system-err", "skipped", "failure", "error"}
+              for node in root.iter()
+          )
+          no_duplicate_cases = len(names) == len(set(names))
           valid_counts = valid_structure and all(
               s.get("failures") == "0" and s.get("errors") == "0"
               and s.get("skipped") == "0"
@@ -83,6 +89,7 @@ jobs:
               for e in root.iter() if e.tag in ("testsuites", "testsuite", "testcase")
           )
           ok=(os.environ.get('PG18_TEST_OUTCOME') == 'success'
+              and valid_structure and valid_tree and no_duplicate_cases
               and valid_counts and no_hidden_text and len(cases)==len(expected)
               and set(names)==expected and not any(list(x) for x in cases)
               and sum(int(s.get("tests")) for s in suites)==len(expected))
