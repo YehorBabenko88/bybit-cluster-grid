@@ -36,9 +36,11 @@ def main():
                     raise SystemExit("junit suite counter mismatch")
     failures = [c for c in cases if any(c.find(tag) is not None for tag in ("failure", "error"))]
     skips = [c for c in cases if c.find("skipped") is not None]
-    head = os.environ.get("GITHUB_SHA", "")
+    head = os.environ.get("LS5_EXACT_HEAD", "")
     if len(head) != 40 or any(c not in "0123456789abcdef" for c in head):
         raise SystemExit("invalid exact HEAD")
+    if os.environ.get("GITHUB_EVENT_NAME") == "pull_request" and head == os.environ.get("GITHUB_SHA"):
+        raise SystemExit("pull request synthetic merge SHA cannot be evidence head")
     output.mkdir(parents=True, exist_ok=True)
     junit_hash = hashlib.sha256(source.read_bytes()).hexdigest()
     events = [
