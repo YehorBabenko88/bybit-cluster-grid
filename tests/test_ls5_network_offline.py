@@ -72,3 +72,16 @@ def test_nested_type_spoofing(field,value):
     x=baseline()
     x["flows"][0][field]=value
     check(x,False)
+
+@pytest.mark.parametrize("src,dst,port,purpose",[
+ ("LS7","PC4",22,"ssh"),
+ ("PC4","LS7",22,"ssh"),
+ ("LS5","LS7",22,"ssh"),
+ ("LS5","PC4",8765,"agent_api"),
+])
+def test_lateral_or_wrong_direction_blocked(src,dst,port,purpose):
+    x=baseline()
+    if src=="LS7" or dst=="LS7":
+        assert x["nodes"]["LS7"] is not None
+    x["flows"].append({"src":src,"dst":dst,"port":port,"transport":"tailscale","purpose":purpose})
+    check(x,False)
