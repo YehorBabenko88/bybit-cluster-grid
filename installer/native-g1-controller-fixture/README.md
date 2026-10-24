@@ -12,4 +12,6 @@ All physical phases remain BLOCKED; execute_authorized, cleanup_authorized and h
 
 The child receives an explicit Unicode environment containing only LOCALAPPDATA, SystemRoot and WINDIR; CI credentials, PATH and arbitrary parent configuration are not inherited.
 
-The hosted launcher now derives a LUA/DISABLE_MAX_PRIVILEGE restricted primary token and checks user, non-elevation, disabled administrator group and at-most-medium integrity before CreateProcessAsUser. The AppContainer child must additionally have low integrity before resume. No logon credentials, policy changes or privilege-escalation fallback are accepted. These paths require actual hosted verification.
+The hosted launcher now derives a LUA/DISABLE_MAX_PRIVILEGE restricted primary token and checks user, non-elevation, disabled administrator group and low integrity before CreateProcessAsUser. The AppContainer child must additionally have low integrity before resume. No logon credentials, policy changes or privilege-escalation fallback are accepted. These paths require actual hosted verification.
+
+Hosted failure 830b3ac reported integrity 12288 on the newly restricted launcher token: LUA filtering alone did not lower its label. The fixture now lowers ONLY that fresh token to S-1-16-4096 and reads it back before creating a child. The caller token, accounts, policies and ACLs are unchanged. A separate real native case closes the sole held Job handle while its owned child is suspended and requires confirmed child exit. These changes remain pending exact-head native verification.

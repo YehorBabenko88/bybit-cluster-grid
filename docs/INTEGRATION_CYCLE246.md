@@ -86,7 +86,7 @@ is a held-handle barrier test, **not OS-crash recovery or durable anti-rollback*
 The fixed child exits cooperatively; no general Grid shutdown protocol is proved.
 Job membership is not evidence of protection from a privileged administrator.
 
-The new required CI checks 20 managed and 8 native cases on PowerShell 5.1/7 and
+The new required CI checks 20 managed and 9 native cases on PowerShell 5.1/7 and
 Python 3.11/3.12. A separate job downloads all four artifacts and verifies exact
 case inventory, false physical flags, JUnit, JSONL, SHA256, source blobs and external
 head/run/attempt. This detects inconsistent/tampered receipts; it cannot make a
@@ -127,4 +127,6 @@ Do not request authorization to execute an incomplete controller. Next safe step
 are exact-head hosted verification, independent artifact acceptance, completing
 read-only custody evidence, and designing contained transport/external trust anchors.
 
-The hosted launcher now derives a LUA/DISABLE_MAX_PRIVILEGE restricted primary token and checks user, non-elevation, disabled administrator group and at-most-medium integrity before CreateProcessAsUser. The AppContainer child must additionally have low integrity before resume. No logon credentials, policy changes or privilege-escalation fallback are accepted. These paths require actual hosted verification.
+The hosted launcher now derives a LUA/DISABLE_MAX_PRIVILEGE restricted primary token and checks user, non-elevation, disabled administrator group and low integrity before CreateProcessAsUser. The AppContainer child must additionally have low integrity before resume. No logon credentials, policy changes or privilege-escalation fallback are accepted. These paths require actual hosted verification.
+
+Hosted failure 830b3ac reported integrity 12288 on the newly restricted launcher token: LUA filtering alone did not lower its label. The fixture now lowers ONLY that fresh token to S-1-16-4096 and reads it back before creating a child. The caller token, accounts, policies and ACLs are unchanged. A separate real native case closes the sole held Job handle while its owned child is suspended and requires confirmed child exit. These changes remain pending exact-head native verification.
