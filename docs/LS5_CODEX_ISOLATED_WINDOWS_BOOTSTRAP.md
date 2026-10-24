@@ -61,3 +61,9 @@ Unknown source provenance, mismatch of exact HEAD or manifest, unexpected file, 
 ## Gate status
 
 G0 hosted exact-HEAD CI and artifacts: pending. G1 cross-PR integrated behavior: NOT_RUN. Real Windows install/start/stop/restart/rollback and physical crash recovery: NOT_RUN. LS5/PC4 untouched. PC4 0/10 NOT_RUN. Deployment NO-GO.
+
+## PR244 release identity compatibility (2026-10-24)
+
+The original offline assessor assumed one historical hardcoded release ID. It now validates any **exact 40-character lowercase commit ID**, but requires the matching coordinator executable path and all listed inventory hashes to agree with that same release. The integration candidate PR244 HEAD is `38e6ab40928cbdd6a2d6d84cbb05b4628167258f`; this value is a test fixture, **not** a trusted signed source or approval to activate. Both the candidate and its manifest must be independently verified. A release version change without updating the inventory must fail closed.
+
+The PR244 full-system foreground entrypoint is `python -m integration.first_boot --execute-ci`, subject to its own CI-only gates and disposable PG18/native prerequisites. Do not substitute the standalone offline assessor or disposable release-state model for that E2E execution. Neither this PR nor PR244 authorizes physical bootstrap, release switching, Scheduled Task creation or production service startup.
