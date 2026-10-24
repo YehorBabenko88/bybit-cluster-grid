@@ -9,7 +9,7 @@ from grid.snapshot_partition_contract import PartitionContractError
 def fixture(rows):
     payload = json.dumps(rows, separators=(",", ":")).encode()
     part = dict(artifact_sha256=hashlib.sha256(payload).hexdigest(),
-                row_count=len(rows), knowledge_cutoff_ns=300,
+                row_count=len(rows), timeframe_ns=120, knowledge_cutoff_ns=300,
                 first_event_ns=0, last_event_ns=120)
     return part, payload
 
@@ -45,3 +45,13 @@ def test_oversized_payload_rejected():
     part, payload = fixture([dict(event_ns=0, available_ns=60, revision=1)])
     with pytest.raises(PartitionContractError, match="byte limit"):
         verify_partition_payload(part, payload, max_bytes=1)
+
+
+def test_internal_gap_rejected():
+    part, payload = fixture([
+        dict(event_ns=0, available_ns=60, revision=1),
+        dict(event_ns=240, available_ns=250, revision=1),
+    ])
+    part["last_event_ns"] = 240
+    with pytest.raises(PartitionContractError, match="Gap"):
+        verify_partition_payload(part, payload, max_bytes=1000)
