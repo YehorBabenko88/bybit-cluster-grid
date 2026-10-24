@@ -11,6 +11,7 @@ class Pg18Integrity(unittest.TestCase):
         assert os.getenv("GRID_DISPOSABLE_PG18") == "YES"
         assert os.getenv("GITHUB_ACTIONS") == "true"
         cls.dsn = os.environ["GRID_DISPOSABLE_PG_DSN"]
+        assert cls.dsn == "postgresql://grid_ci:ci_only_disposable@127.0.0.1:55439/grid_ci_disposable"
         with psycopg.connect(cls.dsn) as c:
             host, port, db, version = c.execute("select inet_server_addr()::text, inet_server_port(), current_database(), current_setting('server_version_num')::int").fetchone()
             assert host in ("127.0.0.1", "::1"), host
