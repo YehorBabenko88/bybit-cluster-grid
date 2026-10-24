@@ -144,3 +144,10 @@ Reported metadata identifies existing PostgreSQL listeners LS5 TCP/55432 PID5472
 **P0:** G1 Windows handle-bound controller missing, no verified exclusive custody or independently approved G0, no separate owner execution/cleanup authorization. **P1:** source and G0 provenance, process/network/PG isolation, STOP and recovery need witnessed evidence. **P2:** byte-exact ZIP/index and G1 request hash check still pending; perform copied-byte tamper tests and ensure no secret values in any archive field before any further consideration.
 
 **PHYSICAL_G1_AUTHORIZATION_RECOMMENDATION=BLOCKED**; Physical 0/10 NOT_RUN; Execute/Cleanup NOT_AUTHORIZED; Deployment NO-GO.
+
+
+## Raw-byte handoff availability / current CI
+
+GitHub PR244 comments `6386862684` and `6386912859` contain separate fenced standard-base64 transports for original G0 ZIP and G1 request JSON bytes. Both were located via GitHub API; published external digests remain `5f9a9d974602d97b82ce132d8f660dcb896b6856550bb10ea972aa0f958b4504` (ZIP) and `3d52d106236e39139aa6a82b5cd54d50c746c1e48c6c8e99aa065c5624ecf631` (request). Independent decode/hash/mutation tests must operate on raw bytes, never Markdown-reformatted or parsed/reserialized JSON. **No byte-verification PASS is claimed in this checkpoint.**
+
+Exact PR244 HEAD `576e77086f645ac9eb3b0d26a43fc967155d24da`: GitHub Actions DDL `40112870589` SUCCESS, preflight `40112870681` SUCCESS, native `40112870617` SUCCESS. Original full-system `40112870668` still IN_PROGRESS at check; separately reported manual dispatch `40113251370` not independently accepted. Even if all hosted workflows eventually pass, physical G0 and G1 remain separate and **BLOCKED/NOT_AUTHORIZED**.
