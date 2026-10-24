@@ -55,6 +55,13 @@ internal record GroupFact(string Sid,uint Attributes);
 internal record TokenFact(string User,bool Elevated,uint Integrity,List<GroupFact> Groups,string Fingerprint);
 internal static class Policy
 {
+ public static void ScalarProbe(bool success,int error,int size){
+  if(success || size!=4 || (error!=122 && error!=24))throw new Blocked("TOKEN_SCALAR_PROBE",error);
+ }
+ public static bool ScalarElevation(uint value){
+  if(value>1)throw new Blocked("TOKEN_SCALAR_VALUE");return value==1;
+ }
+
  public static string[] Components(string path){
   if(path.Length<4 || path.Length>240 || path[0]<'A' || path[0]>'Z' || path[1]!=':' || path[2]!='\\')throw new Blocked("PATH_FORM");
   if(path.Any(c=>c<32 || c>126 || "/%~*?\"<>|".Contains(c)) || path[3..].Contains(':'))throw new Blocked("PATH_ALIAS");

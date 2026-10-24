@@ -288,3 +288,12 @@ stages missing. Native4 cells failed TOKEN_SIZE_UNKNOWN before ordinary observat
 new bounded numeric API diagnostics retain the refusal and await hosted evidence.
 PG artifact12556681100 digest4da78e72ce879fa36bbdc3f4351c86a3ed34120c44ba16a4e2d1fa936d121554.
 Physical readiness is unchanged: BLOCKED/NO-GO. This does not attest LS5 or PC4.
+
+Hosted native attempt802f921 confirmed sizing probe TokenElevation20 returns false,
+ERROR_BAD_LENGTH24 and required4. Scalar policy now accepts only false+size4+error122
+or24, requires real subsequent read success/used4 and rejects values outside0/1.
+Other token structures/access failures remain refused. Nine new pure managed cases
+are frozen in the native inventory; local .NET SDK is absent, so these cases await
+hosted compilation/execution rather than being claimed locally passed. No native
+security calls ran locally. Manual G0 source commands avoid Git status/diff against
+untrusted configuration because clean filters may execute external code.

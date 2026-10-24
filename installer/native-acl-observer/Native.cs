@@ -88,7 +88,8 @@ internal static class Native
   Inject("TOKEN_QUERY");
   bool probe=GetTokenInformation(t,type,IntPtr.Zero,0,out int size);
   int probeError=Marshal.GetLastWin32Error();
-  if(probe || probeError!=122 || size<4 || size>1048576)throw new Blocked($"TOKEN_SIZE_UNKNOWN_T{type}_N{size}_P{(probe?1:0)}",probeError);
+  if(type!=20)throw new Blocked("TOKEN_SCALAR_CLASS");
+  Policy.ScalarProbe(probe,probeError,size);
   IntPtr p=Marshal.AllocHGlobal(size);
   try{if(!GetTokenInformation(t,type,p,size,out int used) || used!=size)throw new Blocked("TOKEN_QUERY_FAILED");
    var b=new byte[size];Marshal.Copy(p,b,0,size);return b;
@@ -115,7 +116,7 @@ internal static class Native
  }
  public static TokenFact TokenFacts(SafeAccessTokenHandle t){
   using var identity=new WindowsIdentity(t.DangerousGetHandle());var user=identity.User?.Value??throw new Blocked("TOKEN_USER_UNKNOWN");
-  bool elevated=BitConverter.ToUInt32(TokenBytes(t,20),0)!=0;
+  bool elevated=Policy.ScalarElevation(BitConverter.ToUInt32(TokenBytes(t,20),0));
   // WindowsIdentity provides native validated user/group SIDs. Integrity pointer
   // need not be dereferenced: token SID list includes the integrity label.
   var groups=Groups(t);uint level;

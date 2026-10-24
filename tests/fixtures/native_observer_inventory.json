@@ -74,7 +74,16 @@
     "physical-volume-root",
     "subst-root-refused",
     "root-final-name-mismatch",
-    "network-root-refused"
+    "network-root-refused",
+    "scalar-probe-insufficient-buffer",
+    "scalar-probe-bad-length",
+    "scalar-probe-access-denied",
+    "scalar-probe-invalid-handle",
+    "scalar-probe-wrong-size",
+    "scalar-probe-unexpected-success",
+    "scalar-elevation-zero",
+    "scalar-elevation-one",
+    "scalar-elevation-invalid"
   ],
   "source_files": [
     "installer/native-acl-observer/Program.cs",

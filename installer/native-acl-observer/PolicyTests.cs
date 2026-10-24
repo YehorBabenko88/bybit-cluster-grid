@@ -47,6 +47,15 @@ internal static class PolicyTests
   Test("subst-root-refused",()=>Policy.RootMapping(@"\??\C:\fixture",@"\Device\HarddiskVolume3\fixture"),"ROOT_MAPPING_UNPROVEN");
   Test("root-final-name-mismatch",()=>Policy.RootMapping(@"\Device\HarddiskVolume3",@"\Device\HarddiskVolume4\"),"ROOT_MAPPING_UNPROVEN");
   Test("network-root-refused",()=>Policy.RootMapping(@"\Device\Mup\host",@"\Device\Mup\host\"),"ROOT_MAPPING_UNPROVEN");
+  Test("scalar-probe-insufficient-buffer",()=>Policy.ScalarProbe(false,122,4));
+  Test("scalar-probe-bad-length",()=>Policy.ScalarProbe(false,24,4));
+  Test("scalar-probe-access-denied",()=>Policy.ScalarProbe(false,5,4),"TOKEN_SCALAR_PROBE");
+  Test("scalar-probe-invalid-handle",()=>Policy.ScalarProbe(false,6,4),"TOKEN_SCALAR_PROBE");
+  Test("scalar-probe-wrong-size",()=>Policy.ScalarProbe(false,24,8),"TOKEN_SCALAR_PROBE");
+  Test("scalar-probe-unexpected-success",()=>Policy.ScalarProbe(true,122,4),"TOKEN_SCALAR_PROBE");
+  Test("scalar-elevation-zero",()=>Policy.ScalarElevation(0));
+  Test("scalar-elevation-one",()=>Policy.ScalarElevation(1));
+  Test("scalar-elevation-invalid",()=>Policy.ScalarElevation(2),"TOKEN_SCALAR_VALUE");
   Console.WriteLine(JsonSerializer.Serialize(new{schema=1,status="OFFLINE_TEST_PASS",physical_attestation=false,host_verified=false,apply_authorized=false,execute_authorized=false,cleanup_authorized=false,cases},Program.Json));return 0;
  }
 }

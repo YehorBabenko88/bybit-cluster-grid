@@ -27,6 +27,9 @@ function Digest([string]$Text){
  try{return ([BitConverter]::ToString($h.ComputeHash([Text.Encoding]::UTF8.GetBytes($RunId+':'+$Text)))).Replace('-','').ToLowerInvariant()}
  finally{$h.Dispose()}
 }
+function Require-LocalPath([string]$Path){
+ if($Path -cnotmatch '^[A-Za-z]:\\' -or $Path.Substring(2) -match '[:*?"<>|/]' -or $Path -match '[\x00-\x1f]' -or $Path -match '(^|\\)[.]{1,2}(\\|$)'){throw 'LOCAL_PATH_REQUIRED'}
+}
 function Public-Path([string]$Path){return ($Path -replace '(?i)([A-Z]:\\Users\\)[^\\]+','$1[USER]')}
 function Row([string]$Status,[string]$Reason,$Data){return [ordered]@{status=$Status;reason=$Reason;data=@($Data)}}
 $checks=[ordered]@{}
@@ -58,7 +61,9 @@ Observe 'resources' {
 foreach($pair in @(@('python','python.exe'),@('dotnet','dotnet.exe'),@('powershell','pwsh.exe'))){
  $label=$pair[0];$tool=$pair[1]
  Observe $label {
+  foreach($part in ($env:PATH -split ';')){if($part){Require-LocalPath $part}}
   $cmd=Get-Command -Name $tool -CommandType Application -ErrorAction Stop
+  Require-LocalPath $cmd.Source
   $item=Get-Item -LiteralPath $cmd.Source -Force -ErrorAction Stop
   if($item.Attributes -band [IO.FileAttributes]::ReparsePoint -or !$item.VersionInfo.ProductVersion){throw 'UNTRUSTED_TOOL'}
   $version=[regex]::Match([string]$item.VersionInfo.ProductVersion,'^[0-9]+([.][0-9]+){1,3}').Value
@@ -120,6 +125,7 @@ $paths=@((Join-Path $env:ProgramData 'BybitClusterGrid'),(Join-Path $env:Program
 Observe 'paths' {
  $rows=@();$redirected=$false
  foreach($path in $paths){
+  Require-LocalPath $path
   $exists=Test-Path -LiteralPath $path -ErrorAction Stop;$reparse=$false
   $ancestor=$path
   while($ancestor){
@@ -133,6 +139,7 @@ Observe 'paths' {
 Observe 'acl' {
  $rows=@()
  foreach($path in $paths){
+  Require-LocalPath $path
   if(!(Test-Path -LiteralPath $path -ErrorAction Stop)){continue}
   $acl=Get-Acl -LiteralPath $path -ErrorAction Stop
   $rows += [ordered]@{path=(Public-Path $path);owner_digest=(Digest ([string]$acl.Owner));protected=[bool]$acl.AreAccessRulesProtected;ace_count=@($acl.Access).Count;reparse=[bool]((Get-Item -LiteralPath $path -Force -ErrorAction Stop).Attributes -band [IO.FileAttributes]::ReparsePoint)}
@@ -156,9 +163,18 @@ Observe 'environment' {
 }
 Observe 'source' {
  if(!$SourcePath){throw 'SOURCE_NOT_SUPPLIED'}
+ Require-LocalPath $SourcePath
  $rows=@()
  foreach($name in @('grid\coordinator.py','grid\worker.py','grid\schema_contract.py','grid\schema_preparation.py','grid\migrations.py','requirements.txt')){
-  $p=Join-Path $SourcePath $name;$h=Get-FileHash -LiteralPath $p -Algorithm SHA256 -ErrorAction Stop
+  $p=Join-Path $SourcePath $name;Require-LocalPath $p
+  $ancestor=$p
+  while($ancestor){
+   $item=Get-Item -LiteralPath $ancestor -Force -ErrorAction Stop
+   if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'SOURCE_REPARSE'}
+   $parent=[IO.Directory]::GetParent($ancestor);if($null -eq $parent){break};$ancestor=$parent.FullName
+  }
+  $h=Get-FileHash -LiteralPath $p -Algorithm SHA256 -ErrorAction Stop
+  if([string]$h.Hash -cnotmatch '^[0-9a-fA-F]{64}$'){throw 'HASH_UNKNOWN'}
   $rows += [ordered]@{path=$name;sha256=([string]$h.Hash).ToLowerInvariant()}
  }
  Row 'BLOCKED' 'HASHES_NOT_TRUSTED_HEAD_OR_ANCESTOR_CUSTODY_PROOF' $rows

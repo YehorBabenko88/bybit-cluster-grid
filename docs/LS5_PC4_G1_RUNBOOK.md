@@ -126,7 +126,7 @@ absent. Therefore its steps are BLOCKED, not runnable placeholders hidden as PAS
 |---|---|---|---|---|
 |1 Host identity|fresh owner G0 + independent run-bound identity|distinct expected host observations,30s|alias/digest disagreement: no processes/resources|signed G0 digests|
 |2 Baseline|approved observer commands in G0 report|complete processes/listeners/paths,60s|unknown provider or collision: retain baseline, no change|per-node JSON + timestamp|
-|3 Source|trusted Git HEAD/status + full signed manifest closure|exact candidate/tree/hash/custody,60s|dirty/untrusted ancestor/reparse:STOP|source/tool hashes + independent observer|
+|3 Source|trusted Git object HEAD + full signed byte manifest closure|exact candidate/tree/hash/custody,60s|dirty/untrusted ancestor/reparse:STOP|source/tool hashes + independent observer|
 |4 New environment|New-Item template only after native exclusive-create receipt|new unique root,30s|exists/race =>retain, never adopt/delete|volume/file identity + journal|
 |5 PG bootstrap|initdb/pg_ctl templates + new-cluster roles/schema preparation|PG180004, versions1–48, seal and least rights,120s|wrong cluster/role/partial registry =>STOP and retain; no downgrade|cluster ID/catalog digest/creation receipts|
 |6 Coordinator|clean env + Uvicorn loopback command|own PID/creation/exe, leader epoch>0,60s|unexpected bind/DDL/gate =>cooperative own-handle stop|process + listener + health whitelist|

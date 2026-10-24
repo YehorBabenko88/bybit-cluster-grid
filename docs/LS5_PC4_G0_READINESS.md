@@ -46,8 +46,8 @@ $Checkout = '<already present protected checkout>'
 $TrustedPython = '<independently verified Python3.11 or3.12 full path>'
 $TrustedGit = '<independently verified Git full path>'
 & $TrustedGit --no-optional-locks -c core.fsmonitor=false -C $Checkout rev-parse HEAD
-& $TrustedGit --no-optional-locks -c core.fsmonitor=false -C $Checkout status --porcelain
-# STOP on wrong HEAD/dirty tree/custody doubt; these commands alone do not attest trust.
+# STOP on wrong HEAD or any custody/byte-manifest mismatch; HEAD alone is not trust.
+# Do not run status/diff against untrusted .git config: clean filters may execute code.
 & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -File "$Checkout\installer\collect-physical-g0.ps1"
 # PLAN_ONLY; no host providers
 & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -File "$Checkout\installer\collect-physical-g0.ps1" -Mode ReadOnly -G0Approved -NodeId $Node -Head $CandidateHead -RunId $RunId -SourcePath $Checkout
@@ -131,3 +131,9 @@ scope, network isolation, secrets, PG cluster/roles, processes, faults, time lim
 STOP authority and separate cleanup. No blanket approval or G0 PASS enables G1/G2.
 G2 services/tasks/ACL Apply/production DB/deployment remain independently forbidden.
 Physical SID/ACL PC4:0/10 NOT_RUN. Execute/Cleanup NOT_AUTHORIZED. Deployment NO-GO.
+
+Additional boundaries: direct UNC/device/ADS/dot-alias source paths are rejected;
+source ancestors are checked for reparse before hashing. PATH entries are screened
+before tool lookup. This does not prove mapped-drive/ancestor TOCTOU or hostile
+provider isolation; those remain native-custody prerequisites, not metadata guarantees.
+Eight mocked-provider/AST cases per PS5.1/7 passed; no real host collection occurred.
