@@ -114,6 +114,18 @@ class E2EAcceptanceTests(unittest.TestCase):
                                  expected_files={name: hashlib.sha256(
                                      b"outside" if symlink else b"payload").hexdigest()})
 
+    def test_zip_windows_drive_and_case_collision(self):
+        for names in (("C:/temp/receipt.json",), ("A.json", "a.json")):
+            out = io.BytesIO()
+            with zipfile.ZipFile(out, "w") as z:
+                for name in names:
+                    z.writestr(name, b"payload")
+            raw = out.getvalue()
+            manifest = {name: hashlib.sha256(b"payload").hexdigest() for name in names}
+            with self.subTest(names=names), self.assertRaises(AcceptanceBlocked):
+                verify_zip_bytes(raw, expected_digest=hashlib.sha256(raw).hexdigest(),
+                                 expected_files=manifest)
+
     def test_zip_total_expansion_budget(self):
         out = io.BytesIO()
         with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
