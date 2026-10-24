@@ -128,3 +128,12 @@ GitHub blob SHA direct comparison:
 **P2 contract drift:** PR #239 `trusted_bootstrap.py` validates `active_release` as 40-hex commit, PR #244 compares it to `VERSION`. Requires owner decision about release version semantics, fixtures and trusted manifest; a blob mismatch alone does not establish unsafe deployment.
 
 All other shared paths remain pending exact-blob comparison. **No physical GO.**
+
+
+## Independently opened hosted run 40088816153 — raw ZIP checkpoint
+
+Archive artifact `12558810048`, GitHub digest and independently calculated local SHA256 both `46308f0514488247dcdb2ac5e4b354cfcc3cb5d530a942356fa3f04ebdd1a21e`; 14 ZIP members, no duplicate names. Source head `297fcb7cd12c2d1eaf819242abd3267fa7bd5ee0`; run `40088816153`, attempt `1`; summary tree `7cc26c9bddeb67b8bd5ddee048d5044f8b4f02f2` (producer-reported tree; independently compare to GitHub tree before source provenance promotion). Internal first-boot manifest file digests all match their corresponding actual ZIP member bytes; all 26 JSONL events carry matching head/run/attempt; JUnit 26 cases, 4 failures, 0 errors, 0 skipped; 22 JSONL statuses `ISOLATED_E2E_PASS`, 4 `BLOCKED`. The four blocked stages are `postgres-restart-recovery`, `persisted-state-restart`, `controlled-shutdown`, `catalog-unchanged`. PostgreSQL 18 JUnit contains 32 cases, 0 failures/errors/skips. No physical execution: `0/10 NOT_RUN`, `Execute/Cleanup NOT_AUTHORIZED`.
+
+Eight independent *copied-archive* mutations (summary HEAD, run, attempt, tree; JUnit failure count; JSONL forged event; manifest inventory; PG XML byte change) were rejected by a local checker pinned to the original archive SHA256 and summary context. **Limitation:** because these tests preserve the original externally trusted archive SHA256, they primarily demonstrate digest-based tamper detection, not resistance to a malicious producer who can recompute all internal hashes. No physical proof or lab GO can follow from these checks.
+
+**Verdict: hosted CI FAILURE, E2E BLOCKED (22/26), G0 BLOCKED, G1 NOT_AUTHORIZED, Deployment NO-GO.** Future acceptance requires independently witnessed PostgreSQL restart/recovery and full stage completion on a new exact HEAD/run/attempt; no host connection authorized.
