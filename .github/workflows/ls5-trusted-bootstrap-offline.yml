@@ -4,6 +4,7 @@ on:
     paths:
       - "installer/trusted_bootstrap.py"
       - "tests/test_ls5_trusted_bootstrap.py"
+      - "tests/test_ls5_bootstrap_ci_evidence.py"
       - "installer/ls5_bootstrap_ci_evidence.py"
       - "docs/LS5_TRUSTED_BOOTSTRAP.md"
       - "docs/LS5_TRUSTED_SOURCE_HANDOFF.md"
@@ -28,9 +29,9 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install pytest
       - name: Syntax and bytecode validation
-        run: python -m py_compile installer/trusted_bootstrap.py tests/test_ls5_trusted_bootstrap.py
+        run: python -m py_compile installer/trusted_bootstrap.py installer/ls5_bootstrap_ci_evidence.py tests/test_ls5_trusted_bootstrap.py tests/test_ls5_bootstrap_ci_evidence.py
       - name: Offline negative regression tests
-        run: python -m pytest -q -ra tests/test_ls5_trusted_bootstrap.py --junitxml=junit.xml
+        run: python -m pytest -q -ra tests/test_ls5_trusted_bootstrap.py tests/test_ls5_bootstrap_ci_evidence.py --junitxml=junit.xml
       - name: Exact-HEAD evidence receipts
         if: always()
         run: python installer/ls5_bootstrap_ci_evidence.py junit.xml evidence
