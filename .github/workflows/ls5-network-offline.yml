@@ -5,6 +5,7 @@ on:
       - 'installer/ls5_network_offline.py'
       - 'tests/test_ls5_network_offline.py'
       - 'docs/LS5_NETWORK_READINESS.md'
+      - 'tools/collect_ls5_network_readonly.ps1'
       - '.github/workflows/ls5-network-offline.yml'
   workflow_dispatch:
 permissions:
