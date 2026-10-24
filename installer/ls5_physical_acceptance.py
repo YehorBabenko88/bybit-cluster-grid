@@ -284,3 +284,56 @@ def audit_ci_matrix(jobs, *, expected_head):
             "unaccepted_cells": bad, "synthetic_matrix_complete": not missing and not bad,
             "independent_artifact_bytes_verified": False,
             "physical_pass": False, "deployment_go": False}
+
+
+INTEGRATION_PRS = (238, 239, 240, 241, 242)
+
+
+def audit_cross_pr_gates(entries, *, expected_base):
+    """Independent G0/G1 composition; never treats disjoint files as tested integration."""
+    require(type(expected_base) is str and HEAD.fullmatch(expected_base) is not None,
+            "CROSS_BASE")
+    require(type(entries) is list, "CROSS_ENTRIES")
+    seen = {}
+    for item in entries:
+        require(type(item) is dict and set(item) == {
+            "pr", "base", "head", "draft", "workflow_conclusion",
+            "artifact_verified", "changed_files", "contract_review"
+        }, "CROSS_SCHEMA")
+        pr = item["pr"]
+        require(type(pr) is int and pr in INTEGRATION_PRS and pr not in seen, "CROSS_PR")
+        require(type(item["base"]) is str and item["base"] == expected_base,
+                "CROSS_BASE_MISMATCH")
+        require(type(item["head"]) is str and HEAD.fullmatch(item["head"]) is not None,
+                "CROSS_HEAD")
+        require(type(item["draft"]) is bool and item["draft"], "CROSS_DRAFT")
+        require(item["workflow_conclusion"] in ("success", "failure", "queued",
+                "pending", "in_progress", "skipped", "cancelled", "unknown"),
+                "CROSS_WORKFLOW")
+        require(type(item["artifact_verified"]) is bool and
+                type(item["contract_review"]) is bool, "CROSS_EVIDENCE_TYPE")
+        files = item["changed_files"]
+        require(type(files) is list and all(type(p) is str and p and
+                len(p) <= 512 and not p.startswith("/") and
+                ".." not in p.split("/") and "\\\\" not in p for p in files),
+                "CROSS_PATH")
+        require(len(set(files)) == len(files), "CROSS_DUPLICATE_FILE")
+        seen[pr] = item
+    missing = sorted(set(INTEGRATION_PRS) - set(seen))
+    g0 = sorted(pr for pr, item in seen.items()
+                if item["workflow_conclusion"] != "success"
+                or not item["artifact_verified"])
+    g1 = sorted(pr for pr, item in seen.items() if not item["contract_review"])
+    ownership = {}
+    for pr, item in seen.items():
+        for path in item["changed_files"]:
+            ownership.setdefault(path, []).append(pr)
+    overlaps = {path: sorted(owners) for path, owners in ownership.items()
+                if len(owners) > 1}
+    return {"status": "BLOCKED", "missing_prs": missing,
+            "g0_unverified_prs": g0, "g1_unreviewed_prs": g1,
+            "overlapping_files": overlaps, "g0_ready_for_review":
+            not missing and not g0, "g1_contracts_documented":
+            not missing and not g1 and not overlaps,
+            "combined_behavior_tested": False, "physical_pass": False,
+            "deployment_go": False}
