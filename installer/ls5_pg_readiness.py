@@ -66,7 +66,8 @@ def verify_payload(receipt, field, payload):
             or type(receipt.get("head")) is not str
             or not re.fullmatch(r"[0-9a-f]{40}", receipt["head"])
             or receipt.get("physical") is not False
-            or type(receipt.get("checks")) is not dict):
+            or type(receipt.get("checks")) is not dict
+            or set(receipt["checks"]) != set(FIELDS)):
         return False
     entry = receipt["checks"].get(field)
     if (type(entry) is not dict or set(entry) != {"status", "evidence_sha256"}
