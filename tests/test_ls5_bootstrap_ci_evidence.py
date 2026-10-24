@@ -31,7 +31,7 @@ def test_valid_receipt(tmp_path):
 
 @pytest.mark.parametrize("xml", [
     "<testsuite/>",
-    "<notjunit><testsuite><testcase classname="tests.test_receipt" name="ok"/></testsuite></notjunit>",
+    '<notjunit><testsuite><testcase classname="tests.test_receipt" name="ok"/></testsuite></notjunit>',
     '<testsuite tests="2"><testcase/></testsuite>',
     '<testsuite tests="1" failures="1"><testcase/></testsuite>',
     '<testsuite tests="1" errors="1"><testcase/></testsuite>',
