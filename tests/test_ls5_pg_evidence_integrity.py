@@ -2,7 +2,7 @@
 import hashlib
 import json
 import unittest
-from installer.ls5_pg_readiness import assess, FIELDS, loads_strict
+from installer.ls5_pg_readiness import assess, FIELDS, loads_strict, verify_payload
 
 
 def make_receipt():
@@ -24,6 +24,16 @@ class ReceiptIntegrity(unittest.TestCase):
         original = b'{"records":[{"id":1,"amount":3}]}'
         altered = b'{"records":[{"id":1,"amount":4}]}'
         self.assertNotEqual(hashlib.sha256(original).digest(), hashlib.sha256(altered).digest())
+
+    def test_receipt_requires_exact_payload_bytes(self):
+        receipt = make_receipt()
+        original = b"backup-manifest-original"
+        receipt["checks"]["backup_chain"] = {
+            "status": "VERIFIED", "evidence_sha256": hashlib.sha256(original).hexdigest()}
+        self.assertTrue(verify_payload(receipt, "backup_chain", original))
+        self.assertFalse(verify_payload(receipt, "backup_chain", original + b"-tampered"))
+        self.assertFalse(verify_payload(receipt, "backup_chain", original.decode()))
+        self.assertFalse(verify_payload(receipt, "not-a-check", original))
 
     def test_duplicate_receipt_key_rejected(self):
         with self.assertRaises(ValueError):
