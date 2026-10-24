@@ -162,3 +162,15 @@ def test_unpaired_unicode_surrogate_is_blocked(raw):
     assert r["policy_valid"] is False
     assert r["findings"]==["INVALID_POLICY"]
     assert r["execution_authorized"] is False
+
+@pytest.mark.parametrize("raw",[
+    "[" * 1500 + "0" + "]" * 1500,
+    '{"a":' * 1200 + "0" + "}" * 1200,
+])
+def test_deeply_nested_json_parser_fails_closed(raw):
+    result=evaluate(raw)
+    assert result["status"]=="BLOCKED"
+    assert result["policy_valid"] is False
+    assert result["findings"]==["INVALID_POLICY"]
+    assert result["execution_authorized"] is False
+    assert result["host_verified"] is False
