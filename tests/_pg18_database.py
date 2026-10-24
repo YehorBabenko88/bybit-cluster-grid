@@ -51,7 +51,8 @@ async def database(prepared=True,cleanup_guard=None):
         for role in roles.values():
             # Synthetic per-run random credential, masked by provider. No DSN/argv/artifact secret.
             secret=os.environ['GRID_PG18_PASSWORD']
-            assert len(secret)==64 and all(ch in '0123456789abcdef' for ch in secret)
+            if type(secret) is not str or len(secret) != 64 or any(ch not in '0123456789abcdef' for ch in secret):
+                raise RuntimeError('PG18_INVALID_ROLE_SECRET_NO_MUTATIONS')
             await admin.execute(f'CREATE ROLE "{role}" LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD \'{secret}\'')
             created_roles.append(role)
         await admin.execute(f'CREATE DATABASE "{name}" OWNER "{roles["owner"]}" TEMPLATE template0')
