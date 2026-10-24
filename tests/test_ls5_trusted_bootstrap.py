@@ -154,3 +154,25 @@ def test_malformed_environment_rejected(key, value):
     p, o = sample()
     o["environment"]["variables"][key] = value
     assert check(p, o)["model_status"] == "FAIL"
+
+def test_exact_new_release_head_is_supported_without_hardcoded_version():
+    p, o = sample()
+    candidate = "38e6ab40928cbdd6a2d6d84cbb05b4628167258f"
+    old = EXEC + "\\releases\\" + VERSION + "\\grid\\coordinator.py"
+    new = EXEC + "\\releases\\" + candidate + "\\grid\\coordinator.py"
+    p["active_release"] = candidate
+    o["active_release"] = candidate
+    p["inventory"][new] = p["inventory"].pop(old)
+    for entry in o["files"]:
+        if entry["path"] == old:
+            entry["path"] = new
+    assert check(p, o)["model_status"] == "OFFLINE_MODEL_PASS"
+    assert check(p, o)["execute_authorized"] is False
+
+
+def test_new_release_manifest_substitution_is_blocked():
+    p, o = sample()
+    candidate = "38e6ab40928cbdd6a2d6d84cbb05b4628167258f"
+    p["active_release"] = candidate
+    o["active_release"] = candidate
+    assert check(p, o)["model_status"] == "FAIL"
