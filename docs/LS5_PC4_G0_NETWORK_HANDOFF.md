@@ -75,3 +75,16 @@ For PR241 exact HEAD `ccd420038aa8da02a319ebab82bf346bba88d936`, GitHub workflow
 | Ubuntu 3.12 | 12558267868 | 22c02a99ee86d25b563bfdc07afa33ad3887a36f052f30410f733cce106b9442 |
 
 The workflow verifies actual checkout SHA before pytest; Windows AST parse-only step is successful. These are GitHub API job/metadata observations, **not independent ZIP-byte/JUnit-content reinspection**. Neither CI success nor synthetic network policy validates actual Tailscale routes, host SSH keys, physical Windows security, two real Workers or G1 authority. Physical G0 remains BLOCKED and G1 NOT_AUTHORIZED.
+
+## 2026-10-24 latest HEAD CI and integration drift
+
+PR241 `9181f51c8963811002322eadff8b2ceed07975fe`: [network workflow 40090107925](https://github.com/YehorBabenko88/bybit-cluster-grid/actions/runs/40090107925) **COMPLETED SUCCESS**, four of four hosted matrix jobs SUCCESS. GitHub artifact metadata:
+
+| Matrix | ID | GitHub-reported SHA256 |
+|---|---:|---|
+| Windows 3.11 | 12559160456 | ada111cab76741a4be2a9f2236b0ad6c1b80fd3024d785c1b5d4759aac78e980 |
+| Windows 3.12 | 12558344131 | 1aee0a0ef7c34a4735d157822f5d8cc6affc61404c7f9a0e8e98d530ebab2c4e |
+| Ubuntu 3.11 | 12557734867 | aeb20e7323b79c3145aaaaeaf0687d5866be0e285825cf4cb40867433fbfdef6 |
+| Ubuntu 3.12 | 12558247971 | 5c89edd331421b1e047a03028e97b5fdeacc0a819b9c849bdaf6dadee5ed6a73 |
+
+Independent ZIP-byte inspection remains **NOT_DONE**. PR244 has advanced to `9efa0b947ea7f588437bb562da6f2b3729283709`. At that exact source HEAD, `integration/first_boot_policy.py` still explicitly rejects non-tuple Unix socket addresses and non-loopback IP addresses; this source fact alone does **not** establish whether the prior real Worker heartbeat failure is resolved. The `docs/LS5_PC4_PR_COMPATIBILITY.md` frozen matrix still pins old PR241 `152be640...` and old PR244 `38e6ab40...`; it is a historical snapshot, not current composition acceptance. Codex must regenerate it and check runtime/API semantics and current hosted artifacts before G1. No physical G0 observation or G1 permission has been granted.
