@@ -4,6 +4,7 @@ Does not connect to a DB, inspect a host, or authorize SQL/migration/deployment.
 """
 import json
 import re
+import hashlib
 
 FIELDS = ("service_identity", "db_roles", "db_grants", "filesystem_custody",
           "grid_pg_test_purpose", "migration_inventory", "transaction_isolation",
@@ -54,3 +55,16 @@ def loads_strict(raw):
         return out
     return json.loads(raw, object_pairs_hook=unique,
                       parse_constant=lambda _: (_ for _ in ()).throw(ValueError("NONFINITE")))
+
+
+def verify_payload(receipt, field, payload):
+    """Compare receipt digest with exact bytes; never authorize a physical host."""
+    if type(payload) is not bytes or type(field) is not str or field not in FIELDS:
+        return False
+    if type(receipt) is not dict or type(receipt.get("checks")) is not dict:
+        return False
+    entry = receipt["checks"].get(field)
+    if type(entry) is not dict or entry.get("status") != "VERIFIED":
+        return False
+    expected = entry.get("evidence_sha256")
+    return type(expected) is str and bool(re.fullmatch("[0-9a-f]{64}", expected)) and hashlib.sha256(payload).hexdigest() == expected
