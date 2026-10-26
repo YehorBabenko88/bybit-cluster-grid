@@ -30,3 +30,8 @@ def test_complete_source_set():
 def test_stale_duplicate_missing_sources_blocked(receipts):
     with pytest.raises(SourceEpochBlocked):
         check(receipts)
+
+
+def test_reused_snapshot_identity_rejected():
+    with pytest.raises(SourceEpochBlocked, match="Reused"):
+        check([source("pg"), source("sqlite", snapshot_id="snapshot-pg")])
