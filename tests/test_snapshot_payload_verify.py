@@ -63,3 +63,21 @@ def test_misaligned_event_rejected():
     part["last_event_ns"] = 1
     with pytest.raises(PartitionContractError, match="Noncausal"):
         verify_partition_payload(part, payload, max_bytes=1000)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("row_count", True), ("timeframe_ns", "120"),
+    ("knowledge_cutoff_ns", -1), ("first_event_ns", None),
+])
+def test_malformed_partition_metadata_rejected(field, value):
+    part, payload = fixture([dict(event_ns=0, available_ns=60, revision=1)])
+    part[field] = value
+    with pytest.raises(PartitionContractError, match="Invalid partition integer"):
+        verify_partition_payload(part, payload, max_bytes=1000)
+
+
+def test_missing_partition_field_rejected():
+    part, payload = fixture([dict(event_ns=0, available_ns=60, revision=1)])
+    del part["artifact_sha256"]
+    with pytest.raises(PartitionContractError, match="Missing partition"):
+        verify_partition_payload(part, payload, max_bytes=1000)
