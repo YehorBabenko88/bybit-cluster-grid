@@ -976,6 +976,12 @@
     "tests/test_python_containment_evidence.py::test_input_git_origin_is_not_self_selected[relabel-driver]",
     "tests/test_python_containment_evidence.py::test_input_git_origin_is_not_self_selected[relabel-grid]",
     "tests/test_python_containment_evidence.py::test_input_git_origin_is_not_self_selected[unknown-origin]",
+    "tests/test_python_containment_evidence.py::test_network_exact_winsock_access_denied",
+    "tests/test_python_containment_evidence.py::test_network_unknown_or_refused_is_not_policy_denial[10022-10022]",
+    "tests/test_python_containment_evidence.py::test_network_unknown_or_refused_is_not_policy_denial[10061-10061]",
+    "tests/test_python_containment_evidence.py::test_network_unknown_or_refused_is_not_policy_denial[None-13]",
+    "tests/test_python_containment_evidence.py::test_network_unknown_or_refused_is_not_policy_denial[None-None]",
+    "tests/test_python_containment_evidence.py::test_network_unknown_or_refused_is_not_policy_denial[True-13]",
     "tests/test_python_containment_evidence.py::test_parent_claim_tamper[execute_authorized-True]",
     "tests/test_python_containment_evidence.py::test_parent_claim_tamper[extra-unknown]",
     "tests/test_python_containment_evidence.py::test_parent_claim_tamper[head-ffffffffffffffffffffffffffffffffffffffff]",
@@ -4970,6 +4976,30 @@
     [
       "tests.test_python_containment_evidence",
       "test_input_git_origin_is_not_self_selected[unknown-origin]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_network_exact_winsock_access_denied"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_network_unknown_or_refused_is_not_policy_denial[10022-10022]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_network_unknown_or_refused_is_not_policy_denial[10061-10061]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_network_unknown_or_refused_is_not_policy_denial[None-13]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_network_unknown_or_refused_is_not_policy_denial[None-None]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_network_unknown_or_refused_is_not_policy_denial[True-13]"
     ],
     [
       "tests.test_python_containment_evidence",

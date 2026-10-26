@@ -97,3 +97,9 @@ block this absence probe. The debugger still does not swallow this exception.
 The foreign FileIdInfo comparison decodes the two little-endian64 words and uses
 the native observer's High:X16+Low:X16 representation. Raw memory hex has a
 different byte order and must not be used to assert distinct identity.
+
+Network evidence requires exact Winsock WSAEACCES10013. Timeouts, connection
+refusal, unknown errors and errno-only13 do not prove OS policy denial; report
+bounded numeric Win32/errno facts and remain BLOCKED. No loopback exemption,
+capability or firewall policy is changed to make these checks pass. See Microsoft
+[loopback isolation documentation](https://learn.microsoft.com/en-us/windows/security/operating-system-security/network-security/windows-firewall/troubleshooting-uwp-firewall).

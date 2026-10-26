@@ -89,3 +89,13 @@ def test_file_identity_matches_native_high_low_format_not_memory_hex():
 def test_file_identity_refuses_partial_structures(raw):
     from integration.windows_python_probe import file_identity
     with pytest.raises(RuntimeError):file_identity(raw)
+
+
+@pytest.mark.parametrize('winerror,errno',[(10022,10022),(10061,10061),(None,13),(True,13),(None,None)])
+def test_network_unknown_or_refused_is_not_policy_denial(winerror,errno):
+    from integration.windows_python_probe import network_denial
+    with pytest.raises(RuntimeError):network_denial(winerror,errno)
+
+def test_network_exact_winsock_access_denied():
+    from integration.windows_python_probe import network_denial
+    network_denial(10013,13)

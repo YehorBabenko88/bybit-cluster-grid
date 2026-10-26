@@ -12,6 +12,12 @@ class BoundaryFailure(RuntimeError):
 def need(ok,code='BOUNDARY_NOT_PROVEN'):
     if not ok:raise BoundaryFailure(code)
 
+def network_denial(winerror,errno):
+    # Timeout/refusal/unknown does not prove an OS policy denial. Numeric facts only.
+    w=str(winerror) if type(winerror) is int and -(2**31)<=winerror<2**32 else 'UNKNOWN'
+    e=str(errno) if type(errno) is int and -(2**31)<=errno<2**32 else 'UNKNOWN'
+    need(type(winerror) is int and winerror==10013,'NETWORK_WIN32_'+w+'_ERRNO_'+e)
+
 def file_identity(raw):
     need(type(raw) is bytes and len(raw)==24,'FILE_ID_STRUCTURE')
     volume=int.from_bytes(raw[:8],'little');low=int.from_bytes(raw[8:16],'little');high=int.from_bytes(raw[16:24],'little')
@@ -74,7 +80,7 @@ def main():
         with socket.socket() as s:
             s.settimeout(2)
             try:s.connect((host,port))
-            except OSError as e:need(getattr(e,'winerror',None)==10013 or e.errno in (13,10013));return
+            except OSError as e:network_denial(getattr(e,'winerror',None),e.errno);return
             raise RuntimeError('NETWORK_ALLOWED')
     case('loopback-denied',lambda:network('127.0.0.1',cfg['port']))
     case('documentation-network-denied',lambda:network('192.0.2.1',9))
