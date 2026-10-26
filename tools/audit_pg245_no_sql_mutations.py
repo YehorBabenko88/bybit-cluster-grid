@@ -30,8 +30,8 @@ def run_case(path, secret):
             raise RuntimeError("UNEXPECTED_QUERY")
         async def execute(self, sql):
             calls.append(("execute", sql))
-            if MUTATION.match(sql):
-                raise RuntimeError("SQL_MUTATION_ATTEMPTED")
+            if sql.strip() != "SET default_transaction_read_only=off":
+                raise RuntimeError("UNEXPECTED_SQL_EXECUTION")
         async def close(self):
             calls.append(("close", ""))
         def is_closed(self):
@@ -62,13 +62,14 @@ def run_case(path, secret):
             if str(exc) != EXPECTED_ERROR:
                 raise
     asyncio.run(exercise())
-    mutation_calls = [sql for action, sql in calls if action == "execute" and MUTATION.match(sql)]
-    if mutation_calls:
-        raise RuntimeError("MUTATION_OBSERVED")
+    execute_calls = [sql for action, sql in calls if action == "execute"]
+    if execute_calls != ["SET default_transaction_read_only=off"]:
+        raise RuntimeError("UNEXPECTED_SQL_EXECUTION_SEQUENCE")
     if not any(action == "connect" for action, _ in calls):
         raise RuntimeError("FIXTURE_NOT_EXERCISED")
     return {"status": "BLOCKED_INVALID_SECRET", "mutating_sql_calls": 0,
-            "physical": "0/10 NOT_RUN", "database_connected": False}
+            "sql_execute_calls": len(execute_calls), "simulated_connection": True,
+            "physical": "0/10 NOT_RUN", "real_postgres": False}
 
 
 def main(path):
@@ -79,7 +80,8 @@ def main(path):
         if proc.returncode != 0:
             raise RuntimeError("OPTIMIZED_FIXTURE_GUARD_FAILURE")
         result = json.loads(proc.stdout)
-        if result["mutating_sql_calls"] != 0 or result["status"] != "BLOCKED_INVALID_SECRET":
+        if (result["mutating_sql_calls"] != 0 or result["status"] != "BLOCKED_INVALID_SECRET"
+                or result["sql_execute_calls"] != 1 or result["real_postgres"] is not False):
             raise RuntimeError("INVALID_GUARD_RECEIPT")
     print(json.dumps({"cases": len(cases), "status": "OFFLINE_NEGATIVE_PASS",
                       "real_postgres": False, "physical_authorized": False}, sort_keys=True))
