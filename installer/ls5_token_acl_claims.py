@@ -49,6 +49,10 @@ def assess(observation):
         o["elevated"] is not False or o["administrators_enabled"] is not False
     ):
         issues.append("NONADMIN_BOUNDARY_UNKNOWN")
+    if o["role"] in ("COLLECTOR", "STORAGE", "WORKER") and (
+        type(o["integrity_rid"]) is not int or o["integrity_rid"] > 8192
+    ):
+        issues.append("WORKER_INTEGRITY_TOO_HIGH")
     if o["impersonating"] is not False:
         issues.append("IMPERSONATION_UNKNOWN")
     if type(o["process_creation_ns"]) is not int or o["process_creation_ns"] <= 0:
