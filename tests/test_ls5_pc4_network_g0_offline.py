@@ -120,3 +120,20 @@ def test_distinct_tailnet_ips_are_structural_only_not_host_proof():
     assert result["observation_valid"] is True
     assert result["network_physical_readiness"]=="BLOCKED"
     assert result["host_verified"] is False
+
+def test_missing_tailnet_identity_is_explicitly_unknown():
+    x=fixture()
+    result=evaluate(json.dumps(x),expected_head=x["head"],expected_run_id=x["run_id"])
+    assert result["observation_valid"] is True
+    assert "TAILNET_IP_UNKNOWN" in result["findings"]
+    assert result["network_physical_readiness"]=="BLOCKED"
+
+def test_both_present_tailnet_addresses_do_not_prove_identity():
+    x=fixture()
+    x["nodes"]["LS5"]["tailnet_ip"]="100.103.160.110"
+    x["nodes"]["PC4"]["tailnet_ip"]="100.91.48.20"
+    result=evaluate(json.dumps(x),expected_head=x["head"],expected_run_id=x["run_id"])
+    assert result["observation_valid"] is True
+    assert "TAILNET_IP_UNKNOWN" not in result["findings"]
+    assert "MISSING_NATIVE_PROOF" in result["findings"]
+    assert result["host_verified"] is False
