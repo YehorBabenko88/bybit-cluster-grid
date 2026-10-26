@@ -70,6 +70,8 @@ def evaluate(raw, *, expected_head=None, expected_run_id=None):
                 return out
         out["observation_valid"] = True
         out["findings"] = ["STATIC_OBSERVATION_ONLY", "NATIVE_PROVENANCE_UNVERIFIED"]
+        if any(x["nodes"][name]["tailnet_ip"] is None for name in ("LS5", "PC4")):
+            out["findings"].append("TAILNET_IP_UNKNOWN")
         if expected_head is None or expected_run_id is None:
             out["findings"].append("REPLAY_BINDING_UNVERIFIED")
         if any(x["controls"][k] is True for k in x["controls"]):
