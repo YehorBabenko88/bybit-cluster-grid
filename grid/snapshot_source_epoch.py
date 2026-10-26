@@ -19,6 +19,7 @@ def validate_source_epoch(receipts: list[dict], *, required_sources: frozenset[s
     required = {"source_id", "epoch_id", "routing_generation",
                 "snapshot_id", "source_sha256"}
     seen = set()
+    snapshot_ids = set()
     for receipt in receipts:
         if type(receipt) is not dict or set(receipt) != required:
             raise SourceEpochBlocked("Unsupported source receipt schema")
@@ -33,6 +34,9 @@ def validate_source_epoch(receipts: list[dict], *, required_sources: frozenset[s
             raise SourceEpochBlocked("Stale routing generation")
         if type(receipt["snapshot_id"]) is not str or not receipt["snapshot_id"]:
             raise SourceEpochBlocked("Missing source snapshot identity")
+        if receipt["snapshot_id"] in snapshot_ids:
+            raise SourceEpochBlocked("Reused source snapshot identity")
+        snapshot_ids.add(receipt["snapshot_id"])
         digest = receipt["source_sha256"]
         if type(digest) is not str or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
             raise SourceEpochBlocked("Invalid source digest")
