@@ -18,7 +18,7 @@ def _unique(pairs):
 def _reject_constant(value):
     raise ValueError("nonfinite")
 
-def evaluate(raw):
+def evaluate(raw, *, expected_head=None, expected_run_id=None):
     out = dict(RESULT, observation_valid=False, findings=["INVALID_OBSERVATION"])
     try:
         if type(raw) is not str or len(raw.encode("utf-8")) > MAX_BYTES:
@@ -32,6 +32,16 @@ def evaluate(raw):
             return out
         if type(x["run_id"]) is not str or not (16 <= len(x["run_id"]) <= 64) or not x["run_id"].isascii() or not x["run_id"].isalnum():
             return out
+        # Expected identities must come from an independent caller, not from the JSON.
+        # Omission is explicitly unbound; never claim replay protection from shape alone.
+        if expected_head is not None:
+            if type(expected_head) is not str or x["head"] != expected_head:
+                out["findings"] = ["HEAD_BINDING_MISMATCH"]
+                return out
+        if expected_run_id is not None:
+            if type(expected_run_id) is not str or x["run_id"] != expected_run_id:
+                out["findings"] = ["RUN_BINDING_MISMATCH"]
+                return out
         if type(x["nodes"]) is not dict or set(x["nodes"]) != {"LS5", "PC4"}:
             return out
         for name, node in x["nodes"].items():
@@ -54,6 +64,8 @@ def evaluate(raw):
                 return out
         out["observation_valid"] = True
         out["findings"] = ["STATIC_OBSERVATION_ONLY", "NATIVE_PROVENANCE_UNVERIFIED"]
+        if expected_head is None or expected_run_id is None:
+            out["findings"].append("REPLAY_BINDING_UNVERIFIED")
         if any(x["controls"][k] is True for k in x["controls"]):
             out["findings"].append("UNSAFE_NETWORK_CONTROL_DECLARED")
         if any(node[k] is not True for node in x["nodes"].values() for k in ("identity_verified", "listeners_complete", "firewall_effective_verified", "tailscale_policy_verified", "ssh_identity_verified", "tls_identity_verified", "source_custody_verified")):
