@@ -164,6 +164,22 @@ class E2EAcceptanceTests(unittest.TestCase):
             with self.subTest(case=i), self.assertRaises(AcceptanceBlocked):
                 inspect_junit_bytes(raw)
 
+    def test_junit_hidden_outcomes_and_foreign_nodes(self):
+        base = (b'<testsuite tests="1" failures="0" errors="0" skipped="0">'
+                b'<testcase classname="Grid" name="stage"/></testsuite>')
+        self.assertEqual(inspect_junit_bytes(base)["cases"], 1)
+        attacks = (
+            base.replace(b'</testcase>', b'</testcase>'),  # harmless baseline, excluded below
+            base.replace(b'/></testsuite>', b'/><foreign>PHYSICAL_PASS</foreign></testsuite>'),
+            base.replace(b'/></testsuite>', b'><foreign>PHYSICAL_PASS</foreign></testcase></testsuite>'),
+            base.replace(b'/></testsuite>', b'><failure/><error/></testcase></testsuite>'),
+            base.replace(b'/></testsuite>', b'><skipped/><skipped/></testcase></testsuite>'),
+            base.replace(b'/></testsuite>', b'><failure><nested/></failure></testcase></testsuite>'),
+        )
+        for i, attack in enumerate(attacks[1:], 1):
+            with self.subTest(attack=i), self.assertRaises(AcceptanceBlocked):
+                inspect_junit_bytes(attack)
+
     def test_g0_g1_queued_and_forged_head(self):
         pins = {n: HEAD for n in range(238, 243)}
         rows = [{"pr": n, "head": HEAD, "workflow": "queued", "run_id": n,
