@@ -15,6 +15,14 @@ def verify_partition_payload(partition: dict, payload: bytes, *, max_bytes: int)
         raise PartitionContractError("Invalid byte limit")
     if type(payload) is not bytes or len(payload) > max_bytes:
         raise PartitionContractError("Payload exceeds byte limit")
+    required = {"artifact_sha256", "row_count", "timeframe_ns",
+                "knowledge_cutoff_ns", "first_event_ns", "last_event_ns"}
+    if type(partition) is not dict or not required.issubset(partition):
+        raise PartitionContractError("Missing partition fields")
+    if any(type(partition[k]) is not int or partition[k] < 0 for k in
+           ("row_count", "timeframe_ns", "knowledge_cutoff_ns",
+            "first_event_ns", "last_event_ns")):
+        raise PartitionContractError("Invalid partition integer")
     if hashlib.sha256(payload).hexdigest() != partition["artifact_sha256"]:
         raise PartitionContractError("Payload SHA256 mismatch")
     def unique_pairs(pairs):
