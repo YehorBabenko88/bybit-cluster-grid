@@ -58,3 +58,11 @@ identical undebugged behavior. Earlier actual launch returned C0000142 before
 Python entry; no successful real-runtime observation may be inferred from that.
 The Python driver itself defaults PlanOnly, refuses LS5/PC4 and requires an owned
 GUID AppContainer profile shape plus a private native-child argument before I/O.
+
+Loader trace at91f343b showed only ntdll/kernel32/KernelBase before C0000142,
+without Python DLL entry. The next diagnostic variant selects the unmodified
+official pythonw.exe from that same measured setup-python distribution, verifies
+its PE x64 GUI subsystem2 and uses explicit file-backed diagnostics. No PE header,
+console privilege, AppContainer capability, Job limit or desktop ACL is relaxed.
+This tests a console-initialization hypothesis; it is not a confirmed root cause
+until actual hosted execution succeeds and its scope is independently reviewed.

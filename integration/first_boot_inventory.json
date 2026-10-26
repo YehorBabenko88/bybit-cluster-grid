@@ -922,7 +922,12 @@
     "tests/test_python_containment_builder.py::test_hosted_context_missing_refused[GITHUB_RUN_ATTEMPT]",
     "tests/test_python_containment_builder.py::test_hosted_context_missing_refused[GITHUB_RUN_ID]",
     "tests/test_python_containment_builder.py::test_hosted_context_missing_refused[RUNNER_ENVIRONMENT]",
+    "tests/test_python_containment_builder.py::test_malformed_pe_refuses[empty]",
+    "tests/test_python_containment_builder.py::test_malformed_pe_refuses[missing-signature]",
+    "tests/test_python_containment_builder.py::test_malformed_pe_refuses[truncated]",
     "tests/test_python_containment_builder.py::test_measured_setuptools_template_name_from_windows_ci",
+    "tests/test_python_containment_builder.py::test_pe_subsystem_is_measured_not_rewritten[2]",
+    "tests/test_python_containment_builder.py::test_pe_subsystem_is_measured_not_rewritten[3]",
     "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[%TEMP%/x]",
     "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[CONIN$]",
     "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[x /a]",
@@ -4725,7 +4730,27 @@
     ],
     [
       "tests.test_python_containment_builder",
+      "test_malformed_pe_refuses[empty]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_malformed_pe_refuses[missing-signature]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_malformed_pe_refuses[truncated]"
+    ],
+    [
+      "tests.test_python_containment_builder",
       "test_measured_setuptools_template_name_from_windows_ci"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_pe_subsystem_is_measured_not_rewritten[2]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_pe_subsystem_is_measured_not_rewritten[3]"
     ],
     [
       "tests.test_python_containment_builder",

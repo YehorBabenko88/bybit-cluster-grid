@@ -29,3 +29,17 @@ def test_win32_device_and_expansion_aliases_blocked(name):
 def test_measured_setuptools_template_name_from_windows_ci():
     name='Site/setuptools/script (dev).tmpl'
     assert relative(name)==name
+
+
+def pe_image(subsystem):
+    b=bytearray(512);b[:2]=b'MZ';b[0x3c:0x40]=(64).to_bytes(4,'little');b[64:68]=b'PE\0\0';b[68:70]=(0x8664).to_bytes(2,'little');b[84:86]=(240).to_bytes(2,'little');b[88:90]=(0x20b).to_bytes(2,'little');b[156:158]=subsystem.to_bytes(2,'little');return bytes(b)
+
+@pytest.mark.parametrize('kind',[2,3])
+def test_pe_subsystem_is_measured_not_rewritten(kind):
+    from tools.python_containment_bundle import pe_subsystem
+    image=pe_image(kind);assert pe_subsystem(image)==kind
+
+@pytest.mark.parametrize('image',[b'',b'MZ',b'X'*512],ids=['empty','truncated','missing-signature'])
+def test_malformed_pe_refuses(image):
+    from tools.python_containment_bundle import pe_subsystem
+    with pytest.raises(ValueError):pe_subsystem(image)

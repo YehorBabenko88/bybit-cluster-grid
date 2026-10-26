@@ -27,6 +27,13 @@ def regular(path):
     b=path.read_bytes();need(0<=len(b)<=32*1024*1024)
     return b
 
+def pe_subsystem(image):
+    need(type(image) is bytes and len(image)>=256 and image[:2]==b'MZ')
+    pe=int.from_bytes(image[0x3c:0x40],'little');need(0x40<=pe<=len(image)-96 and image[pe:pe+4]==b'PE\0\0')
+    need(int.from_bytes(image[pe+4:pe+6],'little')==0x8664 and int.from_bytes(image[pe+20:pe+22],'little')>=70)
+    optional=pe+24;need(int.from_bytes(image[optional:optional+2],'little')==0x20b)
+    return int.from_bytes(image[optional+68:optional+70],'little')
+
 def build():
     hosted();need(sys.platform=="win32" and os.environ.get("COMPUTERNAME","").upper() not in ("PC4","LS5"))
     head=os.environ["EXACT_HEAD_SHA"];verify_checkout(ROOT,head)
@@ -40,6 +47,7 @@ def build():
         files[name]=dict(Sha256=hashlib.sha256(b).hexdigest().upper(),Length=len(b));origins[name]=origin
     base=Path(sys.base_prefix)
     add("python.exe",regular(base/"python.exe"),"setup-python")
+    gui=regular(base/"pythonw.exe");need(pe_subsystem(gui)==2);add("pythonw.exe",gui,"setup-python")
     for p in sorted(base.glob("*.dll")):add(p.name,regular(p),"setup-python")
     for p in sorted((base/"DLLs").glob("*")):
         if p.is_file() and p.suffix.lower() in (".pyd",".dll"):add("DLLs/"+p.name,regular(p),"setup-python")
@@ -59,6 +67,7 @@ def build():
     pth="stdlib.zip\nDLLs\nSite\nSource\n"
     add(f"python{sys.version_info.major}{sys.version_info.minor}._pth",pth.encode(),"fixed-isolated-paths")
     add("python._pth",pth.encode(),"fixed-isolated-paths")
+    add("pythonw._pth",pth.encode(),"fixed-isolated-paths")
     manifest=dict(Schema=1,Head=head,Run=os.environ["GITHUB_RUN_ID"],Attempt=os.environ["GITHUB_RUN_ATTEMPT"],Python=sys.version,Files=files,Origins=origins)
     raw=json.dumps(manifest,sort_keys=True).encode();(output/"manifest.json").write_bytes(raw);verify_checkout(ROOT,head)
     digest=hashlib.sha256(raw).hexdigest();print(json.dumps(dict(head=head,files=len(files),bytes=total,manifest_sha256=digest)))

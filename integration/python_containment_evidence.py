@@ -49,8 +49,8 @@ def input_policy(m,head,git_pins):
             need(m['Origins'][n]=='git:'+head and m['Files'][n]['Sha256']==git_pins[n])
         elif n.startswith('Site/'):need(m['Origins'][n]=='pinned-requirements-resolved')
         elif n=='stdlib.zip':need(m['Origins'][n]=='setup-python-stdlib')
-        elif n in ('python._pth','python311._pth','python312._pth'):need(m['Origins'][n]=='fixed-isolated-paths' and m['Files'][n]['Sha256']==hashlib.sha256(b'stdlib.zip\nDLLs\nSite\nSource\n').hexdigest().upper())
-        elif n=='python.exe' or ('/' not in n and n.lower().endswith('.dll')) or (n.startswith('DLLs/') and n.count('/')==1 and n.lower().endswith(('.dll','.pyd'))):need(m['Origins'][n]=='setup-python')
+        elif n in ('python._pth','pythonw._pth','python311._pth','python312._pth'):need(m['Origins'][n]=='fixed-isolated-paths' and m['Files'][n]['Sha256']==hashlib.sha256(b'stdlib.zip\nDLLs\nSite\nSource\n').hexdigest().upper())
+        elif n in ('python.exe','pythonw.exe') or ('/' not in n and n.lower().endswith('.dll')) or (n.startswith('DLLs/') and n.count('/')==1 and n.lower().endswith(('.dll','.pyd'))):need(m['Origins'][n]=='setup-python')
         else:need(False)
 
 def git_inputs(head):

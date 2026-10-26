@@ -21,7 +21,7 @@ def main():
     kernel=ctypes.WinDLL('kernel32',use_last_error=True)
     need(kernel.SetDefaultDllDirectories(0x1000)!=0)
     dll_directory=os.add_dll_directory(str(ROOT/'DLLs'))
-    case('isolated-python',lambda:need(sys.flags.isolated==1 and sys.flags.no_site==1 and sys.flags.dont_write_bytecode==1 and sys.executable.lower()==str(ROOT/'python.exe').lower()))
+    case('isolated-python',lambda:need(sys.flags.isolated==1 and sys.flags.no_site==1 and sys.flags.dont_write_bytecode==1 and sys.executable.lower()==str(ROOT/'pythonw.exe').lower()))
     case('no-parent-secrets',lambda:need(not any(k in os.environ for k in ('GRID_PARENT_SECRET','GITHUB_TOKEN','ACTIONS_RUNTIME_TOKEN','TELEGRAM_BOT_TOKEN','PYTHONPATH','PYTHONHOME','PATH'))))
     def paths():
         for p in sys.path:need(pathlib.Path(p).resolve().is_relative_to(ROOT))
