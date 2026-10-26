@@ -101,3 +101,22 @@ def test_replay_from_another_run_fails_even_when_document_is_self_consistent():
     result=evaluate(replay,expected_head=old["head"],expected_run_id="1234567890abcdefNEW")
     assert result["observation_valid"] is False
     assert result["findings"]==["RUN_BINDING_MISMATCH"]
+
+def test_duplicate_tailnet_ip_cannot_identify_two_distinct_hosts():
+    x=fixture()
+    x["nodes"]["LS5"]["tailnet_ip"]="100.103.160.110"
+    x["nodes"]["PC4"]["tailnet_ip"]="100.103.160.110"
+    result=evaluate(json.dumps(x),expected_head=x["head"],expected_run_id=x["run_id"])
+    assert result["observation_valid"] is False
+    assert result["findings"]==["DUPLICATE_TAILNET_IP"]
+    assert result["network_physical_readiness"]=="BLOCKED"
+    assert result["host_verified"] is False
+
+def test_distinct_tailnet_ips_are_structural_only_not_host_proof():
+    x=fixture()
+    x["nodes"]["LS5"]["tailnet_ip"]="100.103.160.110"
+    x["nodes"]["PC4"]["tailnet_ip"]="100.91.48.20"
+    result=evaluate(json.dumps(x),expected_head=x["head"],expected_run_id=x["run_id"])
+    assert result["observation_valid"] is True
+    assert result["network_physical_readiness"]=="BLOCKED"
+    assert result["host_verified"] is False
