@@ -43,3 +43,18 @@ anti-rollback/trusted-time/reboot recovery and physical effective ACL/token/PGDA
 proof are independent P0 prerequisites. Local signatures/HashSets/files or simulated
 restart cannot supply them. No G1 stage is enabled by this fixture's PASS.
 Physical0/10 NOT_RUN. Execute/Cleanup NOT_AUTHORIZED. Deployment NO-GO.
+
+Current loader investigation uses DEBUG_ONLY_THIS_PROCESS on the newly created
+owned child; no process attachment or memory write/injection is exposed. Events
+are bounded and bound to the held process ID, and record DLL/exception/exit data.
+Only the first first-chance breakpoint mapped to the actual System32 ntdll image
+is continued as handled; application/second-chance breakpoints are not swallowed.
+Debug process/thread event handles belong to Windows; the debugger closes only
+image/DLL file handles, per Microsoft WaitForDebugEvent lifecycle documentation:
+https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-waitfordebugevent
+
+Receipts explicitly say DEBUGGED boundary. A debugged startup cannot demonstrate
+identical undebugged behavior. Earlier actual launch returned C0000142 before
+Python entry; no successful real-runtime observation may be inferred from that.
+The Python driver itself defaults PlanOnly, refuses LS5/PC4 and requires an owned
+GUID AppContainer profile shape plus a private native-child argument before I/O.

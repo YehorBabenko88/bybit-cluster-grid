@@ -922,6 +922,7 @@
     "tests/test_python_containment_builder.py::test_hosted_context_missing_refused[GITHUB_RUN_ATTEMPT]",
     "tests/test_python_containment_builder.py::test_hosted_context_missing_refused[GITHUB_RUN_ID]",
     "tests/test_python_containment_builder.py::test_hosted_context_missing_refused[RUNNER_ENVIRONMENT]",
+    "tests/test_python_containment_builder.py::test_measured_setuptools_template_name_from_windows_ci",
     "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[%TEMP%/x]",
     "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[CONIN$]",
     "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[x /a]",
@@ -936,6 +937,12 @@
     "tests/test_python_containment_evidence.py::test_child_claim_tamper[head-ffffffffffffffffffffffffffffffffffffffff]",
     "tests/test_python_containment_evidence.py::test_child_claim_tamper[physical-10/10 PASS]",
     "tests/test_python_containment_evidence.py::test_child_claim_tamper[pid-124]",
+    "tests/test_python_containment_evidence.py::test_driver_accepts_only_fresh_guid_profile_shape_in_model",
+    "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[foreign-package]",
+    "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[foreign-root]",
+    "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[ls5]",
+    "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[missing-argument]",
+    "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[pc4]",
     "tests/test_python_containment_evidence.py::test_exact_negative_boundary_only",
     "tests/test_python_containment_evidence.py::test_input_git_origin_is_not_self_selected[changed-grid]",
     "tests/test_python_containment_evidence.py::test_input_git_origin_is_not_self_selected[extra-grid]",
@@ -4718,6 +4725,10 @@
     ],
     [
       "tests.test_python_containment_builder",
+      "test_measured_setuptools_template_name_from_windows_ci"
+    ],
+    [
+      "tests.test_python_containment_builder",
       "test_win32_device_and_expansion_aliases_blocked[%TEMP%/x]"
     ],
     [
@@ -4771,6 +4782,30 @@
     [
       "tests.test_python_containment_evidence",
       "test_child_claim_tamper[pid-124]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_driver_accepts_only_fresh_guid_profile_shape_in_model"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_driver_refuses_physical_or_unowned_scope[foreign-package]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_driver_refuses_physical_or_unowned_scope[foreign-root]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_driver_refuses_physical_or_unowned_scope[ls5]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_driver_refuses_physical_or_unowned_scope[missing-argument]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_driver_refuses_physical_or_unowned_scope[pc4]"
     ],
     [
       "tests.test_python_containment_evidence",

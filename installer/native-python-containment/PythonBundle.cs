@@ -17,9 +17,10 @@ internal sealed class PythonBundle:IOwnedExecutable {
  readonly RawSecurityDescriptor rx;
  SafeFileHandle? result,diagnosticRead,diagnosticWrite;
  public SafeFileHandle? OutputHandle=>diagnosticWrite;
+ public bool TraceLoader=>true;
  public string Path{get;private set;}="";public string WorkingDirectory{get;private set;}="";
  public string RootPath{get;private set;}="";public string ResultPath=>System.IO.Path.Combine(WorkingDirectory,"result.json");
- public string CommandLine=>"\""+Path+"\" -I -B -S \""+System.IO.Path.Combine(RootPath,"driver.py")+"\"";
+ public string CommandLine=>"\""+Path+"\" -I -B -S \""+System.IO.Path.Combine(RootPath,"driver.py")+"\" --native-child";
  public string EnvironmentBlock{get;private set;}="";
  internal string InputHash{get;private set;}="";internal int FileCount{get;private set;}
  static byte[] Read(SafeFileHandle h){long length=RandomAccess.GetLength(h);ControllerPolicy.Need(length>=0&&length<=32*1024*1024,"PYTHON_FILE_SIZE");var b=new byte[(int)length];int offset=0;while(offset<b.Length){int n=RandomAccess.Read(h,b.AsSpan(offset),offset);ControllerPolicy.Need(n>0,"PYTHON_FILE_READ");offset+=n;}return b;}

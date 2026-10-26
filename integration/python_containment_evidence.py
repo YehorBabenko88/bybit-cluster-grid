@@ -4,7 +4,7 @@ from pathlib import Path
 import xml.etree.ElementTree as E
 from .windows_python_probe import CASES
 ROOT=Path(__file__).resolve().parents[1]
-FIELDS={'schema','head','run_id','attempt','status','reason','input_manifest_sha256','result_sha256','diagnostic_sha256','diagnostic_error','result_error','files','pid','python','assurance','host_verified','execute_authorized','cleanup_authorized','physical','whole_system','network_transport'}
+FIELDS={'schema','head','run_id','attempt','status','reason','input_manifest_sha256','result_sha256','diagnostic_sha256','diagnostic_error','result_error','files','pid','debugged','loader_events','python','assurance','host_verified','execute_authorized','cleanup_authorized','physical','whole_system','network_transport'}
 CHILD={'schema','head','run_id','attempt','pid','python_version','status','error','cases','physical','execute_authorized','cleanup_authorized','whole_system'}
 
 def need(ok):
@@ -28,7 +28,9 @@ def validate(v,head,run,attempt):
     need(set(v['python'])==CHILD and v['python']['pid']==v['pid'] and type(v['files']) is int and 10<v['files']<=20000)
     need(v['python']['error'] is None and v['reason'] is None and v['diagnostic_error'] is None and v['result_error'] is None and v['host_verified'] is False)
     need(type(v['python']['python_version']) is str and v['python']['python_version'].startswith(('3.11','3.12')))
-    need(v['assurance']=='HOSTED_PYTHON_NEGATIVE_BOUNDARY_ONLY' and v['network_transport']=='BLOCKED_NO_CAPABILITIES')
+    need(v['assurance']=='HOSTED_DEBUGGED_PYTHON_NEGATIVE_BOUNDARY_ONLY' and v['debugged'] is True and v['network_transport']=='BLOCKED_NO_CAPABILITIES')
+    need(type(v['loader_events']) is list and 0<len(v['loader_events'])<=1024 and v['loader_events'][-1]==dict(Event=5,Detail='exit:00000000'))
+    for row in v['loader_events']:need(type(row) is dict and set(row)=={'Event','Detail'} and type(row['Event']) is int and row['Event'] in (1,3,5,6,8) and type(row['Detail']) is str and len(row['Detail'])<=8192)
     need(v['python']['cases']==[dict(name=n,outcome='PASS') for n in CASES])
     for k in ('input_manifest_sha256','result_sha256','diagnostic_sha256'):need(type(v[k]) is str and re.fullmatch('[0-9a-f]{64}',v[k]) is not None)
     return list(CASES)

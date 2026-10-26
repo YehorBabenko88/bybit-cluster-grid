@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 internal static class ControllerMain {
- internal static readonly string[] ModelCases={"signed-permit","tampered-data","tampered-signature","wrong-key","wrong-head","wrong-run","wrong-nonce","expired","replay","noncanonical-permit","truncated-journal","unknown-recovery-anchor","invalid-transitions","child-environment-allowlist","child-environment-missing","child-token-user","child-token-enabled-admin","child-token-deny-only-admin","child-token-elevated","child-token-high-integrity","live-image-query-failure","exited-image-without-preverification","exited-preverified-held-image","queried-image-mismatch","pending-marker-valid","pending-marker-volume","pending-marker-fileid","pending-marker-attributes","pending-marker-original-links","pending-marker-current-links","pending-marker-standard-links","pending-marker-not-pending","pending-marker-directory","cleanup-resource-binding"};
+ internal static readonly string[] ModelCases={"signed-permit","tampered-data","tampered-signature","wrong-key","wrong-head","wrong-run","wrong-nonce","expired","replay","noncanonical-permit","truncated-journal","unknown-recovery-anchor","invalid-transitions","child-environment-allowlist","child-environment-missing","child-token-user","child-token-enabled-admin","child-token-deny-only-admin","child-token-elevated","child-token-high-integrity","live-image-query-failure","exited-image-without-preverification","exited-preverified-held-image","queried-image-mismatch","pending-marker-valid","pending-marker-volume","pending-marker-fileid","pending-marker-attributes","pending-marker-original-links","pending-marker-current-links","pending-marker-standard-links","pending-marker-not-pending","pending-marker-directory","cleanup-resource-binding","loader-initial-breakpoint","loader-repeated-breakpoint","loader-second-chance-breakpoint","loader-foreign-breakpoint"};
  internal static readonly string[] NativeCases={"held-process-identity-job-token","live-cleanup-refused","unknown-cleanup-refused","cooperative-exit","stable-guardian-recovery","bounded-marker-cleanup","forced-owned-process-stop","job-close-kills-owned-suspended-child","cross-fixture-cleanup-refused","cross-child-cleanup-refused","flush-failure-retention","pending-flush-failure-not-cleaned"};
  static string? executedImageHash;static readonly List<object> cases=new();static void Test(string name,Action a){a();cases.Add(new{name,outcome="PASS"});}
  static void Refuse(Action a){try{a();}catch(Blocked){return;}throw new Blocked("EXPECTED_REFUSAL_MISSING");}
@@ -41,6 +41,11 @@ internal static class ControllerMain {
  Test("pending-marker-not-pending",()=>Refuse(()=>FixtureNative.ValidatePendingMarker(before,after,0,false,false)));
  Test("pending-marker-directory",()=>Refuse(()=>FixtureNative.ValidatePendingMarker(before,after,0,true,true)));
  Test("cleanup-resource-binding",()=>{var owner=new object();ControllerPolicy.ResourceBinding(owner,owner);Refuse(()=>ControllerPolicy.ResourceBinding(owner,new object()));});
+ Test("loader-initial-breakpoint",()=>ControllerPolicy.Need(LoaderTrace.InitialBreakpoint(0x80000003,1,false,"ntdll","ntdll")));
+ Test("loader-repeated-breakpoint",()=>ControllerPolicy.Need(!LoaderTrace.InitialBreakpoint(0x80000003,1,true,"ntdll","ntdll")));
+ Test("loader-second-chance-breakpoint",()=>ControllerPolicy.Need(!LoaderTrace.InitialBreakpoint(0x80000003,0,false,"ntdll","ntdll")));
+ Test("loader-foreign-breakpoint",()=>ControllerPolicy.Need(!LoaderTrace.InitialBreakpoint(0x80000003,1,false,"application","ntdll")));
+
 
 
  }

@@ -1,8 +1,11 @@
 """Actual CPython/Grid negative lifecycle probe. Only the native hosted parent launches it."""
-import asyncio,ctypes,ctypes.wintypes as W,json,os,pathlib,socket,subprocess,sys
+import asyncio,ctypes,ctypes.wintypes as W,json,os,pathlib,re,socket,subprocess,sys
 ROOT=pathlib.Path(__file__).resolve().parent
 CASES=['isolated-python','no-parent-secrets','closed-import-paths','own-data-rw','foreign-read-denied','foreign-write-denied','source-write-denied','source-write-dac-denied','parent-handle-not-inherited','loopback-denied','documentation-network-denied','subprocess-denied','native-dependencies','real-coordinator-fails-closed','real-worker-infra-only','dll-module-closure']
 rows=[]
+def native_scope(root,host,args):
+    p=pathlib.PureWindowsPath(root);guid=r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+    if args!=['--native-child'] or host.upper() in ('LS5','PC4') or not re.fullmatch(r'[A-Za-z]:',p.drive) or p.parent.name!='AC' or p.parent.parent.parent.name!='Packages' or not re.fullmatch('python-'+guid,p.name) or not re.fullmatch('g1-fixture-'+guid,p.parent.parent.name):raise ValueError('PHYSICAL_OR_UNOWNED_PROBE_REFUSED')
 def need(ok):
     if not ok:raise RuntimeError('BOUNDARY_NOT_PROVEN')
 def case(name,fn):
@@ -95,6 +98,9 @@ def main():
     need([r['name'] for r in rows]==CASES)
     return cfg
 if __name__=='__main__':
+    if len(sys.argv)==1:
+        print(json.dumps(dict(status='PLAN_ONLY',host_calls=0,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False)));raise SystemExit(0)
+    native_scope(str(ROOT),socket.gethostname(),sys.argv[1:])
     error=None;cfg={}
     try:cfg=main()
     except BaseException as e:error=type(e).__name__
