@@ -169,6 +169,30 @@
       "test_native_surface_system32_only"
     ],
     [
+      "tests.test_g0_lsa_evidence",
+      "test_ci_event_unknown_claim_refused[execution_authorized-True]"
+    ],
+    [
+      "tests.test_g0_lsa_evidence",
+      "test_ci_event_unknown_claim_refused[source_head-ffffffffffffffffffffffffffffffffffffffff]"
+    ],
+    [
+      "tests.test_g0_lsa_evidence",
+      "test_ci_event_unknown_claim_refused[extra-None]"
+    ],
+    [
+      "tests.test_g0_lsa_evidence",
+      "test_ci_fake_unknown_claim_refused[execution_authorized-True]"
+    ],
+    [
+      "tests.test_g0_lsa_evidence",
+      "test_ci_fake_unknown_claim_refused[source_head-ffffffffffffffffffffffffffffffffffffffff]"
+    ],
+    [
+      "tests.test_g0_lsa_evidence",
+      "test_ci_fake_unknown_claim_refused[extra-None]"
+    ],
+    [
       "tests.test_lsa_readonly",
       "test_reviewed_hardening_preserves_unrelated_package_files"
     ],

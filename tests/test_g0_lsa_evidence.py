@@ -73,3 +73,14 @@ def test_native_surface_system32_only():
     s=(Path(__file__).parents[1]/'lab/lsa-readonly/LsaRights.cs').read_text()
     assert s.count('DllImport("advapi32.dll")')==5
     assert s.count('DefaultDllImportSearchPaths(DllImportSearchPath.System32)')==5
+
+@pytest.mark.parametrize('field,value',[('execution_authorized',True),('source_head','f'*40),('extra',None)])
+def test_ci_event_unknown_claim_refused(field,value):
+    from tools.g0_lsa_ci import verify_event
+    row=dict(case='test',head=HEAD,run_id='1',attempt='1',outcome='PASS',assurance='SYNTHETIC_ONLY',physical='0/10 NOT_RUN');row[field]=value
+    with pytest.raises(ValueError):verify_event(row,HEAD,'1','1')
+@pytest.mark.parametrize('field,value',[('execution_authorized',True),('source_head','f'*40),('extra',None)])
+def test_ci_fake_unknown_claim_refused(field,value):
+    from tools.g0_lsa_ci import verify_fake,CASES
+    row=dict(schema=1,kind='SYNTHETIC_FAKE_API_ONLY',legacy_cases=30,cases=CASES,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,actor_tokens_created=False);row[field]=value
+    with pytest.raises(ValueError):verify_fake(row)
