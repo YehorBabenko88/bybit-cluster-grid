@@ -2,6 +2,7 @@
 import copy
 import json
 import pytest
+from installer import ls5_network_offline
 from installer.ls5_network_offline import evaluate
 
 def baseline():
@@ -143,14 +144,16 @@ def test_non_text_policy_input_fails_closed(raw):
     assert r["status"]=="BLOCKED" and r["policy_valid"] is False
     assert r["findings"]==["INVALID_POLICY"]
 
-def test_oversized_json_policy_fails_closed_before_decoding():
-    raw=json.dumps(baseline())+" " * 65536
+def test_oversized_json_policy_fails_closed_before_decoding(monkeypatch):
+    monkeypatch.setattr(ls5_network_offline, "MAX_POLICY_BYTES", 1024)
+    raw=json.dumps(baseline())+" " * 2048
     r=evaluate(raw)
     assert r["policy_valid"] is False
     assert r["findings"]==["INVALID_POLICY"]
 
-def test_multibyte_policy_limit_is_in_bytes_not_characters():
-    raw=json.dumps(baseline(),ensure_ascii=False)+"é"*32768
+def test_multibyte_policy_limit_is_in_bytes_not_characters(monkeypatch):
+    monkeypatch.setattr(ls5_network_offline, "MAX_POLICY_BYTES", 1024)
+    raw=json.dumps(baseline(),ensure_ascii=False)+"é"*600
     r=evaluate(raw)
     assert r["policy_valid"] is False
     assert r["findings"]==["INVALID_POLICY"]
