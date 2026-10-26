@@ -91,7 +91,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Install test dependencies
-        run: pip install pytest
+        run: pip install pytest 'psycopg[binary]>=3,<4'
       - name: Mandatory disposable PostgreSQL isolation gate
         run: |
           python - <<'PY'
