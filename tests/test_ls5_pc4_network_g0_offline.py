@@ -66,3 +66,38 @@ def test_missing_evidence_and_authority_injection():
 def test_run_and_head_binding_types():
     x=fixture();x["head"]="A"*40;check(json.dumps(x),False)
     x=fixture();x["run_id"]="x";check(json.dumps(x),False)
+
+def test_unbound_observation_cannot_claim_replay_protection():
+    result=check(json.dumps(fixture()),True)
+    assert "REPLAY_BINDING_UNVERIFIED" in result["findings"]
+
+def test_correct_independent_head_run_binding_is_still_not_physical_pass():
+    x=fixture()
+    result=evaluate(json.dumps(x),expected_head=x["head"],expected_run_id=x["run_id"])
+    assert result["observation_valid"] is True
+    assert "REPLAY_BINDING_UNVERIFIED" not in result["findings"]
+    assert result["status"]=="BLOCKED" and result["host_verified"] is False
+    assert result["execution_authorized"] is False
+
+@pytest.mark.parametrize("field,value,expected_code",[
+    ("expected_head","b"*40,"HEAD_BINDING_MISMATCH"),
+    ("expected_head",True,"HEAD_BINDING_MISMATCH"),
+    ("expected_run_id","ffffffffffffffff","RUN_BINDING_MISMATCH"),
+    ("expected_run_id",123,"RUN_BINDING_MISMATCH"),
+])
+def test_replayed_or_spoofed_binding_rejected(field,value,expected_code):
+    x=fixture()
+    kwargs={"expected_head":x["head"],"expected_run_id":x["run_id"]}
+    kwargs[field]=value
+    result=evaluate(json.dumps(x),**kwargs)
+    assert result["observation_valid"] is False
+    assert result["findings"]==[expected_code]
+    assert result["status"]=="BLOCKED"
+    assert result["execution_authorized"] is False
+
+def test_replay_from_another_run_fails_even_when_document_is_self_consistent():
+    old=fixture()
+    replay=json.dumps(old)
+    result=evaluate(replay,expected_head=old["head"],expected_run_id="1234567890abcdefNEW")
+    assert result["observation_valid"] is False
+    assert result["findings"]==["RUN_BINDING_MISMATCH"]
