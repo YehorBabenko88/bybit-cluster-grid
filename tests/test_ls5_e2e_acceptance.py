@@ -169,14 +169,13 @@ class E2EAcceptanceTests(unittest.TestCase):
                 b'<testcase classname="Grid" name="stage"/></testsuite>')
         self.assertEqual(inspect_junit_bytes(base)["cases"], 1)
         attacks = (
-            base.replace(b'</testcase>', b'</testcase>'),  # harmless baseline, excluded below
             base.replace(b'/></testsuite>', b'/><foreign>PHYSICAL_PASS</foreign></testsuite>'),
             base.replace(b'/></testsuite>', b'><foreign>PHYSICAL_PASS</foreign></testcase></testsuite>'),
             base.replace(b'/></testsuite>', b'><failure/><error/></testcase></testsuite>'),
             base.replace(b'/></testsuite>', b'><skipped/><skipped/></testcase></testsuite>'),
             base.replace(b'/></testsuite>', b'><failure><nested/></failure></testcase></testsuite>'),
         )
-        for i, attack in enumerate(attacks[1:], 1):
+        for i, attack in enumerate(attacks, 1):
             with self.subTest(attack=i), self.assertRaises(AcceptanceBlocked):
                 inspect_junit_bytes(attack)
 
