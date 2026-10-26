@@ -12,7 +12,7 @@ function Get-G0IdentityBinding {
   foreach($name in $pins.Keys){$sid=$pins[$name];$rid=if($name -ceq 'GridLabCollector'){'1003'}else{'1004'}
    if($sid -cnotmatch ('^S-1-5-21-(?:[1-9][0-9]{0,9}-){3}'+$rid+'$') -or ([Security.Principal.SecurityIdentifier]::new($sid)).Value -cne $sid){throw 'SID_PIN'}
   }
-  foreach($name in $pins.Keys){$rows=@(& $Query $name);if($rows.Count -ne 1 -or $rows[0].Name -cne $name -or $rows[0].SID.Value -cne $pins[$name]){$answer.code='SID_MISMATCH';throw 'SID_PIN'};$answer.identities+=@{name=$name;sid=$pins[$name]}}
+  foreach($name in $pins.Keys){$rows=@(& $Query $name 3>$null);if($rows.Count -ne 1 -or $rows[0].Name -cne $name -or $rows[0].SID.Value -cne $pins[$name]){$answer.code='SID_MISMATCH';throw 'SID_PIN'};$answer.identities+=@{name=$name;sid=$pins[$name]}}
   $answer.complete=$true;$answer.code='IDENTITY_BOUND'
  }catch{$answer.identities=@()}
  return $answer
@@ -31,7 +31,7 @@ try{
  if($actual -cne $AssemblySha256){throw 'ASSEMBLY_DIGEST'}
  # Explicit OS module path, never PATH/PSModulePath discovery or a compatibility subprocess.
  $phase='IDENTITY_FAILED'
- Import-Module 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.LocalAccounts\Microsoft.PowerShell.LocalAccounts.psd1' -ErrorAction Stop -WarningAction Stop
+ Import-Module 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.LocalAccounts\Microsoft.PowerShell.LocalAccounts.psd1' -ErrorAction Stop -WarningAction Stop 3>$null
  $binding=Get-G0IdentityBinding -CollectorSid $CollectorSid -StorageSid $StorageSid -Query {param($n) Microsoft.PowerShell.LocalAccounts\Get-LocalUser -Name $n -ErrorAction Stop -WarningAction Stop}
  if(-not $binding.complete){foreach($s in $report.subjects){$s.code=$binding.code};throw 'IDENTITY_BLOCKED'}
  # Hash validation and BOTH identity pins precede assembly loading and every LSA call.
