@@ -54,7 +54,7 @@ def test_invalid_control_types(value):
     if value is False: check(json.dumps(x),True)
     else: check(json.dumps(x),False)
 
-@pytest.mark.parametrize("raw",[None,b"{}",'{"a":1,"a":2}',"NaN","\ud800","["*1200+"0"+"]"*1200," "*65537])
+@pytest.mark.parametrize("raw",[None,b"{}",'{"a":1,"a":2}',"NaN","\ud800","["*1200+"0"+"]"*1200," "*65537], ids=["none","bytes","duplicate-key","nonfinite","surrogate","nested-array","oversized-ascii"])
 def test_malformed_input(raw): check(raw,False)
 
 def test_missing_evidence_and_authority_injection():
