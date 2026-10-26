@@ -10,7 +10,7 @@ def need(ok):
 def relative(name):
     need(type(name) is str and 0<len(name)<=240)
     for p in name.split("/"):
-        need(re.fullmatch(r"[A-Za-z0-9_.-]+",p) is not None and p not in (".","..") and not p.endswith("."))
+        need(re.fullmatch(r"[A-Za-z0-9_. -]+",p) is not None and p not in (".","..") and not p.endswith(("."," ")))
         need(p.split(".")[0].upper() not in {"CON","PRN","AUX","NUL",*("COM"+str(n) for n in range(1,10)),*("LPT"+str(n) for n in range(1,10))})
     return name
 
@@ -33,7 +33,9 @@ def build():
     output=ROOT/"python-input";output.mkdir();files={};origins={};folded=set();total=0
     def add(name,b,origin):
         nonlocal total
-        relative(name);need(name.casefold() not in folded and len(files)<20000 and len(b)<=32*1024*1024)
+        try:relative(name)
+        except ValueError:raise ValueError('BUNDLE_PATH_REFUSED:'+ascii(name)) from None
+        need(name.casefold() not in folded and len(files)<20000 and len(b)<=32*1024*1024)
         total+=len(b);need(total<=512*1024*1024);folded.add(name.casefold());p=output/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b)
         files[name]=dict(Sha256=hashlib.sha256(b).hexdigest().upper(),Length=len(b));origins[name]=origin
     base=Path(sys.base_prefix)

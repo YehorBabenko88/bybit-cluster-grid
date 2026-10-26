@@ -15,3 +15,12 @@ def test_hosted_context_missing_refused(monkeypatch,changed):
     for k,v in context.items():monkeypatch.setenv(k,v)
     monkeypatch.delenv(changed,raising=False)
     with pytest.raises(ValueError):hosted()
+
+
+def test_windows_interior_space_is_not_an_alias():
+    name='Site/setuptools/_vendor/jaraco/text/Lorem ipsum.txt'
+    assert relative(name)==name
+
+@pytest.mark.parametrize('name',['CONIN$','x/CONOUT$','%TEMP%/x','x~1/a','x*/a','x/ads:name','x./a','x /a'])
+def test_win32_device_and_expansion_aliases_blocked(name):
+    with pytest.raises(ValueError):relative(name)

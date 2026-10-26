@@ -922,6 +922,15 @@
     "tests/test_python_containment_builder.py::test_hosted_context_missing_refused[GITHUB_RUN_ATTEMPT]",
     "tests/test_python_containment_builder.py::test_hosted_context_missing_refused[GITHUB_RUN_ID]",
     "tests/test_python_containment_builder.py::test_hosted_context_missing_refused[RUNNER_ENVIRONMENT]",
+    "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[%TEMP%/x]",
+    "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[CONIN$]",
+    "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[x /a]",
+    "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[x*/a]",
+    "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[x./a]",
+    "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[x/CONOUT$]",
+    "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[x/ads:name]",
+    "tests/test_python_containment_builder.py::test_win32_device_and_expansion_aliases_blocked[x~1/a]",
+    "tests/test_python_containment_builder.py::test_windows_interior_space_is_not_an_alias",
     "tests/test_python_containment_evidence.py::test_child_claim_tamper[cleanup_authorized-True]",
     "tests/test_python_containment_evidence.py::test_child_claim_tamper[extra-unknown]",
     "tests/test_python_containment_evidence.py::test_child_claim_tamper[head-ffffffffffffffffffffffffffffffffffffffff]",
@@ -4706,6 +4715,42 @@
     [
       "tests.test_python_containment_builder",
       "test_hosted_context_missing_refused[RUNNER_ENVIRONMENT]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_win32_device_and_expansion_aliases_blocked[%TEMP%/x]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_win32_device_and_expansion_aliases_blocked[CONIN$]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_win32_device_and_expansion_aliases_blocked[x /a]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_win32_device_and_expansion_aliases_blocked[x*/a]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_win32_device_and_expansion_aliases_blocked[x./a]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_win32_device_and_expansion_aliases_blocked[x/CONOUT$]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_win32_device_and_expansion_aliases_blocked[x/ads:name]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_win32_device_and_expansion_aliases_blocked[x~1/a]"
+    ],
+    [
+      "tests.test_python_containment_builder",
+      "test_windows_interior_space_is_not_an_alias"
     ],
     [
       "tests.test_python_containment_evidence",
