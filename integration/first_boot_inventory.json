@@ -961,8 +961,15 @@
     "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[ls5]",
     "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[missing-argument]",
     "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[pc4]",
+    "tests/test_python_containment_evidence.py::test_exact_invalid_handle_status_proves_absence[-1073741816]",
+    "tests/test_python_containment_evidence.py::test_exact_invalid_handle_status_proves_absence[3221225480]",
+    "tests/test_python_containment_evidence.py::test_exact_invalid_handle_status_proves_absence[6]",
     "tests/test_python_containment_evidence.py::test_exact_negative_boundary_only",
     "tests/test_python_containment_evidence.py::test_exact_win32_access_denied_is_required",
+    "tests/test_python_containment_evidence.py::test_file_identity_matches_native_high_low_format_not_memory_hex",
+    "tests/test_python_containment_evidence.py::test_file_identity_refuses_partial_structures[0000000000000000000000000]",
+    "tests/test_python_containment_evidence.py::test_file_identity_refuses_partial_structures[00000000000000000000000]",
+    "tests/test_python_containment_evidence.py::test_file_identity_refuses_partial_structures[]",
     "tests/test_python_containment_evidence.py::test_input_git_origin_is_not_self_selected[changed-grid]",
     "tests/test_python_containment_evidence.py::test_input_git_origin_is_not_self_selected[extra-grid]",
     "tests/test_python_containment_evidence.py::test_input_git_origin_is_not_self_selected[missing-grid]",
@@ -981,6 +988,12 @@
     "tests/test_python_containment_evidence.py::test_real_component_case_inventory[failed]",
     "tests/test_python_containment_evidence.py::test_real_component_case_inventory[missing]",
     "tests/test_python_containment_evidence.py::test_real_component_case_inventory[reordered]",
+    "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[0]",
+    "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[32]",
+    "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[5]",
+    "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[7516192776]",
+    "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[None]",
+    "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[True]",
     "tests/test_retention_bootstrap_regression.py::test_coordinator_bootstraps_retention_before_background_tasks",
     "tests/test_retention_bootstrap_regression.py::test_empty_retention_dataset_has_no_phantom_backlog",
     "tests/test_retention_bootstrap_regression.py::test_existing_overdue_rows_keep_estimate",
@@ -4900,11 +4913,39 @@
     ],
     [
       "tests.test_python_containment_evidence",
+      "test_exact_invalid_handle_status_proves_absence[-1073741816]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_exact_invalid_handle_status_proves_absence[3221225480]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_exact_invalid_handle_status_proves_absence[6]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
       "test_exact_negative_boundary_only"
     ],
     [
       "tests.test_python_containment_evidence",
       "test_exact_win32_access_denied_is_required"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_file_identity_matches_native_high_low_format_not_memory_hex"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_file_identity_refuses_partial_structures[0000000000000000000000000]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_file_identity_refuses_partial_structures[00000000000000000000000]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_file_identity_refuses_partial_structures[]"
     ],
     [
       "tests.test_python_containment_evidence",
@@ -4977,6 +5018,30 @@
     [
       "tests.test_python_containment_evidence",
       "test_real_component_case_inventory[reordered]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_unknown_foreign_handle_failure_is_not_absence[0]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_unknown_foreign_handle_failure_is_not_absence[32]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_unknown_foreign_handle_failure_is_not_absence[5]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_unknown_foreign_handle_failure_is_not_absence[7516192776]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_unknown_foreign_handle_failure_is_not_absence[None]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_unknown_foreign_handle_failure_is_not_absence[True]"
     ],
     [
       "tests.test_retention_bootstrap_regression",

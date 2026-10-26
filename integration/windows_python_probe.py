@@ -12,6 +12,16 @@ class BoundaryFailure(RuntimeError):
 def need(ok,code='BOUNDARY_NOT_PROVEN'):
     if not ok:raise BoundaryFailure(code)
 
+def file_identity(raw):
+    need(type(raw) is bytes and len(raw)==24,'FILE_ID_STRUCTURE')
+    volume=int.from_bytes(raw[:8],'little');low=int.from_bytes(raw[8:16],'little');high=int.from_bytes(raw[16:24],'little')
+    return volume,f'{high:016X}{low:016X}'
+
+def unavailable_handle(error):
+    # ctypes can surface STATUS_INVALID_HANDLE as an SEH OSError under our debugger.
+    # This is handle absence, never ACL-denial evidence. Unknown statuses stay blocked.
+    need(type(error) is int and error in (6,-1073741816,0xC0000008),'FOREIGN_HANDLE_STATE_UNKNOWN')
+
 def win32_denial(opened,error):
     need(type(opened) is bool and opened is False and type(error) is int and error==5,'WIN32_ACCESS_DENIED_NOT_PROVEN_'+(str(error) if type(error) is int else 'UNKNOWN'))
 def case(name,fn):
@@ -46,11 +56,13 @@ def main():
     case('source-write-dac-denied',write_dac)
     def inherited():
         k=ctypes.WinDLL('kernel32',use_last_error=True);k.GetFileInformationByHandleEx.argtypes=[W.HANDLE,ctypes.c_int,W.LPVOID,W.DWORD];k.GetFileInformationByHandleEx.restype=W.BOOL
-        buf=ctypes.create_string_buffer(24);ok=k.GetFileInformationByHandleEx(W.HANDLE(cfg['inherited']),18,buf,24)
+        buf=ctypes.create_string_buffer(24)
+        try:ok=k.GetFileInformationByHandleEx(W.HANDLE(cfg['inherited']),18,buf,24)
+        except OSError as exc:unavailable_handle(getattr(exc,'winerror',None));return
         if ok:
-            volume=int.from_bytes(buf.raw[:8],'little');identity=buf.raw[8:24].hex().upper()
+            volume,identity=file_identity(buf.raw)
             need(volume!=cfg['expected_volume'] or identity!=cfg['expected_id'])
-        else:need(ctypes.get_last_error()==6)
+        else:unavailable_handle(ctypes.get_last_error())
     case('parent-handle-not-inherited',inherited)
     def parent_process():
         k=ctypes.WinDLL('kernel32',use_last_error=True);k.OpenProcess.argtypes=[W.DWORD,W.BOOL,W.DWORD];k.OpenProcess.restype=W.HANDLE

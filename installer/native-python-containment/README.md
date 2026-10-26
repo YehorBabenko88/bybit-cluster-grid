@@ -87,3 +87,13 @@ paths/handles and loads from writable Data are BLOCKED. This bounds reported
 loader events; no untested guarantee about DLL entry-point timing or compromised
 Windows/privileged administrators is asserted. The child also attempts a read
 handle to its known live native parent and must receive exact AccessDenied5.
+
+The absent-parent-file-handle probe distinguishes exact Win32 invalid handle6 from
+ctypes' debugger-visible STATUS_INVALID_HANDLE (C0000008, signed/unsigned32).
+Both mean the probed handle does not reference an available object; neither is used
+as ACL-denial evidence. Other exceptions, AccessDenied, sharing and unknown states
+block this absence probe. The debugger still does not swallow this exception.
+
+The foreign FileIdInfo comparison decodes the two little-endian64 words and uses
+the native observer's High:X16+Low:X16 representation. Raw memory hex has a
+different byte order and must not be used to assert distinct identity.

@@ -65,3 +65,27 @@ def test_crt_or_sharing_errors_are_not_acl_denial(opened,error):
 def test_exact_win32_access_denied_is_required():
     from integration.windows_python_probe import win32_denial
     win32_denial(False,5)
+
+
+@pytest.mark.parametrize('error',[5,32,None,True,0,0x1C0000008])
+def test_unknown_foreign_handle_failure_is_not_absence(error):
+    from integration.windows_python_probe import unavailable_handle
+    with pytest.raises(RuntimeError):unavailable_handle(error)
+
+@pytest.mark.parametrize('error',[6,-1073741816,0xC0000008])
+def test_exact_invalid_handle_status_proves_absence(error):
+    from integration.windows_python_probe import unavailable_handle
+    unavailable_handle(error)
+
+
+def test_file_identity_matches_native_high_low_format_not_memory_hex():
+    from integration.windows_python_probe import file_identity
+    volume,low,high=7,0x0102030405060708,0x1020304050607080
+    raw=volume.to_bytes(8,'little')+low.to_bytes(8,'little')+high.to_bytes(8,'little')
+    assert file_identity(raw)==(volume,'10203040506070800102030405060708')
+    assert raw[8:].hex().upper()!='10203040506070800102030405060708'
+
+@pytest.mark.parametrize('raw',[b'',b'0'*23,b'0'*25])
+def test_file_identity_refuses_partial_structures(raw):
+    from integration.windows_python_probe import file_identity
+    with pytest.raises(RuntimeError):file_identity(raw)
