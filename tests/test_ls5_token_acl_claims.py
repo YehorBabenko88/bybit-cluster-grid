@@ -102,3 +102,17 @@ def test_control_high_integrity_still_requires_native_witness():
     result = assess(data)
     assert result["host_verified"] is False
     assert result["bootstrap_physical_readiness"] == "NO-GO"
+
+@pytest.mark.parametrize("field,value,reason", [
+    ("elevated", True, "CONTROL_ELEVATION_UNVERIFIED"),
+    ("administrators_enabled", True, "CONTROL_ADMIN_GROUP_UNVERIFIED"),
+    ("elevated", "false", "CONTROL_ELEVATION_UNVERIFIED"),
+    ("administrators_enabled", "false", "CONTROL_ADMIN_GROUP_UNVERIFIED"),
+])
+def test_control_elevated_or_admin_claims_require_independent_witness(field, value, reason):
+    data = sample()
+    data["role"] = "CONTROL"
+    data[field] = value
+    result = assess(data)
+    assert result["status"] == "BLOCKED"
+    assert reason in result["issues"]
