@@ -4,12 +4,19 @@ using System.Security.Cryptography;
 using Microsoft.Win32.SafeHandles;
 
 // A fresh CREATE-only file under this new GUID AppContainer profile. RETAIN, no deletion.
-internal sealed class OwnedImage:IDisposable {
+internal interface IOwnedExecutable:IDisposable {
+ string Path{get;} string CommandLine{get;} string WorkingDirectory{get;}
+ string EnvironmentBlock{get;} void Guard();
+}
+internal sealed class OwnedImage:IOwnedExecutable {
  [DllImport("userenv.dll",CharSet=CharSet.Unicode)]static extern int GetAppContainerFolderPath(string sid,out IntPtr path);
  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern SafeFileHandle CreateFileW(string path,uint access,uint share,IntPtr attributes,uint disposition,uint flags,IntPtr template);
  readonly List<(SafeFileHandle Handle,Identity Id,string Descriptor)> parents=new();
  SafeFileHandle? image;Identity? identity;string descriptor="";readonly string digest;
- internal string Path{get;}="";
+ public string Path{get;}="";
+ public string CommandLine=>"\""+Path+"\"";
+ public string WorkingDirectory=>Environment.GetFolderPath(Environment.SpecialFolder.System);
+ public string EnvironmentBlock=>ControllerPolicy.ChildEnvironment(Environment.GetFolderPath(Environment.SpecialFolder.Windows),Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
  internal OwnedImage(string package,string moniker,string user,byte[] payload,string hash){
   ControllerPolicy.Need(payload.Length>1&&payload.Length<65536&&payload[0]==77&&payload[1]==90&&Convert.ToHexString(SHA256.HashData(payload))==hash,"FIXTURE_IMAGE_PAYLOAD");digest=hash;
   IntPtr pointer=IntPtr.Zero;
@@ -25,7 +32,7 @@ internal sealed class OwnedImage:IDisposable {
    image=CreateFileW(Path,0x80020000,1,IntPtr.Zero,3,0x200000,IntPtr.Zero);ControllerPolicy.Need(!image.IsInvalid,"OWNED_IMAGE_PIN");identity=Native.Id(image);ControllerPolicy.Need(identity==created,"OWNED_IMAGE_REPLACED");Guard();
   }catch{Dispose();throw;}finally{if(pointer!=IntPtr.Zero)Marshal.FreeCoTaskMem(pointer);}
  }
- internal void Guard(){
+ public void Guard(){
   ControllerPolicy.Need(image!=null&&!image.IsClosed&&!image.IsInvalid&&identity!=null,"OWNED_IMAGE_HANDLE");Policy.Object(Native.Id(image!),false);
   ControllerPolicy.Need(Native.Id(image!)==identity&&FixtureNative.Descriptor(image!)==descriptor&&Convert.ToHexString(SHA256.HashData(FixtureNative.Read(image!)))==digest,"OWNED_IMAGE_CUSTODY");
   foreach(var p in parents)ControllerPolicy.Need(Native.Id(p.Handle)==p.Id&&FixtureNative.Descriptor(p.Handle)==p.Descriptor,"OWNED_PROFILE_ANCESTOR_DRIFT");

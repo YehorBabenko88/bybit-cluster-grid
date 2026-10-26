@@ -44,3 +44,6 @@ installer/native-g1-controller-fixture/obj/
 
 /g0-lsa-evidence/
 /downloaded-g0/
+
+/python-input/
+/python-containment-evidence/

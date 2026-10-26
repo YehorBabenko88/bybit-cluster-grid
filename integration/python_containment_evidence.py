@@ -1,0 +1,91 @@
+"""Strict hosted Python-boundary receipt. No physical authority or runtime transport proof."""
+import hashlib,json,re,subprocess,sys
+from pathlib import Path
+import xml.etree.ElementTree as E
+from .windows_python_probe import CASES
+ROOT=Path(__file__).resolve().parents[1]
+FIELDS={'schema','head','run_id','attempt','status','reason','input_manifest_sha256','result_sha256','files','pid','python','assurance','host_verified','execute_authorized','cleanup_authorized','physical','whole_system','network_transport'}
+CHILD={'schema','head','run_id','attempt','pid','python_version','status','error','cases','physical','execute_authorized','cleanup_authorized','whole_system'}
+
+def need(ok):
+    if not ok:raise ValueError('PYTHON_BOUNDARY_EVIDENCE_REFUSED')
+def load(raw):
+    def pairs(items):
+        out={}
+        for k,v in items:
+            need(k not in out);out[k]=v
+        return out
+    need(len(raw)<10000000)
+    return json.loads(raw,object_pairs_hook=pairs,parse_constant=lambda s:need(False))
+def validate(v,head,run,attempt):
+    need(type(v) is dict and set(v)==FIELDS)
+    for obj in (v,v['python']):
+        need(type(obj) is dict and type(obj.get('schema')) is int and obj['schema']==1)
+        need((obj.get('head'),obj.get('run_id'),obj.get('attempt'))==(head,run,attempt))
+        need(obj.get('status')=='PASS' and obj.get('physical')=='0/10 NOT_RUN' and obj.get('whole_system')=='PARTIAL')
+        need(obj.get('execute_authorized') is False and obj.get('cleanup_authorized') is False)
+        need(type(obj.get('pid')) is int and obj['pid']>0)
+    need(set(v['python'])==CHILD and v['python']['pid']==v['pid'] and type(v['files']) is int and 10<v['files']<=20000)
+    need(v['python']['error'] is None and v['reason'] is None and v['host_verified'] is False)
+    need(type(v['python']['python_version']) is str and v['python']['python_version'].startswith(('3.11','3.12')))
+    need(v['assurance']=='HOSTED_PYTHON_NEGATIVE_BOUNDARY_ONLY' and v['network_transport']=='BLOCKED_NO_CAPABILITIES')
+    need(v['python']['cases']==[dict(name=n,outcome='PASS') for n in CASES])
+    for k in ('input_manifest_sha256','result_sha256'):need(type(v[k]) is str and re.fullmatch('[0-9a-f]{64}',v[k]) is not None)
+    return list(CASES)
+
+def sources(head):
+    paths=['installer/native-python-containment','installer/native-g1-controller-fixture','installer/native-acl-observer','installer/native-acl-transaction-fixture','integration/windows_python_probe.py','integration/python_containment_evidence.py','tools/python_containment_bundle.py','.github/workflows/windows-python-containment.yml']
+    names=subprocess.check_output(['git','ls-tree','-r','--name-only',head,*paths],cwd=ROOT,text=True).splitlines()
+    return {n:hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest() for n in names}
+
+def input_policy(m,head,git_pins):
+    need(type(m.get('Files')) is dict and type(m.get('Origins')) is dict and set(m['Files'])==set(m['Origins']))
+    actual_git={n for n in m['Files'] if n=='driver.py' or n.startswith('Source/')}
+    need(actual_git==set(git_pins))
+    for n in m['Files']:
+        if n in git_pins:
+            need(m['Origins'][n]=='git:'+head and m['Files'][n]['Sha256']==git_pins[n])
+        elif n.startswith('Site/'):need(m['Origins'][n]=='pinned-requirements-resolved')
+        elif n=='stdlib.zip':need(m['Origins'][n]=='setup-python-stdlib')
+        elif n in ('python._pth','python311._pth','python312._pth'):need(m['Origins'][n]=='fixed-isolated-paths' and m['Files'][n]['Sha256']==hashlib.sha256(b'stdlib.zip\nDLLs\nSite\nSource\n').hexdigest().upper())
+        elif n=='python.exe' or ('/' not in n and n.lower().endswith('.dll')) or (n.startswith('DLLs/') and n.count('/')==1 and n.lower().endswith(('.dll','.pyd'))):need(m['Origins'][n]=='setup-python')
+        else:need(False)
+
+def git_inputs(head):
+    names=subprocess.check_output(['git','ls-tree','-r','--name-only',head,'grid'],cwd=ROOT,text=True).splitlines()
+    result={'Source/'+n:hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest().upper() for n in names if n.endswith('.py')}
+    result['driver.py']=hashlib.sha256(subprocess.check_output(['git','show',head+':integration/windows_python_probe.py'],cwd=ROOT)).hexdigest().upper()
+    return result
+
+def receipt(folder,head,run,attempt,create=False):
+    folder=Path(folder);raw=(folder/'native.json').read_bytes();v=load(raw);names=validate(v,head,run,attempt)
+    child=(folder/'child.json').read_bytes();inp=(folder/'input.json').read_bytes();m=load(inp)
+    need(hashlib.sha256(child).hexdigest()==v['result_sha256'] and load(child)==v['python'])
+    need(hashlib.sha256(inp).hexdigest()==v['input_manifest_sha256'] and set(m)=={'Schema','Head','Run','Attempt','Python','Files','Origins'})
+    need(type(m['Schema']) is int and m['Schema']==1 and (m['Head'],m['Run'],m['Attempt'])==(head,run,attempt))
+    need(m['Python']==v['python']['python_version'] and len(m['Files'])==v['files'] and set(m['Files'])==set(m['Origins']))
+    input_policy(m,head,git_inputs(head))
+    for n,pin in m['Files'].items():
+        from tools.python_containment_bundle import relative
+        relative(n);need(type(pin) is dict and set(pin)=={'Sha256','Length'} and type(pin['Length']) is int and 0<=pin['Length']<=32*1024*1024 and re.fullmatch('[0-9A-F]{64}',pin['Sha256']) is not None)
+        if m['Origins'][n]=='git:'+head:
+            original='integration/windows_python_probe.py' if n=='driver.py' else n.removeprefix('Source/')
+            need(n=='driver.py' or original.startswith('grid/'))
+            need(hashlib.sha256(subprocess.check_output(['git','show',head+':'+original],cwd=ROOT)).hexdigest().upper()==pin['Sha256'])
+    files=('native.json','child.json','input.json','junit.xml','events.jsonl','dependencies.txt')
+    if create:
+        xml=E.Element('testsuite',tests=str(len(names)),failures='0',errors='0',skipped='0',head=head,run_id=run,attempt=attempt)
+        for n in names:E.SubElement(xml,'testcase',classname='real_python_negative_boundary',name=n)
+        E.ElementTree(xml).write(folder/'junit.xml',encoding='utf-8',xml_declaration=True)
+        (folder/'events.jsonl').write_text(''.join(json.dumps(dict(name=n,head=head,run_id=run,attempt=attempt,status='HOSTED_BOUNDARY_PASS',physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False))+'\n' for n in names),encoding='utf-8')
+        (folder/'manifest.json').write_text(json.dumps(dict(head=head,run_id=run,attempt=attempt,files={n:hashlib.sha256((folder/n).read_bytes()).hexdigest() for n in files},sources=sources(head)),sort_keys=True),encoding='utf-8')
+    manifest=load((folder/'manifest.json').read_bytes());need(set(manifest)=={'head','run_id','attempt','files','sources'} and (manifest['head'],manifest['run_id'],manifest['attempt'])==(head,run,attempt) and manifest['sources']==sources(head) and set(manifest['files'])==set(files))
+    for n,sha in manifest['files'].items():need(hashlib.sha256((folder/n).read_bytes()).hexdigest()==sha)
+    xml=E.fromstring((folder/'junit.xml').read_bytes());need(xml.tag=='testsuite' and xml.attrib==dict(tests=str(len(names)),failures='0',errors='0',skipped='0',head=head,run_id=run,attempt=attempt))
+    need([c.attrib for c in xml]==[dict(classname='real_python_negative_boundary',name=n) for n in names] and all(c.tag=='testcase' and len(c)==0 for c in xml) and all(not (c.text or '').strip() and not (c.tail or '').strip() for c in xml.iter()))
+    expected=[dict(name=n,head=head,run_id=run,attempt=attempt,status='HOSTED_BOUNDARY_PASS',physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False) for n in names]
+    need((folder/'events.jsonl').read_text().splitlines()==[json.dumps(x) for x in expected])
+    return dict(head=head,tests=len(names),whole_system='PARTIAL',physical='0/10 NOT_RUN',network_transport='BLOCKED_NO_CAPABILITIES')
+
+if __name__=='__main__':
+    mode,folder,head,run,attempt=sys.argv[1:];need(mode in ('create','verify'));print(json.dumps(receipt(folder,head,run,attempt,create=mode=='create')))

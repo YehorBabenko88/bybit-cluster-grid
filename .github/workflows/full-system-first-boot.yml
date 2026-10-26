@@ -75,6 +75,9 @@ jobs:
   controller:
     if: ${{ (github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021') && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022' }}
     uses: ./.github/workflows/native-g1-controller.yml
+  python-containment:
+    if: ${{ (github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021') && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022' }}
+    uses: ./.github/workflows/windows-python-containment.yml
   g0-lsa:
     if: ${{ (true) && github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021' && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022' }}
     uses: ./.github/workflows/pc4-g0-lsa-readonly.yml
@@ -122,7 +125,7 @@ jobs:
           if-no-files-found: error
   required-first-boot:
     if: ${{ (always() && !cancelled()) && github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021' && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022' }}
-    needs: [offline, native, controller, g0-lsa, pg18]
+    needs: [offline, native, controller, python-containment, g0-lsa, pg18]
     runs-on: ubuntu-latest
     env:
       EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -131,9 +134,10 @@ jobs:
           OFFLINE: ${{ needs.offline.result }}
           NATIVE: ${{ needs.native.result }}
           CONTROLLER: ${{ needs.controller.result }}
+          PYTHON_BOUNDARY: ${{ needs.python-containment.result }}
           G0_LSA: ${{ needs.g0-lsa.result }}
           E2E: ${{ needs.pg18.result }}
-        run: test "$OFFLINE" = success && test "$NATIVE" = success && test "$E2E" = success && test "$CONTROLLER" = success && test "$G0_LSA" = success
+        run: test "$OFFLINE" = success && test "$NATIVE" = success && test "$E2E" = success && test "$CONTROLLER" = success && test "$G0_LSA" = success && test "$PYTHON_BOUNDARY" = success
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
