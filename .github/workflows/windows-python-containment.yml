@@ -44,8 +44,14 @@ jobs:
           New-Item -ItemType Directory python-containment-evidence | Out-Null
           Copy-Item -LiteralPath python-input/manifest.json -Destination python-containment-evidence/input.json
           python -m pip freeze > python-containment-evidence/dependencies.txt
-      - name: Compile native boundary with warnings as errors
-        run: dotnet build installer/native-python-containment/NativePythonContainment.csproj -c Release --nologo
+      - name: Compile native boundary with closed source list and checkout checks
+        run: |
+          python -c "import os;from tools.check_ddl_free_ci import verify_checkout,ROOT;verify_checkout(ROOT,os.environ['EXACT_HEAD_SHA'])"
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_SOURCE_PRECHECK_FAILED'}
+          dotnet build installer/native-python-containment/NativePythonContainment.csproj -c Release --no-incremental --nologo -p:ImportDirectoryBuildProps=false -p:ImportDirectoryBuildTargets=false
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_COMPILE_FAILED'}
+          python -c "import os;from tools.check_ddl_free_ci import verify_checkout,ROOT;verify_checkout(ROOT,os.environ['EXACT_HEAD_SHA'])"
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_SOURCE_POSTCHECK_FAILED'}
       - name: Real CPython and Grid negative lifecycle in own AppContainer only
         run: |
           $ErrorActionPreference='Stop'
@@ -93,5 +99,5 @@ jobs:
           if len(folders)!=4:raise RuntimeError('MISSING_PYTHON_MATRIX_ARTIFACT')
           for folder in folders:
               result=receipt(folder,os.environ['EXACT_HEAD_SHA'],os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'])
-              if result['tests']!=16:raise RuntimeError('PYTHON_BOUNDARY_CASES_MISSING')
+              if result['tests']!=17:raise RuntimeError('PYTHON_BOUNDARY_CASES_MISSING')
           PY

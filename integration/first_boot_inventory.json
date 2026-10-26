@@ -875,6 +875,14 @@
     "tests/test_pr227_checkout.py::test_checkout_substitution_rejected",
     "tests/test_pr227_checkout.py::test_checkout_wrong_head_rejected",
     "tests/test_pr227_checkout.py::test_staged_substitution_rejected",
+    "tests/test_pr227_checkout.py::test_untracked_native_build_input_is_rejected[Directory.Build.props]",
+    "tests/test_pr227_checkout.py::test_untracked_native_build_input_is_rejected[Directory.Build.targets]",
+    "tests/test_pr227_checkout.py::test_untracked_native_build_input_is_rejected[compiler.rsp]",
+    "tests/test_pr227_checkout.py::test_untracked_native_build_input_is_rejected[global.json]",
+    "tests/test_pr227_checkout.py::test_untracked_native_build_input_is_rejected[helper.c]",
+    "tests/test_pr227_checkout.py::test_untracked_native_build_input_is_rejected[helper.cpp]",
+    "tests/test_pr227_checkout.py::test_untracked_native_build_input_is_rejected[helper.h]",
+    "tests/test_pr227_checkout.py::test_untracked_native_build_input_is_rejected[injected.cs]",
     "tests/test_pr_compatibility_watch.py::test_changed_head_and_shared_source_identifies_owner",
     "tests/test_pr_compatibility_watch.py::test_consistent_sources_and_green_metadata_are_not_acceptance",
     "tests/test_pr_compatibility_watch.py::test_duplicate_json_keys_and_nonfinite_are_rejected",
@@ -942,6 +950,11 @@
     "tests/test_python_containment_evidence.py::test_child_claim_tamper[head-ffffffffffffffffffffffffffffffffffffffff]",
     "tests/test_python_containment_evidence.py::test_child_claim_tamper[physical-10/10 PASS]",
     "tests/test_python_containment_evidence.py::test_child_claim_tamper[pid-124]",
+    "tests/test_python_containment_evidence.py::test_crt_or_sharing_errors_are_not_acl_denial[False-13]",
+    "tests/test_python_containment_evidence.py::test_crt_or_sharing_errors_are_not_acl_denial[False-32]",
+    "tests/test_python_containment_evidence.py::test_crt_or_sharing_errors_are_not_acl_denial[False-None]",
+    "tests/test_python_containment_evidence.py::test_crt_or_sharing_errors_are_not_acl_denial[False-True]",
+    "tests/test_python_containment_evidence.py::test_crt_or_sharing_errors_are_not_acl_denial[True-0]",
     "tests/test_python_containment_evidence.py::test_driver_accepts_only_fresh_guid_profile_shape_in_model",
     "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[foreign-package]",
     "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[foreign-root]",
@@ -949,6 +962,7 @@
     "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[missing-argument]",
     "tests/test_python_containment_evidence.py::test_driver_refuses_physical_or_unowned_scope[pc4]",
     "tests/test_python_containment_evidence.py::test_exact_negative_boundary_only",
+    "tests/test_python_containment_evidence.py::test_exact_win32_access_denied_is_required",
     "tests/test_python_containment_evidence.py::test_input_git_origin_is_not_self_selected[changed-grid]",
     "tests/test_python_containment_evidence.py::test_input_git_origin_is_not_self_selected[extra-grid]",
     "tests/test_python_containment_evidence.py::test_input_git_origin_is_not_self_selected[missing-grid]",
@@ -4541,6 +4555,38 @@
       "test_staged_substitution_rejected"
     ],
     [
+      "tests.test_pr227_checkout",
+      "test_untracked_native_build_input_is_rejected[Directory.Build.props]"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_untracked_native_build_input_is_rejected[Directory.Build.targets]"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_untracked_native_build_input_is_rejected[compiler.rsp]"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_untracked_native_build_input_is_rejected[global.json]"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_untracked_native_build_input_is_rejected[helper.c]"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_untracked_native_build_input_is_rejected[helper.cpp]"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_untracked_native_build_input_is_rejected[helper.h]"
+    ],
+    [
+      "tests.test_pr227_checkout",
+      "test_untracked_native_build_input_is_rejected[injected.cs]"
+    ],
+    [
       "tests.test_pr_compatibility_watch",
       "test_changed_head_and_shared_source_identifies_owner"
     ],
@@ -4810,6 +4856,26 @@
     ],
     [
       "tests.test_python_containment_evidence",
+      "test_crt_or_sharing_errors_are_not_acl_denial[False-13]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_crt_or_sharing_errors_are_not_acl_denial[False-32]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_crt_or_sharing_errors_are_not_acl_denial[False-None]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_crt_or_sharing_errors_are_not_acl_denial[False-True]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_crt_or_sharing_errors_are_not_acl_denial[True-0]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
       "test_driver_accepts_only_fresh_guid_profile_shape_in_model"
     ],
     [
@@ -4835,6 +4901,10 @@
     [
       "tests.test_python_containment_evidence",
       "test_exact_negative_boundary_only"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_exact_win32_access_denied_is_required"
     ],
     [
       "tests.test_python_containment_evidence",

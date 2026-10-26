@@ -6,7 +6,7 @@ using Microsoft.Win32.SafeHandles;
 // A fresh CREATE-only file under this new GUID AppContainer profile. RETAIN, no deletion.
 internal interface IOwnedExecutable:IDisposable {
  string Path{get;} string CommandLine{get;} string WorkingDirectory{get;}
- string EnvironmentBlock{get;} SafeFileHandle? OutputHandle{get;} bool TraceLoader{get;} void Guard();
+ string EnvironmentBlock{get;} SafeFileHandle? OutputHandle{get;} bool TraceLoader{get;} void ValidateModule(SafeFileHandle handle,string path); void Guard();
 }
 internal sealed class OwnedImage:IOwnedExecutable {
  [DllImport("userenv.dll",CharSet=CharSet.Unicode)]static extern int GetAppContainerFolderPath(string sid,out IntPtr path);
@@ -16,6 +16,7 @@ internal sealed class OwnedImage:IOwnedExecutable {
  public string Path{get;}="";
  public SafeFileHandle? OutputHandle=>null;
  public bool TraceLoader=>false;
+ public void ValidateModule(SafeFileHandle handle,string path){throw new Blocked("LOADER_TRACE_NOT_ENABLED");}
  public string CommandLine=>"\""+Path+"\"";
  public string WorkingDirectory=>Environment.GetFolderPath(Environment.SpecialFolder.System);
  public string EnvironmentBlock=>ControllerPolicy.ChildEnvironment(Environment.GetFolderPath(Environment.SpecialFolder.Windows),Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));

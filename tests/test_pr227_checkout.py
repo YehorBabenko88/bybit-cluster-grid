@@ -47,3 +47,9 @@ def test_assume_unchanged_cannot_hide_substitution(checkout):
     (root/'source.py').write_text('original = False\n')
     with pytest.raises(RuntimeError,match='CHECKOUT_DIRTY'):
         gate.verify_checkout(root,sha)
+
+
+@pytest.mark.parametrize('name',['injected.cs','Directory.Build.props','Directory.Build.targets','helper.c','helper.cpp','helper.h','compiler.rsp','global.json'])
+def test_untracked_native_build_input_is_rejected(checkout,name):
+    root,sha=checkout;(root/name).write_text('unreviewed native build input')
+    with pytest.raises(RuntimeError,match='CHECKOUT_DIRTY'):gate.verify_checkout(root,sha)

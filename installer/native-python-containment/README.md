@@ -66,3 +66,24 @@ its PE x64 GUI subsystem2 and uses explicit file-backed diagnostics. No PE heade
 console privilege, AppContainer capability, Job limit or desktop ACL is relaxed.
 This tests a console-initialization hypothesis; it is not a confirmed root cause
 until actual hosted execution succeeds and its scope is independently reviewed.
+
+At2e28d8f the official GUI launcher entered actual CPython and passed the first
+four driver cases; the console-specific initialization refusal did not recur.
+The next failure was the ambiguous CRT PermissionError probe. File-denial tests
+now call CreateFileW directly and require exact error5; no sharing/unknown errno
+is accepted, and no data write is attempted through an unexpectedly granted handle.
+
+Native build provenance correction: all four native projects now list their
+reviewed source files explicitly and disable default wildcard items. Checkout
+verification rejects untracked C#/C/C++/MSBuild inputs, and native CI performs
+pre/post build checks with ambient Directory.Build imports disabled. This closes
+a demonstrated untracked build-input gap; it is not signed build provenance or
+protection against a compromised CI/SDK/privileged host.
+
+Each reported image/DLL load is now checked by the native parent before debug
+continuation: measured files must match their retained file identity/descriptor;
+other loads are limited to assumed-trusted Windows System32/WinSxS. Unknown
+paths/handles and loads from writable Data are BLOCKED. This bounds reported
+loader events; no untested guarantee about DLL entry-point timing or compromised
+Windows/privileged administrators is asserted. The child also attempts a read
+handle to its known live native parent and must receive exact AccessDenied5.

@@ -24,7 +24,7 @@ def verify_checkout(root, sha):
         raise RuntimeError('CHECKOUT_HEAD_MISMATCH')
     status = subprocess.run(['git','diff','--quiet','HEAD','--'],cwd=root)
     untracked = subprocess.check_output(['git','ls-files','--others','--exclude-standard'],cwd=root).decode().splitlines()
-    if status.returncode != 0 or any(Path(p).suffix.lower() in ('.py','.ps1','.sql','.pyd','.dll') for p in untracked):
+    if status.returncode != 0 or any(Path(p).name.lower() in ('global.json','nuget.config','.editorconfig') or Path(p).suffix.lower() in ('.py','.ps1','.sql','.pyd','.dll','.cs','.csproj','.props','.targets','.c','.cpp','.h','.rsp','.resx','.user','.globalconfig') for p in untracked):
         raise RuntimeError('CHECKOUT_DIRTY')
     # git diff alone trusts assume-unchanged/skip-worktree index flags. Compare
     # actual regular-file bytes to HEAD objects independently of those flags.

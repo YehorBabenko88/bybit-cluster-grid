@@ -56,9 +56,21 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install pytest==9.1.1
       - name: Build read-only observer, warnings fail
-        run: dotnet build installer/native-acl-observer/NativeAclObserver.csproj -c Release --nologo
+        run: |
+          python -c "import os;from tools.check_ddl_free_ci import verify_checkout,ROOT;verify_checkout(ROOT,os.environ['EXACT_HEAD_SHA'])"
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_SOURCE_PRECHECK_FAILED'}
+          dotnet build installer/native-acl-observer/NativeAclObserver.csproj -c Release --nologo --no-incremental -p:ImportDirectoryBuildProps=false -p:ImportDirectoryBuildTargets=false
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_COMPILE_FAILED'}
+          python -c "import os;from tools.check_ddl_free_ci import verify_checkout,ROOT;verify_checkout(ROOT,os.environ['EXACT_HEAD_SHA'])"
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_SOURCE_POSTCHECK_FAILED'}
       - name: Build separate test-only transaction executable, warnings fail
-        run: dotnet build installer/native-acl-transaction-fixture/NativeAclTransactionFixture.csproj -c Release --nologo
+        run: |
+          python -c "import os;from tools.check_ddl_free_ci import verify_checkout,ROOT;verify_checkout(ROOT,os.environ['EXACT_HEAD_SHA'])"
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_SOURCE_PRECHECK_FAILED'}
+          dotnet build installer/native-acl-transaction-fixture/NativeAclTransactionFixture.csproj -c Release --nologo --no-incremental -p:ImportDirectoryBuildProps=false -p:ImportDirectoryBuildTargets=false
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_COMPILE_FAILED'}
+          python -c "import os;from tools.check_ddl_free_ci import verify_checkout,ROOT;verify_checkout(ROOT,os.environ['EXACT_HEAD_SHA'])"
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_SOURCE_POSTCHECK_FAILED'}
       - name: Frozen pure managed cases, no native calls
         shell: pwsh
         run: |

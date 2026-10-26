@@ -1,20 +1,26 @@
 """Actual CPython/Grid negative lifecycle probe. Only the native hosted parent launches it."""
 import asyncio,ctypes,ctypes.wintypes as W,json,os,pathlib,re,socket,subprocess,sys
 ROOT=pathlib.Path(__file__).resolve().parent
-CASES=['isolated-python','no-parent-secrets','closed-import-paths','own-data-rw','foreign-read-denied','foreign-write-denied','source-write-denied','source-write-dac-denied','parent-handle-not-inherited','loopback-denied','documentation-network-denied','subprocess-denied','native-dependencies','real-coordinator-fails-closed','real-worker-infra-only','dll-module-closure']
+CASES=['isolated-python','no-parent-secrets','closed-import-paths','own-data-rw','foreign-read-denied','foreign-write-denied','source-write-denied','source-write-dac-denied','parent-handle-not-inherited','parent-process-read-denied','loopback-denied','documentation-network-denied','subprocess-denied','native-dependencies','real-coordinator-fails-closed','real-worker-infra-only','dll-module-closure']
 rows=[]
 def native_scope(root,host,args):
     p=pathlib.PureWindowsPath(root);guid=r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
     if args!=['--native-child'] or host.upper() in ('LS5','PC4') or not re.fullmatch(r'[A-Za-z]:',p.drive) or p.parent.name!='AC' or p.parent.parent.parent.name!='Packages' or not re.fullmatch('python-'+guid,p.name) or not re.fullmatch('g1-fixture-'+guid,p.parent.parent.name):raise ValueError('PHYSICAL_OR_UNOWNED_PROBE_REFUSED')
-def need(ok):
-    if not ok:raise RuntimeError('BOUNDARY_NOT_PROVEN')
+class BoundaryFailure(RuntimeError):
+    def __init__(self,code):super().__init__(code);self.code=code
+
+def need(ok,code='BOUNDARY_NOT_PROVEN'):
+    if not ok:raise BoundaryFailure(code)
+
+def win32_denial(opened,error):
+    need(type(opened) is bool and opened is False and type(error) is int and error==5,'WIN32_ACCESS_DENIED_NOT_PROVEN_'+(str(error) if type(error) is int else 'UNKNOWN'))
 def case(name,fn):
     fn();rows.append(dict(name=name,outcome='PASS'))
-def denied(action):
-    try:action()
-    except PermissionError as e:
-        need(e.winerror==5);return
-    raise RuntimeError('EXPECTED_ACCESS_DENIED')
+def denied_open(path,access):
+    k=ctypes.WinDLL('kernel32',use_last_error=True);k.CreateFileW.argtypes=[W.LPCWSTR,W.DWORD,W.DWORD,W.LPVOID,W.DWORD,W.DWORD,W.HANDLE];k.CreateFileW.restype=W.HANDLE
+    h=k.CreateFileW(str(path),access,7,None,3,0x200000,None);error=ctypes.get_last_error();opened=h not in (None,ctypes.c_void_p(-1).value)
+    if opened:need(k.CloseHandle(W.HANDLE(h))!=0,'UNEXPECTED_HANDLE_CLOSE_FAILED')
+    win32_denial(opened,error)
 def main():
     cfg=json.loads((ROOT/'config.json').read_text());data=ROOT/'Data'
     # Remove current-directory/PATH DLL lookup before third-party or Grid imports.
@@ -29,9 +35,9 @@ def main():
     def own():
         p=data/'own.txt';p.write_text('synthetic');need(p.read_text()=='synthetic')
     case('own-data-rw',own)
-    case('foreign-read-denied',lambda:denied(lambda:pathlib.Path(cfg['canary']).read_bytes()))
-    case('foreign-write-denied',lambda:denied(lambda:pathlib.Path(cfg['canary']).write_bytes(b'not-allowed')))
-    case('source-write-denied',lambda:denied(lambda:(ROOT/'Source/grid/worker.py').open('ab')))
+    case('foreign-read-denied',lambda:denied_open(pathlib.Path(cfg['canary']),0x80000000))
+    case('foreign-write-denied',lambda:denied_open(pathlib.Path(cfg['canary']),0x40000000))
+    case('source-write-denied',lambda:denied_open(ROOT/'Source/grid/worker.py',0x40000000))
     def write_dac():
         k=ctypes.WinDLL('kernel32',use_last_error=True);k.CreateFileW.argtypes=[W.LPCWSTR,W.DWORD,W.DWORD,W.LPVOID,W.DWORD,W.DWORD,W.HANDLE];k.CreateFileW.restype=W.HANDLE
         h=k.CreateFileW(str(ROOT/'Source/grid/worker.py'),0x40000,7,None,3,0x200000,None)
@@ -46,6 +52,12 @@ def main():
             need(volume!=cfg['expected_volume'] or identity!=cfg['expected_id'])
         else:need(ctypes.get_last_error()==6)
     case('parent-handle-not-inherited',inherited)
+    def parent_process():
+        k=ctypes.WinDLL('kernel32',use_last_error=True);k.OpenProcess.argtypes=[W.DWORD,W.BOOL,W.DWORD];k.OpenProcess.restype=W.HANDLE
+        h=k.OpenProcess(0x10,False,cfg['parent_pid']);error=ctypes.get_last_error();opened=h is not None
+        if opened:need(k.CloseHandle(W.HANDLE(h))!=0,'PARENT_HANDLE_CLOSE_FAILED')
+        win32_denial(opened,error)
+    case('parent-process-read-denied',parent_process)
     def network(host,port):
         with socket.socket() as s:
             s.settimeout(2)
@@ -102,8 +114,11 @@ if __name__=='__main__':
         print(json.dumps(dict(status='PLAN_ONLY',host_calls=0,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False)));raise SystemExit(0)
     native_scope(str(ROOT),socket.gethostname(),sys.argv[1:])
     error=None;cfg={}
-    try:cfg=main()
-    except BaseException as e:error=type(e).__name__
-    result=dict(schema=1,head=cfg.get('head'),run_id=cfg.get('run_id'),attempt=cfg.get('attempt'),pid=os.getpid(),python_version=sys.version,status='PASS' if error is None else 'BLOCKED',error=error,cases=rows,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
+    code=None
+    try:
+        cfg=json.loads((ROOT/'config.json').read_text());main()
+    except BaseException as e:
+        error=type(e).__name__;code=e.code if isinstance(e,BoundaryFailure) else ('WINDOWS_ERROR_'+str(e.winerror) if isinstance(e,OSError) and type(getattr(e,'winerror',None)) is int else None)
+    result=dict(schema=1,head=cfg.get('head'),run_id=cfg.get('run_id'),attempt=cfg.get('attempt'),pid=os.getpid(),python_version=sys.version,status='PASS' if error is None else 'BLOCKED',error=error,error_code=code,cases=rows,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
     (ROOT/'Data/result.json').write_text(json.dumps(result),encoding='utf-8')
     raise SystemExit(0 if error is None else 1)

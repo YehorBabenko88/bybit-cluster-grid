@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework>
+    <EnableDefaultItems>false</EnableDefaultItems><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting><Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <StartupObject>FixtureMain</StartupObject>
@@ -10,4 +10,5 @@
     <Compile Include="../native-acl-observer/Native.cs" Link="ReadOnlyNative.cs" />
     <Compile Include="../native-acl-observer/PolicyTests.cs" Link="ReadOnlyPolicyTests.cs" />
   </ItemGroup>
+<ItemGroup><Compile Include="FixtureMain.cs" /><Compile Include="FixtureNative.cs" /><Compile Include="JournalModel.cs" /><Compile Include="JournalTests.cs" /></ItemGroup>
 </Project>

@@ -21,7 +21,7 @@ internal static class PythonMain {
   using var foreign=CreateFileW(outside,0x80020000,7,IntPtr.Zero,3,0x200000,IntPtr.Zero);ControllerPolicy.Need(!foreign.IsInvalid&&Native.Id(foreign)==outsideId&&FixtureNative.Descriptor(foreign)==outsideSd,"FOREIGN_CANARY_PIN");string outsideHash=Hash(FixtureNative.Read(foreign));
   ControllerPolicy.Need(DuplicateHandle(new IntPtr(-1),foreign,new IntPtr(-1),out var inheritable,0,true,2),"PYTHON_INHERIT_CANARY");using var inheritanceCanary=inheritable;
   var listener=new TcpListener(IPAddress.Loopback,0);listener.Start(4);try{
-   var id=Native.Id(foreign);object config=new{head=input!.Head,run_id=input.Run,attempt=input.Attempt,canary=outside,inherited=inheritanceCanary.DangerousGetHandle().ToInt64(),expected_volume=id.Volume,expected_id=id.FileId,port=((IPEndPoint)listener.LocalEndpoint).Port};
+   var id=Native.Id(foreign);object config=new{parent_pid=Environment.ProcessId,head=input!.Head,run_id=input.Run,attempt=input.Attempt,canary=outside,inherited=inheritanceCanary.DangerousGetHandle().ToInt64(),expected_volume=id.Volume,expected_id=id.FileId,port=((IPEndPoint)listener.LocalEndpoint).Port};
    Environment.SetEnvironmentVariable("GRID_PARENT_SECRET",Guid.NewGuid().ToString("D"));PythonBundle? bundle=null;
    using var child=new OwnedChild(sid,(package,moniker)=>bundle=new PythonBundle(package,moniker,sid,input,inputHash,config));files=bundle!.FileCount;pid=checked((int)child.ProcessId);child.Guard();child.Resume();
    void Copy(string name,byte[] bytes){using var copy=new FileStream(System.IO.Path.Combine(Env("GITHUB_WORKSPACE"),"python-containment-evidence",name),FileMode.CreateNew,FileAccess.Write,FileShare.Read);copy.Write(bytes);copy.Flush(true);}

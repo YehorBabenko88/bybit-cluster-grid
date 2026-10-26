@@ -47,3 +47,6 @@ installer/native-g1-controller-fixture/obj/
 
 /python-input/
 /python-containment-evidence/
+
+/installer/native-python-containment/bin/
+/installer/native-python-containment/obj/

@@ -5,7 +5,7 @@ import xml.etree.ElementTree as E
 from .windows_python_probe import CASES
 ROOT=Path(__file__).resolve().parents[1]
 FIELDS={'schema','head','run_id','attempt','status','reason','input_manifest_sha256','result_sha256','diagnostic_sha256','diagnostic_error','result_error','files','pid','debugged','loader_events','python','assurance','host_verified','execute_authorized','cleanup_authorized','physical','whole_system','network_transport'}
-CHILD={'schema','head','run_id','attempt','pid','python_version','status','error','cases','physical','execute_authorized','cleanup_authorized','whole_system'}
+CHILD={'schema','head','run_id','attempt','pid','python_version','status','error','error_code','cases','physical','execute_authorized','cleanup_authorized','whole_system'}
 
 def need(ok):
     if not ok:raise ValueError('PYTHON_BOUNDARY_EVIDENCE_REFUSED')
@@ -26,7 +26,7 @@ def validate(v,head,run,attempt):
         need(obj.get('execute_authorized') is False and obj.get('cleanup_authorized') is False)
         need(type(obj.get('pid')) is int and obj['pid']>0)
     need(set(v['python'])==CHILD and v['python']['pid']==v['pid'] and type(v['files']) is int and 10<v['files']<=20000)
-    need(v['python']['error'] is None and v['reason'] is None and v['diagnostic_error'] is None and v['result_error'] is None and v['host_verified'] is False)
+    need(v['python']['error'] is None and v['python']['error_code'] is None and v['reason'] is None and v['diagnostic_error'] is None and v['result_error'] is None and v['host_verified'] is False)
     need(type(v['python']['python_version']) is str and v['python']['python_version'].startswith(('3.11','3.12')))
     need(v['assurance']=='HOSTED_DEBUGGED_PYTHON_NEGATIVE_BOUNDARY_ONLY' and v['debugged'] is True and v['network_transport']=='BLOCKED_NO_CAPABILITIES')
     need(type(v['loader_events']) is list and 0<len(v['loader_events'])<=1024 and v['loader_events'][-1]==dict(Event=5,Detail='exit:00000000'))
