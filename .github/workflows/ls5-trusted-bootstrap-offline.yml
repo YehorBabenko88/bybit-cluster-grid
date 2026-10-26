@@ -1,0 +1,86 @@
+name: ls5-trusted-bootstrap-offline
+on:
+  pull_request:
+    paths:
+      - "installer/trusted_bootstrap.py"
+      - "tests/test_ls5_trusted_bootstrap.py"
+      - "tests/test_ls5_bootstrap_ci_evidence.py"
+      - "installer/ls5_bootstrap_ci_evidence.py"
+      - "installer/ls5_disposable_release_model.py"
+      - "installer/ls5_coexistence_safety.py"
+      - "installer/ls5_token_acl_claims.py"
+      - "tests/test_ls5_token_acl_claims.py"
+      - "tests/test_ls5_coexistence_safety.py"
+      - "installer/ls5-g0-readonly-preflight.ps1"
+      - "tests/test_ls5_disposable_release_model.py"
+      - "tests/test_ls5_g0_readonly_preflight.ps1"
+      - "docs/LS5_TRUSTED_BOOTSTRAP.md"
+      - "docs/LS5_TRUSTED_SOURCE_HANDOFF.md"
+      - "docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md"
+      - "docs/BOOTSTRAP_PHYSICAL_READINESS.md"
+      - "docs/LS5_RELEASE_IDENTITY_CONTRACT.md"
+      - "docs/LS5_G0_TOKEN_ACL_HANDOFF.md"
+      - ".github/workflows/ls5-trusted-bootstrap-offline.yml"
+  push:
+    branches:
+      - "parallel/ls5-trusted-bootstrap-20261024"
+permissions:
+  contents: read
+jobs:
+  offline:
+    if: ${{ github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify checked-out source identity
+        shell: bash
+        env:
+          LS5_EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$LS5_EXACT_HEAD"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install pytest
+      - name: Syntax and bytecode validation
+        run: python -m py_compile installer/trusted_bootstrap.py installer/ls5_bootstrap_ci_evidence.py installer/ls5_disposable_release_model.py installer/ls5_coexistence_safety.py installer/ls5_token_acl_claims.py tests/test_ls5_token_acl_claims.py tests/test_ls5_coexistence_safety.py tests/test_ls5_disposable_release_model.py tests/test_ls5_trusted_bootstrap.py tests/test_ls5_bootstrap_ci_evidence.py
+      - name: Windows G0 PowerShell syntax validation (no execution)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD 'installer/ls5-g0-readonly-preflight.ps1'),
+            [ref]$tokens, [ref]$errors
+          )
+          if (@($errors).Count -ne 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw 'G0_POWERSHELL_PARSE_FAILED'
+          }
+      - name: Windows G0 mocked fail-closed regression
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tests/test_ls5_g0_readonly_preflight.ps1
+      - name: Offline negative regression tests
+        run: python -m pytest -q -ra tests/test_ls5_trusted_bootstrap.py tests/test_ls5_bootstrap_ci_evidence.py tests/test_ls5_disposable_release_model.py tests/test_ls5_coexistence_safety.py tests/test_ls5_token_acl_claims.py --junitxml=junit.xml
+      - name: Exact-HEAD evidence receipts
+        if: always()
+        env:
+          LS5_EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python installer/ls5_bootstrap_ci_evidence.py junit.xml evidence
+      - name: Upload immutable per-run offline evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ls5-bootstrap-${{ matrix.os }}-py${{ matrix.python }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
