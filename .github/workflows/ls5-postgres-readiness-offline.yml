@@ -1,0 +1,58 @@
+name: ls5-postgres-readiness-offline
+on:
+  pull_request:
+    paths:
+      - 'installer/ls5_pg_readiness.py'
+      - 'tests/test_ls5_pg_readiness.py'
+      - 'tests/test_ls5_pg_evidence_integrity.py'
+      - 'installer/pg_physical_readiness.py'
+      - 'tests/test_pg_physical_readiness.py'
+      - 'tools/audit_pg245_guard.py'
+      - 'tests/test_pg245_guard_audit.py'
+      - 'tools/audit_pg245_no_sql_mutations.py'
+      - 'docs/LS5_POSTGRES_18_READINESS.md'
+      - '.github/workflows/ls5-postgres-readiness-offline.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pg-evidence-contract:
+    if: ${{ (github.head_ref == 'parallel/ls5-postgres-readiness-20261024' || github.ref_name == 'parallel/ls5-postgres-readiness-20261024') && github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Verify exact commit
+        shell: bash
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - name: Fail-closed offline integrity tests
+        run: python -m unittest discover -s tests -p test_ls5_pg_readiness.py -v
+      - name: Pinned PR245 fixture optimized zero-SQL mutation negative
+        shell: bash
+        run: |
+          set -euo pipefail
+          pinned=0892a1c850787d024a782ff3e44286c191529232
+          git fetch --no-tags --depth=1 origin "$pinned"
+          test "$(git rev-parse FETCH_HEAD)" = "$pinned"
+          git show "$pinned:tests/_pg18_database.py" > pg245-pinned-fixture.py
+          python tools/audit_pg245_guard.py pg245-pinned-fixture.py
+          python tools/audit_pg245_no_sql_mutations.py pg245-pinned-fixture.py
+          rm pg245-pinned-fixture.py
+      - name: Optimized role-secret guard audit regressions
+        run: python -m unittest discover -s tests -p test_pg245_guard_audit.py -v
+      - name: Physical readiness never inferred from hosted CI
+        run: python -m unittest discover -s tests -p test_pg_physical_readiness.py -v
+      - name: Corrupted evidence and mock promotion tests
+        run: python -m unittest discover -s tests -p test_ls5_pg_evidence_integrity.py -v

@@ -91,7 +91,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Install test dependencies
-        run: pip install pytest
+        run: pip install pytest 'psycopg[binary]>=3,<4'
       - name: Mandatory disposable PostgreSQL isolation gate
         run: |
           python - <<'PY'
@@ -113,8 +113,23 @@ jobs:
         run: python -c "import grid.config, grid.worker, grid.coordinator, grid.control_plane, grid.enrollment, grid.update_manager"
       - name: Independent raw writer PostgreSQL fences
         run: python -m pytest -q tests/test_raw_writer_fences_postgres.py
-      - name: Unit tests
-        run: python -m pytest -q
+      - name: Unit tests (PG18-only suites run in mandatory dedicated PG18 workflow)
+        run: >-
+          python -m pytest -q
+          --ignore=tests/test_ls5_pg18_disposable.py
+          --ignore=tests/test_ls5_pg18_restore.py
+      - name: Verify PG18 suites are delegated, not silently skipped
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          workflow=Path('.github/workflows/ls5-postgres18-disposable.yml').read_text()
+          for name in ('tests/test_ls5_pg18_disposable.py','tests/test_ls5_pg18_restore.py'):
+              if name not in workflow:
+                  raise SystemExit('MISSING_DEDICATED_PG18_SUITE')
+          if 'python -m pytest -q tests/test_ls5_pg18_disposable.py tests/test_ls5_pg18_restore.py' not in workflow:
+              raise SystemExit('PG18_SUITE_NOT_EXECUTED')
+          print('PG18_DELEGATION_EXPLICIT')
+          PY
       - name: Network-forbidden pinned three-repository contracts
         run: python -m pytest -q tests/test_composed_cross_repository_contracts.py
       - name: Windows commissioning read-only checks and clean PostgreSQL retention bootstrap
