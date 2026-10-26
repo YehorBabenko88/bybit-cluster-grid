@@ -82,3 +82,23 @@ def test_storage_disabled_account_blocks():
     data["role"] = "STORAGE"
     data["account_enabled"] = False
     assert assess(data)["status"] == "BLOCKED"
+
+@pytest.mark.parametrize("role", ["COLLECTOR", "STORAGE", "WORKER"])
+@pytest.mark.parametrize("integrity", [12288, 16384])
+def test_worker_high_integrity_is_not_accepted(role, integrity):
+    data = sample()
+    data["role"] = role
+    data["integrity_rid"] = integrity
+    result = assess(data)
+    assert result["status"] == "BLOCKED"
+    assert "WORKER_INTEGRITY_TOO_HIGH" in result["issues"]
+    assert result["execute_authorized"] is False
+
+
+def test_control_high_integrity_still_requires_native_witness():
+    data = sample()
+    data["role"] = "CONTROL"
+    data["integrity_rid"] = 16384
+    result = assess(data)
+    assert result["host_verified"] is False
+    assert result["bootstrap_physical_readiness"] == "NO-GO"
