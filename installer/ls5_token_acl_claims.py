@@ -37,7 +37,7 @@ def assess(observation):
         issues.append("MISSING_OR_UNKNOWN_FIELDS")
         return result
     o = observation
-    if o["role"] not in ("COLLECTOR", "STORAGE", "CONTROL", "WORKER"):
+    if type(o["role"]) is not str or o["role"] not in ("COLLECTOR", "STORAGE", "CONTROL", "WORKER"):
         issues.append("ROLE_UNKNOWN")
     if not _sid(o["user_sid"]) or not _sid(o["token_sid"]) or o["user_sid"] != o["token_sid"]:
         issues.append("TOKEN_IDENTITY_UNKNOWN")
@@ -53,6 +53,10 @@ def assess(observation):
         type(o["integrity_rid"]) is not int or o["integrity_rid"] > 8192
     ):
         issues.append("WORKER_INTEGRITY_TOO_HIGH")
+    if o["elevated"] is not False and o["role"] == "CONTROL":
+        issues.append("CONTROL_ELEVATION_UNVERIFIED")
+    if o["administrators_enabled"] is not False and o["role"] == "CONTROL":
+        issues.append("CONTROL_ADMIN_GROUP_UNVERIFIED")
     if o["impersonating"] is not False:
         issues.append("IMPERSONATION_UNKNOWN")
     if type(o["process_creation_ns"]) is not int or o["process_creation_ns"] <= 0:
