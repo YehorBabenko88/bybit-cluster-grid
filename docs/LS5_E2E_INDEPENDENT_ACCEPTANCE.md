@@ -197,3 +197,19 @@ Executed `python /mnt/data/qa_verify_final.py` against the two ORIGINAL download
 Exact PR242 HEAD at CI query: `b5d3da49322eb992fcc0fd539d2264b2d26e4fe9`. Workflow `40336971081` composed-safety-gate SUCCESS and `40336970974` commissioning-manifest SUCCESS; `40336971148` integration-evidence-audit, `40336970966` ls5-physical-acceptance-offline, `40336970824` preflight and other relevant workflows QUEUED; policy-SKIPPED workflows are **not PASS**. The new JUnit inspector regression tests have not been executed as a confirmed full test module on exact QA HEAD, so do not report them green.
 
 **Final G0/G1 ZIP pack `aa411210...` remains independently UNVERIFIED at the per-file level**; physical readiness remains BLOCKED.
+
+
+## 2026-10-26 exact integration 38f9cdf independent raw ZIP review
+
+Integration exact HEAD `38f9cdf7f47be7fdeff81cc6a1bcf6266d53d6d2`, producer tree `4078e06bfe18729c14ecf21b615ca5bf4b75bbdb`. Independently downloaded GitHub-hosted original artifacts and ran a standalone read-only ZIP checker on copies:
+
+| Artifact | Hosted context | Independent raw SHA256 | Manifest | JUnit / JSONL |
+| --- | --- | --- | --- | --- |
+| `12669434850` PG18/E2E | run `40364495881`, attempt 1 | `31c15dd4979281b53b98b9feccc8ca57db5b0b6c3832f36239d1c95e7dc2c73a` MATCH | 11/11 included member SHA256 MATCH | 26 E2E + 32 PG18 cases, zero failures/errors/skips, 26 ISOLATED_E2E_PASS events |
+| `12668219708` controller pwsh3.12 | run `40364495813`, attempt 1 | `c49e41bb2fd5e3586af312c5fcfb143945950c683125bd2ee9bf2051ba9a6b2b` MATCH | 6/6 included member SHA256 MATCH | 46 cases (34 model + 12 native), zero failures/errors/skips, 46 PASS events; fixture-child.exe SHA matches tested image |
+
+Seven independent copied-ZIP mutations per artifact (head, run, attempt, JUnit counter, JSONL append, data/executable byte and ZIP member byte) rejected against original external SHA and pinned context: 14/14. Additionally changed JSONL and recomputed its internal manifest SHA plus ZIP bytes; both recomputed forgeries were rejected by the *original trusted external ZIP digest*. These tests **do not** establish resilience if the trusted external digest is also replaced; independent immutable Git blob source comparison (233 PG entries / 20 native entries) and source-authenticated provenance remain separate obligations. No native binary was executed by the QA checker.
+
+Source review of `ControllerMain.cs`, `ControllerPolicy.cs`, `OwnedChild.cs` confirms CI fixture-only mode, in-memory nonce HashSet and journal anchor, test-generated RSA keys, fixed tiny child image, job-object/process-handle tests and cleanup guards. This is **not** an owner trust registry, external durable anti-rollback, reboot-proof recovery, real Grid/Python import/DLL/child-process closure or physical authorization. The exact G0 LSA ZIP bound to source `198a6f...` (SHA256 `78ed2d72d4b1593546eea448e01bcc9ff07829d2de652d4d263a0687231eed29`) remains pending independent byte/member inspection. Direct SeBatchLogonRight does not imply effective token rights.
+
+**Verdict:** original two hosted artifacts integrity PASS / ISOLATED_E2E_PASS and HOSTED_NATIVE_PASS limited to disposable fixtures; whole-system PARTIAL, physical G0 BLOCKED, G1 NOT_AUTHORIZED, 0/10 PC4 physical tests NOT_RUN, deployment NO-GO.
