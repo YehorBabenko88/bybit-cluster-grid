@@ -119,7 +119,7 @@ def test_authority_field_injection_rejected(value):
     x=baseline(); x["execution_authorized"]=value; check(x,False)
 
 
-@pytest.mark.parametrize("raw", ["[" * 1500 + "]" * 1500, '{"x":' * 1200 + "0" + "}" * 1200])
+@pytest.mark.parametrize("raw", ["[" * 1500 + "]" * 1500, '{"x":' * 1200 + "0" + "}" * 1200], ids=["nested-array", "nested-object"])
 def test_deep_json_fails_closed_without_exception(raw):
     # Payload is within the byte budget but may exceed json.loads recursion depth.
     r = evaluate(raw)
@@ -140,3 +140,16 @@ if r['policy_valid'] is not False or r['status']!='BLOCKED' or r['execution_auth
 """
     r=subprocess.run([sys.executable,*(['-O'] if optimized else []),'-c',code,kind],capture_output=True,text=True,timeout=20)
     assert r.returncode==0,r.stderr
+
+
+@pytest.mark.parametrize("raw", [" " * 65537, "\ud800", "\u00e9" * 40000],
+                         ids=["oversized-ascii", "unpaired-surrogate", "oversized-utf8"])
+def test_bounded_malformed_input_has_short_ci_identity(raw, request):
+    # pytest exports the node ID through PYTEST_CURRENT_TEST on child launch.
+    # Large payload-derived IDs overflow the Windows environment value limit.
+    assert len(request.node.nodeid) < 512
+    result = evaluate(raw)
+    assert result["policy_valid"] is False
+    assert result["execution_authorized"] is False
+    assert result["host_verified"] is False
+    assert result["status"] == "BLOCKED"
