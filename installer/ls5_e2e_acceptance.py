@@ -140,6 +140,19 @@ def inspect_junit_bytes(raw):
     require(root.tag in ("testsuite", "testsuites"), "JUNIT_ROOT")
     suites = [root] if root.tag == "testsuite" else list(root)
     require(bool(suites) and all(x.tag == "testsuite" for x in suites), "JUNIT_SUITES")
+    require(all(child.tag == "testcase" for suite in suites for child in suite),
+            "JUNIT_UNKNOWN_SUITE_CHILD")
+    require(all(child.tag in ("failure", "error", "skipped")
+                for suite in suites for case in suite for child in case),
+            "JUNIT_UNKNOWN_CASE_CHILD")
+    require(all(not list(child) for suite in suites for case in suite for child in case),
+            "JUNIT_NESTED_OUTCOME")
+    require(all(sum(child.tag == tag for child in case) <= 1
+                for suite in suites for case in suite
+                for tag in ("failure", "error", "skipped")),
+            "JUNIT_DUPLICATE_OUTCOME")
+    require(all(sum(child.tag in ("failure", "error", "skipped") for child in case) <= 1
+                for suite in suites for case in suite), "JUNIT_CONFLICTING_OUTCOMES")
     cases = [case for suite in suites for case in suite.findall("testcase")]
     require(bool(cases), "JUNIT_ZERO_CASES")
     require(all(not (node.text or "").strip() and not (node.tail or "").strip()
