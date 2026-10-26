@@ -25,3 +25,16 @@ The minimal child exited 0 on 691807b, then the terminated-image query refused. 
 P0 source-audit correction: create-suspended then AssignProcessToJobObject had a controller-death gap. The fixture now supplies PROC_THREAD_ATTRIBUTE_JOB_LIST at process creation (Windows 10+/Server 2016+), checks membership immediately and provides no post-create-assignment fallback. The sole unnamed Job handle is not inherited; existing native membership and close-last-handle termination cases must pass. This closes that API ordering gap, but no OS reboot/durable authorization claim follows.
 
 Terminal marker scheduling requires an exact original held identity with one link, the same ID/volume/attributes with zero accessible links, and FILE_STANDARD_INFO DeletePending=true/non-directory. Normal custody still rejects the changed identity. The terminal journal is MARKER_DELETE_PENDING; actual deletion after last close is not observed. Failed terminal flush is not retention/completion evidence. Physical Cleanup remains NOT_AUTHORIZED.
+
+Cross-fixture cleanup regression: the guardian must refer to the exact retained
+OwnedFixture instance passed to Cleanup before journal or disposition effects.
+Two fresh hosted fixtures exercise a swapped guardian and require unchanged
+journals and unchanged marker custody. This does not bind a future arbitrary
+Grid process tree to external authorization and does not enable physical cleanup.
+
+The guardian also owns one verified child instance, created only in PREPARED
+with an image hash matching its permit. Cleanup rejects an unrelated exited
+child even when the original child is live and a journal claims EXITED. The
+hosted negative checks no journal/marker changes after this refusal. These
+in-process bindings do not survive handle loss or reboot and grant no physical
+execution, cleanup or deployment authority.

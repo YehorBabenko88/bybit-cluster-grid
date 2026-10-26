@@ -5,7 +5,7 @@ unsafe to approve an executable physical sequence before the missing controller,
 protected custody and OS isolation prerequisites have been independently proved.
 No fabricated executable, local-mode CI bypass or name-based cleanup is supplied.
 
-## Current observed G0 (not host attestation)
+## Historical G0 baseline (not host attestation)
 
 The authenticated local tool session reported machine LS5. The existing read-only
 PowerShell collector was run with explicit G0Approved under the owner's G0 scope.
@@ -29,6 +29,48 @@ No Coordinator was positively classified, but unknown process CommandLine values
 prevent any assertion that Coordinator/Worker are absent. Python custody, effective
 ACL/tokens, databases and roles are BLOCKED. No authenticated PG metadata session
 was available. PC4 access/host-key binding is unconfirmed and was not attempted.
+
+## G0 update, 2026-10-26 (still BLOCKED)
+
+The later pinned PC4 transport was authenticated and used for approved read-only
+G0 collection. The historical statement above that access was unconfirmed describes
+only that earlier snapshot; it must not override the later observation. Native LSA
+reader source HEAD `198a6f7823a4990ad8d9626f26ad990e0c04deb4`, run
+`548152fa3ee84565884b233917509b60`, returned direct SeBatchLogonRight for both
+fully SID-pinned Collector/Storage accounts. Other requested allow/deny rights were
+NOT_DIRECTLY_ASSIGNED. Group-derived/effective rights remain UNKNOWN; no actor
+logon/token or physical SID/ACL test was performed. Enabled accounts with
+PasswordRequired=False remain an unresolved risk, not usable test identities.
+
+Original read-only G0/PATH bundle SHA256:
+`78ed2d72d4b1593546eea448e01bcc9ff07829d2de652d4d263a0687231eed29`.
+The producer's original bytes are published in PR244 comment6421193589; this
+checksum establishes byte consistency, not independent host attestation.
+Two fresh sessions did not reproduce Process PATH `$_`; its historical cause
+remains unresolved. No PATH/SSH repair was attempted. Effective tokens/ACL, trusted
+source custody, PGDATA custody and authenticated DB/role inventory remain BLOCKED.
+No existing PostgreSQL/Coordinator/Worker is adopted by the proposed test run.
+
+## Native controller boundary and next proof
+
+The hosted fixture covers one fixed native child, held process/Job handles and
+bounded marker disposition. It does not establish actual Grid/Python import/DLL
+custody or usable API/DB transport. Capability-free AppContainer blocks loopback;
+no loopback exemption, firewall rule or host policy may be added implicitly.
+An actual-runtime solution needs independently reviewed containment and brokered
+transport before executable commands can replace any blocked phase.
+
+Cleanup now also rejects a guardian belonging to a different retained fixture,
+before journal intent or marker disposition. Its adversarial hosted case requires
+both marker identities and both journals to remain unchanged after refusal. This
+is one resource-binding check, not a physical cleanup executor or authorization.
+
+RSA fixture-generated keys and a same-process replay HashSet are test mechanisms,
+not owner authority. The in-memory guardian anchor cannot detect rollback of all
+state or survive handle loss/reboot. An independent externally pinned owner key,
+atomic durable consume-before-effects, monotonic external custody and tested
+crash recovery remain mandatory. Unknown external state means RETAIN/BLOCKED;
+no local reset, automatic reissue or name-based recovery is authorized.
 
 ## Proposed limited G1 scope, after prerequisites only
 
@@ -110,3 +152,10 @@ admits only this known bounded string; extra fields and invalid types still reje
 The real snapshots then parse while G0/G1 remain BLOCKED and host_verified=false.
 Independent custody/token/egress/DB evidence remains absent. Physical SID/ACL is
 still0/10 NOT_RUN; this G0 observation is not the physical harness or G1 execution.
+
+The guardian also owns one verified child instance, created only in PREPARED
+with an image hash matching its permit. Cleanup rejects an unrelated exited
+child even when the original child is live and a journal claims EXITED. The
+hosted negative checks no journal/marker changes after this refusal. These
+in-process bindings do not survive handle loss or reboot and grant no physical
+execution, cleanup or deployment authority.

@@ -57,7 +57,7 @@ def test_downloaded_receipt_reinspection(tmp_path,monkeypatch,tamper):
     seed(tmp_path,monkeypatch)
     for file,kind in [('model.json','MODEL_TESTS'),('native.json','HOSTED_FIXTURE_TESTS')]:
         (tmp_path/file).write_text(json.dumps(sample(kind)),encoding='utf-8')
-    assert c.receipt(tmp_path,HEAD,'12','2',create=True)['tests']==43
+    assert c.receipt(tmp_path,HEAD,'12','2',create=True)['tests']==46
     if tamper=='manifest':
         p=tmp_path/'manifest.json';v=json.loads(p.read_text());v['attempt']='1';p.write_text(json.dumps(v))
     elif tamper=='source':monkeypatch.setattr(c,'source_hashes',lambda head:{SOURCE:'b'*64})
