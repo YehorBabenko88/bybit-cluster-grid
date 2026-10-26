@@ -19,6 +19,7 @@ on:
       - "docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md"
       - "docs/BOOTSTRAP_PHYSICAL_READINESS.md"
       - "docs/LS5_RELEASE_IDENTITY_CONTRACT.md"
+      - "docs/LS5_G0_TOKEN_ACL_HANDOFF.md"
       - ".github/workflows/ls5-trusted-bootstrap-offline.yml"
   push:
     branches:
