@@ -5,7 +5,7 @@ HEAD='a'*40
 
 def sample():
     child=dict(schema=1,head=HEAD,run_id='12',attempt='1',pid=123,python_version='3.12 synthetic',status='PASS',error=None,cases=[dict(name=n,outcome='PASS') for n in CASES],physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
-    return dict(schema=1,head=HEAD,run_id='12',attempt='1',status='PASS',reason=None,input_manifest_sha256='a'*64,result_sha256='b'*64,files=15,pid=123,python=child,assurance='HOSTED_PYTHON_NEGATIVE_BOUNDARY_ONLY',host_verified=False,execute_authorized=False,cleanup_authorized=False,physical='0/10 NOT_RUN',whole_system='PARTIAL',network_transport='BLOCKED_NO_CAPABILITIES')
+    return dict(schema=1,head=HEAD,run_id='12',attempt='1',status='PASS',reason=None,input_manifest_sha256='a'*64,result_sha256='b'*64,diagnostic_sha256='c'*64,diagnostic_error=None,result_error=None,files=15,pid=123,python=child,assurance='HOSTED_PYTHON_NEGATIVE_BOUNDARY_ONLY',host_verified=False,execute_authorized=False,cleanup_authorized=False,physical='0/10 NOT_RUN',whole_system='PARTIAL',network_transport='BLOCKED_NO_CAPABILITIES')
 
 def test_exact_negative_boundary_only():validate(sample(),HEAD,'12','1')
 @pytest.mark.parametrize('field,value',[('head','f'*40),('run_id','13'),('pid',True),('status','BLOCKED'),('whole_system','PASS'),('host_verified',True),('execute_authorized',True),('extra','unknown')])

@@ -10,7 +10,7 @@ def need(ok):
 def relative(name):
     need(type(name) is str and 0<len(name)<=240)
     for p in name.split("/"):
-        need(re.fullmatch(r"[A-Za-z0-9_. -]+",p) is not None and p not in (".","..") and not p.endswith(("."," ")))
+        need(re.fullmatch(r"[A-Za-z0-9_. ()-]+",p) is not None and p not in (".","..") and not p.endswith(("."," ")))
         need(p.split(".")[0].upper() not in {"CON","PRN","AUX","NUL",*("COM"+str(n) for n in range(1,10)),*("LPT"+str(n) for n in range(1,10))})
     return name
 

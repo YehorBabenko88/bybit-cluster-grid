@@ -7,7 +7,7 @@ Never spoof CI variables. Source changes and hosted GUID fixtures only.
 The new entry point reuses the existing restricted-token, low-label, capability-free
 AppContainer, private desktop, suspended atomic Job-list assignment and held
 process identity code. The Job permits one active process, no breakaway, and kills
-its owned process on last handle close. Parent handles are not inherited; a
+its owned process on last handle close. Only one own append-only diagnostic handle is explicitly inherited through an atomic HANDLE_LIST; ambient parent handles are excluded. A
 purposefully inheritable shareable canary tests that restriction.
 
 A measured CPython/runtime/dependency/Grid closure is copied CREATE_ONLY beneath a

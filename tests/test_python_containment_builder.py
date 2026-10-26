@@ -24,3 +24,8 @@ def test_windows_interior_space_is_not_an_alias():
 @pytest.mark.parametrize('name',['CONIN$','x/CONOUT$','%TEMP%/x','x~1/a','x*/a','x/ads:name','x./a','x /a'])
 def test_win32_device_and_expansion_aliases_blocked(name):
     with pytest.raises(ValueError):relative(name)
+
+
+def test_measured_setuptools_template_name_from_windows_ci():
+    name='Site/setuptools/script (dev).tmpl'
+    assert relative(name)==name
