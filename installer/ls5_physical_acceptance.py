@@ -292,7 +292,7 @@ def audit_ci_matrix(jobs, *, expected_head):
 INTEGRATION_PRS = (238, 239, 240, 241, 242)
 
 
-def audit_cross_pr_gates(entries, *, expected_base):
+def audit_cross_pr_gates(entries, *, expected_base, expected_heads=None):
     """Independent G0/G1 composition; never treats disjoint files as tested integration."""
     require(type(expected_base) is str and HEAD.fullmatch(expected_base) is not None,
             "CROSS_BASE")
