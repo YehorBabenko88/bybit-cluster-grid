@@ -81,3 +81,18 @@ def test_missing_partition_field_rejected():
     del part["artifact_sha256"]
     with pytest.raises(PartitionContractError, match="Missing partition"):
         verify_partition_payload(part, payload, max_bytes=1000)
+
+
+@pytest.mark.parametrize("bad", [None, True, 123, "g" * 64, "A" * 64])
+def test_invalid_digest_shape_rejected(bad):
+    part, payload = fixture([dict(event_ns=0, available_ns=60, revision=1)])
+    part["artifact_sha256"] = bad
+    with pytest.raises(PartitionContractError, match="SHA256"):
+        verify_partition_payload(part, payload, max_bytes=1000)
+
+
+def test_invalid_manifest_range_rejected():
+    part, payload = fixture([dict(event_ns=0, available_ns=60, revision=1)])
+    part["first_event_ns"] = 240
+    with pytest.raises(PartitionContractError, match="range/count"):
+        verify_partition_payload(part, payload, max_bytes=1000)
