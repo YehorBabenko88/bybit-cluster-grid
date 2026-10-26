@@ -23,7 +23,13 @@ def verify_partition_payload(partition: dict, payload: bytes, *, max_bytes: int)
            ("row_count", "timeframe_ns", "knowledge_cutoff_ns",
             "first_event_ns", "last_event_ns")):
         raise PartitionContractError("Invalid partition integer")
-    if hashlib.sha256(payload).hexdigest() != partition["artifact_sha256"]:
+    digest = partition["artifact_sha256"]
+    if (type(digest) is not str or len(digest) != 64
+            or any(char not in "0123456789abcdef" for char in digest)):
+        raise PartitionContractError("Invalid partition SHA256")
+    if partition["row_count"] < 1 or partition["first_event_ns"] > partition["last_event_ns"]:
+        raise PartitionContractError("Invalid partition range/count")
+    if hashlib.sha256(payload).hexdigest() != digest:
         raise PartitionContractError("Payload SHA256 mismatch")
     def unique_pairs(pairs):
         obj = {}
