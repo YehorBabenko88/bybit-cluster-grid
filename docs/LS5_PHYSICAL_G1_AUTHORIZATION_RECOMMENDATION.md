@@ -180,3 +180,14 @@ Issue #243 and PR #242 coordinator comments explicitly require byte-level indepe
 Independent QA PR242 hardening now rejects unexpected JUnit suite/case child elements, nested outcome elements, duplicate outcome tags and mutually conflicting failure/error/skipped tags. Negative fixtures include hidden `PHYSICAL_PASS` elements and contradictory outcomes. These are committed source and tests, **not yet executed in a repository checkout** (GitHub clone DNS unavailable in this environment, no exact-HEAD CI runs returned for the new QA commits). Do not promote them to hosted PASS.
 
 P0 for physical G1 remains unverified effective LS5/PC4 token/ACL/PGDATA and existing-process identity, owner-authenticated durable external replay protection, real Grid/Python Windows containment and a reviewed physical controller. G0 metadata and hosted CI cannot satisfy these. **PHYSICAL_G1_AUTHORIZATION_RECOMMENDATION=BLOCKED**, all 20 G1 mutation phases BLOCKED/argv null, Physical 0/10 NOT_RUN, Execute/Cleanup NOT_AUTHORIZED, Deployment NO-GO.
+
+
+## 2026-10-26 P0 CI repair checkpoint (exact HEAD)
+
+Coordinator's addressed PR242 comment `6421542567` and Issue243 comment `6421556176` identified confirmed Linux CI failures at old HEAD `530535faf39d1f3abd8ae1cae75effa3c6b95bfe`. Independently fetched raw hosted Linux job `121623782873` and preflight job `121623791397`: the first failed `test_cross_pr_g0_g1_fail_closed` because `audit_cross_pr_gates(..., expected_heads=pins)` raised `TypeError`; preflight also failed six branch-exclusion publication tests, including `ls5-physical-acceptance-offline.yml`. The source function referenced `expected_heads` without declaring it in its signature.
+
+Patches in **own branch only**: `installer/ls5_physical_acceptance.py` restores optional keyword `expected_heads=None` while preserving exact set, SHA syntax and per-PR head equality checks; `tests/test_ls5_physical_acceptance.py` adds negative malformed/incomplete/extra pin-map tests; `.github/workflows/ls5-physical-acceptance-offline.yml` now includes both `github.head_ref` and `github.ref_name` exclusions for six independent planning/audit branches. No policy skip is promoted to PASS.
+
+New exact PR242 HEAD `79a7baa6dcb9ba3609302a6d9c0dc0495b962f8d`. GitHub associated runs `40361910089` (physical acceptance), `40361910024` (preflight), `40361910443` (integration evidence) were QUEUED at observation. This is **NOT yet a hosted SUCCESS**. Previous old-head failures remain historical. No mass rerun, empty commit or changes to foreign branches.
+
+Physical G0 BLOCKED; 20 G1 commands null/BLOCKED; PC4 SID/ACL 0/10 NOT_RUN; Execute/Cleanup NOT_AUTHORIZED; Deployment NO-GO.
