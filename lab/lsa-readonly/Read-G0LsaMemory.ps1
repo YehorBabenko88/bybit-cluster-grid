@@ -4,6 +4,7 @@ $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 function Get-G0IdentityBinding {
  param([scriptblock]$Query,[string]$CollectorSid,[string]$StorageSid)
+ $WarningPreference='Stop'
  $answer=@{complete=$false;identities=@();code='IDENTITY_FAILED'}
  try{
   $pins=[ordered]@{GridLabCollector=$CollectorSid;GridLabStorage=$StorageSid}
@@ -30,8 +31,8 @@ try{
  if($actual -cne $AssemblySha256){throw 'ASSEMBLY_DIGEST'}
  # Explicit OS module path, never PATH/PSModulePath discovery or a compatibility subprocess.
  $phase='IDENTITY_FAILED'
- Import-Module 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.LocalAccounts\Microsoft.PowerShell.LocalAccounts.psd1' -ErrorAction Stop
- $binding=Get-G0IdentityBinding -CollectorSid $CollectorSid -StorageSid $StorageSid -Query {param($n) Microsoft.PowerShell.LocalAccounts\Get-LocalUser -Name $n -ErrorAction Stop}
+ Import-Module 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.LocalAccounts\Microsoft.PowerShell.LocalAccounts.psd1' -ErrorAction Stop -WarningAction Stop
+ $binding=Get-G0IdentityBinding -CollectorSid $CollectorSid -StorageSid $StorageSid -Query {param($n) Microsoft.PowerShell.LocalAccounts\Get-LocalUser -Name $n -ErrorAction Stop -WarningAction Stop}
  if(-not $binding.complete){foreach($s in $report.subjects){$s.code=$binding.code};throw 'IDENTITY_BLOCKED'}
  # Hash validation and BOTH identity pins precede assembly loading and every LSA call.
  $phase='ASSEMBLY_LOAD_FAILED'
