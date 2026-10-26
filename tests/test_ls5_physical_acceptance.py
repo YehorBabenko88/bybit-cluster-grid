@@ -260,7 +260,7 @@ class GateTests(unittest.TestCase):
         overlap = [dict(x) for x in approved]
         overlap[1]["changed_files"] = overlap[0]["changed_files"]
         self.assertTrue(audit_cross_pr_gates(overlap, expected_base=base)["overlapping_files"])
-        for changed in ([dict(rows[0], pr=239)], [dict(rows[0], base="f"*40)],
+        for changed in (rows + [dict(rows[0])], [dict(rows[0], base="f"*40)],
                         [dict(rows[0], draft=False)], [dict(rows[0], changed_files=["../bad"])]):
             with self.subTest(changed=changed), self.assertRaises(AcceptanceBlocked):
                 audit_cross_pr_gates(changed, expected_base=base)
