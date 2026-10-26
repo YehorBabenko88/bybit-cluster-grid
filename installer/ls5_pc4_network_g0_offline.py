@@ -57,6 +57,12 @@ def evaluate(raw, *, expected_head=None, expected_run_id=None):
             for field in set(node) - {"tailnet_ip"}:
                 if node[field] is not None and type(node[field]) is not bool:
                     return out
+        # Two distinct physical nodes must never be accepted with the same tailnet IP.
+        # This is only a consistency check, not evidence of current Tailscale identity.
+        ips = [node["tailnet_ip"] for node in x["nodes"].values() if node["tailnet_ip"] is not None]
+        if len(ips) != len(set(ips)):
+            out["findings"] = ["DUPLICATE_TAILNET_IP"]
+            return out
         if type(x["controls"]) is not dict or set(x["controls"]) != {"worker_has_pg_dsn", "worker_has_control_token", "external_ingress_detected", "production_endpoint_detected"}:
             return out
         for value in x["controls"].values():
