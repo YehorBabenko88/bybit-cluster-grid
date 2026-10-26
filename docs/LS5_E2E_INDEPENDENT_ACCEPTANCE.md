@@ -188,3 +188,12 @@ Independent copied-byte tamper checks on **each** ZIP: forged HEAD, run, attempt
 **Separate pending evidence:** final G0/G1 pack from PR244 comment `6388592411`, externally published SHA256 `aa411210f634c1131713246bae09c067f2292aa9a624dfb4c82f8099d1791aee`, has **not** been independently decoded and per-member inspected in this verification. It must not be treated as accepted based on the two hosted ZIPs. No physical attestation was performed.
 
 **Narrow verdict:** original PG/E2E and one native fixture hosted artifacts have independent outer/inner byte-integrity PASS; hosted `ISOLATED_E2E_PASS` supported; `whole_system=PARTIAL`; physical G0 BLOCKED, G1 NOT_AUTHORIZED, PC4 0/10 NOT_RUN, deployment NO-GO.
+
+
+## 2026-10-26 repeatable independent ZIP checker execution and PR242 CI
+
+Executed `python /mnt/data/qa_verify_final.py` against the two ORIGINAL downloaded hosted ZIPs (not a producer verifier): both SHA256 match external pinned digests, PG 26/26 stages and 32/32 PG18 JUnit tests, native 33/33 managed + 10/10 native JUnit tests, zero failures/errors/skips; 11/11 and 6/6 internal manifest entries match raw bytes. Seven copy-only context/content mutations for each artifact were detected (14/14). The executed checker wrote `qa_final_receipts.json` with results. **Scope limitation:** these 14 tests detect differences against trusted pinned originals, not a malicious producer able to replace the trusted external SHA and rehash all inner manifests; 233 PG and 20 native source hashes remain producer-only. No Windows native binaries or physical machines were executed.
+
+Exact PR242 HEAD at CI query: `b5d3da49322eb992fcc0fd539d2264b2d26e4fe9`. Workflow `40336971081` composed-safety-gate SUCCESS and `40336970974` commissioning-manifest SUCCESS; `40336971148` integration-evidence-audit, `40336970966` ls5-physical-acceptance-offline, `40336970824` preflight and other relevant workflows QUEUED; policy-SKIPPED workflows are **not PASS**. The new JUnit inspector regression tests have not been executed as a confirmed full test module on exact QA HEAD, so do not report them green.
+
+**Final G0/G1 ZIP pack `aa411210...` remains independently UNVERIFIED at the per-file level**; physical readiness remains BLOCKED.
