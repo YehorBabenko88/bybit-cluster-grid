@@ -20,4 +20,24 @@ foreach($case in @('valid','wrong-sid','wrong-name','missing','partial-error','d
  if($r.complete -ne ($case -ceq 'valid') -or (-not $r.complete -and $r.identities.Count -ne 0)){throw 'IDENTITY_NOT_FAIL_CLOSED'}
  };$cases+=('identity-'+$case)
 }
-[pscustomobject]@{schema=1;kind='SYNTHETIC_FAKE_API_ONLY';legacy_cases=30;cases=@($names)+@($cases)+@('plan-only');physical='0/10 NOT_RUN';execute_authorized=$false;cleanup_authorized=$false;actor_tokens_created=$false}|ConvertTo-Json -Depth 5 -Compress
+$layouts=@()
+foreach($layout in @('manifest','versioned-binary','missing','ambiguous','provider-error')){
+ $selected=$null;$blocked=$false
+ try{$selected=Get-G0OsModulePath -TestFile {param($p) if($layout -ceq 'provider-error'){throw 'SYNTHETIC_ACCESS_DENIED'};if($layout -ceq 'ambiguous'){return $true};if($layout -ceq 'manifest'){return $p.EndsWith('.psd1')};if($layout -ceq 'versioned-binary'){return $p.EndsWith('1.0.0.0\Microsoft.Powershell.LocalAccounts.dll')};return $false}}catch{$blocked=$true}
+ if($layout -cin @('manifest','versioned-binary')){if($blocked -or -not $selected){throw 'SUPPORTED_LAYOUT_BLOCKED'}}else{if(-not $blocked){throw 'UNKNOWN_LAYOUT_ACCEPTED'}}
+ $layouts+=('module-'+$layout)
+}
+$attributeCases=@()
+foreach($attributeCase in @('normal','file-reparse','ancestor-reparse','file-directory','access-denied','file-missing')){
+ $ok=$false;$blocked=$false
+ try{$ok=Test-G0OsModuleFile -Path 'C:\G0Fake\module.dll' -ReadAttributes {param($p)
+  if($attributeCase -ceq 'access-denied'){throw [UnauthorizedAccessException]::new('SYNTHETIC')}
+  if($attributeCase -ceq 'file-missing'){throw [IO.FileNotFoundException]::new('SYNTHETIC')}
+  if($p.EndsWith('module.dll')){if($attributeCase -ceq 'file-reparse'){return [IO.FileAttributes]::ReparsePoint};if($attributeCase -ceq 'file-directory'){return [IO.FileAttributes]::Directory};return [IO.FileAttributes]::Normal}
+  if($attributeCase -ceq 'ancestor-reparse'){return ([IO.FileAttributes]::Directory -bor [IO.FileAttributes]::ReparsePoint)}
+  return [IO.FileAttributes]::Directory
+ }}catch{$blocked=$true}
+ if($attributeCase -ceq 'normal'){if($blocked -or -not $ok){throw 'NORMAL_ATTRIBUTE_BLOCKED'}}elseif($attributeCase -ceq 'file-missing'){if($blocked -or $ok){throw 'MISSING_ATTRIBUTE_NOT_FALSE'}}else{if(-not $blocked){throw 'UNSAFE_ATTRIBUTE_ACCEPTED'}}
+ $attributeCases+=('module-file-'+$attributeCase)
+}
+[pscustomobject]@{schema=1;kind='SYNTHETIC_FAKE_API_ONLY';legacy_cases=30;cases=@($names)+@($cases)+@('plan-only')+@($layouts)+@($attributeCases);physical='0/10 NOT_RUN';execute_authorized=$false;cleanup_authorized=$false;actor_tokens_created=$false}|ConvertTo-Json -Depth 5 -Compress

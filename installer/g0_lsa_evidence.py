@@ -3,7 +3,7 @@ import re
 RIGHTS=('SeInteractiveLogonRight','SeRemoteInteractiveLogonRight','SeNetworkLogonRight','SeBatchLogonRight','SeServiceLogonRight','SeDenyInteractiveLogonRight','SeDenyRemoteInteractiveLogonRight','SeDenyNetworkLogonRight','SeDenyBatchLogonRight','SeDenyServiceLogonRight')
 FIELDS=set('schema head run_id host mode collection subjects effective_rights group_completeness execution_authorized cleanup_authorized host_verified actor_tokens_created physical_tests'.split())
 ROW=set('name expected_sid observed_sid state code ntstatus win32 cleanup_failed rights logon_rights'.split())
-ERRORS={'OPEN_FAILED','ENUMERATE_FAILED','CLEANUP_FAILED','SID_MISMATCH','IDENTITY_FAILED','INVALID_HANDLE','API_OR_DATA_ERROR','UNSUPPORTED_RIGHT','INVALID_G0_SCOPE','ASSEMBLY_DIGEST_MISMATCH','ASSEMBLY_LOAD_FAILED','LSA_INVOCATION_FAILED'}
+ERRORS={'OPEN_FAILED','ENUMERATE_FAILED','CLEANUP_FAILED','SID_MISMATCH','IDENTITY_FAILED','INVALID_HANDLE','API_OR_DATA_ERROR','UNSUPPORTED_RIGHT','INVALID_G0_SCOPE','ASSEMBLY_DIGEST_MISMATCH','ASSEMBLY_LOAD_FAILED','LSA_INVOCATION_FAILED','OS_MODULE_LAYOUT_BLOCKED','OS_MODULE_LOAD_FAILED'}
 def need(ok):
     if not ok:raise ValueError('G0_LSA_EVIDENCE_BLOCKED')
 def validate(v,*,head,run_id,expected_sids):

@@ -2,6 +2,24 @@
 param([switch]$CollectMemory,[switch]$G0Approved,[byte[]]$AssemblyBytes,[string]$AssemblySha256='',[string]$Head='',[string]$RunId='',[string]$CollectorSid='',[string]$StorageSid='')
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
+function Get-G0OsModulePath {
+ param([scriptblock]$TestFile)
+ $WarningPreference='Stop'
+ $root='C:\Windows\System32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.LocalAccounts'
+ $candidates=@((Join-Path $root 'Microsoft.PowerShell.LocalAccounts.psd1'),(Join-Path $root '1.0.0.0\Microsoft.Powershell.LocalAccounts.dll'))
+ $found=@()
+ foreach($p in $candidates){$v=@(& $TestFile $p 3>$null);if($v.Count -ne 1 -or $v[0] -isnot [bool]){throw 'MODULE_LAYOUT_UNKNOWN'};if($v[0]){$found+=$p}}
+ if($found.Count -ne 1){throw 'MODULE_LAYOUT_UNKNOWN'}
+ return $found[0]
+}
+function Test-G0OsModuleFile {
+ param([string]$Path,[scriptblock]$ReadAttributes={param($p) [IO.File]::GetAttributes($p)})
+ try{$attributes=& $ReadAttributes $Path}catch [IO.FileNotFoundException]{return $false}catch [IO.DirectoryNotFoundException]{return $false}
+ if(($attributes -band [IO.FileAttributes]::ReparsePoint) -or ($attributes -band [IO.FileAttributes]::Directory)){throw 'UNSAFE_OS_MODULE_FILE'}
+ $parent=[IO.Path]::GetDirectoryName($Path)
+ while($parent){$a=& $ReadAttributes $parent;if(($a -band [IO.FileAttributes]::ReparsePoint) -or -not ($a -band [IO.FileAttributes]::Directory)){throw 'UNSAFE_OS_MODULE_ANCESTOR'};$up=[IO.Directory]::GetParent($parent);$parent=if($null -eq $up){$null}else{$up.FullName}}
+ return $true
+}
 function Get-G0IdentityBinding {
  param([scriptblock]$Query,[string]$CollectorSid,[string]$StorageSid)
  $WarningPreference='Stop'
@@ -30,8 +48,12 @@ try{
  $sha=[Security.Cryptography.SHA256]::Create();try{$actual=([BitConverter]::ToString($sha.ComputeHash($AssemblyBytes))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}
  if($actual -cne $AssemblySha256){throw 'ASSEMBLY_DIGEST'}
  # Explicit OS module path, never PATH/PSModulePath discovery or a compatibility subprocess.
+ $phase='OS_MODULE_LAYOUT_BLOCKED'
+ $module=Get-G0OsModulePath -TestFile {param($p) Test-G0OsModuleFile -Path $p}
+ $phase='OS_MODULE_LOAD_FAILED'
+ $loaded=@(Import-Module $module -PassThru -ErrorAction Stop -WarningAction Stop 3>$null)
+ if($loaded.Count -ne 1 -or $loaded[0].Path -ine $module){throw 'OS_MODULE_PATH_MISMATCH'}
  $phase='IDENTITY_FAILED'
- Import-Module 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.LocalAccounts\Microsoft.PowerShell.LocalAccounts.psd1' -ErrorAction Stop -WarningAction Stop 3>$null
  $binding=Get-G0IdentityBinding -CollectorSid $CollectorSid -StorageSid $StorageSid -Query {param($n) Microsoft.PowerShell.LocalAccounts\Get-LocalUser -Name $n -ErrorAction Stop -WarningAction Stop}
  if(-not $binding.complete){foreach($s in $report.subjects){$s.code=$binding.code};throw 'IDENTITY_BLOCKED'}
  # Hash validation and BOTH identity pins precede assembly loading and every LSA call.
