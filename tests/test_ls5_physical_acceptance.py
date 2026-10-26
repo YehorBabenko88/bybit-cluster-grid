@@ -237,6 +237,14 @@ class GateTests(unittest.TestCase):
         forged[0]["head"] = "f" * 40
         with self.assertRaises(AcceptanceBlocked):
             audit_cross_pr_gates(forged, expected_base=base, expected_heads=pins)
+        for bad_pins in (
+            {238: HEAD},
+            {**pins, 999: HEAD},
+            {**pins, 238: "INVALID"},
+            {**pins, 238: None},
+        ):
+            with self.subTest(bad_pins=bad_pins), self.assertRaises(AcceptanceBlocked):
+                audit_cross_pr_gates(rows, expected_base=base, expected_heads=bad_pins)
         self.assertEqual(audit_cross_pr_gates(rows, expected_base=base,
                          expected_heads=pins)["status"], "BLOCKED")
         result = audit_cross_pr_gates(rows, expected_base=base)
