@@ -21,12 +21,17 @@ namespace GridLab.LsaReadOnly {
         uint WinError(uint status);
     }
     public sealed class NativeApi : IPolicyApi {
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport("advapi32.dll")] static extern uint LsaOpenPolicy(IntPtr system,
             ref ObjectAttributes attributes, uint access, out IntPtr handle);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport("advapi32.dll")] static extern uint LsaEnumerateAccountRights(
             IntPtr handle, byte[] sid, out IntPtr buffer, out uint count);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport("advapi32.dll")] static extern uint LsaFreeMemory(IntPtr buffer);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport("advapi32.dll")] static extern uint LsaClose(IntPtr handle);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport("advapi32.dll")] static extern uint LsaNtStatusToWinError(uint status);
         public uint Open(uint access, out IntPtr handle) {
             var a = new ObjectAttributes(); a.Length = (uint)Marshal.SizeOf(typeof(ObjectAttributes));
@@ -48,7 +53,7 @@ namespace GridLab.LsaReadOnly {
         public const uint LookupNames = 0x800;
         public const uint NotAssigned = 0xC0000034;
         public static string[] Parse(IntPtr buffer, uint count) {
-            if (count > 256 || (count > 0 && buffer == IntPtr.Zero)) throw new FormatException();
+            if (count > 256 || (count == 0 && buffer != IntPtr.Zero) || (count > 0 && buffer == IntPtr.Zero)) throw new FormatException();
             var values = new List<string>();
             int stride = Marshal.SizeOf(typeof(UnicodeString));
             for (int i=0; i<count; i++) {
