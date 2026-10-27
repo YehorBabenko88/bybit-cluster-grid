@@ -260,8 +260,21 @@
     "tests/test_floating_leader_same_node.py::test_other_node_cannot_take_unexpired_lease",
     "tests/test_floating_leader_same_node.py::test_same_node_cannot_take_unexpired_lease",
     "tests/test_isolated_transport_evidence.py::test_child_elevation_is_rejected_even_with_consistent_fingerprint",
+    "tests/test_isolated_transport_evidence.py::test_class21_raw_payload_does_not_establish_restriction_state[1-00]",
+    "tests/test_isolated_transport_evidence.py::test_class21_raw_payload_does_not_establish_restriction_state[1-01]",
+    "tests/test_isolated_transport_evidence.py::test_class21_raw_payload_does_not_establish_restriction_state[4-00000000]",
+    "tests/test_isolated_transport_evidence.py::test_class21_raw_payload_does_not_establish_restriction_state[4-01000000]",
     "tests/test_isolated_transport_evidence.py::test_header_never_accepts_pass_or_physical_authority",
     "tests/test_isolated_transport_evidence.py::test_held_process_token_snapshot_is_observation_only",
+    "tests/test_isolated_transport_evidence.py::test_invalid_class21_raw_observation_refused[information_class-20]",
+    "tests/test_isolated_transport_evidence.py::test_invalid_class21_raw_observation_refused[information_class-True]",
+    "tests/test_isolated_transport_evidence.py::test_invalid_class21_raw_observation_refused[raw_hex-0100]",
+    "tests/test_isolated_transport_evidence.py::test_invalid_class21_raw_observation_refused[raw_hex-GG]",
+    "tests/test_isolated_transport_evidence.py::test_invalid_class21_raw_observation_refused[raw_hex-]",
+    "tests/test_isolated_transport_evidence.py::test_invalid_class21_raw_observation_refused[returned_length-2]",
+    "tests/test_isolated_transport_evidence.py::test_invalid_class21_raw_observation_refused[returned_length-65536]",
+    "tests/test_isolated_transport_evidence.py::test_invalid_class21_raw_observation_refused[returned_length-True]",
+    "tests/test_isolated_transport_evidence.py::test_invalid_class21_raw_observation_refused[status-PASS]",
     "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[appcontainer_sid-S-1-5-18]",
     "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[capability_count-1]",
     "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[creation_time-99]",
@@ -2404,11 +2417,63 @@
     ],
     [
       "tests.test_isolated_transport_evidence",
+      "test_class21_raw_payload_does_not_establish_restriction_state[1-00]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_class21_raw_payload_does_not_establish_restriction_state[1-01]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_class21_raw_payload_does_not_establish_restriction_state[4-00000000]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_class21_raw_payload_does_not_establish_restriction_state[4-01000000]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
       "test_header_never_accepts_pass_or_physical_authority"
     ],
     [
       "tests.test_isolated_transport_evidence",
       "test_held_process_token_snapshot_is_observation_only"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_invalid_class21_raw_observation_refused[information_class-20]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_invalid_class21_raw_observation_refused[information_class-True]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_invalid_class21_raw_observation_refused[raw_hex-0100]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_invalid_class21_raw_observation_refused[raw_hex-GG]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_invalid_class21_raw_observation_refused[raw_hex-]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_invalid_class21_raw_observation_refused[returned_length-2]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_invalid_class21_raw_observation_refused[returned_length-65536]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_invalid_class21_raw_observation_refused[returned_length-True]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_invalid_class21_raw_observation_refused[status-PASS]"
     ],
     [
       "tests.test_isolated_transport_evidence",

@@ -42,7 +42,7 @@ def base(pipe=False):
         child_identity=dict(pid=20, creation_time=101,
             image='C:/Users/runner/AppData/Local/Packages/g1-fixture-11111111-1111-4111-8111-111111111111/AC/python-22222222-2222-4222-8222-222222222222/pythonw.exe',
             token=token(), is_appcontainer=1, capability_count=0, appcontainer_sid='S-1-15-2-1-2-3-4-5-6-7',
-            has_restrictions=0, restriction_creation_flags=5, job_member=True, job_flags=0x2008, job_active_limit=1),
+            has_restrictions=None,restriction_observation=dict(information_class=21,returned_length=1,raw_hex="01",status="RAW_ONLY_NOT_SECURITY_ASSERTION"), restriction_creation_flags=5, job_member=True, job_flags=0x2008, job_active_limit=1),
         input_manifest_sha256='c'*64, result_sha256='d'*64, child_exit_code=0, loader_events=[],
         host_verified=False, execute_authorized=False, cleanup_authorized=False,
         physical='0/10 NOT_RUN', whole_system='PARTIAL', fixture_teardown='DISPOSABLE_VM_TEARDOWN_REQUIRED')

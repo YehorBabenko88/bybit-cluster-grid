@@ -125,3 +125,9 @@ resume. These are deliberate experimental differences, not an isolated single-
 variable root-cause proof. A different outcome requires a further controlled
 comparison. TCP table samples correlate held pre-resume PIDs but do not attest
 identity for every sample; monotonic ticks are not independently trusted time.
+
+Class21 TokenHasRestrictions is recorded only as bounded raw bytes and returned
+length (1 or4), with has_restrictions=null. The published DWORD contract and
+observed one-byte hosted return disagree; neither raw value is interpreted as
+a security guarantee. This diagnostic is separate from unchanged actual SID,
+elevation, integrity, zero-capabilities and Job gates. Other sizes remain BLOCKED.

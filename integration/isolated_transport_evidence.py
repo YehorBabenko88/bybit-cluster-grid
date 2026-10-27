@@ -55,13 +55,17 @@ def token(v):
 def validate_security(parent,child):
     need(type(parent) is dict and set(parent)=={'pid','creation_time','token'})
     need(integer(parent['pid'],1,2**32-1) and integer(parent['creation_time'],1));p=token(parent['token'])
-    fields={'pid','creation_time','image','token','is_appcontainer','capability_count','appcontainer_sid','has_restrictions','restriction_creation_flags','job_member','job_flags','job_active_limit'}
+    fields={'pid','creation_time','image','token','is_appcontainer','capability_count','appcontainer_sid','has_restrictions','restriction_observation','restriction_creation_flags','job_member','job_flags','job_active_limit'}
     need(type(child) is dict and set(child)==fields and integer(child['pid'],1,2**32-1) and child['pid']!=parent['pid'] and integer(child['creation_time'],parent['creation_time']))
     t=token(child['token']);need(t['user']==p['user'] and t['elevated'] is False and t['integrity']==4096)
     need(all(g['sid']!='S-1-5-32-544' or not(g['attributes']&4) for g in t['groups']))
     for key,value in (('is_appcontainer',1),('capability_count',0),('restriction_creation_flags',5),('job_flags',0x2008),('job_active_limit',1)):
         need(type(child[key]) is int and child[key]==value)
-    need(type(child['has_restrictions']) is int and child['has_restrictions'] in (0,1) and child['job_member'] is True)
+    need(child['has_restrictions'] is None and child['job_member'] is True)
+    raw=child['restriction_observation']
+    need(type(raw) is dict and set(raw)=={'information_class','returned_length','raw_hex','status'})
+    need(type(raw['information_class']) is int and raw['information_class']==21 and type(raw['returned_length']) is int and raw['returned_length'] in (1,4))
+    need(type(raw['raw_hex']) is str and re.fullmatch('[0-9A-F]{'+str(raw['returned_length']*2)+'}',raw['raw_hex']) and raw['status']=='RAW_ONLY_NOT_SECURITY_ASSERTION')
     need(valid_sid(child['appcontainer_sid']) and re.fullmatch(r'S-1-15-2(?:-[0-9]+){7}',child['appcontainer_sid']))
     need(type(child['image']) is str and len(child['image'])<=2048)
     from pathlib import PureWindowsPath
