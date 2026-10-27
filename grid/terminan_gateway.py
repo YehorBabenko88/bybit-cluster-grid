@@ -19,7 +19,44 @@ def query(sql,args=()):
             cur.execute(sql,args)
             return cur.fetchall()
 
+
+def qualified_snapshot(route, symbol, limit):
+    """Versioned boundary. Current tables do not carry qualifying provenance."""
+    result = {
+        'api_version': {'major': 1, 'minor': 0},
+        'producer': 'bybit-cluster-grid', 'read_only': True,
+        'status': 'UNAVAILABLE', 'reason': 'SOURCE_PROVENANCE_UNAVAILABLE',
+        'source': {'market_type': None, 'epoch': None, 'freshness_utc_ms': None,
+                   'release_digest': None, 'identity': None},
+    }
+    if route == '/internal/v1/capabilities':
+        result['capabilities'] = {'candles': 'UNAVAILABLE',
+                                  'footprint': 'UNAVAILABLE', 'live_l2': False}
+        return result
+    if route == '/internal/v1/health':
+        result['database'] = 'UNAVAILABLE'
+        try:
+            rows = query("SELECT current_setting('server_version_num')::int, current_setting('transaction_read_only')")
+            if len(rows) == 1 and rows[0][0] >= 180000 and rows[0][1] == 'on':
+                result['database'] = 'READ_ONLY'
+        except Exception:
+            pass  # Never return exception text, DSNs or credentials.
+        return result
+    if route not in ('/internal/v1/candles', '/internal/v1/footprint'):
+        raise KeyError('unknown route')
+    if not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol):
+        raise ValueError('invalid symbol')
+    if isinstance(limit, str) and re.fullmatch(r'[1-9][0-9]{0,3}', limit):
+        limit = int(limit)
+    if type(limit) is not int or not 1 <= limit <= 1000:
+        raise ValueError('limit must be an integer from 1 to 1000')
+    result.update(symbol=symbol, timeframe='1m', rows=[], limit=limit,
+                  representation='historical_aggregate')
+    return result
+
 def snapshot(route,symbol='BTCUSDT',limit=300):
+    if route.startswith('/internal/v1/'):
+        return qualified_snapshot(route, symbol, limit)
     if not SYMBOL.fullmatch(symbol):raise ValueError('invalid symbol')
     limit=max(1,min(int(limit),1000))
     if route=='/v1/instruments':
