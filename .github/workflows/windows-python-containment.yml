@@ -74,8 +74,6 @@ jobs:
           $result=$LASTEXITCODE
           if($rows.Count -eq 1){[IO.File]::WriteAllText((Join-Path $PWD 'python-containment-evidence/native.json'),($rows -join "`n"),[Text.UTF8Encoding]::new($false))}
           if($rows.Count -ne 1 -or $result -ne 0){$rows|Write-Output;throw 'PYTHON_BOUNDARY_FAILED'}
-          python -m integration.python_containment_evidence create python-containment-evidence $env:EXACT_HEAD_SHA $env:GITHUB_RUN_ID $env:GITHUB_RUN_ATTEMPT
-          if($LASTEXITCODE -ne 0){throw 'PYTHON_BOUNDARY_RECEIPT_FAILED'}
       - name: Same OS boundary without debugger; diagnostic comparison is not substitute acceptance
         if: ${{ always() && steps.native_build.outcome == 'success' }}
         run: |
@@ -87,6 +85,20 @@ jobs:
           $result=$LASTEXITCODE
           if($rows.Count -eq 1){[IO.File]::WriteAllText((Join-Path $PWD 'python-undebugged-evidence/native.json'),($rows -join "`n"),[Text.UTF8Encoding]::new($false))}
           if($rows.Count -ne 1 -or $result -ne 0){throw 'UNDEBUGGED_BOUNDARY_BLOCKED'}
+      - name: Export existing WFP events read-only; never enable collection or modify filters
+        if: ${{ always() && steps.native_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $raw=Join-Path $env:RUNNER_TEMP ('wfp-'+[guid]::NewGuid().ToString('D')+'.xml')
+          $exportResult=$null
+          try{$ignored=@(& "$env:SystemRoot/System32/netsh.exe" wfp show netevents ("file="+$raw) 2>&1);$exportResult=$LASTEXITCODE}catch{}
+          $env:WFP_EXPORT_EXIT=[string]$exportResult
+          python -m integration.wfp_events python-containment-evidence $raw
+          if($LASTEXITCODE -ne 0){throw 'WFP_DIAGNOSTIC_FAILED'}
+      - name: Create strict primary receipt only after all mandatory steps succeed
+        run: |
+          python -m integration.python_containment_evidence create python-containment-evidence $env:EXACT_HEAD_SHA $env:GITHUB_RUN_ID $env:GITHUB_RUN_ATTEMPT
+          if($LASTEXITCODE -ne 0){throw 'PYTHON_BOUNDARY_RECEIPT_FAILED'}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

@@ -116,3 +116,12 @@ Read-only [NetworkIsolationDiagnoseConnectFailureAndGetInfo](https://learn.micro
 queries only the two literal owned loopback targets. API failures/unknown NETISO
 enums remain BLOCKED; successful diagnosis is not a grant, correlated WFP packet
 receipt, or substitute for strict network denial. No capabilities are added.
+
+The hosted workflow also exports already collected WFP netevents read-only, to
+a fresh GUID file retained privately until runner teardown. It never enables
+collection or changes filters. Only appId GUID-correlated drop metadata is exported
+to the public receipt; raw events for other processes are not uploaded. XML appId
+uses bounded UTF-16LE blob decoding, not ambiguous dotted display text. A matching
+event remains IMAGE_GUID_CORRELATION_ONLY/effective_filter_verified=false. Missing,
+disabled, unsupported or malformed data remains BLOCKED. This is not per-port
+policy authorization, an owner signature, or proof against a hostile administrator.

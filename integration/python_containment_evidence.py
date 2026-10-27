@@ -51,7 +51,7 @@ def validate(v,head,run,attempt):
     return list(CASES)
 
 def sources(head):
-    paths=['installer/native-python-containment','installer/native-g1-controller-fixture','installer/native-acl-observer','installer/native-acl-transaction-fixture','integration/windows_python_probe.py','integration/python_containment_evidence.py','tools/python_containment_bundle.py','.github/workflows/windows-python-containment.yml']
+    paths=['installer/native-python-containment','installer/native-g1-controller-fixture','installer/native-acl-observer','installer/native-acl-transaction-fixture','integration/windows_python_probe.py','integration/python_containment_evidence.py','integration/wfp_events.py','tools/python_containment_bundle.py','.github/workflows/windows-python-containment.yml']
     names=subprocess.check_output(['git','ls-tree','-r','--name-only',head,*paths],cwd=ROOT,text=True).splitlines()
     return {n:hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest() for n in names}
 
@@ -91,7 +91,8 @@ def receipt(folder,head,run,attempt,create=False):
             need(n=='driver.py' or original.startswith('grid/'))
             need(hashlib.sha256(subprocess.check_output(['git','show',head+':'+original],cwd=ROOT)).hexdigest().upper()==pin['Sha256'])
     meta=load((folder/'network-host.json').read_bytes());need((meta.get('head'),meta.get('run_id'),meta.get('attempt'))==(head,run,attempt) and meta.get('status')=='OBSERVED_NOT_ATTESTED' and meta.get('loopback_exit')==0 and meta.get('assurance')=='DIAGNOSTIC_ONLY_NOT_EFFECTIVE_WFP_PROOF')
-    files=('network-host.json','native.json','child.json','input.json','junit.xml','events.jsonl','dependencies.txt','diagnostics.txt')
+    wfp=load((folder/'wfp-events.json').read_bytes());need((wfp.get('head'),wfp.get('run_id'),wfp.get('attempt'))==(head,run,attempt) and wfp.get('status')=='OBSERVED_NOT_ATTESTED' and wfp.get('effective_filter_verified') is False and wfp.get('execute_authorized') is False and wfp.get('cleanup_authorized') is False)
+    files=('wfp-events.json','network-host.json','native.json','child.json','input.json','junit.xml','events.jsonl','dependencies.txt','diagnostics.txt')
     if create:
         xml=E.Element('testsuite',tests=str(len(names)),failures='0',errors='0',skipped='0',head=head,run_id=run,attempt=attempt)
         for n in names:E.SubElement(xml,'testcase',classname='real_python_negative_boundary',name=n)
