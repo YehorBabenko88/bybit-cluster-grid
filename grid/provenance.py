@@ -35,13 +35,14 @@ def data_integrity(row):
         prices=set();buy=sell=trades=0
         for x in levels:
             if not all(number(x[k]) for k in ('price','buy_volume','sell_volume','delta','volume')):return False
-            if x['price'] in prices or not row['low']<=x['price']<=row['high']:return False
+            if x['price'] in prices or not ((x['price']>=row['low'] or math.isclose(x['price'],row['low'],rel_tol=1e-12,abs_tol=1e-12)) and (x['price']<=row['high'] or math.isclose(x['price'],row['high'],rel_tol=1e-12,abs_tol=1e-12))):return False
             prices.add(x['price'])
             if min(x['buy_volume'],x['sell_volume'])<0:return False
             if not math.isclose(x['delta'],x['buy_volume']-x['sell_volume'],abs_tol=1e-9) or not math.isclose(x['volume'],x['buy_volume']+x['sell_volume'],abs_tol=1e-9):return False
             if any(type(x[k]) is not int or x[k]<0 for k in ('buy_count','sell_count')):return False
             buy+=x['buy_volume'];sell+=x['sell_volume'];trades+=x['buy_count']+x['sell_count']
         return (trades==row['trade_count'] and row['poc_price'] in prices and
+                any(x['price']==row['poc_price'] and math.isclose(x['volume'],max(v['volume'] for v in levels),abs_tol=1e-9) for x in levels) and
                 math.isclose(buy,row['buy_volume'],abs_tol=1e-9) and math.isclose(sell,row['sell_volume'],abs_tol=1e-9) and
                 math.isclose(buy-sell,row['delta'],abs_tol=1e-9) and len(canonical(row))<=1048576)
     except (KeyError,TypeError,ValueError,OverflowError):return False

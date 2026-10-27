@@ -196,3 +196,13 @@ def test_additive_capabilities_do_not_claim_source_readiness():
     assert result['capabilities']['immutable_market_snapshots_v1_1'] is True
     assert result['capabilities']['research_handoff_validation_v1_1'] is True
     assert result['capabilities']['candles']=='UNAVAILABLE'
+
+
+def test_actual_builder_decimal_tick_rounding_retains_integrity():
+    from grid.cluster import FootprintBuilder
+    from grid.models import Trade
+    b=FootprintBuilder(.1)
+    b.add(Trade(symbol='BTCUSDT',ts_ms=1000,price=.3,qty=1,side='Buy',trade_id='decimal'))
+    r=b.pop_closed(60000)[0]
+    r['source_provenance']=producer('fixture','a'*40,'wss://stream.bybit.com/v5/public/linear')
+    assert minute_record(r,int(time.time()*1000),'fixture')['status']=='PARTIAL'
