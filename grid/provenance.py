@@ -62,7 +62,7 @@ def minute_record(row, ingestion_ms, authenticated_identity=None):
     event_start, event_end = row.get("source_event_start_ms"), row.get("source_event_end_ms")
     start = row.get("start_ms")
     valid = bool(valid and type(start) is int and type(event_start) is int and type(event_end) is int
-                 and start <= event_start <= event_end < start + 60000
+                 and start >= 0 and start % 60000 == 0 and start <= event_start <= event_end < start + 60000
                  and type(ingestion_ms) is int and event_end <= ingestion_ms)
     integral = data_integrity(row)
     valid = valid and integral

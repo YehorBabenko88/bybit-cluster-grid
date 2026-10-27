@@ -32,7 +32,7 @@ def immutable_minutes(symbol, limit, before_ms):
                     AND max(octet_length(record::text)) OVER() <= 1048576 THEN record ELSE NULL END, versions
                 FROM (SELECT record,count(*) OVER(PARTITION BY start_ms) AS versions,start_ms,fingerprint
                     FROM provenance_minutes WHERE symbol=%s AND start_ms<%s
-                    ORDER BY start_ms DESC,fingerprint DESC LIMIT %s) page""", (symbol, before_ms, limit))
+                    ORDER BY start_ms DESC,fingerprint DESC LIMIT %s) page ORDER BY start_ms DESC,fingerprint DESC""", (symbol, before_ms, limit))
             rows = cur.fetchall()
             if any(r[0] is None or r[1] != 1 for r in rows):
                 raise ValueError('ambiguous minute revisions')

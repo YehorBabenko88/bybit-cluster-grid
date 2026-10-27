@@ -39,6 +39,9 @@ def read_snapshot(result, symbol, limit, before_ms, reader):
             coverage={'expected_minutes':expected,'observed_minutes':len(times),'missing_minutes':expected-len(times)},
             freshness_utc_ms=max(r['source_event_end_ms'] or 0 for r in records),
             data_quality_status=status,producer_epochs=sorted(e or '' for e in epochs),
+            source=records[0]['source'] if len(epochs)==1 else {},
+            source_revision=records[0]['source'].get('source_revision') if len(epochs)==1 else None,
+            producer_epoch=next(iter(epochs)) if len(epochs)==1 else None,
             dataset_fingerprint=digest(records),rows=records if status!='UNAVAILABLE' else [],
             next_before_ms=times[0],immutable=True,execution_authority=False)
         return result
