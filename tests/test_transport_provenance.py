@@ -11,7 +11,7 @@ def sample():
         for mode in ('listener','bound-not-listening'):
             port=10000+len(child)
             parent['endpoints'].append(dict(family=family,host=host,port=port,mode=mode,ready_utc_ms=1000,host_control='SUCCESS' if mode=='listener' else 'WSA10061'))
-            child.append(dict(nonce='b'*32,parent_pid=10,pid=20,family=family,host=host,port=port,mode=mode,started_utc_ms=1001,deadline_ms=6000,elapsed_ns=2000000000,local_host=host,local_port=20000+len(child),kind='TIMEOUT',winerror=None,errno=None))
+            child.append(dict(nonce='b'*32,parent_pid=10,pid=20,family=family,host=host,port=port,mode=mode,started_utc_ms=1001,deadline_ms=6000,elapsed_ns=2000000000,local_error=None,local_host=host,local_port=20000+len(child),kind='TIMEOUT',winerror=None,errno=None))
     return parent,child
 
 def test_complete_observation_never_authenticates_policy_or_execution():

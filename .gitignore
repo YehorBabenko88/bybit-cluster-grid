@@ -50,3 +50,9 @@ installer/native-g1-controller-fixture/obj/
 
 /installer/native-python-containment/bin/
 /installer/native-python-containment/obj/
+/transport-input/
+/pipe-input/
+/transport-debugged-evidence/
+/transport-undebugged-evidence/
+/pipe-debugged-evidence/
+/pipe-undebugged-evidence/

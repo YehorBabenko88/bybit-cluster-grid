@@ -9,11 +9,15 @@ self_loopback=[]
 transport_connections=[]
 
 def connect_observation(client,family,host,port,mode,cfg,trace=None):
+    timeout=client.gettimeout();need(type(timeout) in (int,float) and 0<timeout<=6,'CONNECT_DEADLINE_UNKNOWN')
     started=time.time_ns()//1000000;clock=time.perf_counter_ns()
     _,error=socket_trace(family,'connect',lambda:client.connect((host,port)),trace)
     elapsed=time.perf_counter_ns()-clock
-    local=client.getsockname()
-    transport_connections.append(dict(nonce=cfg['transport_nonce'],parent_pid=cfg['parent_pid'],pid=os.getpid(),family=family,host=host,port=port,mode=mode,started_utc_ms=started,deadline_ms=6000,elapsed_ns=elapsed,local_host=local[0],local_port=local[1],**(error or dict(kind='SUCCESS',winerror=None,errno=None))))
+    row=dict(nonce=cfg['transport_nonce'],parent_pid=cfg['parent_pid'],pid=os.getpid(),family=family,host=host,port=port,mode=mode,started_utc_ms=started,deadline_ms=int(timeout*1000),elapsed_ns=elapsed,local_host=None,local_port=None,local_error=None,**(error or dict(kind='SUCCESS',winerror=None,errno=None)))
+    transport_connections.append(row)
+    try:
+        local=client.getsockname();row.update(local_host=local[0],local_port=local[1])
+    except OSError as secondary:row['local_error']=socket_error(secondary)
     return error
 def native_scope(root,host,args):
     p=pathlib.PureWindowsPath(root);guid=r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'

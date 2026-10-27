@@ -12,6 +12,10 @@ internal static class PythonMain {
  static string Env(string n)=>Environment.GetEnvironmentVariable(n)??"";
  static string Hash(byte[] b)=>Convert.ToHexString(SHA256.HashData(b)).ToLowerInvariant();
  static int Main(string[] args){
+  if(args.SequenceEqual(new[]{"--hosted-pipe-debugged"}))return NativePipeMain.Run(true);
+  if(args.SequenceEqual(new[]{"--hosted-pipe-undebugged"}))return NativePipeMain.Run(false);
+  if(args.SequenceEqual(new[]{"--hosted-transport-debugged"}))return TransportMain.Run(true);
+  if(args.SequenceEqual(new[]{"--hosted-transport-undebugged"}))return TransportMain.Run(false);
   if(args.SequenceEqual(new[]{"--hosted-wfp-model-tests"}))return WfpCollection.Run("model");
   if(args.SequenceEqual(new[]{"--hosted-wfp-collection-enable"}))return WfpCollection.Run("enable");
   if(args.SequenceEqual(new[]{"--hosted-wfp-collection-restore"}))return WfpCollection.Run("restore");
@@ -28,7 +32,7 @@ internal static class PythonMain {
   var listener=new TcpListener(IPAddress.Loopback,0);var listener6=new TcpListener(IPAddress.IPv6Loopback,0);listener6.Server.DualMode=false;bool started4=false,started6=false;try{
    foreach(var pair in new[]{(4,listener,IPAddress.Loopback),(6,listener6,IPAddress.IPv6Loopback)}){
     int family=pair.Item1;var target=pair.Item2;networkHost.Add(new{family,stage="socket",success=true});parentStage="family"+family+"_bind_listen";target.Start(4);if(family==4)started4=true;else started6=true;networkHost.Add(new{family,stage="bind",success=true});networkHost.Add(new{family,stage="listen",success=true});
-    parentStage="family"+family+"_connect_accept";using var control=new TcpClient(family==4?AddressFamily.InterNetwork:AddressFamily.InterNetworkV6);using var connectDeadline=new CancellationTokenSource(TimeSpan.FromSeconds(3));control.ConnectAsync(pair.Item3,((IPEndPoint)target.LocalEndpoint).Port,connectDeadline.Token).GetAwaiter().GetResult();networkHost.Add(new{family,stage="connect",success=true});using var accepted=target.AcceptTcpClient();networkHost.Add(new{family,stage="accept",success=true});
+    parentStage="family"+family+"_connect_accept";using var control=new TcpClient(family==4?AddressFamily.InterNetwork:AddressFamily.InterNetworkV6);using var connectDeadline=new CancellationTokenSource(TimeSpan.FromSeconds(3));control.ConnectAsync(pair.Item3,((IPEndPoint)target.LocalEndpoint).Port,connectDeadline.Token).GetAwaiter().GetResult();networkHost.Add(new{family,stage="connect",success=true});using var accepted=target.AcceptTcpClientAsync(connectDeadline.Token).GetAwaiter().GetResult();networkHost.Add(new{family,stage="accept",success=true});
     transportEndpoints.Add(new{family,host=pair.Item3.ToString(),port=((IPEndPoint)target.LocalEndpoint).Port,mode="listener",ready_utc_ms=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),host_control="SUCCESS"});
     var reserved=family==4?closed4:closed6;string refused="UNKNOWN";using var noListener=new TcpClient(family==4?AddressFamily.InterNetwork:AddressFamily.InterNetworkV6);using var refusalDeadline=new CancellationTokenSource(TimeSpan.FromSeconds(3));try{noListener.ConnectAsync(pair.Item3,((IPEndPoint)reserved.LocalEndPoint!).Port,refusalDeadline.Token).GetAwaiter().GetResult();refused="UNEXPECTED_SUCCESS";}catch(SocketException ex){refused="WSA"+ex.NativeErrorCode;}catch(OperationCanceledException){refused="TIMEOUT";}
     transportEndpoints.Add(new{family,host=pair.Item3.ToString(),port=((IPEndPoint)reserved.LocalEndPoint!).Port,mode="bound-not-listening",ready_utc_ms=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),host_control=refused});

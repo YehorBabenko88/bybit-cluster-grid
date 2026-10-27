@@ -1,6 +1,6 @@
 """Strict hosted Python-boundary receipt. No physical authority or runtime transport proof."""
 import hashlib,json,re,subprocess,sys
-from pathlib import Path
+from pathlib import Path,PureWindowsPath
 import xml.etree.ElementTree as E
 from .windows_python_probe import CASES,self_ipc_proven
 from .transport_provenance import validate_transport
@@ -82,11 +82,32 @@ def git_inputs(head):
     result['driver.py']=hashlib.sha256(subprocess.check_output(['git','show',head+':integration/windows_python_probe.py'],cwd=ROOT)).hexdigest().upper()
     return result
 
+def collection_context_syntax(ctx):
+    # Declaration syntax only; these strings do not authenticate a physical host.
+    machine=ctx['Machine'];workspace=ctx['Workspace']
+    need(type(machine) is str and 1<=len(machine)<=253 and
+         all(re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?',label)
+             for label in machine.split('.')))
+    need(type(workspace) is str and 3<=len(workspace)<=32767 and
+         re.match(r'^[A-Za-z]:[\\/]',workspace) is not None and
+         all(not (ord(c)<32 or 127<=ord(c)<=159 or 0xD800<=ord(c)<=0xDFFF) for c in workspace))
+    path=PureWindowsPath(workspace)
+    need(path.is_absolute() and len(path.drive)==2 and ':' not in workspace[2:] and
+         all(part not in ('.','..') for part in workspace.replace('\\','/')[3:].split('/')))
+
+
+def validate_network_host(meta,head,run,attempt):
+    need(type(meta) is dict and (meta.get('head'),meta.get('run_id'),meta.get('attempt'))==(head,run,attempt) and
+         meta.get('status')=='OBSERVED_NOT_ATTESTED' and type(meta.get('loopback_exit')) is int and
+         meta['loopback_exit']==0 and meta.get('assurance')=='DIAGNOSTIC_ONLY_NOT_EFFECTIVE_WFP_PROOF')
+
+
 def collection_records(folder,head,run,attempt):
     folder=Path(folder);raw=(folder/'wfp-collection-prepared.json').read_bytes();prepared=load(raw);enabled=load((folder/'wfp-collection-enabled.json').read_bytes());intent=load((folder/'wfp-collection-restore-intent.json').read_bytes())
     need(all(type(r) is dict and type(r.get('Schema')) is int and r['Schema']==1 for r in (prepared,enabled,intent)))
     need(type(prepared.get('Option')) is int and type(enabled.get('Observed')) is int)
     ctx=prepared.get('Context');need(type(ctx) is dict and set(ctx)=={'Head','Run','Attempt','Machine','Workspace'} and (ctx['Head'],ctx['Run'],ctx['Attempt'])==(head,run,attempt))
+    collection_context_syntax(ctx)
     need(prepared==dict(Schema=1,Phase='PREPARED',Context=ctx,Option=0,Original=prepared.get('Original')) and type(prepared['Original']) is int and prepared['Original'] in (0,1))
     digest=hashlib.sha256(raw).hexdigest()
     need(enabled==dict(Schema=1,Phase='ENABLED',Context=ctx,PreparedSha256=digest,Observed=1))
@@ -119,7 +140,7 @@ def receipt(folder,head,run,attempt,create=False):
             original='integration/windows_python_probe.py' if n=='driver.py' else n.removeprefix('Source/')
             need(n=='driver.py' or original.startswith('grid/'))
             need(hashlib.sha256(subprocess.check_output(['git','show',head+':'+original],cwd=ROOT)).hexdigest().upper()==pin['Sha256'])
-    meta=load((folder/'network-host.json').read_bytes());need((meta.get('head'),meta.get('run_id'),meta.get('attempt'))==(head,run,attempt) and meta.get('status')=='OBSERVED_NOT_ATTESTED' and meta.get('loopback_exit')==0 and meta.get('assurance')=='DIAGNOSTIC_ONLY_NOT_EFFECTIVE_WFP_PROOF')
+    meta=load((folder/'network-host.json').read_bytes());validate_network_host(meta,head,run,attempt)
     wfp=load((folder/'wfp-events.json').read_bytes());need((wfp.get('head'),wfp.get('run_id'),wfp.get('attempt'))==(head,run,attempt) and wfp.get('status')=='OBSERVED_NOT_ATTESTED' and wfp.get('effective_filter_verified') is False and wfp.get('execute_authorized') is False and wfp.get('cleanup_authorized') is False)
     files=('wfp-model.json','wfp-enable.json','wfp-restore.json','wfp-collection-prepared.json','wfp-collection-enabled.json','wfp-collection-restore-intent.json','wfp-events.json','network-host.json','native.json','child.json','input.json','junit.xml','events.jsonl','dependencies.txt','diagnostics.txt')
     if create:

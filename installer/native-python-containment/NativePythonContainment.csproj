@@ -5,5 +5,5 @@
 <Compile Include="../native-acl-transaction-fixture/FixtureNative.cs" Link="FixtureNative.cs"/><Compile Include="../native-acl-transaction-fixture/JournalModel.cs" Link="JournalModel.cs"/>
 <Compile Include="../native-g1-controller-fixture/LoaderTrace.cs" Link="LoaderTrace.cs"/>
 <Compile Include="../native-g1-controller-fixture/ControllerPolicy.cs" Link="ControllerPolicy.cs"/><Compile Include="../native-g1-controller-fixture/OwnedChild.cs" Link="OwnedChild.cs"/><Compile Include="../native-g1-controller-fixture/OwnedDesktop.cs" Link="OwnedDesktop.cs"/><Compile Include="../native-g1-controller-fixture/OwnedImage.cs" Link="OwnedImage.cs"/>
-</ItemGroup><ItemGroup><Compile Include="PythonMain.cs" /><Compile Include="WfpCollection.cs" /><Compile Include="PythonBundle.cs" /></ItemGroup>
+</ItemGroup><ItemGroup><Compile Include="PythonMain.cs" /><Compile Include="WfpCollection.cs" /><Compile Include="PythonBundle.cs" /><Compile Include="TransportMain.cs" /><Compile Include="TransportFacts.cs" /><Compile Include="PipeExecutable.cs" /><Compile Include="NativePipeMain.cs" /></ItemGroup>
 </Project>

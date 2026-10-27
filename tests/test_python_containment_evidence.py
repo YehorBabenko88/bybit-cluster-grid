@@ -11,7 +11,7 @@ def sample():
         for mode in ('listener','bound-not-listening'):
             port=10000+len(endpoints)
             endpoints.append(dict(family=family,host=host,port=port,mode=mode,ready_utc_ms=1000,host_control='SUCCESS' if mode=='listener' else 'WSA10061'))
-            connections.append(dict(nonce='b'*32,parent_pid=10,pid=123,family=family,host=host,port=port,mode=mode,started_utc_ms=1001,deadline_ms=6000,elapsed_ns=1,local_host=host,local_port=20000,kind='PERMISSION',winerror=10013,errno=13))
+            connections.append(dict(nonce='b'*32,parent_pid=10,pid=123,family=family,host=host,port=port,mode=mode,started_utc_ms=1001,deadline_ms=6000,elapsed_ns=1,local_error=None,local_host=host,local_port=20000,kind='PERMISSION',winerror=10013,errno=13))
     value['transport_provenance']=dict(schema=1,head=HEAD,run_id='12',attempt='1',nonce='b'*32,parent_pid=10,child_pid=123,endpoints=endpoints)
     child['transport_connections']=connections
     return value

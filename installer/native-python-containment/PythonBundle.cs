@@ -38,7 +38,8 @@ internal sealed class PythonBundle:IOwnedExecutable {
   var held=CreateFileW(absolute,0x80020000,writable?3u:1u,IntPtr.Zero,3,0x200000,IntPtr.Zero);ControllerPolicy.Need(!held.IsInvalid,"PYTHON_FILE_PIN");ControllerPolicy.Need(Native.Id(held)==id&&FixtureNative.Descriptor(held)==sd&&Hash(Read(held))==Hash(bytes),"PYTHON_FILE_REPLACED");
   if(writable){handles.Add(held);mutablePins.Add((held,id,sd));}else{Remember(held,false,Hash(bytes));if(new[]{".exe",".dll",".pyd"}.Contains(System.IO.Path.GetExtension(absolute),StringComparer.OrdinalIgnoreCase))measuredImages.Add(absolute,(held,id,sd));}return held;
  }
- internal PythonBundle(string package,string moniker,string user,PythonInput input,string inputHash,object config,bool debugged=true){
+ internal PythonBundle(string package,string moniker,string user,PythonInput input,string inputHash,object config,bool debugged=true,string inputDirectory="python-input"){
+  ControllerPolicy.Need(inputDirectory is "python-input" or "transport-input" or "pipe-input","INPUT_PROFILE_UNKNOWN");
   traceLoader=debugged;
   rx=new RawSecurityDescriptor("D:P(A;;FA;;;SY)(A;;FA;;;"+user+")(A;;0x1200a9;;;"+package+")");
   IntPtr pointer=IntPtr.Zero;
@@ -48,7 +49,7 @@ internal sealed class PythonBundle:IOwnedExecutable {
    string name="python-"+Guid.NewGuid().ToString("D");RootPath=System.IO.Path.Combine(profile,name);var root=Directory(parent!,name,rx);directories.Add("",root);
    foreach(var (relative,pin) in input.Files.OrderBy(x=>x.Key,StringComparer.Ordinal)){
     ControllerPolicy.Need(relative.Length>0&&relative.Length<=240&&!relative.Contains('\\')&&!relative.Contains(':')&&!relative.StartsWith('/'),"PYTHON_RELATIVE_PATH");var components=Policy.Components("C:\\"+relative.Replace('/','\\'));ControllerPolicy.Need(components.Length>1);
-    string source=System.IO.Path.Combine(Environment.GetEnvironmentVariable("GITHUB_WORKSPACE")!,"python-input",relative.Replace('/','\\'));
+    string source=System.IO.Path.Combine(Environment.GetEnvironmentVariable("GITHUB_WORKSPACE")!,inputDirectory,relative.Replace('/','\\'));
     using var sourceHandle=CreateFileW(source,0x80020000,1,IntPtr.Zero,3,0x200000,IntPtr.Zero);ControllerPolicy.Need(!sourceHandle.IsInvalid,"PYTHON_SOURCE_OPEN");var sourceId=Native.Id(sourceHandle);Policy.Object(sourceId,false);byte[] bytes=Read(sourceHandle);ControllerPolicy.Need(bytes.Length==pin.Length&&Hash(bytes)==pin.Sha256&&Native.Id(sourceHandle)==sourceId,"PYTHON_SOURCE_PIN");
     File(ParentFor(relative),relative.Split('/')[^1],bytes,rx,System.IO.Path.Combine(RootPath,relative.Replace('/','\\')));FileCount++;
    }
@@ -60,6 +61,7 @@ internal sealed class PythonBundle:IOwnedExecutable {
    File(root,"config.json",JsonSerializer.SerializeToUtf8Bytes(config),rx,System.IO.Path.Combine(RootPath,"config.json"));
    Path=System.IO.Path.Combine(RootPath,"pythonw.exe");ControllerPolicy.Need(input.Files.ContainsKey("pythonw.exe")&&input.Files.ContainsKey("python.exe")&&input.Files.ContainsKey("driver.py")&&input.Files.ContainsKey("python._pth"),"PYTHON_CLOSURE_REQUIRED");
    var env=new SortedDictionary<string,string>(StringComparer.OrdinalIgnoreCase){["SystemRoot"]=Environment.GetFolderPath(Environment.SpecialFolder.Windows),["WINDIR"]=Environment.GetFolderPath(Environment.SpecialFolder.Windows),["LOCALAPPDATA"]=WorkingDirectory,["USERPROFILE"]=WorkingDirectory,["TEMP"]=WorkingDirectory,["TMP"]=WorkingDirectory,["ProgramData"]=WorkingDirectory,["NODE_ID"]="synthetic-contained-worker",["POSTGRES_DSN"]="postgresql://synthetic:nonsecret@127.0.0.1:1/never",["COORDINATOR_URL"]="http://127.0.0.1:1",["GRID_CONTROL_JOURNAL"]=System.IO.Path.Combine(WorkingDirectory,"control-state.json"),["GRID_CONTROL_SNAPSHOTS"]=System.IO.Path.Combine(WorkingDirectory,"snapshots"),["BYBIT_REST_URL"]="http://192.0.2.1:9",["BYBIT_WS_URL"]="ws://192.0.2.1:9",["ROLE"]="worker",["NODE_ROLE"]="WORKER"};
+   if(inputDirectory!="python-input")foreach(string key in env.Keys.Where(x=>!new[]{"SystemRoot","WINDIR","LOCALAPPDATA","USERPROFILE","TEMP","TMP","ProgramData"}.Contains(x,StringComparer.OrdinalIgnoreCase)).ToArray())env.Remove(key);
    EnvironmentBlock=string.Join("\0",env.Select(x=>x.Key+"="+x.Value))+"\0\0";Guard();
   }catch{Dispose();throw;}finally{if(pointer!=IntPtr.Zero)Marshal.FreeCoTaskMem(pointer);}
  }

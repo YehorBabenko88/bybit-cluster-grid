@@ -1,7 +1,7 @@
 name: windows-python-native-containment
 on:
   pull_request:
-    paths: ['installer/native-python-containment/**', 'installer/native-g1-controller-fixture/**', 'integration/windows_python_probe.py', 'integration/python_containment_evidence.py', 'integration/transport_provenance.py', 'integration/wfp_events.py', 'tests/test_transport_provenance.py', 'tests/test_wfp_events.py', 'tests/test_wfp_collection_receipt.py', 'tools/python_containment_bundle.py', 'tests/test_python_containment_*.py', '.github/workflows/windows-python-containment.yml']
+    paths: ['installer/native-python-containment/**', 'installer/native-g1-controller-fixture/**', 'integration/windows_python_probe.py', 'integration/python_containment_evidence.py', 'integration/transport_provenance.py', 'integration/wfp_events.py', 'tests/test_transport_provenance.py', 'tests/test_wfp_events.py', 'tests/test_wfp_collection_receipt.py', 'integration/windows_transport_probe.py', 'integration/windows_pipe_probe.py', 'integration/pipe_probe_protocol.py', 'integration/isolated_transport_evidence.py', 'integration/pipe_dacl_evidence.py', 'tests/test_pipe_dacl_evidence.py', 'tests/test_isolated_transport_witnesses.py', 'tests/test_windows_transport_probe.py', 'tests/test_pipe_probe_protocol.py', 'tests/test_isolated_transport_evidence.py', 'tests/test_transport_reproducer_bundle.py', 'tests/test_connect_observation_preservation.py', 'tools/transport_reproducer_bundle.py', 'tools/python_containment_bundle.py', 'tests/test_python_containment_*.py', '.github/workflows/windows-python-containment.yml']
   workflow_dispatch:
   workflow_call:
 permissions:
@@ -109,6 +109,102 @@ jobs:
         run: |
           & ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-wfp-collection-restore | Set-Content -Encoding UTF8 python-containment-evidence/wfp-restore.json
           if($LASTEXITCODE -ne 0){throw 'WFP_RESTORE_UNCERTAIN_VM_TEARDOWN_REQUIRED'}
+      - name: Build stock-only independent payloads without Grid or site-packages
+        id: minimal_build
+        if: ${{ always() && steps.native_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          python -m tools.transport_reproducer_bundle
+          if($LASTEXITCODE -ne 0){throw 'STOCK_TRANSPORT_INPUT_FAILED'}
+          python -m tools.transport_reproducer_bundle --pipe-prototype
+          if($LASTEXITCODE -ne 0){throw 'STOCK_PIPE_INPUT_FAILED'}
+      - name: Prepare distinct diagnostic directories and measured native binaries
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($folder in @('transport-debugged-evidence','transport-undebugged-evidence','pipe-debugged-evidence','pipe-undebugged-evidence')){
+            New-Item -ItemType Directory $folder | Out-Null
+            $inputName=if($folder.StartsWith('pipe-')){'pipe-input'}else{'transport-input'}
+            Copy-Item -LiteralPath (Join-Path $inputName 'manifest.json') -Destination (Join-Path $folder 'input.json')
+            foreach($suffix in @('.exe','.dll','.deps.json','.runtimeconfig.json')){
+              Copy-Item -LiteralPath ("installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment"+$suffix) -Destination (Join-Path $folder ("NativePythonContainment"+$suffix))
+            }
+          }
+      - name: Read-only ETW provider metadata inventory; no trace session or packet capture
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $rows=@()
+          foreach($name in @('Microsoft-Windows-WFP','Microsoft-Windows-TCPIP','Microsoft-Windows-Winsock-AFD')){
+            try{
+              $p=Get-WinEvent -ListProvider $name -ErrorAction Stop
+              $events=@($p.Events)
+              $rows+=@{name=$name;id=$p.Id.ToString('D');status='METADATA_ONLY_NOT_CAUSAL_PROOF';event_count=$events.Count;event_ids=@($events|Select-Object -First 128|ForEach-Object{@{id=$_.Id;version=$_.Version}});truncated=($events.Count -gt 128)}
+            }catch{$rows+=@{name=$name;status='BLOCKED';reason=$_.Exception.GetType().Name}}
+          }
+          $facts=[ordered]@{schema=1;head=$env:EXACT_HEAD_SHA;run_id=$env:GITHUB_RUN_ID;attempt=$env:GITHUB_RUN_ATTEMPT;status='BLOCKED';policy_cause='UNKNOWN';etw_session_started=$false;causal_events_collected=$false;host_verified=$false;execute_authorized=$false;cleanup_authorized=$false;providers=$rows}
+          $raw=$facts|ConvertTo-Json -Depth 8
+          foreach($folder in @('transport-debugged-evidence','transport-undebugged-evidence','pipe-debugged-evidence','pipe-undebugged-evidence')){
+            [IO.File]::WriteAllText((Join-Path $PWD "$folder/transport-host.json"),$raw,[Text.UTF8Encoding]::new($false))
+          }
+      - name: Grid-free TCP reproducer debugged; UNKNOWN is still BLOCKED
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $folder='transport-debugged-evidence'
+          $rows=@(& ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-transport-debugged)
+          $code=$LASTEXITCODE
+          if($rows.Count -ne 1){throw 'MINIMAL_NATIVE_OUTPUT_SHAPE'}
+          [IO.File]::WriteAllText((Join-Path $PWD "$folder/native.json"),($rows -join "`n"),[Text.UTF8Encoding]::new($false))
+          if($code -ne 1){throw 'MINIMAL_UNEXPECTED_AUTHORITY_OR_EXIT'}
+          python -m integration.isolated_transport_evidence $folder
+          if($LASTEXITCODE -ne 0){throw 'MINIMAL_OBSERVATION_INCOMPLETE'}
+      - name: Grid-free TCP reproducer undebugged; no loader proof substitution
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $folder='transport-undebugged-evidence'
+          $rows=@(& ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-transport-undebugged)
+          $code=$LASTEXITCODE
+          if($rows.Count -ne 1){throw 'MINIMAL_NATIVE_OUTPUT_SHAPE'}
+          [IO.File]::WriteAllText((Join-Path $PWD "$folder/native.json"),($rows -join "`n"),[Text.UTF8Encoding]::new($false))
+          if($code -ne 1){throw 'MINIMAL_UNEXPECTED_AUTHORITY_OR_EXIT'}
+          python -m integration.isolated_transport_evidence $folder
+          if($LASTEXITCODE -ne 0){throw 'MINIMAL_OBSERVATION_INCOMPLETE'}
+      - name: Explicit one-way FIXED_PING pipe prototype debugged; not Grid transport approval
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $folder='pipe-debugged-evidence'
+          $rows=@(& ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-pipe-debugged)
+          $code=$LASTEXITCODE
+          if($rows.Count -ne 1){throw 'PIPE_NATIVE_OUTPUT_SHAPE'}
+          [IO.File]::WriteAllText((Join-Path $PWD "$folder/native.json"),($rows -join "`n"),[Text.UTF8Encoding]::new($false))
+          if($code -ne 1){throw 'PIPE_UNEXPECTED_AUTHORITY_OR_EXIT'}
+          python -m integration.isolated_transport_evidence $folder
+          if($LASTEXITCODE -ne 0){throw 'PIPE_OBSERVATION_INCOMPLETE'}
+      - name: Explicit one-way FIXED_PING pipe prototype undebugged; not fallback
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $folder='pipe-undebugged-evidence'
+          $rows=@(& ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-pipe-undebugged)
+          $code=$LASTEXITCODE
+          if($rows.Count -ne 1){throw 'PIPE_NATIVE_OUTPUT_SHAPE'}
+          [IO.File]::WriteAllText((Join-Path $PWD "$folder/native.json"),($rows -join "`n"),[Text.UTF8Encoding]::new($false))
+          if($code -ne 1){throw 'PIPE_UNEXPECTED_AUTHORITY_OR_EXIT'}
+          python -m integration.isolated_transport_evidence $folder
+          if($LASTEXITCODE -ne 0){throw 'PIPE_OBSERVATION_INCOMPLETE'}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        with:
+          name: isolated-transport-${{ matrix.shell }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            transport-debugged-evidence/
+            transport-undebugged-evidence/
+            pipe-debugged-evidence/
+            pipe-undebugged-evidence/
+          if-no-files-found: error
       - name: Create strict primary receipt only after all mandatory steps succeed
         run: |
           python -m integration.python_containment_evidence create python-containment-evidence $env:EXACT_HEAD_SHA $env:GITHUB_RUN_ID $env:GITHUB_RUN_ATTEMPT

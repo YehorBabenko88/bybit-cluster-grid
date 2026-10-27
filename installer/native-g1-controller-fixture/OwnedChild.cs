@@ -38,6 +38,18 @@ internal sealed class OwnedChild:IDisposable {
  readonly List<LoaderFact> loaderEvents=new();internal IReadOnlyList<LoaderFact> LoaderEvents=>loaderEvents;
  IOwnedExecutable? ownedImage;OwnedDesktop? ownedDesktop;IntPtr job,process,thread;long creation;bool imagePreverified;string imagePath="";internal bool Exited=>process!=IntPtr.Zero&&WaitForSingleObject(process,0)==0;
  internal uint ProcessId{get{ControllerPolicy.Need(process!=IntPtr.Zero,"PROCESS_HANDLE_MISSING");uint id=GetProcessId(process);ControllerPolicy.Need(id>0,"PROCESS_ID_UNKNOWN");return id;}}
+ // Read-only held-handle observations for the independent transport fixture.
+ // HasRestrictions is observed, not assumed from the CreateRestrictedToken name.
+ internal object SecuritySnapshot(string user,string package){
+  Guard();ControllerPolicy.Need(OpenProcessToken(process,8,out var observed),"OBSERVED_TOKEN_OPEN");using var token=observed;
+  var facts=Native.TokenFacts(token);ControllerPolicy.ChildToken(facts,user);int app=-1,caps=-1,restrictions=-1;string? actualSid=null;
+  Token(token,29,(p,n)=>{ControllerPolicy.Need(n==4,"OBSERVED_APP_SIZE");app=Marshal.ReadInt32(p);ControllerPolicy.Need(app==1,"OBSERVED_APP");});
+  Token(token,30,(p,n)=>{ControllerPolicy.Need(n>=4,"OBSERVED_CAPS_SIZE");caps=Marshal.ReadInt32(p);ControllerPolicy.Need(caps==0,"OBSERVED_CAPS");});
+  Token(token,21,(p,n)=>{ControllerPolicy.Need(n==4,"OBSERVED_RESTRICTIONS_SIZE");restrictions=Marshal.ReadInt32(p);ControllerPolicy.Need(restrictions is 0 or 1,"OBSERVED_RESTRICTIONS");});
+  Token(token,31,(p,n)=>{ControllerPolicy.Need(n>=IntPtr.Size+8);var s=Marshal.ReadIntPtr(p);long offset=s.ToInt64()-p.ToInt64();Policy.SidBounds(offset,n,IntPtr.Size,0);int sub=Marshal.ReadByte(s,1);Policy.SidBounds(offset,n,IntPtr.Size,sub);actualSid=new SecurityIdentifier(s).Value;ControllerPolicy.Need(actualSid==package,"OBSERVED_PACKAGE");});
+  ControllerPolicy.Need(IsProcessInJob(process,job,out bool member)&&member,"OBSERVED_JOB_MEMBERSHIP");ControllerPolicy.Need(QueryInformationJobObject(job,9,out var limits,Marshal.SizeOf<Limits>(),out int returned)&&returned==Marshal.SizeOf<Limits>()&&limits.basic.flags==0x2008&&limits.basic.active==1,"OBSERVED_JOB_LIMITS");
+  Guard();return new{pid=ProcessId,creation_time=creation,image=imagePath,token=facts,is_appcontainer=app,capability_count=caps,appcontainer_sid=actualSid,has_restrictions=restrictions,restriction_creation_flags=5,job_member=member,job_flags=limits.basic.flags,job_active_limit=limits.basic.active};
+ }
  internal OwnedChild(byte[] payload,string expectedHash,string expectedUser):this(expectedUser,(package,moniker)=>new OwnedImage(package,moniker,expectedUser,payload,expectedHash)){}
  internal OwnedChild(string expectedUser,Func<string,string,IOwnedExecutable> factory){IntPtr sid=IntPtr.Zero,list=IntPtr.Zero,cap=IntPtr.Zero,environment=IntPtr.Zero,desktopName=IntPtr.Zero,jobList=IntPtr.Zero,outputList=IntPtr.Zero;bool initialized=false;try{
   string moniker="g1-fixture-"+Guid.NewGuid().ToString("D");ControllerPolicy.Need(CreateAppContainerProfile(moniker,"CI test fixture","Disposable runner only",IntPtr.Zero,0,out sid)==0,"PROFILE");string expectedSid=new SecurityIdentifier(sid).Value;ownedImage=factory(expectedSid,moniker);imagePath=ownedImage.Path;

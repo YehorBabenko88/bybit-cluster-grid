@@ -8,6 +8,7 @@
     "tests/test_auxiliary_writer_lifecycle.py::test_standalone_archive_refuses_before_bootstrap_or_exchange",
     "tests/test_composed_wal_payload_snapshot.py::test_admitted_payload_cannot_drift_from_wal_before_delivery[event]",
     "tests/test_composed_wal_payload_snapshot.py::test_admitted_payload_cannot_drift_from_wal_before_delivery[minute]",
+    "tests/test_connect_observation_preservation.py::test_endpoint_failure_does_not_erase_connect_timeout",
     "tests/test_control_candidate.py::test_candidate_never_grants_mutations_without_db_fencing",
     "tests/test_control_candidate_epoch_failure.py::test_control_candidate_clears_epoch_on_database_failure",
     "tests/test_control_ingestion_topology.py::test_coordinator_background_tasks_have_shutdown_lifecycle",
@@ -258,6 +259,32 @@
     "tests/test_floating_leader_initial_race.py::test_first_campaign_winner_claims_leadership",
     "tests/test_floating_leader_same_node.py::test_other_node_cannot_take_unexpired_lease",
     "tests/test_floating_leader_same_node.py::test_same_node_cannot_take_unexpired_lease",
+    "tests/test_isolated_transport_evidence.py::test_child_elevation_is_rejected_even_with_consistent_fingerprint",
+    "tests/test_isolated_transport_evidence.py::test_header_never_accepts_pass_or_physical_authority",
+    "tests/test_isolated_transport_evidence.py::test_held_process_token_snapshot_is_observation_only",
+    "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[appcontainer_sid-S-1-5-18]",
+    "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[capability_count-1]",
+    "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[creation_time-99]",
+    "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[has_restrictions-True]",
+    "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[image-C:/Windows/pythonw.exe]",
+    "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[is_appcontainer-True]",
+    "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[job_active_limit-2]",
+    "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[job_flags-0]",
+    "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[job_member-False]",
+    "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[pid-True]",
+    "tests/test_isolated_transport_evidence.py::test_unknown_or_changed_security_facts_cannot_validate[restriction_creation_flags-0]",
+    "tests/test_isolated_transport_witnesses.py::test_malformed_pipe_witness_rejected[denial]",
+    "tests/test_isolated_transport_witnesses.py::test_malformed_pipe_witness_rejected[descriptor]",
+    "tests/test_isolated_transport_witnesses.py::test_malformed_pipe_witness_rejected[frame]",
+    "tests/test_isolated_transport_witnesses.py::test_malformed_pipe_witness_rejected[owner]",
+    "tests/test_isolated_transport_witnesses.py::test_malformed_tcp_witness_rejected[no_listeners]",
+    "tests/test_isolated_transport_witnesses.py::test_malformed_tcp_witness_rejected[other_zero]",
+    "tests/test_isolated_transport_witnesses.py::test_malformed_tcp_witness_rejected[owner_true]",
+    "tests/test_isolated_transport_witnesses.py::test_malformed_tcp_witness_rejected[terminal_timeout]",
+    "tests/test_isolated_transport_witnesses.py::test_malformed_tcp_witness_rejected[unknown_root]",
+    "tests/test_isolated_transport_witnesses.py::test_native_binary_closure_is_required",
+    "tests/test_isolated_transport_witnesses.py::test_positive_pipe_witness_is_only_fixed_ping_observation",
+    "tests/test_isolated_transport_witnesses.py::test_positive_tcp_witness_is_only_unknown_policy_observation",
     "tests/test_legacy_gap_repair.py::test_repair_inserts_missing_but_refuses_conflicting_existing_candle",
     "tests/test_legacy_gap_scan.py::test_detects_internal_and_tail_gaps",
     "tests/test_legacy_rollback_preflight.py::test_legacy_cli_requires_database_evidence_even_for_worker",
@@ -892,6 +919,84 @@
     "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[stale]",
     "tests/test_physical_first_boot_program.py::test_snapshot_corruption_or_unknown_never_ready[unknown]",
     "tests/test_physical_first_boot_program.py::test_valid_profile_is_plan_only_not_execution",
+    "tests/test_pipe_dacl_evidence.py::test_exact_grants[duplicate]",
+    "tests/test_pipe_dacl_evidence.py::test_exact_grants[group-substitution]",
+    "tests/test_pipe_dacl_evidence.py::test_exact_grants[package-read-data]",
+    "tests/test_pipe_dacl_evidence.py::test_invalid_base64_or_structure[alphabet]",
+    "tests/test_pipe_dacl_evidence.py::test_invalid_base64_or_structure[empty]",
+    "tests/test_pipe_dacl_evidence.py::test_invalid_base64_or_structure[oversize]",
+    "tests/test_pipe_dacl_evidence.py::test_invalid_base64_or_structure[padding]",
+    "tests/test_pipe_dacl_evidence.py::test_invalid_base64_or_structure[short]",
+    "tests/test_pipe_dacl_evidence.py::test_invalid_base64_or_structure[whitespace]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[ace_count]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[ace_flags]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[ace_size]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[ace_type]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[acl_size]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[control]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[dacl_overlap]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[duplicate]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[mask]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[owner_overlap]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[revision]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[sid_count]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[sid_revision]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[trailing_acl]",
+    "tests/test_pipe_dacl_evidence.py::test_mutations[truncated]",
+    "tests/test_pipe_dacl_evidence.py::test_sacl_is_not_mic_attestation",
+    "tests/test_pipe_dacl_evidence.py::test_sid_argument_binding",
+    "tests/test_pipe_dacl_evidence.py::test_valid_and_owner_group_alias",
+    "tests/test_pipe_probe_protocol.py::test_actual_denial_fact_and_exact_write_count_are_required",
+    "tests/test_pipe_probe_protocol.py::test_any_unproven_denial_prevents_frame_write[0]",
+    "tests/test_pipe_probe_protocol.py::test_any_unproven_denial_prevents_frame_write[1]",
+    "tests/test_pipe_probe_protocol.py::test_any_unproven_denial_prevents_frame_write[2]",
+    "tests/test_pipe_probe_protocol.py::test_both_config_parsers_reject_duplicates_and_nonfinite[integration.pipe_probe_protocol]",
+    "tests/test_pipe_probe_protocol.py::test_both_config_parsers_reject_duplicates_and_nonfinite[integration.windows_pipe_probe]",
+    "tests/test_pipe_probe_protocol.py::test_closed_environment_and_owned_profile_guard",
+    "tests/test_pipe_probe_protocol.py::test_config_rejects_unbounded_or_substituted_fields[<lambda>0]",
+    "tests/test_pipe_probe_protocol.py::test_config_rejects_unbounded_or_substituted_fields[<lambda>1]",
+    "tests/test_pipe_probe_protocol.py::test_config_rejects_unbounded_or_substituted_fields[<lambda>2]",
+    "tests/test_pipe_probe_protocol.py::test_config_rejects_unbounded_or_substituted_fields[<lambda>3]",
+    "tests/test_pipe_probe_protocol.py::test_config_rejects_unbounded_or_substituted_fields[<lambda>4]",
+    "tests/test_pipe_probe_protocol.py::test_config_rejects_unbounded_or_substituted_fields[<lambda>5]",
+    "tests/test_pipe_probe_protocol.py::test_config_rejects_unbounded_or_substituted_fields[<lambda>6]",
+    "tests/test_pipe_probe_protocol.py::test_denial_failure_carries_only_fixed_code_name_and_raw_numeric_facts",
+    "tests/test_pipe_probe_protocol.py::test_duplicate_keys_with_otherwise_valid_context_and_length_are_rejected",
+    "tests/test_pipe_probe_protocol.py::test_failed_write_carries_fixed_error_without_exception_message",
+    "tests/test_pipe_probe_protocol.py::test_failure_builder_redacts_unknown_stages_and_noninteger_error_data",
+    "tests/test_pipe_probe_protocol.py::test_fixed_ping_round_trip_has_only_context_and_no_authority",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_bad_framing_duplicate_or_oversized_payload[\\x00\\x00\\x00\\x00]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_bad_framing_duplicate_or_oversized_payload[\\x01\\x00\\x00\\x00{]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_bad_framing_duplicate_or_oversized_payload[\\x01\\x02\\x00\\x00xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_bad_framing_duplicate_or_oversized_payload[\\x15\\x00\\x00\\x00{\"schema\":1,\"schema\":1}]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_bad_framing_duplicate_or_oversized_payload[]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>0]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>10]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>11]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>1]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>2]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>3]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>4]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>5]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>6]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>7]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>8]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_promotion_and_cross_context_replay[<lambda>9]",
+    "tests/test_pipe_probe_protocol.py::test_frame_rejects_trailing_and_truncated_bytes",
+    "tests/test_pipe_probe_protocol.py::test_guarded_failure_writes_safe_result_only_after_real_scope_allowed",
+    "tests/test_pipe_probe_protocol.py::test_injected_three_denials_and_fixed_frame_produce_no_grid_authority",
+    "tests/test_pipe_probe_protocol.py::test_missing_result_slot_is_not_created",
+    "tests/test_pipe_probe_protocol.py::test_noncanonical_json_cannot_be_an_alternate_fixed_frame",
+    "tests/test_pipe_probe_protocol.py::test_only_exact_failed_win32_access_denied_is_observed[0-5]",
+    "tests/test_pipe_probe_protocol.py::test_only_exact_failed_win32_access_denied_is_observed[False-0]",
+    "tests/test_pipe_probe_protocol.py::test_only_exact_failed_win32_access_denied_is_observed[False-6]",
+    "tests/test_pipe_probe_protocol.py::test_only_exact_failed_win32_access_denied_is_observed[False-True]",
+    "tests/test_pipe_probe_protocol.py::test_only_exact_failed_win32_access_denied_is_observed[True-5]",
+    "tests/test_pipe_probe_protocol.py::test_oversized_result_is_not_written",
+    "tests/test_pipe_probe_protocol.py::test_partial_native_write_cannot_produce_completed_result",
+    "tests/test_pipe_probe_protocol.py::test_retained_result_writer_is_bounded_and_refuses_repeat",
+    "tests/test_pipe_probe_protocol.py::test_scope_failure_writes_nothing_and_missing_slot_is_not_created",
+    "tests/test_pipe_probe_protocol.py::test_self_contained_child_encoder_matches_independent_offline_validator",
     "tests/test_pr227_authorization_boundary.py::test_blocked_runbook_has_no_executable_coordinator_launch",
     "tests/test_pr227_authorization_boundary.py::test_empty_resume_currently_opens_active_without_ack",
     "tests/test_pr227_authorization_boundary.py::test_persisted_active_does_not_prove_operator_authorization",
@@ -1093,6 +1198,11 @@
     "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[port-True]",
     "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[started_utc_ms-999]",
     "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[winerror-True]",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_closed_manifest",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_driver_pin_is_exact",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_duplicate_json_keys_rejected",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_profile_selection_is_closed",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations",
     "tests/test_wal_ack_bounds.py::test_ack_rejects_unallocated_ids_without_advancing_checkpoint",
     "tests/test_wal_ack_order.py::test_ack_cannot_skip_earlier_unprocessed_record",
     "tests/test_wal_bounded_tail_repair.py::test_checkpoint_rejects_noncanonical_decimal_bytes",
@@ -1129,12 +1239,44 @@
     "tests/test_wfp_collection_receipt.py::test_boolean_record_numbers_are_not_native_integers[enabled-Observed]",
     "tests/test_wfp_collection_receipt.py::test_boolean_record_numbers_are_not_native_integers[prepared-Schema]",
     "tests/test_wfp_collection_receipt.py::test_boolean_record_numbers_are_not_native_integers[restore-intent-Schema]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine--runner]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-123]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-None]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-True]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-r\\xfcnner]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-runner name]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-runner/name]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-value3]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-value4]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-//server/share/fixture]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:/fixture/../other]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:/fixture/file:stream]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:/fixture\\nname]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:/fixture\\x00name]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:/fixture\\x7fname]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:\\\\fixture\\\\..\\\\other]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:fixture]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-None]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-True]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-fixture]",
+    "tests/test_wfp_collection_receipt.py::test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-value13]",
+    "tests/test_wfp_collection_receipt.py::test_extracted_network_host_check_preserves_existing_requirements[assurance-PROVEN]",
+    "tests/test_wfp_collection_receipt.py::test_extracted_network_host_check_preserves_existing_requirements[head-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb]",
+    "tests/test_wfp_collection_receipt.py::test_extracted_network_host_check_preserves_existing_requirements[loopback_exit-1]",
+    "tests/test_wfp_collection_receipt.py::test_extracted_network_host_check_preserves_existing_requirements[status-PASS]",
+    "tests/test_wfp_collection_receipt.py::test_network_host_requires_native_integer_exit_code[0.0]",
+    "tests/test_wfp_collection_receipt.py::test_network_host_requires_native_integer_exit_code[0]",
+    "tests/test_wfp_collection_receipt.py::test_network_host_requires_native_integer_exit_code[False]",
+    "tests/test_wfp_collection_receipt.py::test_network_host_requires_native_integer_exit_code[None]",
     "tests/test_wfp_collection_receipt.py::test_owned_logging_records_are_not_physical_authority",
     "tests/test_wfp_collection_receipt.py::test_unknown_collection_or_restoration_cannot_pass[changed-value]",
     "tests/test_wfp_collection_receipt.py::test_unknown_collection_or_restoration_cannot_pass[hash]",
     "tests/test_wfp_collection_receipt.py::test_unknown_collection_or_restoration_cannot_pass[partial]",
     "tests/test_wfp_collection_receipt.py::test_unknown_collection_or_restoration_cannot_pass[physical]",
     "tests/test_wfp_collection_receipt.py::test_unknown_collection_or_restoration_cannot_pass[wrong-run]",
+    "tests/test_wfp_collection_receipt.py::test_valid_network_host_integer_zero_keeps_diagnostic_only_contract",
     "tests/test_wfp_events.py::test_ambiguous_or_invalid_blob_is_blocked",
     "tests/test_wfp_events.py::test_documented_utf16_appid_blob_and_netevent_container",
     "tests/test_wfp_events.py::test_foreign_empty_blob_does_not_hide_owned_drop",
@@ -1159,6 +1301,48 @@
     "tests/test_windows_preflight.py::test_smoke_is_get_only_does_not_follow_redirects_or_promote_gate[ACTIVE-True-CONTROL_NOT_QUIESCENT]",
     "tests/test_windows_preflight.py::test_smoke_is_get_only_does_not_follow_redirects_or_promote_gate[INFRA_ONLY-False-CONTROL_NOT_LEADER]",
     "tests/test_windows_preflight.py::test_smoke_is_get_only_does_not_follow_redirects_or_promote_gate[INFRA_ONLY-True-CONTROL_QUIESCENT_LEADER]",
+    "tests/test_windows_transport_probe.py::test_completed_observations_never_attest_or_authorize",
+    "tests/test_windows_transport_probe.py::test_config_is_copied_and_external_destinations_cannot_be_configured",
+    "tests/test_windows_transport_probe.py::test_config_rejects_substitution_and_type_confusion[<lambda>0]",
+    "tests/test_windows_transport_probe.py::test_config_rejects_substitution_and_type_confusion[<lambda>10]",
+    "tests/test_windows_transport_probe.py::test_config_rejects_substitution_and_type_confusion[<lambda>1]",
+    "tests/test_windows_transport_probe.py::test_config_rejects_substitution_and_type_confusion[<lambda>2]",
+    "tests/test_windows_transport_probe.py::test_config_rejects_substitution_and_type_confusion[<lambda>3]",
+    "tests/test_windows_transport_probe.py::test_config_rejects_substitution_and_type_confusion[<lambda>4]",
+    "tests/test_windows_transport_probe.py::test_config_rejects_substitution_and_type_confusion[<lambda>5]",
+    "tests/test_windows_transport_probe.py::test_config_rejects_substitution_and_type_confusion[<lambda>6]",
+    "tests/test_windows_transport_probe.py::test_config_rejects_substitution_and_type_confusion[<lambda>7]",
+    "tests/test_windows_transport_probe.py::test_config_rejects_substitution_and_type_confusion[<lambda>8]",
+    "tests/test_windows_transport_probe.py::test_config_rejects_substitution_and_type_confusion[<lambda>9]",
+    "tests/test_windows_transport_probe.py::test_control_failure_does_not_skip_other_family_or_socketpair",
+    "tests/test_windows_transport_probe.py::test_duplicate_json_keys_rejected",
+    "tests/test_windows_transport_probe.py::test_exception_error_codes_remain_raw_and_are_classified[10013-ERROR10013]",
+    "tests/test_windows_transport_probe.py::test_exception_error_codes_remain_raw_and_are_classified[10061-ERROR10061]",
+    "tests/test_windows_transport_probe.py::test_immediate_refusal_does_not_read_so_error",
+    "tests/test_windows_transport_probe.py::test_native_gate_accepts_only_exact_owned_profile_shape",
+    "tests/test_windows_transport_probe.py::test_native_gate_refuses_wrong_platform_isolation_or_physical_host[linux-True-runner]",
+    "tests/test_windows_transport_probe.py::test_native_gate_refuses_wrong_platform_isolation_or_physical_host[win32-False-runner]",
+    "tests/test_windows_transport_probe.py::test_native_gate_refuses_wrong_platform_isolation_or_physical_host[win32-True-LS5]",
+    "tests/test_windows_transport_probe.py::test_native_gate_refuses_wrong_platform_isolation_or_physical_host[win32-True-PC4]",
+    "tests/test_windows_transport_probe.py::test_nonempty_result_slot_is_preserved",
+    "tests/test_windows_transport_probe.py::test_os_timeout_exception_is_timeout_without_a_fabricated_wsa_code",
+    "tests/test_windows_transport_probe.py::test_outbound_attempt_uses_implicit_os_binding_without_calling_bind",
+    "tests/test_windows_transport_probe.py::test_pending_completion_keeps_initial_and_final_raw_codes[10013-ERROR10013]",
+    "tests/test_windows_transport_probe.py::test_pending_completion_keeps_initial_and_final_raw_codes[10051-OTHER_ERROR]",
+    "tests/test_windows_transport_probe.py::test_pending_completion_keeps_initial_and_final_raw_codes[10061-ERROR10061]",
+    "tests/test_windows_transport_probe.py::test_self_control_corrupt_data_cannot_count_as_completed_exchange",
+    "tests/test_windows_transport_probe.py::test_self_controls_exchange_bounded_bytes_on_both_families_and_socketpair",
+    "tests/test_windows_transport_probe.py::test_six_attempts_continue_after_independent_exception",
+    "tests/test_windows_transport_probe.py::test_timeout_never_reads_so_error_or_silently_calls_zero_success",
+    "tests/test_windows_transport_probe.py::test_trace_budget_exhaustion_does_not_claim_complete_timeout",
+    "tests/test_windows_transport_probe.py::test_unexpected_connection_survives_local_endpoint_failure[0]",
+    "tests/test_windows_transport_probe.py::test_unexpected_connection_survives_local_endpoint_failure[10035]",
+    "tests/test_windows_transport_probe.py::test_write_result_invalid_or_oversized_output_leaves_retained_file_empty[result0]",
+    "tests/test_windows_transport_probe.py::test_write_result_invalid_or_oversized_output_leaves_retained_file_empty[result1]",
+    "tests/test_windows_transport_probe.py::test_write_result_refuses_missing_file_without_creating_one",
+    "tests/test_windows_transport_probe.py::test_write_result_refuses_multiple_links_to_retained_slot",
+    "tests/test_windows_transport_probe.py::test_write_result_uses_existing_empty_parent_retained_file_once",
+    "tests/test_windows_transport_probe.py::test_zero_without_expected_peer_is_unknown",
     "tests/test_worker_assignment_lease.py::test_assignment_expiry_waits_for_reconciliation_lock",
     "tests/test_worker_assignment_lease.py::test_assignment_lease_does_not_revoke_before_first_heartbeat",
     "tests/test_worker_assignment_lease.py::test_assignment_lease_revokes_stale_work",
@@ -1195,6 +1379,10 @@
     [
       "tests.test_composed_wal_payload_snapshot",
       "test_admitted_payload_cannot_drift_from_wal_before_delivery[minute]"
+    ],
+    [
+      "tests.test_connect_observation_preservation",
+      "test_endpoint_failure_does_not_erase_connect_timeout"
     ],
     [
       "tests.test_control_candidate",
@@ -2195,6 +2383,110 @@
     [
       "tests.test_floating_leader_same_node",
       "test_same_node_cannot_take_unexpired_lease"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_child_elevation_is_rejected_even_with_consistent_fingerprint"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_header_never_accepts_pass_or_physical_authority"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_held_process_token_snapshot_is_observation_only"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_unknown_or_changed_security_facts_cannot_validate[appcontainer_sid-S-1-5-18]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_unknown_or_changed_security_facts_cannot_validate[capability_count-1]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_unknown_or_changed_security_facts_cannot_validate[creation_time-99]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_unknown_or_changed_security_facts_cannot_validate[has_restrictions-True]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_unknown_or_changed_security_facts_cannot_validate[image-C:/Windows/pythonw.exe]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_unknown_or_changed_security_facts_cannot_validate[is_appcontainer-True]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_unknown_or_changed_security_facts_cannot_validate[job_active_limit-2]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_unknown_or_changed_security_facts_cannot_validate[job_flags-0]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_unknown_or_changed_security_facts_cannot_validate[job_member-False]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_unknown_or_changed_security_facts_cannot_validate[pid-True]"
+    ],
+    [
+      "tests.test_isolated_transport_evidence",
+      "test_unknown_or_changed_security_facts_cannot_validate[restriction_creation_flags-0]"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_malformed_pipe_witness_rejected[denial]"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_malformed_pipe_witness_rejected[descriptor]"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_malformed_pipe_witness_rejected[frame]"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_malformed_pipe_witness_rejected[owner]"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_malformed_tcp_witness_rejected[no_listeners]"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_malformed_tcp_witness_rejected[other_zero]"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_malformed_tcp_witness_rejected[owner_true]"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_malformed_tcp_witness_rejected[terminal_timeout]"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_malformed_tcp_witness_rejected[unknown_root]"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_native_binary_closure_is_required"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_positive_pipe_witness_is_only_fixed_ping_observation"
+    ],
+    [
+      "tests.test_isolated_transport_witnesses",
+      "test_positive_tcp_witness_is_only_unknown_policy_observation"
     ],
     [
       "tests.test_legacy_gap_repair",
@@ -4733,6 +5025,318 @@
       "test_valid_profile_is_plan_only_not_execution"
     ],
     [
+      "tests.test_pipe_dacl_evidence",
+      "test_exact_grants[duplicate]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_exact_grants[group-substitution]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_exact_grants[package-read-data]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_invalid_base64_or_structure[alphabet]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_invalid_base64_or_structure[empty]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_invalid_base64_or_structure[oversize]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_invalid_base64_or_structure[padding]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_invalid_base64_or_structure[short]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_invalid_base64_or_structure[whitespace]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[ace_count]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[ace_flags]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[ace_size]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[ace_type]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[acl_size]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[control]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[dacl_overlap]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[duplicate]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[mask]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[owner_overlap]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[revision]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[sid_count]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[sid_revision]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[trailing_acl]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_mutations[truncated]"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_sacl_is_not_mic_attestation"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_sid_argument_binding"
+    ],
+    [
+      "tests.test_pipe_dacl_evidence",
+      "test_valid_and_owner_group_alias"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_actual_denial_fact_and_exact_write_count_are_required"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_any_unproven_denial_prevents_frame_write[0]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_any_unproven_denial_prevents_frame_write[1]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_any_unproven_denial_prevents_frame_write[2]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_both_config_parsers_reject_duplicates_and_nonfinite[integration.pipe_probe_protocol]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_both_config_parsers_reject_duplicates_and_nonfinite[integration.windows_pipe_probe]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_closed_environment_and_owned_profile_guard"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_config_rejects_unbounded_or_substituted_fields[<lambda>0]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_config_rejects_unbounded_or_substituted_fields[<lambda>1]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_config_rejects_unbounded_or_substituted_fields[<lambda>2]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_config_rejects_unbounded_or_substituted_fields[<lambda>3]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_config_rejects_unbounded_or_substituted_fields[<lambda>4]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_config_rejects_unbounded_or_substituted_fields[<lambda>5]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_config_rejects_unbounded_or_substituted_fields[<lambda>6]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_denial_failure_carries_only_fixed_code_name_and_raw_numeric_facts"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_duplicate_keys_with_otherwise_valid_context_and_length_are_rejected"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_failed_write_carries_fixed_error_without_exception_message"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_failure_builder_redacts_unknown_stages_and_noninteger_error_data"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_fixed_ping_round_trip_has_only_context_and_no_authority"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_bad_framing_duplicate_or_oversized_payload[\\x00\\x00\\x00\\x00]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_bad_framing_duplicate_or_oversized_payload[\\x01\\x00\\x00\\x00{]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_bad_framing_duplicate_or_oversized_payload[\\x01\\x02\\x00\\x00xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_bad_framing_duplicate_or_oversized_payload[\\x15\\x00\\x00\\x00{\"schema\":1,\"schema\":1}]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_bad_framing_duplicate_or_oversized_payload[]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>0]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>10]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>11]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>1]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>2]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>3]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>4]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>5]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>6]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>7]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>8]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_promotion_and_cross_context_replay[<lambda>9]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_frame_rejects_trailing_and_truncated_bytes"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_guarded_failure_writes_safe_result_only_after_real_scope_allowed"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_injected_three_denials_and_fixed_frame_produce_no_grid_authority"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_missing_result_slot_is_not_created"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_noncanonical_json_cannot_be_an_alternate_fixed_frame"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_only_exact_failed_win32_access_denied_is_observed[0-5]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_only_exact_failed_win32_access_denied_is_observed[False-0]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_only_exact_failed_win32_access_denied_is_observed[False-6]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_only_exact_failed_win32_access_denied_is_observed[False-True]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_only_exact_failed_win32_access_denied_is_observed[True-5]"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_oversized_result_is_not_written"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_partial_native_write_cannot_produce_completed_result"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_retained_result_writer_is_bounded_and_refuses_repeat"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_scope_failure_writes_nothing_and_missing_slot_is_not_created"
+    ],
+    [
+      "tests.test_pipe_probe_protocol",
+      "test_self_contained_child_encoder_matches_independent_offline_validator"
+    ],
+    [
       "tests.test_pr227_authorization_boundary",
       "test_blocked_runbook_has_no_executable_coordinator_launch"
     ],
@@ -5537,6 +6141,26 @@
       "test_substituted_or_unknown_child_observation_refused[winerror-True]"
     ],
     [
+      "tests.test_transport_reproducer_bundle.ManifestTests",
+      "test_closed_manifest"
+    ],
+    [
+      "tests.test_transport_reproducer_bundle.ManifestTests",
+      "test_driver_pin_is_exact"
+    ],
+    [
+      "tests.test_transport_reproducer_bundle.ManifestTests",
+      "test_duplicate_json_keys_rejected"
+    ],
+    [
+      "tests.test_transport_reproducer_bundle.ManifestTests",
+      "test_profile_selection_is_closed"
+    ],
+    [
+      "tests.test_transport_reproducer_bundle.ManifestTests",
+      "test_rejects_mutations"
+    ],
+    [
       "tests.test_wal_ack_bounds",
       "test_ack_rejects_unallocated_ids_without_advancing_checkpoint"
     ],
@@ -5682,6 +6306,130 @@
     ],
     [
       "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine--runner]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-123]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-None]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-True]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-r\\xfcnner]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-runner name]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-runner/name]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-value3]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Machine-value4]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-//server/share/fixture]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:/fixture/../other]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:/fixture/file:stream]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:/fixture\\nname]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:/fixture\\x00name]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:/fixture\\x7fname]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:\\\\fixture\\\\..\\\\other]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-D:fixture]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-None]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-True]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-fixture]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_consistently_rebound_context_cannot_replace_machine_or_workspace_syntax[Workspace-value13]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_extracted_network_host_check_preserves_existing_requirements[assurance-PROVEN]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_extracted_network_host_check_preserves_existing_requirements[head-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_extracted_network_host_check_preserves_existing_requirements[loopback_exit-1]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_extracted_network_host_check_preserves_existing_requirements[status-PASS]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_network_host_requires_native_integer_exit_code[0.0]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_network_host_requires_native_integer_exit_code[0]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_network_host_requires_native_integer_exit_code[False]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_network_host_requires_native_integer_exit_code[None]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
       "test_owned_logging_records_are_not_physical_authority"
     ],
     [
@@ -5703,6 +6451,10 @@
     [
       "tests.test_wfp_collection_receipt",
       "test_unknown_collection_or_restoration_cannot_pass[wrong-run]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_valid_network_host_integer_zero_keeps_diagnostic_only_contract"
     ],
     [
       "tests.test_wfp_events",
@@ -5799,6 +6551,174 @@
     [
       "tests.test_windows_preflight",
       "test_smoke_is_get_only_does_not_follow_redirects_or_promote_gate[INFRA_ONLY-True-CONTROL_QUIESCENT_LEADER]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_completed_observations_never_attest_or_authorize"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_is_copied_and_external_destinations_cannot_be_configured"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_rejects_substitution_and_type_confusion[<lambda>0]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_rejects_substitution_and_type_confusion[<lambda>10]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_rejects_substitution_and_type_confusion[<lambda>1]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_rejects_substitution_and_type_confusion[<lambda>2]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_rejects_substitution_and_type_confusion[<lambda>3]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_rejects_substitution_and_type_confusion[<lambda>4]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_rejects_substitution_and_type_confusion[<lambda>5]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_rejects_substitution_and_type_confusion[<lambda>6]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_rejects_substitution_and_type_confusion[<lambda>7]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_rejects_substitution_and_type_confusion[<lambda>8]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_config_rejects_substitution_and_type_confusion[<lambda>9]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_control_failure_does_not_skip_other_family_or_socketpair"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_duplicate_json_keys_rejected"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_exception_error_codes_remain_raw_and_are_classified[10013-ERROR10013]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_exception_error_codes_remain_raw_and_are_classified[10061-ERROR10061]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_immediate_refusal_does_not_read_so_error"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_native_gate_accepts_only_exact_owned_profile_shape"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_native_gate_refuses_wrong_platform_isolation_or_physical_host[linux-True-runner]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_native_gate_refuses_wrong_platform_isolation_or_physical_host[win32-False-runner]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_native_gate_refuses_wrong_platform_isolation_or_physical_host[win32-True-LS5]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_native_gate_refuses_wrong_platform_isolation_or_physical_host[win32-True-PC4]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_nonempty_result_slot_is_preserved"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_os_timeout_exception_is_timeout_without_a_fabricated_wsa_code"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_outbound_attempt_uses_implicit_os_binding_without_calling_bind"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_pending_completion_keeps_initial_and_final_raw_codes[10013-ERROR10013]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_pending_completion_keeps_initial_and_final_raw_codes[10051-OTHER_ERROR]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_pending_completion_keeps_initial_and_final_raw_codes[10061-ERROR10061]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_self_control_corrupt_data_cannot_count_as_completed_exchange"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_self_controls_exchange_bounded_bytes_on_both_families_and_socketpair"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_six_attempts_continue_after_independent_exception"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_timeout_never_reads_so_error_or_silently_calls_zero_success"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_trace_budget_exhaustion_does_not_claim_complete_timeout"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_unexpected_connection_survives_local_endpoint_failure[0]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_unexpected_connection_survives_local_endpoint_failure[10035]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_write_result_invalid_or_oversized_output_leaves_retained_file_empty[result0]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_write_result_invalid_or_oversized_output_leaves_retained_file_empty[result1]"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_write_result_refuses_missing_file_without_creating_one"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_write_result_refuses_multiple_links_to_retained_slot"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_write_result_uses_existing_empty_parent_retained_file_once"
+    ],
+    [
+      "tests.test_windows_transport_probe",
+      "test_zero_without_expected_peer_is_unknown"
     ],
     [
       "tests.test_worker_assignment_lease",
@@ -5987,6 +6907,35 @@
     "tests/test_ls5_physical_acceptance.py::GateTests::test_workflow_wrong_head_and_duplicate_denied:143eae19e69295bb34097a9c69dfe05425435b462ebc4b4d2401a5f8af25489a",
     "tests/test_ls5_physical_acceptance.py::GateTests::test_workflow_wrong_head_and_duplicate_denied:3aae62f11591b6b80ced7d84a51da6ab78c19c99b036f7d769b492afc51adf9d",
     "tests/test_ls5_physical_acceptance.py::GateTests::test_workflow_wrong_head_and_duplicate_denied:7072afcee8b0294efed9bcd0ccd151622020b9dd924f471069584948e82080fe",
-    "tests/test_ls5_physical_acceptance.py::GateTests::test_workflow_wrong_head_and_duplicate_denied:c270169f08859e1d5a9a6d43e9d52844c443bd1d54876407851d96b9fd5897c3"
+    "tests/test_ls5_physical_acceptance.py::GateTests::test_workflow_wrong_head_and_duplicate_denied:c270169f08859e1d5a9a6d43e9d52844c443bd1d54876407851d96b9fd5897c3",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_profile_selection_is_closed:1ef22c6ac05b1cc7e489b9d7719973f2a5b735ef349b7d69474cfa1c02f54531",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_profile_selection_is_closed:38bb3d878b34db8955706ed6e7fd574ca16e760850d4a8db05bffd97f17fd44b",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_profile_selection_is_closed:53245b18b31c81730ae02290d158fe787f1a7d03794d786809f1955c3a4f815e",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_profile_selection_is_closed:85075254ae2cd3c08d69a84bdb3a8a55ee9ad3609a1fff8ee11adcc4c6d9aa05",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_profile_selection_is_closed:ab165a4f8af5f412f9b5e55099cfe9ef256232a6fd52aede1f35c7b31939b39c",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_profile_selection_is_closed:af03fd71e7e244b27c92f89e668fcd3ef6050960f425e71a19d685eef7595108",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_profile_selection_is_closed:afae8949010b27fe2ce2b2d57b9f444637bf4ec01de05aa15e37825b40f05e6c",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:034472a3c7fc7e1a7d2a221cd4b788f9cce63520e05745c52e3616775a452f22",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:11bf7558fc76be2d55607d6ccde305e127c1f7514053b514f1daedc688c412ca",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:1ee356d7c22955a1ef24552a36da508698ba015a7c1ad8659ec36f4793331dfa",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:230a6f1934a6f74d564c8d53d6729bbab690f43b8f1413d1cc9a0154463b22eb",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:303e8fe0378149c71831c71f39d86ea362af7fceae2245db84d56402fb5734e5",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:34d03b5dd854967868e56e174c54dd52da9ad99bfce87058793196287fff8356",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:370cd7982c9df731c87d93e792bc8a79e94840728b603c3e605aabf2979ee2f5",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:3d3ef8392337419bd208c8aed02725392d4285f35618a399b966925ff7b3f765",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:53f2c7a67b30ba332d45c709042dcf056ab28afb72cf1da477908ace86fa3fd6",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:5d265fea27455017b2824e473da54d2eee665b1a4f1d3b364bd30036aa0ef2cb",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:5f8bf8d72ac424dcd3b0e6331698effd36f7b8a98145f6059a4676fdb190a6f5",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:5fc9859b2bd081b7def576acb4c21e5901486796d1fa5f72b2dad14548e7c100",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:6754e5b5979c148383c31a4917fe8fbd9bbd8dd5a15221676c67a561b70dbfe4",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:79e4379d1586d5a7407029603cb3cea915e11523572e70f9070c952dc586e545",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:7ff24e6c6064f6ed0e026a6204c944c28494ddd9746c4623a006a108b0342608",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:8a5d5a3bc670623fa697dfa696ce8ba26e2603e45a61d0c83ac61e2a3cd62e24",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:9b89fce9b9da8e8c92478d1619209dad888d4d0c2b6ebbb82a1753174d9163fc",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:b1367ced594031bf7c8a7f04dfcb839301ff03506f3b5f5fa946c55ce8a127ae",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:c9bd75af407f4f065fec98f2c3fe0a851390a17f63f2c69ab2f2a31e81dc1b46",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:f5765d534b5ee558d9152e992a290d5785185ebb4223fbb7dd13578bcb31acaf",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:f76bf1b35aeb126bc2daede5e79a718c319938f7eed53ef935dd3278a444a485",
+    "tests/test_transport_reproducer_bundle.py::ManifestTests::test_rejects_mutations:f7b21a8be4b95d609fe539a32c6133804ce5aca40364b09633d59a408a4de445"
   ]
 }
