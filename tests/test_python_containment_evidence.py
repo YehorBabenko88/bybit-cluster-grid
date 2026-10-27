@@ -4,8 +4,8 @@ from integration.python_containment_evidence import validate, CASES
 HEAD='a'*40
 
 def sample():
-    child=dict(schema=1,head=HEAD,run_id='12',attempt='1',pid=123,python_version='3.12 synthetic',status='PASS',error=None,error_code=None,cases=[dict(name=n,outcome='PASS') for n in CASES],physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
-    return dict(schema=1,head=HEAD,run_id='12',attempt='1',status='PASS',reason=None,input_manifest_sha256='a'*64,result_sha256='b'*64,diagnostic_sha256='c'*64,diagnostic_error=None,result_error=None,files=15,pid=123,debugged=True,loader_events=[dict(Event=5,Detail='exit:00000000')],python=child,assurance='HOSTED_DEBUGGED_PYTHON_NEGATIVE_BOUNDARY_ONLY',host_verified=False,execute_authorized=False,cleanup_authorized=False,physical='0/10 NOT_RUN',whole_system='PARTIAL',network_transport='BLOCKED_NO_CAPABILITIES')
+    child=dict(schema=1,head=HEAD,run_id='12',attempt='1',pid=123,python_version='3.12 synthetic',status='PASS',error=None,error_code=None,cases=[dict(name=n,outcome='PASS') for n in CASES],network_diagnostics=[dict(family=f,stage=stage,result='ERROR' if stage in ('accept','connect') else 'SUCCESS',kind='PERMISSION' if stage=='connect' else 'OSERROR' if stage=='accept' else None,winerror=10013 if stage=='connect' else 10035 if stage=='accept' else None,errno=13 if stage=='connect' else 10035 if stage=='accept' else None,wsa_post_exception=0 if stage in ('accept','connect') else None) for f in (4,6) for stage in ('socket','bind','listen','accept','client-socket','connect')]+[dict(family=4,stage='documentation-connect',result='ERROR',kind='PERMISSION',winerror=10013,errno=13,wsa_post_exception=0)],physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
+    return dict(schema=1,head=HEAD,run_id='12',attempt='1',status='PASS',reason=None,input_manifest_sha256='a'*64,result_sha256='b'*64,diagnostic_sha256='c'*64,diagnostic_error=None,result_error=None,files=15,pid=123,debugged=True,network_host=[dict(family=f,stage=s,success=True) for f in (4,6) for s in ('socket','bind','listen','connect','accept')]+[dict(family=f,stage='no-pending-after-child',success=True) for f in (4,6)],loader_events=[dict(Event=5,Detail='exit:00000000')],python=child,assurance='HOSTED_DEBUGGED_PYTHON_NEGATIVE_BOUNDARY_ONLY',host_verified=False,execute_authorized=False,cleanup_authorized=False,physical='0/10 NOT_RUN',whole_system='PARTIAL',network_transport='BLOCKED_NO_CAPABILITIES')
 
 def test_exact_negative_boundary_only():validate(sample(),HEAD,'12','1')
 @pytest.mark.parametrize('field,value',[('head','f'*40),('run_id','13'),('pid',True),('status','BLOCKED'),('whole_system','PASS'),('host_verified',True),('execute_authorized',True),('extra','unknown')])
@@ -99,3 +99,27 @@ def test_network_unknown_or_refused_is_not_policy_denial(winerror,errno):
 def test_network_exact_winsock_access_denied():
     from integration.windows_python_probe import network_denial
     network_denial(10013,13)
+
+
+def test_timeout_is_explicit_and_not_a_policy_denial():
+    from integration.windows_python_probe import socket_error
+    row=socket_error(TimeoutError())
+    assert row==dict(kind='TIMEOUT',winerror=None,errno=None)
+    with pytest.raises(RuntimeError):
+        from integration.windows_python_probe import network_denial
+        network_denial(row['winerror'],row['errno'])
+
+@pytest.mark.parametrize('error,kind',[(ConnectionRefusedError(10061,'synthetic'),'REFUSED'),(OSError(10022,'synthetic'),'OSERROR'),(PermissionError(13,'synthetic'),'PERMISSION')])
+def test_socket_error_kind_is_preserved(error,kind):
+    from integration.windows_python_probe import socket_error
+    assert socket_error(error)['kind']==kind
+
+
+@pytest.mark.parametrize('change',['missing-stage','timeout','reorder','unknown-field'])
+def test_staged_socket_evidence_cannot_be_truncated_or_promoted(change):
+    v=sample();rows=v['python']['network_diagnostics']
+    if change=='missing-stage':rows.pop(0)
+    elif change=='timeout':rows[5].update(kind='TIMEOUT',winerror=None,errno=None)
+    elif change=='reorder':rows.reverse()
+    else:rows[0]['unknown']='untrusted'
+    with pytest.raises(ValueError):validate(v,HEAD,'12','1')

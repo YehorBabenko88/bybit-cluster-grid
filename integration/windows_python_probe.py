@@ -3,6 +3,7 @@ import asyncio,ctypes,ctypes.wintypes as W,json,os,pathlib,re,socket,subprocess,
 ROOT=pathlib.Path(__file__).resolve().parent
 CASES=['isolated-python','no-parent-secrets','closed-import-paths','own-data-rw','foreign-read-denied','foreign-write-denied','source-write-denied','source-write-dac-denied','parent-handle-not-inherited','parent-process-read-denied','loopback-denied','documentation-network-denied','subprocess-denied','native-dependencies','real-coordinator-fails-closed','real-worker-infra-only','dll-module-closure']
 rows=[]
+network_diagnostics=[]
 def native_scope(root,host,args):
     p=pathlib.PureWindowsPath(root);guid=r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
     if args!=['--native-child'] or host.upper() in ('LS5','PC4') or not re.fullmatch(r'[A-Za-z]:',p.drive) or p.parent.name!='AC' or p.parent.parent.parent.name!='Packages' or not re.fullmatch('python-'+guid,p.name) or not re.fullmatch('g1-fixture-'+guid,p.parent.parent.name):raise ValueError('PHYSICAL_OR_UNOWNED_PROBE_REFUSED')
@@ -11,6 +12,19 @@ class BoundaryFailure(RuntimeError):
 
 def need(ok,code='BOUNDARY_NOT_PROVEN'):
     if not ok:raise BoundaryFailure(code)
+
+def socket_error(error):
+    def number(value):return value if type(value) is int and -(2**31)<=value<2**32 else None
+    kind='TIMEOUT' if isinstance(error,TimeoutError) else 'REFUSED' if isinstance(error,ConnectionRefusedError) else 'PERMISSION' if isinstance(error,PermissionError) else 'OSERROR'
+    return dict(kind=kind,winerror=number(getattr(error,'winerror',None)),errno=number(getattr(error,'errno',None)))
+
+def socket_trace(family,stage,operation):
+    try:
+        result=operation();network_diagnostics.append(dict(family=family,stage=stage,result='SUCCESS',kind=None,winerror=None,errno=None,wsa_post_exception=None));return result,None
+    except OSError as error:
+        # Python/ctypes may already have touched WSA TLS: never treat this as authoritative.
+        ws=ctypes.WinDLL('ws2_32');ws.WSAGetLastError.restype=ctypes.c_int;post=ws.WSAGetLastError()
+        fact=socket_error(error);network_diagnostics.append(dict(family=family,stage=stage,result='ERROR',wsa_post_exception=post,**fact));return None,fact
 
 def network_denial(winerror,errno):
     # Timeout/refusal/unknown does not prove an OS policy denial. Numeric facts only.
@@ -76,13 +90,36 @@ def main():
         if opened:need(k.CloseHandle(W.HANDLE(h))!=0,'PARENT_HANDLE_CLOSE_FAILED')
         win32_denial(opened,error)
     case('parent-process-read-denied',parent_process)
+    connects=[]
+    for family,af,host,port in ((4,socket.AF_INET,'127.0.0.1',cfg['port']),(6,socket.AF_INET6,'::1',cfg['port6'])):
+        server,error=socket_trace(family,'socket',lambda:socket.socket(af,socket.SOCK_STREAM))
+        if server is not None:
+            with server:
+                server.setblocking(False)
+                _,bound=socket_trace(family,'bind',lambda:server.bind((host,0)))
+                if bound is None:
+                    _,listened=socket_trace(family,'listen',lambda:server.listen(1))
+                    if listened is None:
+                        accepted,ignored=socket_trace(family,'accept',server.accept)
+                        if accepted is not None:accepted[0].close();raise BoundaryFailure('UNEXPECTED_ACCEPT')
+        client,error=socket_trace(family,'client-socket',lambda:socket.socket(af,socket.SOCK_STREAM))
+        if client is not None:
+            with client:
+                client.settimeout(2)
+                _,error=socket_trace(family,'connect',lambda:client.connect((host,port)))
+                connects.append(error)
+        else:connects.append(error)
+    def loopback():
+        for error in connects:
+            need(error is not None,'NETWORK_ALLOWED')
+            need(error['kind']!='TIMEOUT','NETWORK_TIMEOUT_NOT_POLICY_PROOF')
+            network_denial(error['winerror'],error['errno'])
+    case('loopback-denied',loopback)
     def network(host,port):
-        with socket.socket() as s:
-            s.settimeout(2)
-            try:s.connect((host,port))
-            except OSError as e:network_denial(getattr(e,'winerror',None),e.errno);return
-            raise RuntimeError('NETWORK_ALLOWED')
-    case('loopback-denied',lambda:network('127.0.0.1',cfg['port']))
+        with socket.socket() as client:
+            client.settimeout(2)
+            _,error=socket_trace(4,'documentation-connect',lambda:client.connect((host,port)))
+            need(error is not None,'NETWORK_ALLOWED');network_denial(error['winerror'],error['errno'])
     case('documentation-network-denied',lambda:network('192.0.2.1',9))
     def child():
         try:subprocess.run([sys.executable,'-I','-S','-c','raise SystemExit(0)'],check=True,timeout=3)
@@ -137,6 +174,6 @@ if __name__=='__main__':
         cfg=json.loads((ROOT/'config.json').read_text());main()
     except BaseException as e:
         error=type(e).__name__;code=e.code if isinstance(e,BoundaryFailure) else ('WINDOWS_ERROR_'+str(e.winerror) if isinstance(e,OSError) and type(getattr(e,'winerror',None)) is int else None)
-    result=dict(schema=1,head=cfg.get('head'),run_id=cfg.get('run_id'),attempt=cfg.get('attempt'),pid=os.getpid(),python_version=sys.version,status='PASS' if error is None else 'BLOCKED',error=error,error_code=code,cases=rows,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
+    result=dict(schema=1,head=cfg.get('head'),run_id=cfg.get('run_id'),attempt=cfg.get('attempt'),pid=os.getpid(),python_version=sys.version,status='PASS' if error is None else 'BLOCKED',error=error,error_code=code,cases=rows,network_diagnostics=network_diagnostics,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
     (ROOT/'Data/result.json').write_text(json.dumps(result),encoding='utf-8')
     raise SystemExit(0 if error is None else 1)

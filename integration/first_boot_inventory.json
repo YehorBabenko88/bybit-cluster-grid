@@ -788,6 +788,31 @@
     "tests/test_owned_wal_receipts.py::test_wal_restart_keeps_grant_and_acks_only_durable_receipt[LIVE]",
     "tests/test_owned_wal_receipts.py::test_wal_restart_keeps_grant_and_acks_only_durable_receipt[QUARANTINED]",
     "tests/test_owned_wal_receipts.py::test_wal_restart_keeps_grant_and_acks_only_durable_receipt[UNKNOWN]",
+    "tests/test_owner_authorization_preflight.py::test_bounded_loader_rejects_duplicate_deep_and_oversized_input[deep]",
+    "tests/test_owner_authorization_preflight.py::test_bounded_loader_rejects_duplicate_deep_and_oversized_input[duplicate]",
+    "tests/test_owner_authorization_preflight.py::test_bounded_loader_rejects_duplicate_deep_and_oversized_input[oversized]",
+    "tests/test_owner_authorization_preflight.py::test_caller_context_is_not_mutated_and_repeated_calls_cannot_consume_or_authorize",
+    "tests/test_owner_authorization_preflight.py::test_invalid_or_promoted_input_fails_closed[<lambda>0]",
+    "tests/test_owner_authorization_preflight.py::test_invalid_or_promoted_input_fails_closed[<lambda>1]",
+    "tests/test_owner_authorization_preflight.py::test_invalid_or_promoted_input_fails_closed[<lambda>2]",
+    "tests/test_owner_authorization_preflight.py::test_invalid_or_promoted_input_fails_closed[<lambda>3]",
+    "tests/test_owner_authorization_preflight.py::test_invalid_or_promoted_input_fails_closed[<lambda>4]",
+    "tests/test_owner_authorization_preflight.py::test_invalid_or_promoted_input_fails_closed[<lambda>5]",
+    "tests/test_owner_authorization_preflight.py::test_invalid_or_promoted_input_fails_closed[<lambda>6]",
+    "tests/test_owner_authorization_preflight.py::test_invalid_or_promoted_input_fails_closed[<lambda>7]",
+    "tests/test_owner_authorization_preflight.py::test_matching_metadata_and_same_boot_never_grant_owner_or_cleanup_authority",
+    "tests/test_owner_authorization_preflight.py::test_offline_metadata_never_promotes_physical_host_or_safety_evidence",
+    "tests/test_owner_authorization_preflight.py::test_reboot_or_handle_loss_requires_retention_and_fresh_authorization[False-True]",
+    "tests/test_owner_authorization_preflight.py::test_reboot_or_handle_loss_requires_retention_and_fresh_authorization[True-False]",
+    "tests/test_owner_authorization_preflight.py::test_reboot_or_handle_loss_requires_retention_and_fresh_authorization[True-True]",
+    "tests/test_owner_authorization_preflight.py::test_scope_substitution_does_not_match_expected_metadata[action-execute]",
+    "tests/test_owner_authorization_preflight.py::test_scope_substitution_does_not_match_expected_metadata[artifact_sha256-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd]",
+    "tests/test_owner_authorization_preflight.py::test_scope_substitution_does_not_match_expected_metadata[boot_id-99999999-9999-4999-8999-999999999999]",
+    "tests/test_owner_authorization_preflight.py::test_scope_substitution_does_not_match_expected_metadata[head_sha-dddddddddddddddddddddddddddddddddddddddd]",
+    "tests/test_owner_authorization_preflight.py::test_scope_substitution_does_not_match_expected_metadata[host_id-99999999-9999-4999-8999-999999999999]",
+    "tests/test_owner_authorization_preflight.py::test_scope_substitution_does_not_match_expected_metadata[owner_key_sha256-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd]",
+    "tests/test_owner_authorization_preflight.py::test_scope_substitution_does_not_match_expected_metadata[session_id-99999999-9999-4999-8999-999999999999]",
+    "tests/test_owner_authorization_preflight.py::test_supplied_hashes_do_not_establish_nonrollback_anchor_or_trusted_journal",
     "tests/test_ownership_local.py::test_expired_collector_cannot_append_live_data",
     "tests/test_ownership_local.py::test_immutable_sink_preserves_generation_before_wal_append",
     "tests/test_ownership_local.py::test_late_reply_cannot_extend_lease_or_relabel_old_sink",
@@ -994,6 +1019,14 @@
     "tests/test_python_containment_evidence.py::test_real_component_case_inventory[failed]",
     "tests/test_python_containment_evidence.py::test_real_component_case_inventory[missing]",
     "tests/test_python_containment_evidence.py::test_real_component_case_inventory[reordered]",
+    "tests/test_python_containment_evidence.py::test_socket_error_kind_is_preserved[error0-REFUSED]",
+    "tests/test_python_containment_evidence.py::test_socket_error_kind_is_preserved[error1-OSERROR]",
+    "tests/test_python_containment_evidence.py::test_socket_error_kind_is_preserved[error2-PERMISSION]",
+    "tests/test_python_containment_evidence.py::test_staged_socket_evidence_cannot_be_truncated_or_promoted[missing-stage]",
+    "tests/test_python_containment_evidence.py::test_staged_socket_evidence_cannot_be_truncated_or_promoted[reorder]",
+    "tests/test_python_containment_evidence.py::test_staged_socket_evidence_cannot_be_truncated_or_promoted[timeout]",
+    "tests/test_python_containment_evidence.py::test_staged_socket_evidence_cannot_be_truncated_or_promoted[unknown-field]",
+    "tests/test_python_containment_evidence.py::test_timeout_is_explicit_and_not_a_policy_denial",
     "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[0]",
     "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[32]",
     "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[5]",
@@ -4226,6 +4259,106 @@
       "test_wal_restart_keeps_grant_and_acks_only_durable_receipt[UNKNOWN]"
     ],
     [
+      "tests.test_owner_authorization_preflight",
+      "test_bounded_loader_rejects_duplicate_deep_and_oversized_input[deep]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_bounded_loader_rejects_duplicate_deep_and_oversized_input[duplicate]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_bounded_loader_rejects_duplicate_deep_and_oversized_input[oversized]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_caller_context_is_not_mutated_and_repeated_calls_cannot_consume_or_authorize"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_invalid_or_promoted_input_fails_closed[<lambda>0]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_invalid_or_promoted_input_fails_closed[<lambda>1]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_invalid_or_promoted_input_fails_closed[<lambda>2]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_invalid_or_promoted_input_fails_closed[<lambda>3]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_invalid_or_promoted_input_fails_closed[<lambda>4]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_invalid_or_promoted_input_fails_closed[<lambda>5]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_invalid_or_promoted_input_fails_closed[<lambda>6]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_invalid_or_promoted_input_fails_closed[<lambda>7]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_matching_metadata_and_same_boot_never_grant_owner_or_cleanup_authority"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_offline_metadata_never_promotes_physical_host_or_safety_evidence"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_reboot_or_handle_loss_requires_retention_and_fresh_authorization[False-True]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_reboot_or_handle_loss_requires_retention_and_fresh_authorization[True-False]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_reboot_or_handle_loss_requires_retention_and_fresh_authorization[True-True]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_scope_substitution_does_not_match_expected_metadata[action-execute]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_scope_substitution_does_not_match_expected_metadata[artifact_sha256-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_scope_substitution_does_not_match_expected_metadata[boot_id-99999999-9999-4999-8999-999999999999]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_scope_substitution_does_not_match_expected_metadata[head_sha-dddddddddddddddddddddddddddddddddddddddd]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_scope_substitution_does_not_match_expected_metadata[host_id-99999999-9999-4999-8999-999999999999]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_scope_substitution_does_not_match_expected_metadata[owner_key_sha256-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_scope_substitution_does_not_match_expected_metadata[session_id-99999999-9999-4999-8999-999999999999]"
+    ],
+    [
+      "tests.test_owner_authorization_preflight",
+      "test_supplied_hashes_do_not_establish_nonrollback_anchor_or_trusted_journal"
+    ],
+    [
       "tests.test_ownership_local",
       "test_expired_collector_cannot_append_live_data"
     ],
@@ -5048,6 +5181,38 @@
     [
       "tests.test_python_containment_evidence",
       "test_real_component_case_inventory[reordered]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_socket_error_kind_is_preserved[error0-REFUSED]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_socket_error_kind_is_preserved[error1-OSERROR]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_socket_error_kind_is_preserved[error2-PERMISSION]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_staged_socket_evidence_cannot_be_truncated_or_promoted[missing-stage]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_staged_socket_evidence_cannot_be_truncated_or_promoted[reorder]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_staged_socket_evidence_cannot_be_truncated_or_promoted[timeout]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_staged_socket_evidence_cannot_be_truncated_or_promoted[unknown-field]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_timeout_is_explicit_and_not_a_policy_denial"
     ],
     [
       "tests.test_python_containment_evidence",

@@ -4,8 +4,8 @@ from pathlib import Path
 import xml.etree.ElementTree as E
 from .windows_python_probe import CASES
 ROOT=Path(__file__).resolve().parents[1]
-FIELDS={'schema','head','run_id','attempt','status','reason','input_manifest_sha256','result_sha256','diagnostic_sha256','diagnostic_error','result_error','files','pid','debugged','loader_events','python','assurance','host_verified','execute_authorized','cleanup_authorized','physical','whole_system','network_transport'}
-CHILD={'schema','head','run_id','attempt','pid','python_version','status','error','error_code','cases','physical','execute_authorized','cleanup_authorized','whole_system'}
+FIELDS={'schema','head','run_id','attempt','status','reason','input_manifest_sha256','result_sha256','diagnostic_sha256','diagnostic_error','result_error','files','pid','debugged','loader_events','python','assurance','host_verified','execute_authorized','cleanup_authorized','physical','whole_system','network_transport','network_host'}
+CHILD={'schema','head','run_id','attempt','pid','python_version','status','error','error_code','cases','physical','execute_authorized','cleanup_authorized','whole_system','network_diagnostics'}
 
 def need(ok):
     if not ok:raise ValueError('PYTHON_BOUNDARY_EVIDENCE_REFUSED')
@@ -31,6 +31,19 @@ def validate(v,head,run,attempt):
     need(v['assurance']=='HOSTED_DEBUGGED_PYTHON_NEGATIVE_BOUNDARY_ONLY' and v['debugged'] is True and v['network_transport']=='BLOCKED_NO_CAPABILITIES')
     need(type(v['loader_events']) is list and 0<len(v['loader_events'])<=1024 and v['loader_events'][-1]==dict(Event=5,Detail='exit:00000000'))
     for row in v['loader_events']:need(type(row) is dict and set(row)=={'Event','Detail'} and type(row['Event']) is int and row['Event'] in (1,3,5,6,8) and type(row['Detail']) is str and len(row['Detail'])<=8192)
+    need(v['network_host']==[dict(family=f,stage=s,success=True) for f in (4,6) for s in ('socket','bind','listen','connect','accept')]+[dict(family=f,stage='no-pending-after-child',success=True) for f in (4,6)])
+    trace=v['python']['network_diagnostics'];need(type(trace) is list and 2<=len(trace)<=32)
+    for row in trace:
+        need(type(row) is dict and set(row)=={'family','stage','result','kind','winerror','errno','wsa_post_exception'} and type(row['family']) is int and row['family'] in (4,6) and row['stage'] in ('socket','bind','listen','accept','client-socket','connect','documentation-connect') and row['result'] in ('SUCCESS','ERROR'))
+        need(row['kind'] in (None,'TIMEOUT','REFUSED','PERMISSION','OSERROR'))
+        for k in ('winerror','errno','wsa_post_exception'):need(row[k] is None or type(row[k]) is int and -(2**31)<=row[k]<2**32)
+    need([(r['family'],r['stage']) for r in trace]==[(f,s) for f in (4,6) for s in ('socket','bind','listen','accept','client-socket','connect')]+[(4,'documentation-connect')])
+    for row in trace:
+        if row['result']=='SUCCESS':need(all(row[k] is None for k in ('kind','winerror','errno','wsa_post_exception')))
+        else:need(row['kind'] is not None)
+    for family in (4,6):
+        matches=[r for r in trace if r['family']==family and r['stage']=='connect'];need(len(matches)==1 and matches[0]['result']=='ERROR' and matches[0]['winerror']==10013 and matches[0]['kind']!='TIMEOUT')
+    need(trace[-1]['result']=='ERROR' and trace[-1]['winerror']==10013 and trace[-1]['kind']!='TIMEOUT')
     need(v['python']['cases']==[dict(name=n,outcome='PASS') for n in CASES])
     for k in ('input_manifest_sha256','result_sha256','diagnostic_sha256'):need(type(v[k]) is str and re.fullmatch('[0-9a-f]{64}',v[k]) is not None)
     return list(CASES)
@@ -75,7 +88,8 @@ def receipt(folder,head,run,attempt,create=False):
             original='integration/windows_python_probe.py' if n=='driver.py' else n.removeprefix('Source/')
             need(n=='driver.py' or original.startswith('grid/'))
             need(hashlib.sha256(subprocess.check_output(['git','show',head+':'+original],cwd=ROOT)).hexdigest().upper()==pin['Sha256'])
-    files=('native.json','child.json','input.json','junit.xml','events.jsonl','dependencies.txt','diagnostics.txt')
+    meta=load((folder/'network-host.json').read_bytes());need((meta.get('head'),meta.get('run_id'),meta.get('attempt'))==(head,run,attempt) and meta.get('status')=='OBSERVED_NOT_ATTESTED' and meta.get('loopback_exit')==0 and meta.get('assurance')=='DIAGNOSTIC_ONLY_NOT_EFFECTIVE_WFP_PROOF')
+    files=('network-host.json','native.json','child.json','input.json','junit.xml','events.jsonl','dependencies.txt','diagnostics.txt')
     if create:
         xml=E.Element('testsuite',tests=str(len(names)),failures='0',errors='0',skipped='0',head=head,run_id=run,attempt=attempt)
         for n in names:E.SubElement(xml,'testcase',classname='real_python_negative_boundary',name=n)
