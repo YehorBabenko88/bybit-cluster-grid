@@ -1077,7 +1077,10 @@
     "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[missing]",
     "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[unready]",
     "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[wrong-head]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[deadline_ms-2000]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[deadline_ms-True]",
     "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[elapsed_ns--1]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[elapsed_ns-11000000001]",
     "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[family-True]",
     "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[host-localhost]",
     "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[kind-UNKNOWN]",
@@ -5471,7 +5474,19 @@
     ],
     [
       "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[deadline_ms-2000]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[deadline_ms-True]"
+    ],
+    [
+      "tests.test_transport_provenance",
       "test_substituted_or_unknown_child_observation_refused[elapsed_ns--1]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[elapsed_ns-11000000001]"
     ],
     [
       "tests.test_transport_provenance",

@@ -13,7 +13,7 @@ def connect_observation(client,family,host,port,mode,cfg,trace=None):
     _,error=socket_trace(family,'connect',lambda:client.connect((host,port)),trace)
     elapsed=time.perf_counter_ns()-clock
     local=client.getsockname()
-    transport_connections.append(dict(nonce=cfg['transport_nonce'],parent_pid=cfg['parent_pid'],pid=os.getpid(),family=family,host=host,port=port,mode=mode,started_utc_ms=started,elapsed_ns=elapsed,local_host=local[0],local_port=local[1],**(error or dict(kind='SUCCESS',winerror=None,errno=None))))
+    transport_connections.append(dict(nonce=cfg['transport_nonce'],parent_pid=cfg['parent_pid'],pid=os.getpid(),family=family,host=host,port=port,mode=mode,started_utc_ms=started,deadline_ms=6000,elapsed_ns=elapsed,local_host=local[0],local_port=local[1],**(error or dict(kind='SUCCESS',winerror=None,errno=None))))
     return error
 def native_scope(root,host,args):
     p=pathlib.PureWindowsPath(root);guid=r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
@@ -152,12 +152,12 @@ def main():
         client,error=socket_trace(family,'client-socket',lambda:socket.socket(af,socket.SOCK_STREAM))
         if client is not None:
             with client:
-                client.settimeout(2)
+                client.settimeout(6)
                 error=connect_observation(client,family,host,port,'listener',cfg)
                 connects.append(error)
         else:connects.append(error)
         with socket.socket(af,socket.SOCK_STREAM) as closed:
-            closed.settimeout(2)
+            closed.settimeout(6)
             connect_observation(closed,family,host,cfg['closed_port' if family==4 else 'closed_port6'],'bound-not-listening',cfg,[])
         network_isolation.append(dict(family=family,**isolation_diagnosis(host)))
     if len(self_loopback)==8 and all(r['result']=='SUCCESS' for r in self_loopback):

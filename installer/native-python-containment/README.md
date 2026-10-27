@@ -179,3 +179,11 @@ separately isolated VM transport. Neither is implemented or approved here;
 both change the trust boundary and require their own threat model and denial
 tests. Global loopback exemptions, broad network capabilities, audit hooks and
 accepting timeouts as proof are not substitutes. Physical G1 remains BLOCKED.
+
+The child-to-host diagnostic deadline is now six seconds, recorded explicitly.
+The preceding two-second run observed host WSA10061 only after roughly two
+seconds, so the shorter child deadline may censor a delayed socket result.
+This is an experimental hypothesis, not the WFP cause. Six seconds does not
+permit a connection, change network policy, or accept refusal/timeout as denial.
+The native child wait and Job lifecycle remain bounded. Self-IPC positive
+controls retain their original two-second deadlines.
