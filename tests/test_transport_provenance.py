@@ -38,3 +38,22 @@ def test_listener_and_run_provenance_fail_closed(mutation):
     elif mutation=='foreign-bind':p['endpoints'][0]['host']='0.0.0.0'
     else:p['endpoints'][1]['host_control']='SUCCESS'
     with pytest.raises(ValueError):validate_transport(p,c,HEAD,'12','1')
+
+
+@pytest.mark.parametrize('kind,winerror,number',[
+ ('REFUSED',10013,13),('REFUSED',None,None),
+ ('PERMISSION',10061,10061),('PERMISSION',None,None),
+ ('TIMEOUT',10061,None),('TIMEOUT',None,10060),
+ ('OSERROR',10013,13),('OSERROR',10061,10061),('OSERROR',None,None),
+])
+def test_contradictory_error_classification_refused(kind,winerror,number):
+    p,c=sample();c[0].update(kind=kind,winerror=winerror,errno=number)
+    with pytest.raises(ValueError):validate_transport(p,c,HEAD,'12','1')
+
+@pytest.mark.parametrize('kind,winerror,number',[
+ ('REFUSED',10061,10061),('PERMISSION',10013,13),
+ ('TIMEOUT',None,None),('OSERROR',10035,10035),('SUCCESS',None,None),
+])
+def test_consistent_error_classification_remains_non_attesting(kind,winerror,number):
+    p,c=sample();c[0].update(kind=kind,winerror=winerror,errno=number)
+    assert validate_transport(p,c,HEAD,'12','1')['policy_cause']=='UNKNOWN'

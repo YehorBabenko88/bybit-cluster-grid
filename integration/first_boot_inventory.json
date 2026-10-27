@@ -1174,6 +1174,20 @@
     "tests/test_storage_footprint_revision.py::test_accepted_revision_replaces_stale_footprint_levels_in_transaction",
     "tests/test_storage_footprint_revision.py::test_rejected_older_revision_does_not_delete_footprint",
     "tests/test_transport_provenance.py::test_complete_observation_never_authenticates_policy_or_execution",
+    "tests/test_transport_provenance.py::test_consistent_error_classification_remains_non_attesting[OSERROR-10035-10035]",
+    "tests/test_transport_provenance.py::test_consistent_error_classification_remains_non_attesting[PERMISSION-10013-13]",
+    "tests/test_transport_provenance.py::test_consistent_error_classification_remains_non_attesting[REFUSED-10061-10061]",
+    "tests/test_transport_provenance.py::test_consistent_error_classification_remains_non_attesting[SUCCESS-None-None]",
+    "tests/test_transport_provenance.py::test_consistent_error_classification_remains_non_attesting[TIMEOUT-None-None]",
+    "tests/test_transport_provenance.py::test_contradictory_error_classification_refused[OSERROR-10013-13]",
+    "tests/test_transport_provenance.py::test_contradictory_error_classification_refused[OSERROR-10061-10061]",
+    "tests/test_transport_provenance.py::test_contradictory_error_classification_refused[OSERROR-None-None]",
+    "tests/test_transport_provenance.py::test_contradictory_error_classification_refused[PERMISSION-10061-10061]",
+    "tests/test_transport_provenance.py::test_contradictory_error_classification_refused[PERMISSION-None-None]",
+    "tests/test_transport_provenance.py::test_contradictory_error_classification_refused[REFUSED-10013-13]",
+    "tests/test_transport_provenance.py::test_contradictory_error_classification_refused[REFUSED-None-None]",
+    "tests/test_transport_provenance.py::test_contradictory_error_classification_refused[TIMEOUT-10061-None]",
+    "tests/test_transport_provenance.py::test_contradictory_error_classification_refused[TIMEOUT-None-10060]",
     "tests/test_transport_provenance.py::test_distinct_address_families_can_share_a_numeric_port",
     "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[ambiguous]",
     "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[duplicate]",
@@ -6043,6 +6057,62 @@
     [
       "tests.test_transport_provenance",
       "test_complete_observation_never_authenticates_policy_or_execution"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_consistent_error_classification_remains_non_attesting[OSERROR-10035-10035]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_consistent_error_classification_remains_non_attesting[PERMISSION-10013-13]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_consistent_error_classification_remains_non_attesting[REFUSED-10061-10061]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_consistent_error_classification_remains_non_attesting[SUCCESS-None-None]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_consistent_error_classification_remains_non_attesting[TIMEOUT-None-None]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_contradictory_error_classification_refused[OSERROR-10013-13]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_contradictory_error_classification_refused[OSERROR-10061-10061]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_contradictory_error_classification_refused[OSERROR-None-None]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_contradictory_error_classification_refused[PERMISSION-10061-10061]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_contradictory_error_classification_refused[PERMISSION-None-None]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_contradictory_error_classification_refused[REFUSED-10013-13]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_contradictory_error_classification_refused[REFUSED-None-None]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_contradictory_error_classification_refused[TIMEOUT-10061-None]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_contradictory_error_classification_refused[TIMEOUT-None-10060]"
     ],
     [
       "tests.test_transport_provenance",
