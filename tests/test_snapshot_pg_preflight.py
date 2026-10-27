@@ -36,7 +36,7 @@ def test_even_full_columns_not_proof_of_history():
 def test_invalid_selector_never_queries():
     conn = FakeConnection(set())
     with pytest.raises(SourceSchemaBlocked):
-        await inspect_pg_columns(conn, schema="public;DROP", table="candles_1m"))
+        asyncio.run(inspect_pg_columns(conn, schema="public;DROP", table="candles_1m"))
     assert not conn.calls
 
 
