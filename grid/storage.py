@@ -141,7 +141,7 @@ class Storage:
             self.replay_sent+=1
         self.replay_ids.discard(record_id)
 
-    async def _save_direct(self,row):
+    async def _save_direct(self,row,authenticated_identity=None):
         ts=datetime.fromtimestamp(row["start_ms"]/1000,tz=timezone.utc)
         async with self.pool.acquire() as c:
             async with c.transaction():
@@ -158,6 +158,8 @@ class Storage:
                 # feature/derived persistence idempotently.
                 regressive=False
                 if accepted:
+                    from .provenance import persist_minute
+                    await persist_minute(c, row, authenticated_identity)
                     # The accepted candle is an authoritative replacement for
                     # its entire price footprint. Clear obsolete price levels
                     # in the same transaction before inserting the new set.

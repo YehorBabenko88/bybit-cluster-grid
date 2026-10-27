@@ -363,7 +363,7 @@ async def ingest_minute(request:Request,x_grid_token:str=Header(default=""),x_no
         raise HTTPException(503,"ingestion unavailable")
     if not live_collection_allowed(control_disk_state()["state"]):
         raise HTTPException(507,"CONTROL disk pressure")
-    await ingest_storage._save_direct(payload)
+    await ingest_storage._save_direct(payload, authenticated_identity=x_node_id)
     return {"ok":True}
 
 @app.post("/ingest/event")

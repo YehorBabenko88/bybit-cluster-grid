@@ -480,6 +480,18 @@ created_at timestamptz NOT NULL DEFAULT now())""",
 ON scientific_method_events(method_key,source_event_id)
 WHERE source_event_id IS NOT NULL"""
 ])
+,(47,"source_owned_immutable_minutes",[
+"""CREATE TABLE IF NOT EXISTS provenance_minutes(
+fingerprint text PRIMARY KEY CHECK(fingerprint ~ '^[0-9a-f]{64}$'),
+content_id text NOT NULL UNIQUE CHECK(content_id ~ '^[0-9a-f]{64}$'),
+symbol text NOT NULL,start_ms bigint NOT NULL,record jsonb NOT NULL,
+created_at timestamptz NOT NULL DEFAULT clock_timestamp())""",
+"CREATE INDEX IF NOT EXISTS provenance_minutes_page ON provenance_minutes(symbol,start_ms,fingerprint)",
+"""CREATE FUNCTION reject_provenance_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN RAISE EXCEPTION 'immutable provenance record'; END $$""",
+"""CREATE TRIGGER provenance_minutes_immutable BEFORE UPDATE OR DELETE ON provenance_minutes
+FOR EACH ROW EXECUTE FUNCTION reject_provenance_mutation()"""
+])
 ]
 
 async def apply_migrations(pool):

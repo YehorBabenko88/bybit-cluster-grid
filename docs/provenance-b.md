@@ -1,0 +1,23 @@
+# Grid source provenance v1.1
+
+Audit base PR248 commit 4ad202996ac06116e336b66851beb6e97beffa26. Existing candles/footprint mutable, archive materializer replaces canonical minutes, identity absent. Historical imports are never retroactively attested. No live DDL was performed.
+
+Actual Worker -> FootprintBuilder -> WAL -> authenticated coordinator -> Storage accepted-candle transaction now records full immutable candle and price levels together. UTC integer event min/max follows accepted trades; event-time OHLC handles out-of-order events, duplicate IDs remain suppressed, late finalized trades remain rejected. Worker process has fresh UUID epoch; replay preserves original metadata. Receiver ingestion time does not refresh event watermark. Snapshot content_id uniquely pins source row independent of receipt retries; changed source row creates a distinct immutable revision. Ambiguous versions fail closed, including page boundaries.
+
+Per-record1MiB/10000level and page8MiB SQL byte bounds prevent unbounded JSON fetch. Candle OHLC/finite numbers and footprint volume/count totals must agree or remain UNAVAILABLE.
+
+Migration47 adds append-only provenance_minutes and rejects UPDATE/DELETE. Source-owned append-only means application-role integrity, not DBA-proof attestation; source code SHA and NODE_ID are declarations. Authenticated worker ingest binds node identity. Local direct ingest explicitly reports source_identity_verified=false. GRID_SOURCE_REVISION must contain a40hex commit. Unknown market endpoint remains unavailable. Footprints are historical trade aggregates, never true L2; live_l2=false remains.
+
+Enable read path only with TERMINAN_GRID_PROVENANCE_READ=1 and a dedicated read-only role. GET /internal/v1/candles and /footprint use repeatable-read read-only PG transaction, 3second connect/statement limits, limit1..1000, integer before_ms cursor. Per-minute immutable full candle+levels carries dataset_fingerprint SHA256. Page digest hashes ordered immutable records. PARTIAL records expose EXCHANGE_COMPLETENESS_UNATTESTED, STALE after120seconds from source events, GAP on missing minutes or mixed epochs. No configured identity or hash grants AVAILABLE. Legacy1.0 capabilities/health remain compatible and unqualified. Current source has no independently verified exchange completeness receipt, so qualified AVAILABLE remains external BLOCKED.
+
+POST /internal/v1/research-handoffs/validate is a read-only validator with8MiB body and absolute3second whole HTTP operation deadline (headers/body including drip feeds). A handoff is api_version1.1, producer=strattester, mode=HISTORICAL, execution_authority=false, dataset.coverage=COMPLETE and missing_data=[]. GRID_TRUSTED_RESEARCH_SOURCES is a JSON array of independently provisioned {identity,source_revision,run_id,completion_receipt} pins. Default empty denies all. Obtain pins through authenticated owner-controlled channel; never copy them from an untrusted request. SHA256 verifies canonical integrity and is not authentication. Accepted response is ACCEPTED_HISTORICAL/trading_authorized=false; no trading, scheduling, strategy execution or shared SQLite writes exists.
+
+Unified/Terminan need explicit1.1 data/handoff adapter before consuming new data; existing1.0 health cannot qualify it. They must retain independent producer receipt admission and never promote historical research into order authority.
+
+Validation: synthetic Windows local46PASS,2SKIP (explicit disposable PG absent). Hosted workflow source-provenance matrix Windows/Linux and disposable PostgreSQL18 migration, replay/idempotency, rollback, immutability tests. No physical/exchange/prod observation. SOFTWARE pending hosted exact-head receipts; SOURCE_PROVENANCE BLOCKED on real authenticated source/completeness receipts; PHYSICAL NOT_RUN; PRODUCTION_READINESS NO_GO. P0 none identified in synthetic scope. P1 external source admission, exchange coverage receipts and downstream1.1 adapters. P2 operator least-privilege deployment review remains outside source-only task.
+
+Full-suite exploratory run stopped at existing integration collection requiring POSTGRES_DSN; no production DSN supplied. Focused synthetic regression suite46PASS2SKIP.
+
+Contract compatibility uses checked-in synthetic export produced by actual Strattester execute_owned, including independent pin/tamper rejection. HTTP logs suppress caller paths/queries; invalid query errors do not echo supplied data.
+
+Additive capabilities immutable_market_snapshots_v1_1 and research_handoff_validation_v1_1 advertise supported contract features only; market readiness remains UNAVAILABLE and snapshot read requires explicit opt-in.
