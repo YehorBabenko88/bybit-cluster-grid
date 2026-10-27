@@ -26,6 +26,7 @@ def producer(identity, revision, endpoint):
 def data_integrity(row):
     try:
         def number(v):return type(v) in (int,float) and math.isfinite(v)
+        def boundary_equal(a,b):return abs(a-b)<=8*max(math.ulp(float(a)),math.ulp(float(b)))
         values=[row[k] for k in ('open','high','low','close','buy_volume','sell_volume','delta','poc_price')]
         if not all(number(v) for v in values):return False
         if not 0 < row['low'] <= min(row['open'],row['close']) <= max(row['open'],row['close']) <= row['high']:return False
@@ -35,7 +36,7 @@ def data_integrity(row):
         prices=set();buy=sell=trades=0
         for x in levels:
             if not all(number(x[k]) for k in ('price','buy_volume','sell_volume','delta','volume')):return False
-            if x['price'] in prices or not ((x['price']>=row['low'] or math.isclose(x['price'],row['low'],rel_tol=1e-12,abs_tol=1e-12)) and (x['price']<=row['high'] or math.isclose(x['price'],row['high'],rel_tol=1e-12,abs_tol=1e-12))):return False
+            if x['price'] in prices or not ((x['price']>=row['low'] or boundary_equal(x['price'],row['low'])) and (x['price']<=row['high'] or boundary_equal(x['price'],row['high']))):return False
             prices.add(x['price'])
             if min(x['buy_volume'],x['sell_volume'])<0:return False
             if not math.isclose(x['delta'],x['buy_volume']-x['sell_volume'],abs_tol=1e-9) or not math.isclose(x['volume'],x['buy_volume']+x['sell_volume'],abs_tol=1e-9):return False
