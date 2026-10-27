@@ -11,7 +11,7 @@ def row(start=None):
     return dict(symbol="BTCUSDT",start_ms=start,source_event_start_ms=start+1,source_event_end_ms=start+59999,
         source_provenance=producer("fixture", "a"*40, "wss://stream.bybit.com/v5/public/linear"),
         open=1,high=2,low=1,close=2,buy_volume=1,sell_volume=0,delta=1,trade_count=1,poc_price=2,
-        quality_status="GOOD",quality_reasons=[],levels=[{"price":2}])
+        quality_status="GOOD",quality_reasons=[],levels=[{"price":2,"buy_volume":1,"sell_volume":0,"delta":1,"volume":1,"buy_count":1,"sell_count":0}])
 
 def test_owner_declaration_and_digest_are_not_completeness_attestation():
     r=minute_record(row(),int(time.time()*1000),"fixture")
@@ -50,7 +50,7 @@ def handoff():
     r=dict(api_version={"major":1,"minor":1},producer="strattester",producer_identity="fixture",
         source_revision="a"*40,producer_epoch=str(uuid.uuid4()),run_id=str(uuid.uuid4()),mode="HISTORICAL",execution_authority=False,
         dataset=dict(fingerprint="b"*64,source_identity="fixture",market_type="linear",symbol="BTCUSDT",timeframe="1m",start_ms=0,end_ms=60000,coverage="COMPLETE",missing_data=[]),
-        strategy={"id":"fixture"},model={"id":"fixture"},execution_assumptions={"fees":1},metrics={"x":1},completed_at_ms=60001)
+        strategy={"id":"fixture","version":"1","fingerprint":"a"*64,"parameters":{}},model={"kind":"synthetic","version":"1"},execution_assumptions={"fees":1,"slippage":0,"execution":"none"},metrics={"x":1},completed_at_ms=60001)
     r["completion_receipt"]=digest(r);return r
 
 def test_research_handoff_requires_trust_and_never_trades():
@@ -122,3 +122,39 @@ def test_disposable_pg_immutability_and_idempotency(monkeypatch):
             await c.execute('DROP SCHEMA '+schema+' CASCADE')
             await c.close()
     asyncio.run(check())
+
+
+@pytest.mark.parametrize('change',[lambda r:r['levels'][0].update(buy_volume=999),lambda r:r.update(high=0),lambda r:r.update(trade_count=True),lambda r:r['levels'][0].update(price=float('nan'))])
+def test_market_integrity_fail_closed(change):
+    r=row();change(r)
+    try:
+        out=minute_record(r,int(time.time()*1000),'fixture')
+        assert out['status']=='UNAVAILABLE' and out['quality_status']=='INVALID'
+    except ValueError:
+        pass # nonfinite values cannot be serialized/persisted at all
+
+
+@pytest.mark.parametrize('body', [False, True])
+def test_http_absolute_deadline_closes_slow_header_or_body(body):
+    import socket
+    import threading
+    from http.server import ThreadingHTTPServer
+    server=ThreadingHTTPServer(('127.0.0.1',0),gateway.Handler)
+    worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
+    sock=socket.create_connection(server.server_address,timeout=1)
+    sock.settimeout(1)
+    try:
+        started=time.monotonic()
+        sock.sendall(b'POST /internal/v1/research-handoffs/validate HTTP/1.0\r\nContent-Length: 100\r\n\r\n' if body else b'GET /internal/v1/health HTTP/1.0\r\nX-Test: ')
+        closed=False
+        for _ in range(10):
+            time.sleep(.45)
+            try:
+                sock.sendall(b' ')
+                sock.settimeout(.01)
+                if sock.recv(1)==b'':closed=True;break
+            except socket.timeout:pass
+            except OSError:closed=True;break
+        assert closed and time.monotonic()-started<4.5
+    finally:
+        sock.close();server.shutdown();server.server_close();worker.join()

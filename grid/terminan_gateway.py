@@ -6,6 +6,8 @@ Set TERMINAN_GRID_DSN to a dedicated read-only PostgreSQL role.
 import json
 import os
 import re
+import socket
+import threading
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from urllib.parse import urlsplit,parse_qs
 
@@ -26,10 +28,13 @@ def immutable_minutes(symbol, limit, before_ms):
             options='-c default_transaction_read_only=on -c statement_timeout=3000') as conn:
         with conn.cursor() as cur:
             cur.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-            cur.execute("""SELECT record,count(*) OVER(PARTITION BY start_ms) FROM provenance_minutes WHERE symbol=%s AND start_ms<%s
-                ORDER BY start_ms DESC,fingerprint DESC LIMIT %s""", (symbol, before_ms, limit))
+            cur.execute("""SELECT CASE WHEN sum(octet_length(record::text)) OVER() <= 8388608
+                    AND max(octet_length(record::text)) OVER() <= 1048576 THEN record ELSE NULL END, versions
+                FROM (SELECT record,count(*) OVER(PARTITION BY start_ms) AS versions,start_ms,fingerprint
+                    FROM provenance_minutes WHERE symbol=%s AND start_ms<%s
+                    ORDER BY start_ms DESC,fingerprint DESC LIMIT %s) page""", (symbol, before_ms, limit))
             rows = cur.fetchall()
-            if any(r[1] != 1 for r in rows):
+            if any(r[0] is None or r[1] != 1 for r in rows):
                 raise ValueError('ambiguous minute revisions')
             return [r[0] for r in rows]
 
@@ -88,6 +93,21 @@ def snapshot(route,symbol='BTCUSDT',limit=300,before_ms=None):
     raise KeyError(route)
 
 class Handler(BaseHTTPRequestHandler):
+    def handle(self):
+        # One absolute deadline covers headers and body, including slow drips.
+        def expire():
+            try:self.connection.shutdown(socket.SHUT_RDWR)
+            except OSError:pass
+        timer=threading.Timer(3,expire)
+        timer.daemon=True
+        self.connection.settimeout(3)
+        timer.start()
+        try:
+            super().handle()
+        finally:
+            timer.cancel()
+            timer.join()
+
     def do_POST(self):
         if urlsplit(self.path).path != '/internal/v1/research-handoffs/validate':
             self.send_error(404)
@@ -95,7 +115,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             self.connection.settimeout(3)
             size = int(self.headers.get('Content-Length', '0'))
-            if not 0 < size <= 1048576:
+            if not 0 < size <= 8388608:
                 raise ValueError('bounded request required')
             from .research_handoff import accept_handoff
             configured = json.loads(os.environ.get('GRID_TRUSTED_RESEARCH_SOURCES', '[]'))
@@ -113,8 +133,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        u=urlsplit(self.path);q=parse_qs(u.query)
         try:
+            if len(self.path.encode('utf-8'))>2048:
+                raise ValueError('query too large')
+            u=urlsplit(self.path)
+            q=parse_qs(u.query,keep_blank_values=True,max_num_fields=3,strict_parsing=True)
+            if any(k not in ('symbol','limit','before_ms') or len(v)!=1 for k,v in q.items()):
+                raise ValueError('invalid query parameters')
             result=snapshot(u.path,q.get('symbol',['BTCUSDT'])[0],q.get('limit',[300])[0],q.get('before_ms',[None])[0]);status=200
         except (ValueError,KeyError) as e:result={'error':str(e)};status=400
         except Exception:result={'error':'source unavailable'};status=503

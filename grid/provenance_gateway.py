@@ -1,6 +1,6 @@
 import os
 import time
-from .provenance import digest
+from .provenance import digest, canonical
 
 def read_snapshot(result, symbol, limit, before_ms, reader):
     if before_ms is None:
@@ -14,6 +14,7 @@ def read_snapshot(result, symbol, limit, before_ms, reader):
     try:
         records=reader(symbol,limit,before_ms)
         if not records:return result
+        if len(canonical(records))>8388608:raise ValueError("snapshot byte bound")
         for r in records:
             import uuid
             uuid.UUID(r['source'].get('epoch',''))

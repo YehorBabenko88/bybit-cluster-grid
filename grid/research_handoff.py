@@ -29,6 +29,14 @@ def accept_handoff(record, trusted_sources):
             return denied
         if not all(record.get(k) for k in ("strategy","model","execution_assumptions","metrics")):
             return denied
+        strategy=record['strategy']
+        if not strategy['id'] or not strategy['version'] or not re.fullmatch(r'[0-9a-f]{64}',strategy['fingerprint']) or not isinstance(strategy['parameters'],dict):
+            return denied
+        if not re.fullmatch(r'[0-9a-f]{40}',revision):return denied
+        model=record['model']; assumptions=record['execution_assumptions']
+        if not model.get('kind') or not model.get('version') or not assumptions.get('execution'):return denied
+        import math
+        if any(type(assumptions.get(k)) not in (int,float) or not math.isfinite(assumptions[k]) or assumptions[k]<0 for k in ('fees','slippage')):return denied
         receipt = record["completion_receipt"]
         if receipt != digest({k:v for k,v in record.items() if k != "completion_receipt"}):
             return {**denied,"reason":"RESEARCH_RECEIPT_CORRUPT"}
