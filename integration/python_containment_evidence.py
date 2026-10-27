@@ -5,7 +5,7 @@ import xml.etree.ElementTree as E
 from .windows_python_probe import CASES
 ROOT=Path(__file__).resolve().parents[1]
 FIELDS={'schema','head','run_id','attempt','status','reason','input_manifest_sha256','result_sha256','diagnostic_sha256','diagnostic_error','result_error','files','pid','debugged','loader_events','python','assurance','host_verified','execute_authorized','cleanup_authorized','physical','whole_system','network_transport','network_host'}
-CHILD={'schema','head','run_id','attempt','pid','python_version','status','error','error_code','cases','physical','execute_authorized','cleanup_authorized','whole_system','network_diagnostics'}
+CHILD={'schema','head','run_id','attempt','pid','python_version','status','error','error_code','cases','physical','execute_authorized','cleanup_authorized','whole_system','network_diagnostics','network_isolation'}
 
 def need(ok):
     if not ok:raise ValueError('PYTHON_BOUNDARY_EVIDENCE_REFUSED')
@@ -32,6 +32,8 @@ def validate(v,head,run,attempt):
     need(type(v['loader_events']) is list and 0<len(v['loader_events'])<=1024 and v['loader_events'][-1]==dict(Event=5,Detail='exit:00000000'))
     for row in v['loader_events']:need(type(row) is dict and set(row)=={'Event','Detail'} and type(row['Event']) is int and row['Event'] in (1,3,5,6,8) and type(row['Detail']) is str and len(row['Detail'])<=8192)
     need(v['network_host']==[dict(family=f,stage=s,success=True) for f in (4,6) for s in ('socket','bind','listen','connect','accept')]+[dict(family=f,stage='no-pending-after-child',success=True) for f in (4,6)])
+    isolation=v['python']['network_isolation'];need(type(isolation) is list and len(isolation)==2)
+    for family,row in zip((4,6),isolation):need(type(row) is dict and set(row)=={'family','status','api_status','missing_capability'} and type(row['family']) is int and row['family']==family and row['status']=='OBSERVED' and type(row['api_status']) is int and row['api_status']==0 and type(row['missing_capability']) is int and row['missing_capability'] in (0,1,2,3))
     trace=v['python']['network_diagnostics'];need(type(trace) is list and 2<=len(trace)<=32)
     for row in trace:
         need(type(row) is dict and set(row)=={'family','stage','result','kind','winerror','errno','wsa_post_exception'} and type(row['family']) is int and row['family'] in (4,6) and row['stage'] in ('socket','bind','listen','accept','client-socket','connect','documentation-connect') and row['result'] in ('SUCCESS','ERROR'))

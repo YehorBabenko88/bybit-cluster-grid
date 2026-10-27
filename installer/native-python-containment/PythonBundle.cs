@@ -18,7 +18,7 @@ internal sealed class PythonBundle:IOwnedExecutable {
  readonly RawSecurityDescriptor rx;
  SafeFileHandle? result,diagnosticRead,diagnosticWrite;
  public SafeFileHandle? OutputHandle=>diagnosticWrite;
- public bool TraceLoader=>true;
+ readonly bool traceLoader;public bool TraceLoader=>traceLoader;
  public string Path{get;private set;}="";public string WorkingDirectory{get;private set;}="";
  public string RootPath{get;private set;}="";public string ResultPath=>System.IO.Path.Combine(WorkingDirectory,"result.json");
  public string CommandLine=>"\""+Path+"\" -I -B -S \""+System.IO.Path.Combine(RootPath,"driver.py")+"\" --native-child";
@@ -38,7 +38,8 @@ internal sealed class PythonBundle:IOwnedExecutable {
   var held=CreateFileW(absolute,0x80020000,writable?3u:1u,IntPtr.Zero,3,0x200000,IntPtr.Zero);ControllerPolicy.Need(!held.IsInvalid,"PYTHON_FILE_PIN");ControllerPolicy.Need(Native.Id(held)==id&&FixtureNative.Descriptor(held)==sd&&Hash(Read(held))==Hash(bytes),"PYTHON_FILE_REPLACED");
   if(writable){handles.Add(held);mutablePins.Add((held,id,sd));}else{Remember(held,false,Hash(bytes));if(new[]{".exe",".dll",".pyd"}.Contains(System.IO.Path.GetExtension(absolute),StringComparer.OrdinalIgnoreCase))measuredImages.Add(absolute,(held,id,sd));}return held;
  }
- internal PythonBundle(string package,string moniker,string user,PythonInput input,string inputHash,object config){
+ internal PythonBundle(string package,string moniker,string user,PythonInput input,string inputHash,object config,bool debugged=true){
+  traceLoader=debugged;
   rx=new RawSecurityDescriptor("D:P(A;;FA;;;SY)(A;;FA;;;"+user+")(A;;0x1200a9;;;"+package+")");
   IntPtr pointer=IntPtr.Zero;
   try{

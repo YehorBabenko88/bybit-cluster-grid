@@ -1007,6 +1007,10 @@
     "tests/test_python_containment_evidence.py::test_network_unknown_or_refused_is_not_policy_denial[None-13]",
     "tests/test_python_containment_evidence.py::test_network_unknown_or_refused_is_not_policy_denial[None-None]",
     "tests/test_python_containment_evidence.py::test_network_unknown_or_refused_is_not_policy_denial[True-13]",
+    "tests/test_python_containment_evidence.py::test_only_documented_netiso_enums_are_observations[0]",
+    "tests/test_python_containment_evidence.py::test_only_documented_netiso_enums_are_observations[1]",
+    "tests/test_python_containment_evidence.py::test_only_documented_netiso_enums_are_observations[2]",
+    "tests/test_python_containment_evidence.py::test_only_documented_netiso_enums_are_observations[3]",
     "tests/test_python_containment_evidence.py::test_parent_claim_tamper[execute_authorized-True]",
     "tests/test_python_containment_evidence.py::test_parent_claim_tamper[extra-unknown]",
     "tests/test_python_containment_evidence.py::test_parent_claim_tamper[head-ffffffffffffffffffffffffffffffffffffffff]",
@@ -1033,6 +1037,11 @@
     "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[7516192776]",
     "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[None]",
     "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[True]",
+    "tests/test_python_containment_evidence.py::test_unknown_network_isolation_diagnosis_stays_blocked[0-4]",
+    "tests/test_python_containment_evidence.py::test_unknown_network_isolation_diagnosis_stays_blocked[0-None]",
+    "tests/test_python_containment_evidence.py::test_unknown_network_isolation_diagnosis_stays_blocked[5-1]",
+    "tests/test_python_containment_evidence.py::test_unknown_network_isolation_diagnosis_stays_blocked[None-1]",
+    "tests/test_python_containment_evidence.py::test_unknown_network_isolation_diagnosis_stays_blocked[True-1]",
     "tests/test_retention_bootstrap_regression.py::test_coordinator_bootstraps_retention_before_background_tasks",
     "tests/test_retention_bootstrap_regression.py::test_empty_retention_dataset_has_no_phantom_backlog",
     "tests/test_retention_bootstrap_regression.py::test_existing_overdue_rows_keep_estimate",
@@ -5136,6 +5145,22 @@
     ],
     [
       "tests.test_python_containment_evidence",
+      "test_only_documented_netiso_enums_are_observations[0]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_only_documented_netiso_enums_are_observations[1]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_only_documented_netiso_enums_are_observations[2]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_only_documented_netiso_enums_are_observations[3]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
       "test_parent_claim_tamper[execute_authorized-True]"
     ],
     [
@@ -5237,6 +5262,26 @@
     [
       "tests.test_python_containment_evidence",
       "test_unknown_foreign_handle_failure_is_not_absence[True]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_unknown_network_isolation_diagnosis_stays_blocked[0-4]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_unknown_network_isolation_diagnosis_stays_blocked[0-None]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_unknown_network_isolation_diagnosis_stays_blocked[5-1]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_unknown_network_isolation_diagnosis_stays_blocked[None-1]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_unknown_network_isolation_diagnosis_stays_blocked[True-1]"
     ],
     [
       "tests.test_retention_bootstrap_regression",

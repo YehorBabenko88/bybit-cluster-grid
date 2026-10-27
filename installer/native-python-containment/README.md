@@ -103,3 +103,16 @@ refusal, unknown errors and errno-only13 do not prove OS policy denial; report
 bounded numeric Win32/errno facts and remain BLOCKED. No loopback exemption,
 capability or firewall policy is changed to make these checks pass. See Microsoft
 [loopback isolation documentation](https://learn.microsoft.com/en-us/windows/security/operating-system-security/network-security/windows-firewall/troubleshooting-uwp-firewall).
+
+Socket-stage diagnostics distinguish TimeoutError from Win32 denial, on bothIPv4/6.
+Parent positive controls connect/accept each owned listener before child startup.
+WSAGetLastError read after a Python exception is diagnostic only, not authoritative.
+Read-only BFE/firewall/loopback-exemption metadata does not identify an effective WFP filter.
+A separate hosted-only undebugged comparison keeps the same token/AppContainer/Job/
+image/environment gates but without loader-event observation; its diagnostic receipt cannot replace required debugged
+acceptance or authorize physical execution. It uses a separate fresh GUID bundle.
+
+Read-only [NetworkIsolationDiagnoseConnectFailureAndGetInfo](https://learn.microsoft.com/en-us/windows/win32/api/networkisolation/nf-networkisolation-networkisolationdiagnoseconnectfailureandgetinfo)
+queries only the two literal owned loopback targets. API failures/unknown NETISO
+enums remain BLOCKED; successful diagnosis is not a grant, correlated WFP packet
+receipt, or substitute for strict network denial. No capabilities are added.

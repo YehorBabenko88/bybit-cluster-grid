@@ -4,6 +4,7 @@ ROOT=pathlib.Path(__file__).resolve().parent
 CASES=['isolated-python','no-parent-secrets','closed-import-paths','own-data-rw','foreign-read-denied','foreign-write-denied','source-write-denied','source-write-dac-denied','parent-handle-not-inherited','parent-process-read-denied','loopback-denied','documentation-network-denied','subprocess-denied','native-dependencies','real-coordinator-fails-closed','real-worker-infra-only','dll-module-closure']
 rows=[]
 network_diagnostics=[]
+network_isolation=[]
 def native_scope(root,host,args):
     p=pathlib.PureWindowsPath(root);guid=r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
     if args!=['--native-child'] or host.upper() in ('LS5','PC4') or not re.fullmatch(r'[A-Za-z]:',p.drive) or p.parent.name!='AC' or p.parent.parent.parent.name!='Packages' or not re.fullmatch('python-'+guid,p.name) or not re.fullmatch('g1-fixture-'+guid,p.parent.parent.name):raise ValueError('PHYSICAL_OR_UNOWNED_PROBE_REFUSED')
@@ -12,6 +13,17 @@ class BoundaryFailure(RuntimeError):
 
 def need(ok,code='BOUNDARY_NOT_PROVEN'):
     if not ok:raise BoundaryFailure(code)
+
+def isolation_fact(status,capability):
+    observed=type(status) is int and status==0 and type(capability) is int and capability in (0,1,2,3)
+    return dict(status='OBSERVED' if observed else 'BLOCKED',api_status=status if type(status) is int and 0<=status<2**32 else None,missing_capability=capability if type(capability) is int and capability in (0,1,2,3) else None)
+
+def isolation_diagnosis(host):
+    try:
+        api=ctypes.WinDLL(str(pathlib.Path(os.environ['SystemRoot'])/'System32/firewallapi.dll')).NetworkIsolationDiagnoseConnectFailureAndGetInfo
+        api.argtypes=[W.LPCWSTR,ctypes.POINTER(ctypes.c_int)];api.restype=W.DWORD;cap=ctypes.c_int(4)
+        return isolation_fact(api(host,ctypes.byref(cap)),cap.value)
+    except (OSError,AttributeError) as error:return isolation_fact(getattr(error,'winerror',None),None)
 
 def socket_error(error):
     def number(value):return value if type(value) is int and -(2**31)<=value<2**32 else None
@@ -109,11 +121,13 @@ def main():
                 _,error=socket_trace(family,'connect',lambda:client.connect((host,port)))
                 connects.append(error)
         else:connects.append(error)
+        network_isolation.append(dict(family=family,**isolation_diagnosis(host)))
     def loopback():
         for error in connects:
             need(error is not None,'NETWORK_ALLOWED')
             need(error['kind']!='TIMEOUT','NETWORK_TIMEOUT_NOT_POLICY_PROOF')
             network_denial(error['winerror'],error['errno'])
+        need(len(network_isolation)==2 and all(r['status']=='OBSERVED' for r in network_isolation),'NETWORK_ISOLATION_DIAGNOSIS_UNKNOWN')
     case('loopback-denied',loopback)
     def network(host,port):
         with socket.socket() as client:
@@ -174,6 +188,6 @@ if __name__=='__main__':
         cfg=json.loads((ROOT/'config.json').read_text());main()
     except BaseException as e:
         error=type(e).__name__;code=e.code if isinstance(e,BoundaryFailure) else ('WINDOWS_ERROR_'+str(e.winerror) if isinstance(e,OSError) and type(getattr(e,'winerror',None)) is int else None)
-    result=dict(schema=1,head=cfg.get('head'),run_id=cfg.get('run_id'),attempt=cfg.get('attempt'),pid=os.getpid(),python_version=sys.version,status='PASS' if error is None else 'BLOCKED',error=error,error_code=code,cases=rows,network_diagnostics=network_diagnostics,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
+    result=dict(schema=1,head=cfg.get('head'),run_id=cfg.get('run_id'),attempt=cfg.get('attempt'),pid=os.getpid(),python_version=sys.version,status='PASS' if error is None else 'BLOCKED',error=error,error_code=code,cases=rows,network_diagnostics=network_diagnostics,network_isolation=network_isolation,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
     (ROOT/'Data/result.json').write_text(json.dumps(result),encoding='utf-8')
     raise SystemExit(0 if error is None else 1)

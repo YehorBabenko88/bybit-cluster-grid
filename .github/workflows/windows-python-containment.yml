@@ -45,6 +45,7 @@ jobs:
           Copy-Item -LiteralPath python-input/manifest.json -Destination python-containment-evidence/input.json
           python -m pip freeze > python-containment-evidence/dependencies.txt
       - name: Compile native boundary with closed source list and checkout checks
+        id: native_build
         run: |
           python -c "import os;from tools.check_ddl_free_ci import verify_checkout,ROOT;verify_checkout(ROOT,os.environ['EXACT_HEAD_SHA'])"
           if($LASTEXITCODE -ne 0){throw 'NATIVE_SOURCE_PRECHECK_FAILED'}
@@ -75,6 +76,23 @@ jobs:
           if($rows.Count -ne 1 -or $result -ne 0){$rows|Write-Output;throw 'PYTHON_BOUNDARY_FAILED'}
           python -m integration.python_containment_evidence create python-containment-evidence $env:EXACT_HEAD_SHA $env:GITHUB_RUN_ID $env:GITHUB_RUN_ATTEMPT
           if($LASTEXITCODE -ne 0){throw 'PYTHON_BOUNDARY_RECEIPT_FAILED'}
+      - name: Same OS boundary without debugger; diagnostic comparison is not substitute acceptance
+        if: ${{ always() && steps.native_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory python-undebugged-evidence | Out-Null
+          Copy-Item -LiteralPath python-containment-evidence/input.json -Destination python-undebugged-evidence/input.json
+          Copy-Item -LiteralPath python-containment-evidence/network-host.json -Destination python-undebugged-evidence/network-host.json
+          $rows=@(& ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-python-undebugged-tests)
+          $result=$LASTEXITCODE
+          if($rows.Count -eq 1){[IO.File]::WriteAllText((Join-Path $PWD 'python-undebugged-evidence/native.json'),($rows -join "`n"),[Text.UTF8Encoding]::new($false))}
+          if($rows.Count -ne 1 -or $result -ne 0){throw 'UNDEBUGGED_BOUNDARY_BLOCKED'}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: python-undebugged-${{ matrix.shell }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: python-undebugged-evidence/
+          if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
