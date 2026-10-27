@@ -67,6 +67,15 @@ jobs:
             if($LASTEXITCODE -eq 0){$facts.status='OBSERVED_NOT_ATTESTED'}
           }catch{$facts.status='BLOCKED'}
           [IO.File]::WriteAllText((Join-Path $PWD 'python-containment-evidence/network-host.json'),($facts|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
+      - name: Hosted WFP logging model checks
+        run: |
+          & ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-wfp-model-tests | Set-Content -Encoding UTF8 python-containment-evidence/wfp-model.json
+          if($LASTEXITCODE -ne 0){throw 'WFP_COLLECTION_MODEL_FAILED'}
+      - name: Enable only diagnostic collection on this disposable hosted VM
+        id: wfp_enable
+        run: |
+          & ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-wfp-collection-enable | Set-Content -Encoding UTF8 python-containment-evidence/wfp-enable.json
+          if($LASTEXITCODE -ne 0){throw 'WFP_COLLECTION_ENABLE_BLOCKED'}
       - name: Real CPython and Grid negative lifecycle in own AppContainer only
         run: |
           $ErrorActionPreference='Stop'
@@ -95,6 +104,11 @@ jobs:
           $env:WFP_EXPORT_EXIT=[string]$exportResult
           python -m integration.wfp_events python-containment-evidence $raw
           if($LASTEXITCODE -ne 0){throw 'WFP_DIAGNOSTIC_FAILED'}
+      - name: Restore observed logging state only after complete owned enable record
+        if: ${{ always() && steps.wfp_enable.outcome == 'success' }}
+        run: |
+          & ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-wfp-collection-restore | Set-Content -Encoding UTF8 python-containment-evidence/wfp-restore.json
+          if($LASTEXITCODE -ne 0){throw 'WFP_RESTORE_UNCERTAIN_VM_TEARDOWN_REQUIRED'}
       - name: Create strict primary receipt only after all mandatory steps succeed
         run: |
           python -m integration.python_containment_evidence create python-containment-evidence $env:EXACT_HEAD_SHA $env:GITHUB_RUN_ID $env:GITHUB_RUN_ATTEMPT

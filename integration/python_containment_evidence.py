@@ -75,8 +75,29 @@ def git_inputs(head):
     result['driver.py']=hashlib.sha256(subprocess.check_output(['git','show',head+':integration/windows_python_probe.py'],cwd=ROOT)).hexdigest().upper()
     return result
 
+def collection_records(folder,head,run,attempt):
+    folder=Path(folder);raw=(folder/'wfp-collection-prepared.json').read_bytes();prepared=load(raw);enabled=load((folder/'wfp-collection-enabled.json').read_bytes());intent=load((folder/'wfp-collection-restore-intent.json').read_bytes())
+    need(all(type(r) is dict and type(r.get('Schema')) is int and r['Schema']==1 for r in (prepared,enabled,intent)))
+    need(type(prepared.get('Option')) is int and type(enabled.get('Observed')) is int)
+    ctx=prepared.get('Context');need(type(ctx) is dict and set(ctx)=={'Head','Run','Attempt','Machine','Workspace'} and (ctx['Head'],ctx['Run'],ctx['Attempt'])==(head,run,attempt))
+    need(prepared==dict(Schema=1,Phase='PREPARED',Context=ctx,Option=0,Original=prepared.get('Original')) and type(prepared['Original']) is int and prepared['Original'] in (0,1))
+    digest=hashlib.sha256(raw).hexdigest()
+    need(enabled==dict(Schema=1,Phase='ENABLED',Context=ctx,PreparedSha256=digest,Observed=1))
+    need(intent==dict(Schema=1,Phase='RESTORE_INTENT',Context=ctx,PreparedSha256=digest))
+    for action in ('model','enable','restore'):
+        row=load((folder/('wfp-'+action+'.json')).read_bytes())
+        need(type(row.get('schema')) is int and row['schema']==1 and row.get('action')==action and row.get('status')=='PASS' and row.get('reason') is None and row.get('context')==ctx)
+        need(row.get('option')=='FWPM_ENGINE_COLLECT_NET_EVENTS_ONLY' and row.get('assurance')=='DEDICATED_DISPOSABLE_GITHUB_VM_DIAGNOSTIC_ONLY' and row.get('exclusive_vm_assumed') is True)
+        for name in ('host_verified','execute_authorized','cleanup_authorized','external_nonrollback_anchor','reboot_recovery_proven'):need(row.get(name) is False)
+        need(row.get('physical')=='0/10 NOT_RUN' and row.get('g1')=='BLOCKED')
+        if action=='model':need(row.get('original') is None and row.get('current') is None and row.get('global_option_write_attempted') is False)
+        else:
+            need(type(row.get('original')) is int and row['original']==prepared['Original'] and type(row.get('current')) is int and row['current']==(1 if action=='enable' else prepared['Original']))
+            need(row.get('global_option_write_attempted') is (prepared['Original']==0))
+
+
 def receipt(folder,head,run,attempt,create=False):
-    folder=Path(folder);raw=(folder/'native.json').read_bytes();v=load(raw);names=validate(v,head,run,attempt)
+    folder=Path(folder);collection_records(folder,head,run,attempt);raw=(folder/'native.json').read_bytes();v=load(raw);names=validate(v,head,run,attempt)
     need(hashlib.sha256((folder/'diagnostics.txt').read_bytes()).hexdigest()==v['diagnostic_sha256'])
     child=(folder/'child.json').read_bytes();inp=(folder/'input.json').read_bytes();m=load(inp)
     need(hashlib.sha256(child).hexdigest()==v['result_sha256'] and load(child)==v['python'])
@@ -93,7 +114,7 @@ def receipt(folder,head,run,attempt,create=False):
             need(hashlib.sha256(subprocess.check_output(['git','show',head+':'+original],cwd=ROOT)).hexdigest().upper()==pin['Sha256'])
     meta=load((folder/'network-host.json').read_bytes());need((meta.get('head'),meta.get('run_id'),meta.get('attempt'))==(head,run,attempt) and meta.get('status')=='OBSERVED_NOT_ATTESTED' and meta.get('loopback_exit')==0 and meta.get('assurance')=='DIAGNOSTIC_ONLY_NOT_EFFECTIVE_WFP_PROOF')
     wfp=load((folder/'wfp-events.json').read_bytes());need((wfp.get('head'),wfp.get('run_id'),wfp.get('attempt'))==(head,run,attempt) and wfp.get('status')=='OBSERVED_NOT_ATTESTED' and wfp.get('effective_filter_verified') is False and wfp.get('execute_authorized') is False and wfp.get('cleanup_authorized') is False)
-    files=('wfp-events.json','network-host.json','native.json','child.json','input.json','junit.xml','events.jsonl','dependencies.txt','diagnostics.txt')
+    files=('wfp-model.json','wfp-enable.json','wfp-restore.json','wfp-collection-prepared.json','wfp-collection-enabled.json','wfp-collection-restore-intent.json','wfp-events.json','network-host.json','native.json','child.json','input.json','junit.xml','events.jsonl','dependencies.txt','diagnostics.txt')
     if create:
         xml=E.Element('testsuite',tests=str(len(names)),failures='0',errors='0',skipped='0',head=head,run_id=run,attempt=attempt)
         for n in names:E.SubElement(xml,'testcase',classname='real_python_negative_boundary',name=n)

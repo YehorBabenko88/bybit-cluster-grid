@@ -26,3 +26,10 @@ def test_ambiguous_or_invalid_blob_is_blocked():
 def test_foreign_empty_blob_does_not_hide_owned_drop():
     raw=sample().replace('<netEvents>','<netEvents><item><header><appId><data/></appId></header></item>')
     assert inspect_events(raw,GUID)['status']=='OBSERVED_NOT_ATTESTED'
+
+
+def test_parent_image_candidates_are_not_child_policy_proof():
+    r=inspect_events(sample(app='C:/owned/NativePythonContainment.exe'),GUID)
+    assert r['status']=='BLOCKED'
+    assert len(r['parent_candidates'])==1
+    assert r['parent_candidates'][0]['correlation']=='PARENT_BASENAME_ONLY_NOT_ATTRIBUTED'

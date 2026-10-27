@@ -1099,10 +1099,20 @@
     "tests/test_wal_tail_repair_io_error.py::test_startup_fails_closed_when_active_wal_tail_cannot_be_opened",
     "tests/test_wal_unreadable_segment.py::test_unreadable_segment_blocks_recovery",
     "tests/test_wal_unterminated_record.py::test_valid_unterminated_last_record_is_separated_from_next_append",
+    "tests/test_wfp_collection_receipt.py::test_boolean_record_numbers_are_not_native_integers[enabled-Observed]",
+    "tests/test_wfp_collection_receipt.py::test_boolean_record_numbers_are_not_native_integers[prepared-Schema]",
+    "tests/test_wfp_collection_receipt.py::test_boolean_record_numbers_are_not_native_integers[restore-intent-Schema]",
+    "tests/test_wfp_collection_receipt.py::test_owned_logging_records_are_not_physical_authority",
+    "tests/test_wfp_collection_receipt.py::test_unknown_collection_or_restoration_cannot_pass[changed-value]",
+    "tests/test_wfp_collection_receipt.py::test_unknown_collection_or_restoration_cannot_pass[hash]",
+    "tests/test_wfp_collection_receipt.py::test_unknown_collection_or_restoration_cannot_pass[partial]",
+    "tests/test_wfp_collection_receipt.py::test_unknown_collection_or_restoration_cannot_pass[physical]",
+    "tests/test_wfp_collection_receipt.py::test_unknown_collection_or_restoration_cannot_pass[wrong-run]",
     "tests/test_wfp_events.py::test_ambiguous_or_invalid_blob_is_blocked",
     "tests/test_wfp_events.py::test_documented_utf16_appid_blob_and_netevent_container",
     "tests/test_wfp_events.py::test_foreign_empty_blob_does_not_hide_owned_drop",
     "tests/test_wfp_events.py::test_owned_image_drop_is_observation_not_authorization",
+    "tests/test_wfp_events.py::test_parent_image_candidates_are_not_child_policy_proof",
     "tests/test_wfp_events.py::test_unknown_or_foreign_data_never_proves_drop[<!DOCTYPE x><netEvents/>]",
     "tests/test_wfp_events.py::test_unknown_or_foreign_data_never_proves_drop[<broken]",
     "tests/test_wfp_events.py::test_unknown_or_foreign_data_never_proves_drop[<netEvents/>]",
@@ -5524,6 +5534,42 @@
       "test_valid_unterminated_last_record_is_separated_from_next_append"
     ],
     [
+      "tests.test_wfp_collection_receipt",
+      "test_boolean_record_numbers_are_not_native_integers[enabled-Observed]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_boolean_record_numbers_are_not_native_integers[prepared-Schema]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_boolean_record_numbers_are_not_native_integers[restore-intent-Schema]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_owned_logging_records_are_not_physical_authority"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_unknown_collection_or_restoration_cannot_pass[changed-value]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_unknown_collection_or_restoration_cannot_pass[hash]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_unknown_collection_or_restoration_cannot_pass[partial]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_unknown_collection_or_restoration_cannot_pass[physical]"
+    ],
+    [
+      "tests.test_wfp_collection_receipt",
+      "test_unknown_collection_or_restoration_cannot_pass[wrong-run]"
+    ],
+    [
       "tests.test_wfp_events",
       "test_ambiguous_or_invalid_blob_is_blocked"
     ],
@@ -5538,6 +5584,10 @@
     [
       "tests.test_wfp_events",
       "test_owned_image_drop_is_observation_not_authorization"
+    ],
+    [
+      "tests.test_wfp_events",
+      "test_parent_image_candidates_are_not_child_policy_proof"
     ],
     [
       "tests.test_wfp_events",

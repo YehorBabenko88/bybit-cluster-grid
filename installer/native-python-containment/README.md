@@ -118,8 +118,7 @@ enums remain BLOCKED; successful diagnosis is not a grant, correlated WFP packet
 receipt, or substitute for strict network denial. No capabilities are added.
 
 The hosted workflow also exports already collected WFP netevents read-only, to
-a fresh GUID file retained privately until runner teardown. It never enables
-collection or changes filters. Only appId GUID-correlated drop metadata is exported
+a fresh GUID file retained privately until runner teardown. The exporter never enables collection or changes filters. Only appId GUID-correlated drop metadata is exported
 to the public receipt; raw events for other processes are not uploaded. XML appId
 uses bounded UTF-16LE blob decoding, not ambiguous dotted display text. A matching
 event remains IMAGE_GUID_CORRELATION_ONLY/effective_filter_verified=false. Missing,
@@ -132,3 +131,18 @@ socket.socketpair and stock Proactor construction/close. A temporary two-second
 socket default bounds stock control construction and is restored before runtime.
 No custom event loop, inherited socket, network capability or exemption is added.
 Source inspection alone does not establish whether this runner blocks self-IPC.
+
+## Explicit hosted diagnostic logging profile
+
+WfpCollection is guarded against LS5/PC4 and runs only in this exact hosted CI job.
+It changes only COLLECT_NET_EVENTS on an exclusively disposable GitHub VM. Existing
+value1 is left untouched; value0 is recorded/flushed PREPARED before Set1 and a
+canonical hash-bound ENABLED record follows readback. Restore requires those records
+and exact context/current1, consumes a CreateNew RESTORE_INTENT before effects and
+restores only the original value. Unknown/partial/replayed state refuses mutation;
+the VM must be torn down. Closing the engine does not restore this global option.
+This is NOT session/handle-owned global-state proof, a physical executor, owner
+authentication, durable anti-rollback, or crash/reboot recovery. No competing global
+option writers are assumed on the dedicated VM. No filter/exemption/capability,
+service, account, ACL or real host configuration is changed. The original observer
+remains read-only; only explicit hosted CLI actions enable this diagnostic profile.
