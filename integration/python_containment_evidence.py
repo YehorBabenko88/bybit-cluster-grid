@@ -3,9 +3,10 @@ import hashlib,json,re,subprocess,sys
 from pathlib import Path
 import xml.etree.ElementTree as E
 from .windows_python_probe import CASES,self_ipc_proven
+from .transport_provenance import validate_transport
 ROOT=Path(__file__).resolve().parents[1]
-FIELDS={'schema','head','run_id','attempt','status','reason','input_manifest_sha256','result_sha256','diagnostic_sha256','diagnostic_error','result_error','files','pid','debugged','loader_events','python','assurance','host_verified','execute_authorized','cleanup_authorized','physical','whole_system','network_transport','network_host'}
-CHILD={'schema','head','run_id','attempt','pid','python_version','status','error','error_code','cases','physical','execute_authorized','cleanup_authorized','whole_system','network_diagnostics','network_isolation','self_loopback'}
+FIELDS={'schema','head','run_id','attempt','status','reason','input_manifest_sha256','result_sha256','diagnostic_sha256','diagnostic_error','result_error','files','pid','debugged','loader_events','python','assurance','host_verified','execute_authorized','cleanup_authorized','physical','whole_system','network_transport','network_host','transport_provenance'}
+CHILD={'schema','head','run_id','attempt','pid','python_version','status','error','error_code','cases','physical','execute_authorized','cleanup_authorized','whole_system','network_diagnostics','network_isolation','self_loopback','transport_connections'}
 
 def need(ok):
     if not ok:raise ValueError('PYTHON_BOUNDARY_EVIDENCE_REFUSED')
@@ -25,6 +26,8 @@ def validate(v,head,run,attempt):
         need(obj.get('status')=='PASS' and obj.get('physical')=='0/10 NOT_RUN' and obj.get('whole_system')=='PARTIAL')
         need(obj.get('execute_authorized') is False and obj.get('cleanup_authorized') is False)
         need(type(obj.get('pid')) is int and obj['pid']>0)
+    validate_transport(v['transport_provenance'],v['python'].get('transport_connections'),head,run,attempt)
+    need(v['transport_provenance']['child_pid']==v['pid'])
     need(set(v['python'])==CHILD and v['python']['pid']==v['pid'] and type(v['files']) is int and 10<v['files']<=20000)
     need(v['python']['error'] is None and v['python']['error_code'] is None and v['reason'] is None and v['diagnostic_error'] is None and v['result_error'] is None and v['host_verified'] is False)
     need(type(v['python']['python_version']) is str and v['python']['python_version'].startswith(('3.11','3.12')))
@@ -41,6 +44,10 @@ def validate(v,head,run,attempt):
         need(row['kind'] in (None,'TIMEOUT','REFUSED','PERMISSION','OSERROR'))
         for k in ('winerror','errno','wsa_post_exception'):need(row[k] is None or type(row[k]) is int and -(2**31)<=row[k]<2**32)
     need([(r['family'],r['stage']) for r in trace]==[(f,s) for f in (4,6) for s in ('socket','bind','listen','accept','client-socket','connect')]+[(4,'documentation-connect')])
+    for row in v['python']['transport_connections']:
+        if row['mode']=='listener':
+            connection=next(r for r in trace if r['family']==row['family'] and r['stage']=='connect')
+            need((row['kind'],row['winerror'],row['errno'])==(connection['kind'] if connection['result']=='ERROR' else 'SUCCESS',connection['winerror'],connection['errno']))
     for row in trace:
         if row['result']=='SUCCESS':need(all(row[k] is None for k in ('kind','winerror','errno','wsa_post_exception')))
         else:need(row['kind'] is not None)
@@ -52,7 +59,7 @@ def validate(v,head,run,attempt):
     return list(CASES)
 
 def sources(head):
-    paths=['installer/native-python-containment','installer/native-g1-controller-fixture','installer/native-acl-observer','installer/native-acl-transaction-fixture','integration/windows_python_probe.py','integration/python_containment_evidence.py','integration/wfp_events.py','tools/python_containment_bundle.py','.github/workflows/windows-python-containment.yml']
+    paths=['installer/native-python-containment','installer/native-g1-controller-fixture','installer/native-acl-observer','installer/native-acl-transaction-fixture','integration/windows_python_probe.py','integration/python_containment_evidence.py','integration/wfp_events.py','integration/transport_provenance.py','tools/python_containment_bundle.py','.github/workflows/windows-python-containment.yml']
     names=subprocess.check_output(['git','ls-tree','-r','--name-only',head,*paths],cwd=ROOT,text=True).splitlines()
     return {n:hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest() for n in names}
 

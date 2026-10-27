@@ -1,7 +1,7 @@
 name: windows-python-native-containment
 on:
   pull_request:
-    paths: ['installer/native-python-containment/**', 'installer/native-g1-controller-fixture/**', 'integration/windows_python_probe.py', 'integration/python_containment_evidence.py', 'tools/python_containment_bundle.py', 'tests/test_python_containment_*.py', '.github/workflows/windows-python-containment.yml']
+    paths: ['installer/native-python-containment/**', 'installer/native-g1-controller-fixture/**', 'integration/windows_python_probe.py', 'integration/python_containment_evidence.py', 'integration/transport_provenance.py', 'integration/wfp_events.py', 'tests/test_transport_provenance.py', 'tests/test_wfp_events.py', 'tests/test_wfp_collection_receipt.py', 'tools/python_containment_bundle.py', 'tests/test_python_containment_*.py', '.github/workflows/windows-python-containment.yml']
   workflow_dispatch:
   workflow_call:
 permissions:

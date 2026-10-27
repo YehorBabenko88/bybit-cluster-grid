@@ -5,9 +5,28 @@ HEAD='a'*40
 
 def sample():
     child=dict(schema=1,head=HEAD,run_id='12',attempt='1',pid=123,python_version='3.12 synthetic',status='PASS',error=None,error_code=None,self_loopback=[dict(family=f,stage=s,result='SUCCESS',kind=None,winerror=None,errno=None,wsa_post_exception=None) for f in (4,6) for s in ('socket','connect','accept','exchange')]+[dict(family=4,stage=s,result='SUCCESS',kind=None,winerror=None,errno=None,wsa_post_exception=None) for s in ('stock-socketpair','stock-proactor')],network_isolation=[dict(family=f,status='OBSERVED',api_status=0,missing_capability=1) for f in (4,6)],cases=[dict(name=n,outcome='PASS') for n in CASES],network_diagnostics=[dict(family=f,stage=stage,result='ERROR' if stage in ('accept','connect') else 'SUCCESS',kind='PERMISSION' if stage=='connect' else 'OSERROR' if stage=='accept' else None,winerror=10013 if stage=='connect' else 10035 if stage=='accept' else None,errno=13 if stage=='connect' else 10035 if stage=='accept' else None,wsa_post_exception=0 if stage in ('accept','connect') else None) for f in (4,6) for stage in ('socket','bind','listen','accept','client-socket','connect')]+[dict(family=4,stage='documentation-connect',result='ERROR',kind='PERMISSION',winerror=10013,errno=13,wsa_post_exception=0)],physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
-    return dict(schema=1,head=HEAD,run_id='12',attempt='1',status='PASS',reason=None,input_manifest_sha256='a'*64,result_sha256='b'*64,diagnostic_sha256='c'*64,diagnostic_error=None,result_error=None,files=15,pid=123,debugged=True,network_host=[dict(family=f,stage=s,success=True) for f in (4,6) for s in ('socket','bind','listen','connect','accept')]+[dict(family=f,stage='no-pending-after-child',success=True) for f in (4,6)],loader_events=[dict(Event=5,Detail='exit:00000000')],python=child,assurance='HOSTED_DEBUGGED_PYTHON_NEGATIVE_BOUNDARY_ONLY',host_verified=False,execute_authorized=False,cleanup_authorized=False,physical='0/10 NOT_RUN',whole_system='PARTIAL',network_transport='BLOCKED_NO_CAPABILITIES')
+    value=dict(schema=1,head=HEAD,run_id='12',attempt='1',status='PASS',reason=None,input_manifest_sha256='a'*64,result_sha256='b'*64,diagnostic_sha256='c'*64,diagnostic_error=None,result_error=None,files=15,pid=123,debugged=True,network_host=[dict(family=f,stage=s,success=True) for f in (4,6) for s in ('socket','bind','listen','connect','accept')]+[dict(family=f,stage='no-pending-after-child',success=True) for f in (4,6)],loader_events=[dict(Event=5,Detail='exit:00000000')],python=child,assurance='HOSTED_DEBUGGED_PYTHON_NEGATIVE_BOUNDARY_ONLY',host_verified=False,execute_authorized=False,cleanup_authorized=False,physical='0/10 NOT_RUN',whole_system='PARTIAL',network_transport='BLOCKED_NO_CAPABILITIES')
+    endpoints=[];connections=[]
+    for family,host in ((4,'127.0.0.1'),(6,'::1')):
+        for mode in ('listener','bound-not-listening'):
+            port=10000+len(endpoints)
+            endpoints.append(dict(family=family,host=host,port=port,mode=mode,ready_utc_ms=1000,host_control='SUCCESS' if mode=='listener' else 'WSA10061'))
+            connections.append(dict(nonce='b'*32,parent_pid=10,pid=123,family=family,host=host,port=port,mode=mode,started_utc_ms=1001,elapsed_ns=1,local_host=host,local_port=20000,kind='PERMISSION',winerror=10013,errno=13))
+    value['transport_provenance']=dict(schema=1,head=HEAD,run_id='12',attempt='1',nonce='b'*32,parent_pid=10,child_pid=123,endpoints=endpoints)
+    child['transport_connections']=connections
+    return value
+
 
 def test_exact_negative_boundary_only():validate(sample(),HEAD,'12','1')
+
+def test_transport_from_another_child_is_not_the_native_process():
+    v=sample();v['transport_provenance']['child_pid']=124
+    for row in v['python']['transport_connections']:row['pid']=124
+    with pytest.raises(ValueError):validate(v,HEAD,'12','1')
+
+def test_transport_cannot_contradict_the_same_connect_operation():
+    v=sample();r=v['python']['transport_connections'][0];r.update(kind='SUCCESS',winerror=None,errno=None)
+    with pytest.raises(ValueError):validate(v,HEAD,'12','1')
 @pytest.mark.parametrize('field,value',[('head','f'*40),('run_id','13'),('pid',True),('status','BLOCKED'),('whole_system','PASS'),('host_verified',True),('execute_authorized',True),('extra','unknown')])
 def test_parent_claim_tamper(field,value):
     v=sample();v[field]=value

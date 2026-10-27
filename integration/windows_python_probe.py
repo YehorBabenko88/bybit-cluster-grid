@@ -1,11 +1,20 @@
 """Actual CPython/Grid negative lifecycle probe. Only the native hosted parent launches it."""
-import asyncio,ctypes,ctypes.wintypes as W,json,os,pathlib,re,socket,subprocess,sys
+import asyncio,ctypes,ctypes.wintypes as W,json,os,pathlib,re,socket,subprocess,sys,time
 ROOT=pathlib.Path(__file__).resolve().parent
 CASES=['isolated-python','no-parent-secrets','closed-import-paths','own-data-rw','foreign-read-denied','foreign-write-denied','source-write-denied','source-write-dac-denied','parent-handle-not-inherited','parent-process-read-denied','loopback-denied','documentation-network-denied','subprocess-denied','native-dependencies','real-coordinator-fails-closed','real-worker-infra-only','dll-module-closure']
 rows=[]
 network_diagnostics=[]
 network_isolation=[]
 self_loopback=[]
+transport_connections=[]
+
+def connect_observation(client,family,host,port,mode,cfg,trace=None):
+    started=time.time_ns()//1000000;clock=time.perf_counter_ns()
+    _,error=socket_trace(family,'connect',lambda:client.connect((host,port)),trace)
+    elapsed=time.perf_counter_ns()-clock
+    local=client.getsockname()
+    transport_connections.append(dict(nonce=cfg['transport_nonce'],parent_pid=cfg['parent_pid'],pid=os.getpid(),family=family,host=host,port=port,mode=mode,started_utc_ms=started,elapsed_ns=elapsed,local_host=local[0],local_port=local[1],**(error or dict(kind='SUCCESS',winerror=None,errno=None))))
+    return error
 def native_scope(root,host,args):
     p=pathlib.PureWindowsPath(root);guid=r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
     if args!=['--native-child'] or host.upper() in ('LS5','PC4') or not re.fullmatch(r'[A-Za-z]:',p.drive) or p.parent.name!='AC' or p.parent.parent.parent.name!='Packages' or not re.fullmatch('python-'+guid,p.name) or not re.fullmatch('g1-fixture-'+guid,p.parent.parent.name):raise ValueError('PHYSICAL_OR_UNOWNED_PROBE_REFUSED')
@@ -144,9 +153,12 @@ def main():
         if client is not None:
             with client:
                 client.settimeout(2)
-                _,error=socket_trace(family,'connect',lambda:client.connect((host,port)))
+                error=connect_observation(client,family,host,port,'listener',cfg)
                 connects.append(error)
         else:connects.append(error)
+        with socket.socket(af,socket.SOCK_STREAM) as closed:
+            closed.settimeout(2)
+            connect_observation(closed,family,host,cfg['closed_port' if family==4 else 'closed_port6'],'bound-not-listening',cfg,[])
         network_isolation.append(dict(family=family,**isolation_diagnosis(host)))
     if len(self_loopback)==8 and all(r['result']=='SUCCESS' for r in self_loopback):
         previous=socket.getdefaulttimeout();socket.setdefaulttimeout(2)
@@ -228,6 +240,6 @@ if __name__=='__main__':
         cfg=json.loads((ROOT/'config.json').read_text());main()
     except BaseException as e:
         error=type(e).__name__;code=e.code if isinstance(e,BoundaryFailure) else ('WINDOWS_ERROR_'+str(e.winerror) if isinstance(e,OSError) and type(getattr(e,'winerror',None)) is int else None)
-    result=dict(schema=1,head=cfg.get('head'),run_id=cfg.get('run_id'),attempt=cfg.get('attempt'),pid=os.getpid(),python_version=sys.version,status='PASS' if error is None else 'BLOCKED',error=error,error_code=code,cases=rows,network_diagnostics=network_diagnostics,network_isolation=network_isolation,self_loopback=self_loopback,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
+    result=dict(schema=1,head=cfg.get('head'),run_id=cfg.get('run_id'),attempt=cfg.get('attempt'),pid=os.getpid(),python_version=sys.version,status='PASS' if error is None else 'BLOCKED',error=error,error_code=code,cases=rows,network_diagnostics=network_diagnostics,network_isolation=network_isolation,self_loopback=self_loopback,transport_connections=transport_connections,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
     (ROOT/'Data/result.json').write_text(json.dumps(result),encoding='utf-8')
     raise SystemExit(0 if error is None else 1)

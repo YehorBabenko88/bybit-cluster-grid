@@ -1034,6 +1034,8 @@
     "tests/test_python_containment_evidence.py::test_staged_socket_evidence_cannot_be_truncated_or_promoted[timeout]",
     "tests/test_python_containment_evidence.py::test_staged_socket_evidence_cannot_be_truncated_or_promoted[unknown-field]",
     "tests/test_python_containment_evidence.py::test_timeout_is_explicit_and_not_a_policy_denial",
+    "tests/test_python_containment_evidence.py::test_transport_cannot_contradict_the_same_connect_operation",
+    "tests/test_python_containment_evidence.py::test_transport_from_another_child_is_not_the_native_process",
     "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[0]",
     "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[32]",
     "tests/test_python_containment_evidence.py::test_unknown_foreign_handle_failure_is_not_absence[5]",
@@ -1066,6 +1068,28 @@
     "tests/test_storage_canonical_replay.py::test_equal_count_replay_uses_canonical_candle_for_features",
     "tests/test_storage_footprint_revision.py::test_accepted_revision_replaces_stale_footprint_levels_in_transaction",
     "tests/test_storage_footprint_revision.py::test_rejected_older_revision_does_not_delete_footprint",
+    "tests/test_transport_provenance.py::test_complete_observation_never_authenticates_policy_or_execution",
+    "tests/test_transport_provenance.py::test_distinct_address_families_can_share_a_numeric_port",
+    "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[ambiguous]",
+    "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[duplicate]",
+    "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[foreign-bind]",
+    "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[invented-control]",
+    "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[missing]",
+    "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[unready]",
+    "tests/test_transport_provenance.py::test_listener_and_run_provenance_fail_closed[wrong-head]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[elapsed_ns--1]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[family-True]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[host-localhost]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[kind-UNKNOWN]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[local_host-192.0.2.1]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[local_port-False]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[mode-external]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[nonce-cccccccccccccccccccccccccccccccc]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[parent_pid-11]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[pid-10]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[port-True]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[started_utc_ms-999]",
+    "tests/test_transport_provenance.py::test_substituted_or_unknown_child_observation_refused[winerror-True]",
     "tests/test_wal_ack_bounds.py::test_ack_rejects_unallocated_ids_without_advancing_checkpoint",
     "tests/test_wal_ack_order.py::test_ack_cannot_skip_earlier_unprocessed_record",
     "tests/test_wal_bounded_tail_repair.py::test_checkpoint_rejects_noncanonical_decimal_bytes",
@@ -5275,6 +5299,14 @@
     ],
     [
       "tests.test_python_containment_evidence",
+      "test_transport_cannot_contradict_the_same_connect_operation"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_transport_from_another_child_is_not_the_native_process"
+    ],
+    [
+      "tests.test_python_containment_evidence",
       "test_unknown_foreign_handle_failure_is_not_absence[0]"
     ],
     [
@@ -5400,6 +5432,94 @@
     [
       "tests.test_storage_footprint_revision",
       "test_rejected_older_revision_does_not_delete_footprint"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_complete_observation_never_authenticates_policy_or_execution"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_distinct_address_families_can_share_a_numeric_port"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_listener_and_run_provenance_fail_closed[ambiguous]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_listener_and_run_provenance_fail_closed[duplicate]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_listener_and_run_provenance_fail_closed[foreign-bind]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_listener_and_run_provenance_fail_closed[invented-control]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_listener_and_run_provenance_fail_closed[missing]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_listener_and_run_provenance_fail_closed[unready]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_listener_and_run_provenance_fail_closed[wrong-head]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[elapsed_ns--1]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[family-True]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[host-localhost]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[kind-UNKNOWN]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[local_host-192.0.2.1]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[local_port-False]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[mode-external]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[nonce-cccccccccccccccccccccccccccccccc]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[parent_pid-11]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[pid-10]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[port-True]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[started_utc_ms-999]"
+    ],
+    [
+      "tests.test_transport_provenance",
+      "test_substituted_or_unknown_child_observation_refused[winerror-True]"
     ],
     [
       "tests.test_wal_ack_bounds",

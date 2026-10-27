@@ -146,3 +146,36 @@ authentication, durable anti-rollback, or crash/reboot recovery. No competing gl
 option writers are assumed on the dedicated VM. No filter/exemption/capability,
 service, account, ACL or real host configuration is changed. The original observer
 remains read-only; only explicit hosted CLI actions enable this diagnostic profile.
+# Two-process transport provenance (diagnostic only)
+
+The hosted parent retains separate IPv4/IPv6 loopback listeners and exclusive
+bound sockets which never call listen. It verifies host-to-host listener
+connect/accept and records the actual result of connecting to the nonlisteners.
+All sockets remain owned until the child has exited. The native result includes
+literal endpoints, readiness UTC milliseconds, parent/child PID and a fresh
+correlation nonce. The child records the requested endpoint, its actual local
+endpoint, UTC start, monotonic elapsed nanoseconds and typed socket error for
+both kinds of target. No production endpoint, exemption or capability is added.
+
+`integration.transport_provenance.validate_transport` rejects missing, reordered,
+substituted, ambiguous or unready observations. A complete record still means
+only OBSERVED_NOT_ATTESTED, policy_cause UNKNOWN, with all authority false.
+The nonce/PID/time tuple is a correlation aid, not an owner signature, stable
+process handle, trusted clock or durable replay protection. UTC clock movement
+or incomplete API observations can refuse evidence. Token/capability/Job checks
+remain the existing pre-resume native readbacks; this record is not a new
+independent token attestation. The original strict network-denial gate is intact.
+
+WFP image GUID matches alone do not prove an effective blocking filter. Future
+ETW/WFP capture must separately correlate exact process identity, address family,
+addresses, ports and time, preserve filter/layer provenance and reject missing
+records. No ETW session, filter or exception is enabled by this addition. A
+dedicated disposable hosted capture profile needs its own session ownership,
+bounded collection, sanitisation and guaranteed teardown before implementation.
+
+Supported transport candidates to review are an explicitly ACL-bound local
+named pipe/broker with an independently constrained network principal, or a
+separately isolated VM transport. Neither is implemented or approved here;
+both change the trust boundary and require their own threat model and denial
+tests. Global loopback exemptions, broad network capabilities, audit hooks and
+accepting timeouts as proof are not substitutes. Physical G1 remains BLOCKED.
