@@ -20,7 +20,21 @@ def query(sql,args=()):
             return cur.fetchall()
 
 
-def qualified_snapshot(route, symbol, limit):
+def immutable_minutes(symbol, limit, before_ms):
+    import psycopg
+    with psycopg.connect(os.environ['TERMINAN_GRID_DSN'], connect_timeout=3,
+            options='-c default_transaction_read_only=on -c statement_timeout=3000') as conn:
+        with conn.cursor() as cur:
+            cur.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+            cur.execute("""SELECT record,count(*) OVER(PARTITION BY start_ms) FROM provenance_minutes WHERE symbol=%s AND start_ms<%s
+                ORDER BY start_ms DESC,fingerprint DESC LIMIT %s""", (symbol, before_ms, limit))
+            rows = cur.fetchall()
+            if any(r[1] != 1 for r in rows):
+                raise ValueError('ambiguous minute revisions')
+            return [r[0] for r in rows]
+
+
+def qualified_snapshot(route, symbol, limit, before_ms=None):
     """Versioned boundary. Current tables do not carry qualifying provenance."""
     result = {
         'api_version': {'major': 1, 'minor': 0},
@@ -52,11 +66,12 @@ def qualified_snapshot(route, symbol, limit):
         raise ValueError('limit must be an integer from 1 to 1000')
     result.update(symbol=symbol, timeframe='1m', rows=[], limit=limit,
                   representation='historical_aggregate')
-    return result
+    from .provenance_gateway import read_snapshot
+    return read_snapshot(result, symbol, limit, before_ms, immutable_minutes)
 
-def snapshot(route,symbol='BTCUSDT',limit=300):
+def snapshot(route,symbol='BTCUSDT',limit=300,before_ms=None):
     if route.startswith('/internal/v1/'):
-        return qualified_snapshot(route, symbol, limit)
+        return qualified_snapshot(route, symbol, limit, before_ms)
     if not SYMBOL.fullmatch(symbol):raise ValueError('invalid symbol')
     limit=max(1,min(int(limit),1000))
     if route=='/v1/instruments':
@@ -73,10 +88,34 @@ def snapshot(route,symbol='BTCUSDT',limit=300):
     raise KeyError(route)
 
 class Handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if urlsplit(self.path).path != '/internal/v1/research-handoffs/validate':
+            self.send_error(404)
+            return
+        try:
+            self.connection.settimeout(3)
+            size = int(self.headers.get('Content-Length', '0'))
+            if not 0 < size <= 1048576:
+                raise ValueError('bounded request required')
+            from .research_handoff import accept_handoff
+            configured = json.loads(os.environ.get('GRID_TRUSTED_RESEARCH_SOURCES', '[]'))
+            trusted = {(x['identity'], x['source_revision'], x['run_id'], x['completion_receipt']) for x in configured}
+            result = accept_handoff(json.loads(self.rfile.read(size)), trusted)
+            status = 200
+        except Exception:
+            result, status = {'status':'UNAVAILABLE','reason':'INVALID_HANDOFF_REQUEST','execution_authority':False}, 400
+        body = json.dumps(result,allow_nan=False).encode()
+        self.send_response(status)
+        self.send_header('Content-Type','application/json')
+        self.send_header('Cache-Control','no-store')
+        self.send_header('Content-Length',str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         u=urlsplit(self.path);q=parse_qs(u.query)
         try:
-            result=snapshot(u.path,q.get('symbol',['BTCUSDT'])[0],q.get('limit',[300])[0]);status=200
+            result=snapshot(u.path,q.get('symbol',['BTCUSDT'])[0],q.get('limit',[300])[0],q.get('before_ms',[None])[0]);status=200
         except (ValueError,KeyError) as e:result={'error':str(e)};status=400
         except Exception:result={'error':'source unavailable'};status=503
         body=json.dumps(result,allow_nan=False).encode()

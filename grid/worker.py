@@ -1,3 +1,4 @@
+import os
 import asyncio, json, time, logging, os, pathlib
 import aiohttp, websockets
 from .config import settings
@@ -420,6 +421,11 @@ class Worker:
                             if suspect_gap:
                                 fp.mark_degraded(symbol,trade_ts,"trade_time_gap")
                         for row in fp.pop_closed(int(time.time()*1000)):
+                            from .provenance import producer
+                            if not hasattr(self, "provenance_source"):
+                                from .resources import NODE_ID
+                                self.provenance_source = producer(NODE_ID, os.environ.get("GRID_SOURCE_REVISION", ""), settings.bybit_ws_url)
+                            row["source_provenance"] = self.provenance_source
                             await self.storage.save(row)
                             self.pressure.observe_symbol(symbol,db_writes=1)
             except asyncio.CancelledError:

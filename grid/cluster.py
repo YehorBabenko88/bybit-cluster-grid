@@ -23,14 +23,20 @@ class FootprintBuilder:
         b = self.buckets.setdefault((t.symbol, start), {
             "open": t.price, "high": t.price, "low": t.price, "close": t.price,
             "buy": 0.0, "sell": 0.0, "trades": 0, "levels": defaultdict(PriceCluster),
-            "seen_trade_ids":set(),
+            "seen_trade_ids":set(), "first_event_ms":t.ts_ms, "last_event_ms":t.ts_ms,
             "quality_status":"GOOD", "quality_reasons":[]
         })
         if t.trade_id and t.trade_id in b["seen_trade_ids"]:
             return False
         if t.trade_id:
             b["seen_trade_ids"].add(t.trade_id)
-        b["high"] = max(b["high"], t.price); b["low"] = min(b["low"], t.price); b["close"] = t.price
+        if t.ts_ms < b["first_event_ms"]:
+            b["open"] = t.price
+        if t.ts_ms >= b["last_event_ms"]:
+            b["close"] = t.price
+        b["first_event_ms"] = min(b["first_event_ms"], t.ts_ms)
+        b["last_event_ms"] = max(b["last_event_ms"], t.ts_ms)
+        b["high"] = max(b["high"], t.price); b["low"] = min(b["low"], t.price)
         lvl = b["levels"][self._price_key(t.price)]
         # Bybit publicTrade S=Buy means buyer was taker/aggressor.
         if t.side.lower() == "buy":
@@ -64,7 +70,7 @@ class FootprintBuilder:
                 self.finalized_through_ms[symbol]=start
             poc_key=max(b["levels"], key=lambda k:b["levels"][k].volume)
             out.append({
-                "symbol":symbol,"start_ms":start,"open":b["open"],"high":b["high"],"low":b["low"],"close":b["close"],
+                "symbol":symbol,"start_ms":start,"source_event_start_ms":b["first_event_ms"],"source_event_end_ms":b["last_event_ms"],"open":b["open"],"high":b["high"],"low":b["low"],"close":b["close"],
                 "buy_volume":b["buy"],"sell_volume":b["sell"],"delta":b["buy"]-b["sell"],"trade_count":b["trades"],
                 "poc_price":poc_key*self.tick_size,
                 "quality_status":b["quality_status"],"quality_reasons":b["quality_reasons"],
