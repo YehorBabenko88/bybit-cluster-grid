@@ -158,3 +158,33 @@ def test_http_absolute_deadline_closes_slow_header_or_body(body):
         assert closed and time.monotonic()-started<4.5
     finally:
         sock.close();server.shutdown();server.server_close();worker.join()
+
+
+def test_real_strattester_producer_export_compatibility():
+    import json
+    from pathlib import Path
+    r=json.loads((Path(__file__).parent/'fixtures'/'strattester-owned-export.synthetic.json').read_text())
+    trust={(r['producer_identity'],r['source_revision'],r['run_id'],r['completion_receipt'])}
+    assert accept_handoff(r,trust)['status']=='ACCEPTED_HISTORICAL'
+    assert accept_handoff(r,set())['status']=='UNAVAILABLE'
+    changed=copy.deepcopy(r);changed['metrics']={'forged':True}
+    changed['completion_receipt']=digest({k:v for k,v in changed.items() if k!='completion_receipt'})
+    assert accept_handoff(changed,trust)['status']=='UNAVAILABLE'
+
+
+def test_http_invalid_query_does_not_echo_or_log_secret(capsys):
+    import http.client
+    import threading
+    from http.server import ThreadingHTTPServer
+    server=ThreadingHTTPServer(('127.0.0.1',0),gateway.Handler)
+    worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
+    try:
+        client=http.client.HTTPConnection(*server.server_address,timeout=2)
+        client.request('GET','/unknown?password=synthetic_secret')
+        response=client.getresponse()
+        assert response.status==400
+        assert b'synthetic_secret' not in response.read()
+        client.close()
+    finally:
+        server.shutdown();server.server_close();worker.join()
+    assert 'synthetic_secret' not in capsys.readouterr().err

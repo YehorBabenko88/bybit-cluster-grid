@@ -1,0 +1,83 @@
+{
+  "api_version": {
+    "major": 1,
+    "minor": 1
+  },
+  "completed_at_ms": 1793100295205,
+  "completion_receipt": "7001b462ce5fe6387ea791d4d0864fe063572bb6fc7d9a4b8c0383eaf657756b",
+  "dataset": {
+    "coverage": "COMPLETE",
+    "datasets": [
+      {
+        "count": 2,
+        "dataset": "candles",
+        "timeframe": "1m"
+      }
+    ],
+    "end_ms": 60000,
+    "fingerprint": "3789a7331e1e2d6799f2ab0dd23b48c0963b74801104aa20ed20acbb8adb7fc2",
+    "market_type": "linear",
+    "missing_data": [],
+    "source_identity": "synthetic:fixture",
+    "start_ms": 0,
+    "symbol": "BTCUSDT",
+    "timeframe": "1m"
+  },
+  "execution_assumptions": {
+    "execution": "none",
+    "fees": 0,
+    "slippage": 0
+  },
+  "execution_authority": false,
+  "input_snapshot": [
+    {
+      "dataset": "candles",
+      "rows": [
+        {
+          "close": 2,
+          "complete": true,
+          "high": 2,
+          "low": 1,
+          "open": 1,
+          "open_time": 0,
+          "symbol": "BTCUSDT",
+          "timeframe": "1m",
+          "turnover": null,
+          "volume": 1
+        },
+        {
+          "close": 2,
+          "complete": true,
+          "high": 2,
+          "low": 1,
+          "open": 1,
+          "open_time": 60000,
+          "symbol": "BTCUSDT",
+          "timeframe": "1m",
+          "turnover": null,
+          "volume": 1
+        }
+      ],
+      "timeframe": "1m"
+    }
+  ],
+  "metrics": {
+    "sum": 4
+  },
+  "mode": "HISTORICAL",
+  "model": {
+    "kind": "synthetic",
+    "version": "1"
+  },
+  "producer": "strattester",
+  "producer_epoch": "336e2c4c-4ff1-4409-af4f-d93d3a27a12e",
+  "producer_identity": "synthetic:owner",
+  "run_id": "380a9a0b-4f5b-44e7-b23c-b1390c73c06c",
+  "source_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "strategy": {
+    "fingerprint": "b05520cc00a41ffa01421b16b7640d72bf909689a7679365fb3fe22865a6a053",
+    "id": "test",
+    "parameters": {},
+    "version": "1"
+  }
+}

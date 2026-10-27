@@ -93,6 +93,10 @@ def snapshot(route,symbol='BTCUSDT',limit=300,before_ms=None):
     raise KeyError(route)
 
 class Handler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        # Request lines may contain tokens; never log caller-controlled paths.
+        return
+
     def handle(self):
         # One absolute deadline covers headers and body, including slow drips.
         def expire():
@@ -141,7 +145,7 @@ class Handler(BaseHTTPRequestHandler):
             if any(k not in ('symbol','limit','before_ms') or len(v)!=1 for k,v in q.items()):
                 raise ValueError('invalid query parameters')
             result=snapshot(u.path,q.get('symbol',['BTCUSDT'])[0],q.get('limit',[300])[0],q.get('before_ms',[None])[0]);status=200
-        except (ValueError,KeyError) as e:result={'error':str(e)};status=400
+        except (ValueError,KeyError):result={'error':'INVALID_QUERY_OR_ROUTE'};status=400
         except Exception:result={'error':'source unavailable'};status=503
         body=json.dumps(result,allow_nan=False).encode()
         self.send_response(status);self.send_header('Content-Type','application/json');self.send_header('Cache-Control','no-store');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
