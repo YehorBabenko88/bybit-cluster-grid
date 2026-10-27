@@ -24,7 +24,7 @@ def test_complete_fixture_still_not_authenticated():
 @pytest.mark.parametrize("changes", [
     {"first_available_ns": None}, {"revision": 0},
     {"history_complete": False}, {"first_available_ns": 41},
-    {"revision_recorded_ns": 35}, {"market_type": ""},
+    {"revision_recorded_ns": 35}, {"revision_recorded_ns": 19}, {"market_type": ""},
     {"ingest_ns": 50},
 ])
 def test_unproven_history_rejected(changes):
