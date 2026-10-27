@@ -5,6 +5,7 @@ CASES=['isolated-python','no-parent-secrets','closed-import-paths','own-data-rw'
 rows=[]
 network_diagnostics=[]
 network_isolation=[]
+self_loopback=[]
 def native_scope(root,host,args):
     p=pathlib.PureWindowsPath(root);guid=r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
     if args!=['--native-child'] or host.upper() in ('LS5','PC4') or not re.fullmatch(r'[A-Za-z]:',p.drive) or p.parent.name!='AC' or p.parent.parent.parent.name!='Packages' or not re.fullmatch('python-'+guid,p.name) or not re.fullmatch('g1-fixture-'+guid,p.parent.parent.name):raise ValueError('PHYSICAL_OR_UNOWNED_PROBE_REFUSED')
@@ -25,18 +26,29 @@ def isolation_diagnosis(host):
         return isolation_fact(api(host,ctypes.byref(cap)),cap.value)
     except (OSError,AttributeError) as error:return isolation_fact(getattr(error,'winerror',None),None)
 
+def recv_exact(channel,n):
+    need(type(n) is int and 0<n<=64,'SELF_IPC_LENGTH');data=b''
+    while len(data)<n:
+        part=channel.recv(n-len(data));need(type(part) is bytes and 0<len(part)<=n-len(data),'SELF_IPC_EOF_OR_LENGTH');data+=part
+    return data
+
+def self_ipc_proven(rows):
+    expected=[dict(family=f,stage=s,result='SUCCESS',kind=None,winerror=None,errno=None,wsa_post_exception=None) for f in (4,6) for s in ('socket','connect','accept','exchange')]+[dict(family=4,stage=s,result='SUCCESS',kind=None,winerror=None,errno=None,wsa_post_exception=None) for s in ('stock-socketpair','stock-proactor')]
+    return rows==expected
+
 def socket_error(error):
     def number(value):return value if type(value) is int and -(2**31)<=value<2**32 else None
     kind='TIMEOUT' if isinstance(error,TimeoutError) else 'REFUSED' if isinstance(error,ConnectionRefusedError) else 'PERMISSION' if isinstance(error,PermissionError) else 'OSERROR'
     return dict(kind=kind,winerror=number(getattr(error,'winerror',None)),errno=number(getattr(error,'errno',None)))
 
-def socket_trace(family,stage,operation):
+def socket_trace(family,stage,operation,trace=None):
+    sink=network_diagnostics if trace is None else trace
     try:
-        result=operation();network_diagnostics.append(dict(family=family,stage=stage,result='SUCCESS',kind=None,winerror=None,errno=None,wsa_post_exception=None));return result,None
+        result=operation();sink.append(dict(family=family,stage=stage,result='SUCCESS',kind=None,winerror=None,errno=None,wsa_post_exception=None));return result,None
     except OSError as error:
         # Python/ctypes may already have touched WSA TLS: never treat this as authoritative.
         ws=ctypes.WinDLL('ws2_32');ws.WSAGetLastError.restype=ctypes.c_int;post=ws.WSAGetLastError()
-        fact=socket_error(error);network_diagnostics.append(dict(family=family,stage=stage,result='ERROR',wsa_post_exception=post,**fact));return None,fact
+        fact=socket_error(error);sink.append(dict(family=family,stage=stage,result='ERROR',wsa_post_exception=post,**fact));return None,fact
 
 def network_denial(winerror,errno):
     # Timeout/refusal/unknown does not prove an OS policy denial. Numeric facts only.
@@ -112,6 +124,20 @@ def main():
                 if bound is None:
                     _,listened=socket_trace(family,'listen',lambda:server.listen(1))
                     if listened is None:
+                        own,own_error=socket_trace(family,'socket',lambda:socket.socket(af,socket.SOCK_STREAM),self_loopback)
+                        if own is not None:
+                            with own:
+                                own.settimeout(2)
+                                _,own_error=socket_trace(family,'connect',lambda:own.connect(server.getsockname()),self_loopback)
+                                if own_error is None:
+                                    pair,pair_error=socket_trace(family,'accept',server.accept,self_loopback)
+                                    if pair is not None:
+                                        with pair[0] as peer:
+                                            peer.settimeout(2)
+                                            def exchange():
+                                                need(own.getsockname()==peer.getpeername() and own.getpeername()==peer.getsockname(),'SELF_ENDPOINT_MISMATCH')
+                                                own.sendall(b'own');need(recv_exact(peer,3)==b'own','SELF_DATA_MISMATCH');peer.sendall(b'ack');need(recv_exact(own,3)==b'ack','SELF_ACK_MISMATCH')
+                                            socket_trace(family,'exchange',exchange,self_loopback)
                         accepted,ignored=socket_trace(family,'accept',server.accept)
                         if accepted is not None:accepted[0].close();raise BoundaryFailure('UNEXPECTED_ACCEPT')
         client,error=socket_trace(family,'client-socket',lambda:socket.socket(af,socket.SOCK_STREAM))
@@ -122,11 +148,25 @@ def main():
                 connects.append(error)
         else:connects.append(error)
         network_isolation.append(dict(family=family,**isolation_diagnosis(host)))
+    if len(self_loopback)==8 and all(r['result']=='SUCCESS' for r in self_loopback):
+        previous=socket.getdefaulttimeout();socket.setdefaulttimeout(2)
+        try:
+            def stock_pair():
+                a,b=socket.socketpair()
+                with a,b:
+                    a.settimeout(2);b.settimeout(2);a.sendall(b'ipc');need(recv_exact(b,3)==b'ipc','STOCK_SOCKETPAIR_DATA')
+            socket_trace(4,'stock-socketpair',stock_pair,self_loopback)
+            if self_loopback[-1]['result']=='SUCCESS':
+                def stock_loop():
+                    loop=asyncio.new_event_loop();loop.close()
+                socket_trace(4,'stock-proactor',stock_loop,self_loopback)
+        finally:socket.setdefaulttimeout(previous)
     def loopback():
         for error in connects:
             need(error is not None,'NETWORK_ALLOWED')
             need(error['kind']!='TIMEOUT','NETWORK_TIMEOUT_NOT_POLICY_PROOF')
             network_denial(error['winerror'],error['errno'])
+        need(self_ipc_proven(self_loopback),'SELF_IPC_UNPROVEN')
         need(len(network_isolation)==2 and all(r['status']=='OBSERVED' for r in network_isolation),'NETWORK_ISOLATION_DIAGNOSIS_UNKNOWN')
     case('loopback-denied',loopback)
     def network(host,port):
@@ -188,6 +228,6 @@ if __name__=='__main__':
         cfg=json.loads((ROOT/'config.json').read_text());main()
     except BaseException as e:
         error=type(e).__name__;code=e.code if isinstance(e,BoundaryFailure) else ('WINDOWS_ERROR_'+str(e.winerror) if isinstance(e,OSError) and type(getattr(e,'winerror',None)) is int else None)
-    result=dict(schema=1,head=cfg.get('head'),run_id=cfg.get('run_id'),attempt=cfg.get('attempt'),pid=os.getpid(),python_version=sys.version,status='PASS' if error is None else 'BLOCKED',error=error,error_code=code,cases=rows,network_diagnostics=network_diagnostics,network_isolation=network_isolation,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
+    result=dict(schema=1,head=cfg.get('head'),run_id=cfg.get('run_id'),attempt=cfg.get('attempt'),pid=os.getpid(),python_version=sys.version,status='PASS' if error is None else 'BLOCKED',error=error,error_code=code,cases=rows,network_diagnostics=network_diagnostics,network_isolation=network_isolation,self_loopback=self_loopback,physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
     (ROOT/'Data/result.json').write_text(json.dumps(result),encoding='utf-8')
     raise SystemExit(0 if error is None else 1)

@@ -4,7 +4,7 @@ from integration.python_containment_evidence import validate, CASES
 HEAD='a'*40
 
 def sample():
-    child=dict(schema=1,head=HEAD,run_id='12',attempt='1',pid=123,python_version='3.12 synthetic',status='PASS',error=None,error_code=None,network_isolation=[dict(family=f,status='OBSERVED',api_status=0,missing_capability=1) for f in (4,6)],cases=[dict(name=n,outcome='PASS') for n in CASES],network_diagnostics=[dict(family=f,stage=stage,result='ERROR' if stage in ('accept','connect') else 'SUCCESS',kind='PERMISSION' if stage=='connect' else 'OSERROR' if stage=='accept' else None,winerror=10013 if stage=='connect' else 10035 if stage=='accept' else None,errno=13 if stage=='connect' else 10035 if stage=='accept' else None,wsa_post_exception=0 if stage in ('accept','connect') else None) for f in (4,6) for stage in ('socket','bind','listen','accept','client-socket','connect')]+[dict(family=4,stage='documentation-connect',result='ERROR',kind='PERMISSION',winerror=10013,errno=13,wsa_post_exception=0)],physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
+    child=dict(schema=1,head=HEAD,run_id='12',attempt='1',pid=123,python_version='3.12 synthetic',status='PASS',error=None,error_code=None,self_loopback=[dict(family=f,stage=s,result='SUCCESS',kind=None,winerror=None,errno=None,wsa_post_exception=None) for f in (4,6) for s in ('socket','connect','accept','exchange')]+[dict(family=4,stage=s,result='SUCCESS',kind=None,winerror=None,errno=None,wsa_post_exception=None) for s in ('stock-socketpair','stock-proactor')],network_isolation=[dict(family=f,status='OBSERVED',api_status=0,missing_capability=1) for f in (4,6)],cases=[dict(name=n,outcome='PASS') for n in CASES],network_diagnostics=[dict(family=f,stage=stage,result='ERROR' if stage in ('accept','connect') else 'SUCCESS',kind='PERMISSION' if stage=='connect' else 'OSERROR' if stage=='accept' else None,winerror=10013 if stage=='connect' else 10035 if stage=='accept' else None,errno=13 if stage=='connect' else 10035 if stage=='accept' else None,wsa_post_exception=0 if stage in ('accept','connect') else None) for f in (4,6) for stage in ('socket','bind','listen','accept','client-socket','connect')]+[dict(family=4,stage='documentation-connect',result='ERROR',kind='PERMISSION',winerror=10013,errno=13,wsa_post_exception=0)],physical='0/10 NOT_RUN',execute_authorized=False,cleanup_authorized=False,whole_system='PARTIAL')
     return dict(schema=1,head=HEAD,run_id='12',attempt='1',status='PASS',reason=None,input_manifest_sha256='a'*64,result_sha256='b'*64,diagnostic_sha256='c'*64,diagnostic_error=None,result_error=None,files=15,pid=123,debugged=True,network_host=[dict(family=f,stage=s,success=True) for f in (4,6) for s in ('socket','bind','listen','connect','accept')]+[dict(family=f,stage='no-pending-after-child',success=True) for f in (4,6)],loader_events=[dict(Event=5,Detail='exit:00000000')],python=child,assurance='HOSTED_DEBUGGED_PYTHON_NEGATIVE_BOUNDARY_ONLY',host_verified=False,execute_authorized=False,cleanup_authorized=False,physical='0/10 NOT_RUN',whole_system='PARTIAL',network_transport='BLOCKED_NO_CAPABILITIES')
 
 def test_exact_negative_boundary_only():validate(sample(),HEAD,'12','1')
@@ -134,3 +134,26 @@ def test_unknown_network_isolation_diagnosis_stays_blocked(status,capability):
 def test_only_documented_netiso_enums_are_observations(capability):
     from integration.windows_python_probe import isolation_fact
     assert isolation_fact(0,capability)['status']=='OBSERVED'
+
+
+def test_only_complete_successful_self_ipc_controls_are_known():
+    from integration.windows_python_probe import self_ipc_proven
+    good=[dict(family=f,stage=s,result='SUCCESS',kind=None,winerror=None,errno=None,wsa_post_exception=None) for f in (4,6) for s in ('socket','connect','accept','exchange')]+[dict(family=4,stage=s,result='SUCCESS',kind=None,winerror=None,errno=None,wsa_post_exception=None) for s in ('stock-socketpair','stock-proactor')]
+    assert self_ipc_proven(good)
+    assert not self_ipc_proven(good[:-1])
+    bad=copy.deepcopy(good);bad[1].update(result='ERROR',kind='TIMEOUT')
+    assert not self_ipc_proven(bad)
+
+
+def test_self_ipc_exchange_accepts_segmented_tcp_bytes():
+    from integration.windows_python_probe import recv_exact
+    class Channel:
+        def __init__(self):self.parts=iter([b'o',b'w',b'n'])
+        def recv(self,n):return next(self.parts)
+    assert recv_exact(Channel(),3)==b'own'
+
+def test_self_ipc_exchange_refuses_early_eof():
+    from integration.windows_python_probe import recv_exact
+    class Channel:
+        def recv(self,n):return b''
+    with pytest.raises(RuntimeError):recv_exact(Channel(),3)

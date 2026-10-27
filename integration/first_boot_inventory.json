@@ -1007,6 +1007,7 @@
     "tests/test_python_containment_evidence.py::test_network_unknown_or_refused_is_not_policy_denial[None-13]",
     "tests/test_python_containment_evidence.py::test_network_unknown_or_refused_is_not_policy_denial[None-None]",
     "tests/test_python_containment_evidence.py::test_network_unknown_or_refused_is_not_policy_denial[True-13]",
+    "tests/test_python_containment_evidence.py::test_only_complete_successful_self_ipc_controls_are_known",
     "tests/test_python_containment_evidence.py::test_only_documented_netiso_enums_are_observations[0]",
     "tests/test_python_containment_evidence.py::test_only_documented_netiso_enums_are_observations[1]",
     "tests/test_python_containment_evidence.py::test_only_documented_netiso_enums_are_observations[2]",
@@ -1023,6 +1024,8 @@
     "tests/test_python_containment_evidence.py::test_real_component_case_inventory[failed]",
     "tests/test_python_containment_evidence.py::test_real_component_case_inventory[missing]",
     "tests/test_python_containment_evidence.py::test_real_component_case_inventory[reordered]",
+    "tests/test_python_containment_evidence.py::test_self_ipc_exchange_accepts_segmented_tcp_bytes",
+    "tests/test_python_containment_evidence.py::test_self_ipc_exchange_refuses_early_eof",
     "tests/test_python_containment_evidence.py::test_socket_error_kind_is_preserved[error0-REFUSED]",
     "tests/test_python_containment_evidence.py::test_socket_error_kind_is_preserved[error1-OSERROR]",
     "tests/test_python_containment_evidence.py::test_socket_error_kind_is_preserved[error2-PERMISSION]",
@@ -5154,6 +5157,10 @@
     ],
     [
       "tests.test_python_containment_evidence",
+      "test_only_complete_successful_self_ipc_controls_are_known"
+    ],
+    [
+      "tests.test_python_containment_evidence",
       "test_only_documented_netiso_enums_are_observations[0]"
     ],
     [
@@ -5215,6 +5222,14 @@
     [
       "tests.test_python_containment_evidence",
       "test_real_component_case_inventory[reordered]"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_self_ipc_exchange_accepts_segmented_tcp_bytes"
+    ],
+    [
+      "tests.test_python_containment_evidence",
+      "test_self_ipc_exchange_refuses_early_eof"
     ],
     [
       "tests.test_python_containment_evidence",

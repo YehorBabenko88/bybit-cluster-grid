@@ -125,3 +125,10 @@ uses bounded UTF-16LE blob decoding, not ambiguous dotted display text. A matchi
 event remains IMAGE_GUID_CORRELATION_ONLY/effective_filter_verified=false. Missing,
 disabled, unsupported or malformed data remains BLOCKED. This is not per-port
 policy authorization, an owner signature, or proof against a hostile administrator.
+
+Same-child TCP is tested separately from child-to-parent loopback: owned fresh
+IPv4/6 listeners, reciprocal endpoints, synthetic byte exchange, then stock
+socket.socketpair and stock Proactor construction/close. A temporary two-second
+socket default bounds stock control construction and is restored before runtime.
+No custom event loop, inherited socket, network capability or exemption is added.
+Source inspection alone does not establish whether this runner blocks self-IPC.
