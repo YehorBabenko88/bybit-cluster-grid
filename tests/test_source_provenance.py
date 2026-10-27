@@ -188,3 +188,11 @@ def test_http_invalid_query_does_not_echo_or_log_secret(capsys):
     finally:
         server.shutdown();server.server_close();worker.join()
     assert 'synthetic_secret' not in capsys.readouterr().err
+
+
+def test_additive_capabilities_do_not_claim_source_readiness():
+    result=gateway.snapshot('/internal/v1/capabilities')
+    assert result['api_version']=={'major':1,'minor':0}
+    assert result['capabilities']['immutable_market_snapshots_v1_1'] is True
+    assert result['capabilities']['research_handoff_validation_v1_1'] is True
+    assert result['capabilities']['candles']=='UNAVAILABLE'

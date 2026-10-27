@@ -14,8 +14,10 @@ POST /internal/v1/research-handoffs/validate is a read-only validator with8MiB b
 
 Unified/Terminan need explicit1.1 data/handoff adapter before consuming new data; existing1.0 health cannot qualify it. They must retain independent producer receipt admission and never promote historical research into order authority.
 
-Validation: synthetic Windows local44PASS,2SKIP (explicit disposable PG absent). Hosted workflow source-provenance matrix Windows/Linux and disposable PostgreSQL18 migration, replay/idempotency, rollback, immutability tests. No physical/exchange/prod observation. SOFTWARE pending hosted exact-head receipts; SOURCE_PROVENANCE BLOCKED on real authenticated source/completeness receipts; PHYSICAL NOT_RUN; PRODUCTION_READINESS NO_GO. P0 none identified in synthetic scope. P1 external source admission, exchange coverage receipts and downstream1.1 adapters. P2 operator least-privilege deployment review remains outside source-only task.
+Validation: synthetic Windows local45PASS,2SKIP (explicit disposable PG absent). Hosted workflow source-provenance matrix Windows/Linux and disposable PostgreSQL18 migration, replay/idempotency, rollback, immutability tests. No physical/exchange/prod observation. SOFTWARE pending hosted exact-head receipts; SOURCE_PROVENANCE BLOCKED on real authenticated source/completeness receipts; PHYSICAL NOT_RUN; PRODUCTION_READINESS NO_GO. P0 none identified in synthetic scope. P1 external source admission, exchange coverage receipts and downstream1.1 adapters. P2 operator least-privilege deployment review remains outside source-only task.
 
-Full-suite exploratory run stopped at existing integration collection requiring POSTGRES_DSN; no production DSN supplied. Focused synthetic regression suite44PASS2SKIP.
+Full-suite exploratory run stopped at existing integration collection requiring POSTGRES_DSN; no production DSN supplied. Focused synthetic regression suite45PASS2SKIP.
 
 Contract compatibility uses checked-in synthetic export produced by actual Strattester execute_owned, including independent pin/tamper rejection. HTTP logs suppress caller paths/queries; invalid query errors do not echo supplied data.
+
+Additive capabilities immutable_market_snapshots_v1_1 and research_handoff_validation_v1_1 advertise supported contract features only; market readiness remains UNAVAILABLE and snapshot read requires explicit opt-in.

@@ -50,7 +50,9 @@ def qualified_snapshot(route, symbol, limit, before_ms=None):
     }
     if route == '/internal/v1/capabilities':
         result['capabilities'] = {'candles': 'UNAVAILABLE',
-                                  'footprint': 'UNAVAILABLE', 'live_l2': False}
+                                  'footprint': 'UNAVAILABLE', 'live_l2': False,
+                                  'immutable_market_snapshots_v1_1': True,
+                                  'research_handoff_validation_v1_1': True}
         return result
     if route == '/internal/v1/health':
         result['database'] = 'UNAVAILABLE'
