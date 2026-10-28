@@ -20,6 +20,12 @@ class WindowsBlocked(RuntimeError):
         self.code = code
         super().__init__(code)
 
+def diagnostic_observation(path,info):
+    """Lossless JSON diagnostic only; never an ACL acceptance decision."""
+    if type(path) is not str or type(info) is not dict or type(info.get('acl')) is not bytes:
+        raise WindowsBlocked()
+    return dict(path=path,**{k:v for k,v in info.items() if k!='acl'},acl_hex=info['acl'].hex())
+
 
 def decode_sid(data):
     if len(data) < 8 or data[0] != 1 or data[1] > 15 or len(data) != 8 + data[1]*4:

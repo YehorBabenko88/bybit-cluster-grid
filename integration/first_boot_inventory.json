@@ -1385,6 +1385,7 @@
     "tests/test_s0_windows.py::SecurityTests::test_unknown_ace_is_blocked_even_inherit_only",
     "tests/test_s0_windows.py::SecurityTests::test_unknown_flags_and_reserved_acl_fields_are_blocked",
     "tests/test_s0_windows.py::SecurityTests::test_untrusted_delete_child_is_blocked",
+    "tests/test_s0_windows.py::test_native_diagnostics_are_json_serializable_and_preserve_acl",
     "tests/test_s0_wire.py::test_changed_or_stale_reply",
     "tests/test_s0_wire.py::test_no_counter_regression_or_gap",
     "tests/test_s0_wire.py::test_register_heartbeat_and_duplicate",
@@ -7015,6 +7016,10 @@
     [
       "tests.test_s0_storage",
       "test_stop_only_own_existing_slot"
+    ],
+    [
+      "tests.test_s0_windows",
+      "test_native_diagnostics_are_json_serializable_and_preserve_acl"
     ],
     [
       "tests.test_s0_windows.CustodyTests",

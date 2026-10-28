@@ -159,7 +159,7 @@ async def _component_fixture(tmp_path, monkeypatch):
 
 @pytest.mark.skipif(sys.platform != 'win32', reason='native owned-resource fixture requires Windows')
 def test_hosted_windows_native_owned_custody():
-    from s0_smoke.windows import current_identity, create_fresh_root, create_fresh_file, Custody, Win32
+    from s0_smoke.windows import current_identity, create_fresh_root, create_fresh_file, Custody, Win32, diagnostic_observation
     identity = current_identity()  # Read-only token query; admin runner is not standard-token evidence.
     assert identity.sid.startswith('S-1-')
     root = Path(os.environ['RUNNER_TEMP']) / ('s0-native-owned-' + str(uuid.uuid4()))
@@ -170,7 +170,7 @@ def test_hosted_windows_native_owned_custody():
     for parent in reversed(root.parents):
         handle = api.open(str(parent), True)
         try:
-            observations.append(dict(path=str(parent), **api.inspect(handle)))
+            observations.append(diagnostic_observation(str(parent), api.inspect(handle)))
         finally:
             api.close(handle)
     print('S0_HOSTED_ANCESTORS=' + json.dumps(observations, sort_keys=True))

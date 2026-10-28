@@ -285,3 +285,11 @@ class CustodyTests(unittest.TestCase):
         api.open = lambda *args: (_ for _ in ()).throw(w.WindowsBlocked())
         with self.assertRaises(w.WindowsBlocked):
             with w.Custody('C:\\safe', 'S-1-5-1000', api=api): pass
+
+def test_native_diagnostics_are_json_serializable_and_preserve_acl():
+    import json
+    raw=acl()
+    info=dict(owner='S-1-5-18',acl=raw,identity=(1,2,3),directory=True,reparse=False,links=1,protected=True)
+    result=w.diagnostic_observation('C:\\',info)
+    assert json.loads(json.dumps(result))['acl_hex']==raw.hex()
+    assert info['acl']==raw
