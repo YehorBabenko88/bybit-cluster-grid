@@ -183,6 +183,32 @@
     "tests/test_s0_storage.py::test_leaf_only[x:y]",
     "tests/test_s0_storage.py::test_missing_stop_fails_closed",
     "tests/test_s0_storage.py::test_stop_only_own_existing_slot",
+    "tests/test_s0_subscription.py::test_bad_clock_rejected[-1]",
+    "tests/test_s0_subscription.py::test_bad_clock_rejected[11]",
+    "tests/test_s0_subscription.py::test_bad_clock_rejected[9]",
+    "tests/test_s0_subscription.py::test_bad_clock_rejected[True]",
+    "tests/test_s0_subscription.py::test_bad_clock_rejected[inf]",
+    "tests/test_s0_subscription.py::test_bad_clock_rejected[nan]",
+    "tests/test_s0_subscription.py::test_deadline_ping_cannot_extend_and_exact_boundary_ack_is_allowed",
+    "tests/test_s0_subscription.py::test_duplicate_ack_is_rejected",
+    "tests/test_s0_subscription.py::test_frame_count_limit",
+    "tests/test_s0_subscription.py::test_freezes_before_ack_and_returns_independent_postack_copy",
+    "tests/test_s0_subscription.py::test_json_nonfinite_or_oversized_frame_is_rejected",
+    "tests/test_s0_subscription.py::test_preack_buffer_releases_once_in_arrival_order",
+    "tests/test_s0_subscription.py::test_regression_after_progress_and_missing_ack_never_release",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[None]",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value0]",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value10]",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value1]",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value2]",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value3]",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value4]",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value5]",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value6]",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value7]",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value8]",
+    "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value9]",
+    "tests/test_s0_subscription.py::test_total_byte_limit",
     "tests/test_s0_windows.py::CustodyTests::test_access_denied_is_not_retried_or_fallback",
     "tests/test_s0_windows.py::CustodyTests::test_exclusive_file_checks_security_identity_and_releases",
     "tests/test_s0_windows.py::CustodyTests::test_exclusive_file_sharing_failure_has_no_fallback",
@@ -1008,6 +1034,110 @@
     [
       "tests.test_s0_storage",
       "test_stop_only_own_existing_slot"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_bad_clock_rejected[-1]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_bad_clock_rejected[11]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_bad_clock_rejected[9]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_bad_clock_rejected[True]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_bad_clock_rejected[inf]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_bad_clock_rejected[nan]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_deadline_ping_cannot_extend_and_exact_boundary_ack_is_allowed"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_duplicate_ack_is_rejected"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_frame_count_limit"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_freezes_before_ack_and_returns_independent_postack_copy"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_json_nonfinite_or_oversized_frame_is_rejected"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_preack_buffer_releases_once_in_arrival_order"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_regression_after_progress_and_missing_ack_never_release"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[None]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[value0]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[value10]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[value1]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[value2]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[value3]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[value4]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[value5]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[value6]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[value7]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[value8]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_rejects_wrong_ack_or_private_or_unknown_input[value9]"
+    ],
+    [
+      "tests.test_s0_subscription",
+      "test_total_byte_limit"
     ],
     [
       "tests.test_s0_windows",

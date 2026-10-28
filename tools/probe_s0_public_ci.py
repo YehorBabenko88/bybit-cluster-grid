@@ -19,7 +19,10 @@ import time
 ERRORS = frozenset({'INCOMPLETE', 'TIMEOUT', 'HTTP_ERROR', 'TLS_ERROR', 'TRANSPORT_ERROR', 'PROTOCOL_ERROR', 'UNEXPECTED_ERROR'})
 
 def protocol_detail(error):
-    allowed={'S0_REDIRECT_BLOCKED','PROBE_TOPIC_BEFORE_ACK','PROBE_SUBSCRIBE_REJECTED','PROBE_PUBLIC_CONTROL','PROBE_FRAME_TYPE'}
+    allowed={'S0_REDIRECT_BLOCKED','PROBE_TOPIC_BEFORE_ACK','PROBE_SUBSCRIBE_REJECTED','PROBE_PUBLIC_CONTROL','PROBE_FRAME_TYPE',
+        'S0_SUBSCRIPTION_CLOCK_BLOCKED','S0_SUBSCRIPTION_BLOCKED','S0_SUBSCRIPTION_CLOCK_REGRESSION','S0_SUBSCRIPTION_ACK_TIMEOUT',
+        'S0_SUBSCRIPTION_OBJECT_BLOCKED','S0_SUBSCRIPTION_JSON_BLOCKED','S0_SUBSCRIPTION_TOPIC_BLOCKED','S0_SUBSCRIPTION_BUFFER_LIMIT',
+        'S0_SUBSCRIPTION_DUPLICATE_ACK','S0_SUBSCRIPTION_ACK_BLOCKED','S0_SUBSCRIPTION_CONTROL_BLOCKED','S0_SUBSCRIPTION_OPERATION_BLOCKED'}
     value=error.args[0] if len(error.args)==1 else None
     return value if type(value) is str and len(value)<=80 and value in allowed else 'UNKNOWN_VALUE_ERROR'
 
@@ -58,8 +61,9 @@ async def collect(context):
     if hosted_context(os.environ, socket.gethostname()) != context:
         raise ValueError('PROBE_CONTEXT_CHANGED')
     import aiohttp
-    from s0_smoke.policy import TOPICS, canonical, load_json, outbound
+    from s0_smoke.policy import canonical, load_json, outbound
     from s0_smoke.protocol import MarketState
+    from s0_smoke.subscription import SubscriptionGate
     from s0_smoke.runtime import public_connection, trace
     started = time.monotonic()
     ack = False; books = 0; trades = 0; error = None; http_status = None; samples = [];detail=None;last_operation='TLS_WEBSOCKET_CONNECT'
@@ -72,33 +76,27 @@ async def collect(context):
                     timeout=aiohttp.ClientTimeout(total=10, connect=3), trust_env=False,
                     cookie_jar=aiohttp.DummyCookieJar(), trace_configs=[trace()]) as session:
                 ws = await public_connection(session)
+                subscription = SubscriptionGate(time.monotonic())
                 try:
                     last_operation='SUBSCRIBE_SEND'
                     await ws.send_json(outbound('subscribe'))
                     while not (books and trades):
+                        subscription.check(time.monotonic())
                         last_operation='FRAME_RECEIVE'
                         message = await ws.receive()
                         if message.type == aiohttp.WSMsgType.TEXT:
                             last_operation='FRAME_VALIDATE'
-                            value = load_json(message.data)
-                            if 'topic' in value:
-                                if not ack or value.get('topic') not in TOPICS:
-                                    raise ValueError('PROBE_TOPIC_BEFORE_ACK')
+                            ready = subscription.feed(load_json(message.data),time.monotonic())
+                            ack = subscription.acknowledged
+                            for value in ready:
                                 event = state.ingest(value, int(time.time()*1000))
-                                retain = (event['kind'] == 'book' and books < 3) or (event['kind'] == 'trades' and trades < 3)
+                                retain = len(samples)<4 and ((event['kind'] == 'book' and books < 3) or (event['kind'] == 'trades' and trades < 3))
                                 if not retain: continue
                                 if event['kind'] == 'book': books += 1
                                 else: trades += 1
                                 raw = canonical(value)
                                 # Hash-only public samples bound evidence even for large batches.
                                 samples.append(dict(topic=value['topic'], sha256=hashlib.sha256(raw).hexdigest(), size=len(raw)))
-                                if books and trades: break
-                            elif value.get('op') == 'subscribe':
-                                if value.get('success') is not True or value.get('req_id') != 'S0':
-                                    raise ValueError('PROBE_SUBSCRIBE_REJECTED')
-                                ack = True
-                            elif value.get('op') not in ('ping', 'pong'):
-                                raise ValueError('PROBE_PUBLIC_CONTROL')
                         elif message.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
                             raise ConnectionError('PROBE_FEED_CLOSED')
                         elif message.type not in (aiohttp.WSMsgType.PING, aiohttp.WSMsgType.PONG):

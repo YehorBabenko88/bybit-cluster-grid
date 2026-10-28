@@ -83,7 +83,6 @@ async def _component_fixture(tmp_path, monkeypatch):
         subscription = await ws.receive_json(timeout=2)
         assert subscription['op'] == 'subscribe'
         assert subscription['args'] == ['orderbook.1.BTCUSDT', 'publicTrade.BTCUSDT']
-        await ws.send_json({'op': 'subscribe', 'req_id': 'S0', 'success': True})
         for n in range(20):
             now = int(time.time()*1000)
             await ws.send_json(dict(topic='orderbook.1.BTCUSDT', type='snapshot', ts=now,
@@ -95,6 +94,10 @@ async def _component_fixture(tmp_path, monkeypatch):
                 trade = dict(T=now, s='BTCUSDT', S='Buy', v='0.01', p='60000',
                              i=f'{connection}-{n}', BT=False, seq=n+10)
             await ws.send_json(dict(topic='publicTrade.BTCUSDT', type='snapshot', ts=now, data=[trade]))
+            if n == 0:
+                # Reproduce actual Bybit ordering, including after reconnect.
+                await asyncio.sleep(.05)
+                await ws.send_json({'op': 'subscribe', 'req_id': 'S0', 'success': True})
             if connection == 1 and n == 1:
                 await ws.close(); return ws
             await asyncio.sleep(.08)

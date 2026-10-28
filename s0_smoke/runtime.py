@@ -3,6 +3,7 @@ import asyncio,hashlib,socket,ssl,time
 from .policy import PUBLIC_URL,TOPICS,MAX_JSON,need,canonical,load_json,outbound
 from .wire import ServerState,validate_reply
 from .protocol import MarketState
+from .subscription import SubscriptionGate
 from .materials import tls_context
 from .storage import read_small,stop_requested
 
@@ -96,10 +97,11 @@ async def worker(config,root,journal,market_journal,guard,*,seconds=300):
      if attempt==2:raise ValueError('S0_COORDINATOR_UNAVAILABLE') from None
      await asyncio.sleep(.2)
   reply=await send('register');need(reply['assignment']==TOPICS and not reply['stop'],'S0_NO_ASSIGNMENT')
-  last_report=0.;connected_before=False;subscribed=False
+  last_report=0.;connected_before=False;subscribed=False;subscription=None
   try:
    while time.monotonic()<end:
     guard()
+    if subscription is not None:subscription.check(time.monotonic())
     if stopped(root,config):reason='OPERATOR_STOP';break
     if time.monotonic()-last_report>=.5:
      reply=await send('heartbeat');last_report=time.monotonic()
@@ -108,23 +110,21 @@ async def worker(config,root,journal,market_journal,guard,*,seconds=300):
      try:
       ws=await asyncio.wait_for(public_connection(public),min(5,max(.05,end-time.monotonic())))
       if connected_before:state.reconnect()
-      connected_before=True;subscribed=False;market_journal.add('connection',{'index':state.summary()['connections']});await ws.send_json(outbound('subscribe'));journal.add('public-connected',{'reconnects':state.summary()['reconnects']})
+      connected_before=True;subscribed=False;subscription=SubscriptionGate(time.monotonic());market_journal.add('connection',{'index':state.summary()['connections']});await ws.send_json(outbound('subscribe'));journal.add('public-connected',{'reconnects':state.summary()['reconnects']})
      except (aiohttp.ClientError,OSError,TimeoutError):
       retries+=1;need(retries<=3,'S0_FEED_UNAVAILABLE');await asyncio.sleep(.2*retries);continue
     try:
      message=await asyncio.wait_for(ws.receive(),min(1,max(.05,end-time.monotonic())))
      if message.type==aiohttp.WSMsgType.TEXT:
-      value=load_json(message.data)
-      if 'topic' in value:
-       need(subscribed,'S0_TOPIC_BEFORE_ACK');state.ingest(value,int(time.time()*1000));market_journal.add('bybit-public',value);last_market=time.monotonic()
-      elif value.get('op')=='subscribe':need(value.get('success') is True and value.get('req_id')=='S0');subscribed=True
-      else:need(value.get('op') in ('ping','pong') and value.get('req_id','S0')=='S0','S0_PUBLIC_CONTROL_BLOCKED')
+      ready=subscription.feed(load_json(message.data),time.monotonic());subscribed=subscription.acknowledged
+      for value in ready:
+       state.ingest(value,int(time.time()*1000));market_journal.add('bybit-public',value);last_market=time.monotonic()
      elif message.type in (aiohttp.WSMsgType.CLOSED,aiohttp.WSMsgType.CLOSE,aiohttp.WSMsgType.ERROR):raise ConnectionError('S0_PUBLIC_CLOSED')
      else:need(message.type in (aiohttp.WSMsgType.PING,aiohttp.WSMsgType.PONG),'S0_PUBLIC_FRAME_BLOCKED')
     except (aiohttp.ClientError,OSError,TimeoutError):
      if time.monotonic()>=end:break
      if ws.closed or time.monotonic()-last_market>10:
-      await asyncio.wait_for(ws.close(),.6);ws=None;retries+=1;need(retries<=3,'S0_FEED_UNAVAILABLE');journal.add('public-disconnected',{'attempt':retries});await asyncio.sleep(.2)
+      await asyncio.wait_for(ws.close(),.6);ws=None;subscription=None;retries+=1;need(retries<=3,'S0_FEED_UNAVAILABLE');journal.add('public-disconnected',{'attempt':retries});await asyncio.sleep(.2)
     need(time.monotonic()-last_market<=20,'S0_PUBLIC_STALE_STOP')
    if connected_before:need(subscribed,'S0_SUBSCRIBE_ACK_MISSING')
    await send('final')
