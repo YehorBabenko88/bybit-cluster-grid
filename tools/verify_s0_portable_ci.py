@@ -40,6 +40,13 @@ def run():
  native_build=hosted_native_build_root();native_files=[native_build/'Fixture.exe',native_build/'S0Launcher.dll']
  with Custody(native_build,identity.sid,native_files) as native_custody,Custody(fixture,identity.sid,files) as child_source:
   if hashlib.sha256((native_build/'S0Launcher.dll').read_bytes()).hexdigest()!=manifest['files']['native/S0Launcher.dll']['sha256']:raise RuntimeError('S0_NATIVE_DLL_MISMATCH')
+  from s0_smoke.windows import Win32,diagnostic_observation
+  api=Win32();assets=[]
+  for path,directory in [(fixture/'temp',True),(fixture/'runtime/python.exe',False),*[(p,False) for p in native_files]]:
+   handle=api.open(str(path),directory)
+   try:assets.append(diagnostic_observation(str(path),api.inspect(handle)))
+   finally:api.close(handle)
+  (ROOT/'s0-results/native-assets.json').write_text(json.dumps(dict(head=head,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],operator_sid=identity.sid,scope='HOSTED_READ_ONLY_DIAGNOSTICS_NOT_ACCEPTANCE',assets=assets),indent=2))
   ci_env=dict(env)
   for key in ('GITHUB_ACTIONS','RUNNER_ENVIRONMENT','GITHUB_REPOSITORY','GITHUB_JOB','EXACT_HEAD_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','RUNNER_TEMP'):ci_env[key]=os.environ[key]
   with subprocess.Popen([str(native_build/'Fixture.exe'),'--parent',str(fixture),manifest['files']['runtime/python.exe']['sha256'],head,str(fixture/'temp/native-launcher.json')],cwd=native_build,env=ci_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:

@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.IO.Pipes;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
@@ -43,6 +44,8 @@ public static class Fixture
     [DllImport("kernel32.dll",SetLastError=true)] static extern uint WaitForSingleObject(IntPtr handle,uint milliseconds);
     [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetExitCodeProcess(IntPtr process,out uint code);
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetHandleInformation(IntPtr handle,out uint flags);
+    [DllImport("kernel32.dll",SetLastError=true)] static extern bool PeekNamedPipe(IntPtr handle,IntPtr buffer,uint length,IntPtr read,out uint available,IntPtr left);
 
     static void Need(bool value,string code) { if(!value) throw new InvalidOperationException(code); }
     static void Hosted() {
@@ -61,7 +64,8 @@ public static class Fixture
         finally { Marshal.FreeHGlobal(buffer); }
     }
     static int Parent(string root,string sha,string head,string output) {
-        IntPtr token=IntPtr.Zero,job=IntPtr.Zero,list=IntPtr.Zero,jobList=IntPtr.Zero; PI process=new PI(); bool initialized=false;
+        IntPtr token=IntPtr.Zero,job=IntPtr.Zero,list=IntPtr.Zero,jobList=IntPtr.Zero,handleList=IntPtr.Zero; PI process=new PI(); bool initialized=false;
+        AnonymousPipeServerStream pipe=null;
         try {
             stage="FIXTURE_CREATE_TOKEN";
             using(WindowsIdentity identity=WindowsIdentity.GetCurrent()) Need(CreateRestrictedToken(identity.Token,5,0,IntPtr.Zero,0,IntPtr.Zero,0,IntPtr.Zero,out token),"FIXTURE_RESTRICTED_SELF_TOKEN");
@@ -73,14 +77,24 @@ public static class Fixture
             Limits limits=new Limits(); limits.basic.flags=0x2008; limits.basic.active=4; int size=Marshal.SizeOf(typeof(Limits));
             Need(SetInformationJobObject(job,9,ref limits,size),"FIXTURE_JOB_LIMITS");
             Limits actual; int returned; Need(QueryInformationJobObject(job,9,out actual,size,out returned) && returned==size && actual.basic.flags==0x2008 && actual.basic.active==4,"FIXTURE_JOB_READBACK");
-            UIntPtr bytes=UIntPtr.Zero; Need(!InitializeProcThreadAttributeList(IntPtr.Zero,1,0,ref bytes) && Marshal.GetLastWin32Error()==122 && bytes.ToUInt64()>0 && bytes.ToUInt64()<=65536,"FIXTURE_ATTRIBUTE_SIZE");
-            list=Marshal.AllocHGlobal((int)bytes.ToUInt64()); Need(InitializeProcThreadAttributeList(list,1,0,ref bytes),"FIXTURE_ATTRIBUTE_INIT"); initialized=true;
+            stage="FIXTURE_CREATE_OWN_PIPE";
+            // A 16 KiB buffer exceeds the complete bounded 8 KiB JSON message.
+            // The only inherited handle is this fixture's new client write end.
+            pipe=new AnonymousPipeServerStream(PipeDirection.In,HandleInheritability.Inheritable,16384);
+            IntPtr writer=pipe.ClientSafePipeHandle.DangerousGetHandle(); uint writerFlags;
+            Need(GetHandleInformation(writer,out writerFlags) && (writerFlags&1)==1,"FIXTURE_PIPE_WRITER_INHERITABLE");
+            UIntPtr bytes=UIntPtr.Zero; Need(!InitializeProcThreadAttributeList(IntPtr.Zero,2,0,ref bytes) && Marshal.GetLastWin32Error()==122 && bytes.ToUInt64()>0 && bytes.ToUInt64()<=65536,"FIXTURE_ATTRIBUTE_SIZE");
+            list=Marshal.AllocHGlobal((int)bytes.ToUInt64()); Need(InitializeProcThreadAttributeList(list,2,0,ref bytes),"FIXTURE_ATTRIBUTE_INIT"); initialized=true;
             jobList=Marshal.AllocHGlobal(IntPtr.Size); Marshal.WriteIntPtr(jobList,job);
             Need(UpdateProcThreadAttribute(list,0,(UIntPtr)0x2000D,jobList,(UIntPtr)IntPtr.Size,IntPtr.Zero,IntPtr.Zero),"FIXTURE_ATOMIC_JOB");
+            handleList=Marshal.AllocHGlobal(IntPtr.Size); Marshal.WriteIntPtr(handleList,writer);
+            Need(UpdateProcThreadAttribute(list,0,(UIntPtr)0x20002,handleList,(UIntPtr)IntPtr.Size,IntPtr.Zero,IntPtr.Zero),"FIXTURE_EXACT_PIPE_HANDLE_LIST");
             string self=Assembly.GetExecutingAssembly().Location; SX startup=new SX(); startup.si.cb=(uint)Marshal.SizeOf(typeof(SX)); startup.attributes=list;
+            startup.si.flags=0x100; startup.si.input=IntPtr.Zero; startup.si.output=writer; startup.si.error=writer;
             StringBuilder command=new StringBuilder(Quote(self)+" --child "+Quote(root)+" "+Quote(sha)+" "+Quote(head)+" "+Quote(output));
             stage="FIXTURE_CREATE_RESTRICTED_CHILD";
-            Need(CreateProcessAsUserW(token,self,command,IntPtr.Zero,IntPtr.Zero,false,0x80004,IntPtr.Zero,Path.GetDirectoryName(self),ref startup,out process),"FIXTURE_CREATE_RESTRICTED_SELF");
+            Need(CreateProcessAsUserW(token,self,command,IntPtr.Zero,IntPtr.Zero,true,0x80004,IntPtr.Zero,Path.GetDirectoryName(self),ref startup,out process),"FIXTURE_CREATE_RESTRICTED_SELF");
+            pipe.DisposeLocalCopyOfClientHandle();
             bool member; long created,exited,kernel,user;
             Need(GetProcessId(process.process)==process.pid && process.pid>0 && GetProcessTimes(process.process,out created,out exited,out kernel,out user) && created>0 && IsProcessInJob(process.process,job,out member) && member,"FIXTURE_OWN_CHILD_IDENTITY");
             stage="FIXTURE_RESUME_CHILD";
@@ -89,11 +103,23 @@ public static class Fixture
             if(wait!=0) { CloseHandle(job); job=IntPtr.Zero; Need(WaitForSingleObject(process.process,5000)==0,"FIXTURE_OWN_CHILD_STOP"); throw new InvalidOperationException("FIXTURE_90_SECOND_BOUND"); }
             uint code; Need(GetExitCodeProcess(process.process,out code),"FIXTURE_EXIT_QUERY");
             childExit=code;stage="FIXTURE_READ_CHILD_OUTPUT";
-            using(FileStream evidence=new FileStream(output,FileMode.Open,FileAccess.Read,FileShare.Read)) {
-                Need(evidence.Length>0 && evidence.Length<=8192,"FIXTURE_OUTPUT_BOUND");
-                byte[] raw=new byte[(int)evidence.Length]; int count=0;
-                while(count<raw.Length) { int read=evidence.Read(raw,count,raw.Length-count); Need(read>0,"FIXTURE_OUTPUT_READ"); count+=read; }
-                string json=new UTF8Encoding(false,true).GetString(raw);
+            {
+                byte[] raw=new byte[8193]; int count=0;
+                // Peek before each read: an unexpected surviving writer must
+                // block the fixture, never leave an unbounded blocking read.
+                while(true) {
+                    uint available;
+                    bool peek=PeekNamedPipe(pipe.SafePipeHandle.DangerousGetHandle(),IntPtr.Zero,0,IntPtr.Zero,out available,IntPtr.Zero);
+                    int error=Marshal.GetLastWin32Error();
+                    if(!peek) { Need(error==109,"FIXTURE_PIPE_PEEK"); break; }
+                    Need(available>0,"FIXTURE_PIPE_SURVIVING_WRITER");
+                    Need(count<8193,"FIXTURE_OUTPUT_BOUND");
+                    int requested=(int)Math.Min((uint)(8193-count),available);
+                    int read=pipe.Read(raw,count,requested); Need(read>0,"FIXTURE_OUTPUT_READ"); count+=read;
+                    Need(count<=8192,"FIXTURE_OUTPUT_BOUND");
+                }
+                Need(count>0,"FIXTURE_OUTPUT_EMPTY");
+                string json=new UTF8Encoding(false,true).GetString(raw,0,count);
                 Need(json.StartsWith("{\"scope\":\"HOSTED_FIXTURE_NOT_PHYSICAL\",",StringComparison.Ordinal) && json.EndsWith("}",StringComparison.Ordinal) && json.IndexOf('\n')<0 && json.IndexOf('\r')<0 && json.IndexOf('\0')<0,"FIXTURE_OUTPUT_FORMAT");
                 string fact="\\{\"pid\":[1-9][0-9]{0,9},\"creation_filetime\":[1-9][0-9]{0,18},\"exit_code\":[0-9]{1,10},\"timed_out\":(?:true|false),\"budget_seconds\":[1-5],\"observed_user_sid\":\"S-1-[0-9]+(?:-[0-9]+)+\",\"observed_elevated\":false,\"observed_integrity\":\"S-1-16-8192\",\"observed_admin_enabled\":false,\"job_member\":true,\"job_flags\":8200,\"active_limit\":1\\}";
                 string success="\\A\\{\"scope\":\"HOSTED_FIXTURE_NOT_PHYSICAL\",\"fixture\":true,\"head\":\""+Regex.Escape(head)+"\",\"normal\":"+fact+",\"deadline\":"+fact+",\"descendant_denied\":"+fact+",\"wrong_hash_rejected\":true,\"wrong_sid_rejected\":true\\}\\z";
@@ -107,8 +133,9 @@ public static class Fixture
             if(job!=IntPtr.Zero) CloseHandle(job);
             if(process.process!=IntPtr.Zero) { WaitForSingleObject(process.process,5000); CloseHandle(process.process); }
             if(process.thread!=IntPtr.Zero) CloseHandle(process.thread);
+            if(pipe!=null) pipe.Dispose();
             if(initialized) DeleteProcThreadAttributeList(list);
-            if(list!=IntPtr.Zero) Marshal.FreeHGlobal(list); if(jobList!=IntPtr.Zero) Marshal.FreeHGlobal(jobList); if(token!=IntPtr.Zero) CloseHandle(token);
+            if(list!=IntPtr.Zero) Marshal.FreeHGlobal(list); if(jobList!=IntPtr.Zero) Marshal.FreeHGlobal(jobList); if(handleList!=IntPtr.Zero) Marshal.FreeHGlobal(handleList); if(token!=IntPtr.Zero) CloseHandle(token);
         }
     }
     static string Fact(Result result,int budget) {
@@ -118,9 +145,9 @@ public static class Fixture
         Need(result.JobMember && result.JobFlags==0x2008 && result.ActiveLimit==1,"FIXTURE_RESULT_JOB");
         return "{\"pid\":"+result.Pid+",\"creation_filetime\":"+result.CreationFileTime+",\"exit_code\":"+result.ExitCode+",\"timed_out\":"+(result.TimedOut?"true":"false")+",\"budget_seconds\":"+budget+",\"observed_user_sid\":\""+result.ObservedUserSid+"\",\"observed_elevated\":"+(result.ObservedElevated?"true":"false")+",\"observed_integrity\":\""+result.ObservedIntegrity+"\",\"observed_admin_enabled\":"+(result.ObservedAdminEnabled?"true":"false")+",\"job_member\":"+(result.JobMember?"true":"false")+",\"job_flags\":"+result.JobFlags+",\"active_limit\":"+result.ActiveLimit+"}";
     }
-    static void WriteOutput(string output,string json) {
+    static void WriteOutput(string json) {
         byte[] bytes=new UTF8Encoding(false,true).GetBytes(json); Need(bytes.Length<=8192,"FIXTURE_OUTPUT_BOUND");
-        using(FileStream file=new FileStream(output,FileMode.CreateNew,FileAccess.Write,FileShare.None)) { file.Write(bytes,0,bytes.Length); file.Flush(true); }
+        Console.Write(json); Console.Out.Flush();
     }
     static int Child(string root,string sha,string head,string output) {
         stage="FIXTURE_CHILD_ENVIRONMENT";
@@ -148,11 +175,10 @@ public static class Fixture
         try { ProcessHost.Run(root,"-I -S -B -c \"raise SystemExit(99)\"",env,"S-1-5-18",sha,head,5); }
         catch(InvalidOperationException error) { Need(error.Message=="S0_OPERATOR_SID","FIXTURE_SID_FAILURE_CODE"); wrongSid=true; }
         Need(wrongHash && wrongSid,"FIXTURE_NEGATIVE_GUARDS");
-        WriteOutput(output,"{\"scope\":\"HOSTED_FIXTURE_NOT_PHYSICAL\",\"fixture\":true,\"head\":\""+head+"\",\"normal\":"+Fact(normal,5)+",\"deadline\":"+Fact(timeout,1)+",\"descendant_denied\":"+Fact(denied,5)+",\"wrong_hash_rejected\":true,\"wrong_sid_rejected\":true}");
+        WriteOutput("{\"scope\":\"HOSTED_FIXTURE_NOT_PHYSICAL\",\"fixture\":true,\"head\":\""+head+"\",\"normal\":"+Fact(normal,5)+",\"deadline\":"+Fact(timeout,1)+",\"descendant_denied\":"+Fact(denied,5)+",\"wrong_hash_rejected\":true,\"wrong_sid_rejected\":true}");
         return 0;
     }
     public static int Main(string[] args) {
-        bool childOutputAuthorized=false;
         try {
             stage="FIXTURE_ARGUMENTS";
             Hosted(); Need(args.Length==5 && (args[0]=="--parent" || args[0]=="--child"),"FIXTURE_ARGUMENTS");
@@ -161,7 +187,6 @@ public static class Fixture
             Need(Path.IsPathRooted(args[1]) && !args[1].StartsWith(@"\\",StringComparison.Ordinal),"FIXTURE_PACKAGE_ROOT");
             string output=Path.GetFullPath(args[4]); string prefix=Path.GetFullPath(args[1]).TrimEnd('\\')+"\\";
             Need(output.StartsWith(prefix,StringComparison.OrdinalIgnoreCase) && !File.Exists(output) && !Directory.Exists(output),"FIXTURE_FRESH_OUTPUT");
-            childOutputAuthorized=args[0]=="--child";
             return args[0]=="--parent"?Parent(args[1],args[2],args[3],output):Child(args[1],args[2],args[3],output);
         } catch(Exception error) {
             string code=error is InvalidOperationException && Regex.IsMatch(error.Message,"\\A(?:FIXTURE|S0)_[A-Z0-9_]{1,80}\\z")?error.Message:"FIXTURE_CHECK_FAILED";
@@ -170,8 +195,8 @@ public static class Fixture
             // Numeric diagnostics only, never exception messages/paths/arguments.
             // Last Win32 value is diagnostic context, not an attributed cause.
             string json="{\"scope\":\"HOSTED_FIXTURE_NOT_PHYSICAL\",\"status\":\"BLOCKED\",\"error\":\""+code+"\",\"stage\":\""+stage+"\",\"exception_type\":\""+type+"\",\"hresult\":"+error.HResult+",\"last_win32_diagnostic\":"+unchecked((uint)Marshal.GetLastWin32Error())+",\"child_exit_code\":"+(childExit.HasValue?childExit.Value.ToString():"null")+"}";
-            if(childOutputAuthorized) { try { WriteOutput(args[4],json); } catch {} }
-            else Console.WriteLine(json);
+            // Includes early Hosted/argument failures: no ACL-dependent file handoff.
+            WriteOutput(json);
             return 1;
         }
     }
