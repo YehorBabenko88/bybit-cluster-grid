@@ -1176,6 +1176,10 @@
     "tests/test_retention_bounded.py::test_retention_rejects_unsafe_limits_before_database_access[7-100-0]",
     "tests/test_retention_metadata_locking.py::test_retention_locks_metadata_and_deletes_in_one_transaction",
     "tests/test_retention_metadata_locking.py::test_retention_refuses_deletion_without_required_consumers",
+    "tests/test_s0_bootstrap_loader.py::test_initial_literal_loader_matches_reviewed_script_body",
+    "tests/test_s0_bootstrap_loader.py::test_loader_authenticates_captured_bytes_before_loading_native_code",
+    "tests/test_s0_bootstrap_loader.py::test_loader_has_no_extraction_compiler_or_system_mutator",
+    "tests/test_s0_bootstrap_loader.py::test_token_output_does_not_serialize_host_sid_or_groups",
     "tests/test_s0_cli.py::test_mutation_without_approval_never_dispatches[evidence]",
     "tests/test_s0_cli.py::test_mutation_without_approval_never_dispatches[execute]",
     "tests/test_s0_cli.py::test_mutation_without_approval_never_dispatches[prepare]",
@@ -1199,6 +1203,37 @@
     "tests/test_s0_evidence.py::test_forged_or_interrupted_evidence[sequence]",
     "tests/test_s0_evidence.py::test_forged_or_interrupted_evidence[truncate]",
     "tests/test_s0_evidence.py::test_rebound_secret_index_still_refused",
+    "tests/test_s0_independent_acceptance.py::test_archive_paths_rejected[../a]",
+    "tests/test_s0_independent_acceptance.py::test_archive_paths_rejected[/a]",
+    "tests/test_s0_independent_acceptance.py::test_archive_paths_rejected[C:a]",
+    "tests/test_s0_independent_acceptance.py::test_archive_paths_rejected[a/./b]",
+    "tests/test_s0_independent_acceptance.py::test_archive_paths_rejected[a//b]",
+    "tests/test_s0_independent_acceptance.py::test_archive_paths_rejected[a\\\\b]",
+    "tests/test_s0_independent_acceptance.py::test_archive_resource_limits[COUNT-0]",
+    "tests/test_s0_independent_acceptance.py::test_archive_resource_limits[ENTRY-0]",
+    "tests/test_s0_independent_acceptance.py::test_archive_resource_limits[LIMIT-10]",
+    "tests/test_s0_independent_acceptance.py::test_authentic_but_bad_evidence_rejected[attempt]",
+    "tests/test_s0_independent_acceptance.py::test_authentic_but_bad_evidence_rejected[coerced_bool]",
+    "tests/test_s0_independent_acceptance.py::test_authentic_but_bad_evidence_rejected[counter]",
+    "tests/test_s0_independent_acceptance.py::test_authentic_but_bad_evidence_rejected[manifest]",
+    "tests/test_s0_independent_acceptance.py::test_authentic_but_bad_evidence_rejected[missing_fact]",
+    "tests/test_s0_independent_acceptance.py::test_authentic_but_bad_evidence_rejected[payload]",
+    "tests/test_s0_independent_acceptance.py::test_authentic_but_bad_evidence_rejected[physical]",
+    "tests/test_s0_independent_acceptance.py::test_authentic_but_bad_evidence_rejected[skip]",
+    "tests/test_s0_independent_acceptance.py::test_case_duplicate_archive_rejected",
+    "tests/test_s0_independent_acceptance.py::test_duplicate_inner_manifest_json_rejected",
+    "tests/test_s0_independent_acceptance.py::test_duplicate_json_rejected",
+    "tests/test_s0_independent_acceptance.py::test_expected_context_bound[attempt]",
+    "tests/test_s0_independent_acceptance.py::test_expected_context_bound[head]",
+    "tests/test_s0_independent_acceptance.py::test_expected_context_bound[run_id]",
+    "tests/test_s0_independent_acceptance.py::test_expected_context_bound[tree]",
+    "tests/test_s0_independent_acceptance.py::test_external_outer_digest_not_receipt_digest",
+    "tests/test_s0_independent_acceptance.py::test_junit_subtests_and_stale_identity",
+    "tests/test_s0_independent_acceptance.py::test_missing_source_requirement_rejected",
+    "tests/test_s0_independent_acceptance.py::test_public_probe_cannot_claim_physical_ready",
+    "tests/test_s0_independent_acceptance.py::test_source_provider_prevents_rebinding_source",
+    "tests/test_s0_independent_acceptance.py::test_synthetic_pass_is_never_approval",
+    "tests/test_s0_independent_acceptance.py::test_unknown_native_boolean_rejected",
     "tests/test_s0_launcher.py::LauncherContract::test_atomic_job_creation_and_pre_resume_proof",
     "tests/test_s0_launcher.py::LauncherContract::test_exact_closed_entrypoint_and_forbidden_foreign_process_apis",
     "tests/test_s0_launcher.py::LauncherContract::test_native_only_changes_cannot_skip_s0_ci",
@@ -1286,6 +1321,8 @@
     "tests/test_s0_policy.py::test_unsafe_plan[symbol-ETHUSDT]",
     "tests/test_s0_policy.py::test_unsafe_plan[trade-False]",
     "tests/test_s0_policy.py::test_unsafe_plan[worker_ip-100.100.1.1]",
+    "tests/test_s0_preparation_receipt.py::TokenPreparationReceiptTests::test_closed_observation_and_context",
+    "tests/test_s0_preparation_receipt.py::TokenPreparationReceiptTests::test_rejects_fake_success_unknown_and_wrong_types",
     "tests/test_s0_protocol.py::test_batch_duplicate_ids_and_decimal_canonicalization",
     "tests/test_s0_protocol.py::test_book_duplicate_sequence_reset_and_crossing",
     "tests/test_s0_protocol.py::test_capacity_exhaustion_does_not_evict_or_mutate",
@@ -6343,6 +6380,22 @@
       "test_retention_refuses_deletion_without_required_consumers"
     ],
     [
+      "tests.test_s0_bootstrap_loader",
+      "test_initial_literal_loader_matches_reviewed_script_body"
+    ],
+    [
+      "tests.test_s0_bootstrap_loader",
+      "test_loader_authenticates_captured_bytes_before_loading_native_code"
+    ],
+    [
+      "tests.test_s0_bootstrap_loader",
+      "test_loader_has_no_extraction_compiler_or_system_mutator"
+    ],
+    [
+      "tests.test_s0_bootstrap_loader",
+      "test_token_output_does_not_serialize_host_sid_or_groups"
+    ],
+    [
       "tests.test_s0_cli",
       "test_mutation_without_approval_never_dispatches[evidence]"
     ],
@@ -6433,6 +6486,130 @@
     [
       "tests.test_s0_evidence",
       "test_rebound_secret_index_still_refused"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_archive_paths_rejected[../a]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_archive_paths_rejected[/a]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_archive_paths_rejected[C:a]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_archive_paths_rejected[a/./b]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_archive_paths_rejected[a//b]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_archive_paths_rejected[a\\\\b]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_archive_resource_limits[COUNT-0]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_archive_resource_limits[ENTRY-0]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_archive_resource_limits[LIMIT-10]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_authentic_but_bad_evidence_rejected[attempt]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_authentic_but_bad_evidence_rejected[coerced_bool]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_authentic_but_bad_evidence_rejected[counter]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_authentic_but_bad_evidence_rejected[manifest]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_authentic_but_bad_evidence_rejected[missing_fact]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_authentic_but_bad_evidence_rejected[payload]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_authentic_but_bad_evidence_rejected[physical]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_authentic_but_bad_evidence_rejected[skip]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_case_duplicate_archive_rejected"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_duplicate_inner_manifest_json_rejected"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_duplicate_json_rejected"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_expected_context_bound[attempt]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_expected_context_bound[head]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_expected_context_bound[run_id]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_expected_context_bound[tree]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_external_outer_digest_not_receipt_digest"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_junit_subtests_and_stale_identity"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_missing_source_requirement_rejected"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_public_probe_cannot_claim_physical_ready"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_source_provider_prevents_rebinding_source"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_synthetic_pass_is_never_approval"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_unknown_native_boolean_rejected"
     ],
     [
       "tests.test_s0_launcher.LauncherContract",
@@ -6781,6 +6958,14 @@
     [
       "tests.test_s0_policy",
       "test_unsafe_plan[worker_ip-100.100.1.1]"
+    ],
+    [
+      "tests.test_s0_preparation_receipt.TokenPreparationReceiptTests",
+      "test_closed_observation_and_context"
+    ],
+    [
+      "tests.test_s0_preparation_receipt.TokenPreparationReceiptTests",
+      "test_rejects_fake_success_unknown_and_wrong_types"
     ],
     [
       "tests.test_s0_protocol",

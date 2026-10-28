@@ -6,6 +6,8 @@ from tools.check_ddl_free_ci import ROOT,verify_checkout
 from s0_smoke.policy import load_json
 from s0_smoke.evidence import verify_evidence
 from tools.s0_native_receipt import validate_native
+from tools.verify_s0_bootstrap_ci import validate_record as validate_bootstrap_record
+from tools.s0_preparation_receipt import TOKEN_SOURCES,validate_token_record
 from tools.probe_s0_public_ci import validate_observation
 
 def need(ok):
@@ -57,6 +59,9 @@ def run(directory):
    need(native['deadline']['timed_out'] is True and native['normal']['exit_code']==0 and native['descendant_denied']['exit_code']==0 and native['wrong_hash_rejected'] is True and native['wrong_sid_rejected'] is True)
    for n,h in native['source_sha256'].items():need(hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest()==h)
    need(native['binary_sha256']['S0Launcher.dll']==json.loads(zipfile.ZipFile(package).read('s0-package.json'))['files']['native/S0Launcher.dll']['sha256'])
+   validate_bootstrap_record(load_json((data/'native-bootstrap.json').read_bytes()),context,receipt['sha256'])
+   token_sources={n:hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest() for n in TOKEN_SOURCES}
+   validate_token_record(load_json((data/'native-token-observer.json').read_bytes()),context,token_sources,native['binary_sha256']['S0Launcher.dll'])
    probe=load_json((data/'public-probe.json').read_bytes());need((probe['head'],probe['run_id'],probe['attempt'])==(head,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT']) and all(probe[k] is False for k in ('physical_ready','s0_execute','g1_execute')));counts=probe['counts'];need(probe['status']==validate_observation(counts['subscribe_ack'],counts['book_samples'],counts['trade_samples'],probe['error'],probe['http_status']));portable=json.loads((data/'portable.json').read_text());need(portable['head']==head and portable['package_sha256']==receipt['sha256'] and portable['status']=='PORTABLE_PLAN_AND_IMPORTS_PASS' and portable['s0_execute'] is False)
    with zipfile.ZipFile(package) as z:
     names=z.namelist();need(len(names)==len(set(n.casefold() for n in names)) and not any(n.endswith(('tls-key.pem','config.json')) for n in names));m=json.loads(z.read('s0-package.json'));need(m['head']==head and all(v is False for v in m['authority'].values()) and m['authority']==receipt['authority'] and set(names)==set(m['files'])|{'s0-package.json'})

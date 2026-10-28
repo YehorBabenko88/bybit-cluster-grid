@@ -242,8 +242,11 @@ be chosen as these roots. Preparation/preflight require 512 MiB free on the
 private-profile volume; execution stops below a 128 MiB free reserve and bounds
 its journals. No space is reserved against concurrent unrelated applications.
 
-Safe protected initial package/input staging is an external bootstrap
-precondition, not an implemented `Stage` action. If there is no independently
+The native package bootstrap and standard primary-token observer are specified in
+[the literal bootstrap commands](PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md).
+Native plan-input staging and six-file PC4 archive import are separately approved
+fresh-root operations; they do not implement an SSH receiver. Full tested private
+role transfer remains an external BLOCKED prerequisite. If there is no independently
 approved method that creates fresh protected roots and verifies the exact ZIP
 without adopting existing resources, staging has **BLOCKED/null command**.
 Do not invent an `Expand-Archive -Force`, ACL reset, execution-policy bypass,

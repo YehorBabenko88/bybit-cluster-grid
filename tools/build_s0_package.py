@@ -22,6 +22,21 @@ LIMIT = 512 * 1024 * 1024
 FILE_LIMIT = 64 * 1024 * 1024
 FILE_COUNT_LIMIT = 20000
 PTH = b'stdlib.zip\nDLLs\nSite\nApp\n'
+NATIVE_SOURCES = (
+    'installer/physical-smoke-s0/S0Launcher.cs',
+    'installer/physical-smoke-s0/S0Bootstrap.cs',
+    'installer/physical-smoke-s0/TokenObserver.cs',
+    'installer/physical-smoke-s0/S0Inputs.cs',
+)
+PUBLIC_SOURCES = (
+    'installer/physical-smoke-s0.ps1', 'installer/physical-smoke-s0-bootstrap.ps1',
+    'docs/PHYSICAL_SMOKE_S0.md', 'docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md',
+    *NATIVE_SOURCES,
+)
+OPTIONAL_PUBLIC_SOURCES = (
+    'docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md',
+)
+
 
 def require_hosted(env, hostname):
     expected = dict(GITHUB_ACTIONS='true', RUNNER_ENVIRONMENT='github-hosted', RUNNER_OS='Windows', GITHUB_REPOSITORY='YehorBabenko88/bybit-cluster-grid', GITHUB_JOB='s0-windows')
@@ -114,7 +129,7 @@ def validate_manifest(files, manifest):
     source=manifest['source']
     if type(source) is not dict or not source or len(source)>FILE_COUNT_LIMIT: raise ValueError('BAD_SOURCE_CONTEXT')
     for name,digest in source.items():
-        allowed = type(name) is str and (re.fullmatch(r's0_smoke/[A-Za-z_][A-Za-z_0-9]*\.py',name) is not None or name in ('installer/physical-smoke-s0.ps1','docs/PHYSICAL_SMOKE_S0.md','installer/physical-smoke-s0/S0Launcher.cs'))
+        allowed = type(name) is str and (re.fullmatch(r's0_smoke/[A-Za-z_][A-Za-z_0-9]*\.py',name) is not None or name in PUBLIC_SOURCES + OPTIONAL_PUBLIC_SOURCES)
         if not allowed or type(digest) is not str or re.fullmatch('[0-9a-f]{64}',digest) is None: raise ValueError('BAD_SOURCE_CONTEXT')
     if type(manifest['files']) is not dict: raise ValueError('BAD_FILE_PINS')
     for pin in manifest['files'].values():
@@ -179,7 +194,8 @@ def build():
     files={}; source={}
     names=git('ls-tree','-r','--name-only','HEAD').splitlines()
     wanted=[n for n in names if n.startswith('s0_smoke/') and n.endswith('.py')]
-    wanted += ['installer/physical-smoke-s0.ps1','docs/PHYSICAL_SMOKE_S0.md','installer/physical-smoke-s0/S0Launcher.cs']
+    wanted += list(PUBLIC_SOURCES)
+    wanted += [n for n in OPTIONAL_PUBLIC_SOURCES if n in names]
     if 's0_smoke/cli.py' not in wanted: raise ValueError('CLI_REQUIRED')
     for name in wanted:
         # Ship Git object bytes: receipt remains exact despite checkout CRLF.
