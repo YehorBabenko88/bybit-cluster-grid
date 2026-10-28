@@ -5,6 +5,7 @@
     "tests/test_s0_bootstrap_loader.py::test_loader_authenticates_captured_bytes_before_loading_native_code",
     "tests/test_s0_bootstrap_loader.py::test_loader_has_no_extraction_compiler_or_system_mutator",
     "tests/test_s0_bootstrap_loader.py::test_token_output_does_not_serialize_host_sid_or_groups",
+    "tests/test_s0_bootstrap_loader.py::test_token_policy_rejects_disabled_elevated_privilege_presence",
     "tests/test_s0_cli.py::test_mutation_without_approval_never_dispatches[evidence]",
     "tests/test_s0_cli.py::test_mutation_without_approval_never_dispatches[execute]",
     "tests/test_s0_cli.py::test_mutation_without_approval_never_dispatches[prepare]",
@@ -55,7 +56,22 @@
     "tests/test_s0_independent_acceptance.py::test_external_outer_digest_not_receipt_digest",
     "tests/test_s0_independent_acceptance.py::test_junit_subtests_and_stale_identity",
     "tests/test_s0_independent_acceptance.py::test_missing_source_requirement_rejected",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[bootstrap_failed]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[bootstrap_raw_changed]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[bootstrap_source_changed]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[bootstrap_stale]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[token_admin_not_rejected]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[token_coerced_bool]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[token_dll_changed]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[token_raw_changed]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[token_stale]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_mandatory[native-bootstrap-raw.json]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_mandatory[native-bootstrap.json]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_mandatory[native-token-observer-raw.txt]",
+    "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_mandatory[native-token-observer.json]",
     "tests/test_s0_independent_acceptance.py::test_public_probe_cannot_claim_physical_ready",
+    "tests/test_s0_independent_acceptance.py::test_raw_preparation_booleans_cannot_be_coerced[bootstrap]",
+    "tests/test_s0_independent_acceptance.py::test_raw_preparation_booleans_cannot_be_coerced[token]",
     "tests/test_s0_independent_acceptance.py::test_source_provider_prevents_rebinding_source",
     "tests/test_s0_independent_acceptance.py::test_synthetic_pass_is_never_approval",
     "tests/test_s0_independent_acceptance.py::test_unknown_native_boolean_rejected",
@@ -146,6 +162,7 @@
     "tests/test_s0_policy.py::test_unsafe_plan[symbol-ETHUSDT]",
     "tests/test_s0_policy.py::test_unsafe_plan[trade-False]",
     "tests/test_s0_policy.py::test_unsafe_plan[worker_ip-100.100.1.1]",
+    "tests/test_s0_preparation_receipt.py::TokenPreparationReceiptTests::test_bootstrap_raw_receipt_required_before_source_lookup",
     "tests/test_s0_preparation_receipt.py::TokenPreparationReceiptTests::test_closed_observation_and_context",
     "tests/test_s0_preparation_receipt.py::TokenPreparationReceiptTests::test_rejects_fake_success_unknown_and_wrong_types",
     "tests/test_s0_protocol.py::test_batch_duplicate_ids_and_decimal_canonicalization",
@@ -361,6 +378,10 @@
       "test_token_output_does_not_serialize_host_sid_or_groups"
     ],
     [
+      "tests.test_s0_bootstrap_loader",
+      "test_token_policy_rejects_disabled_elevated_privilege_presence"
+    ],
+    [
       "tests.test_s0_cli",
       "test_mutation_without_approval_never_dispatches[evidence]"
     ],
@@ -562,7 +583,67 @@
     ],
     [
       "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_cannot_be_forged[bootstrap_failed]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_cannot_be_forged[bootstrap_raw_changed]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_cannot_be_forged[bootstrap_source_changed]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_cannot_be_forged[bootstrap_stale]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_cannot_be_forged[token_admin_not_rejected]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_cannot_be_forged[token_coerced_bool]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_cannot_be_forged[token_dll_changed]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_cannot_be_forged[token_raw_changed]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_cannot_be_forged[token_stale]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_mandatory[native-bootstrap-raw.json]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_mandatory[native-bootstrap.json]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_mandatory[native-token-observer-raw.txt]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_new_preparation_receipts_mandatory[native-token-observer.json]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
       "test_public_probe_cannot_claim_physical_ready"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_raw_preparation_booleans_cannot_be_coerced[bootstrap]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_raw_preparation_booleans_cannot_be_coerced[token]"
     ],
     [
       "tests.test_s0_independent_acceptance",
@@ -923,6 +1004,10 @@
     [
       "tests.test_s0_policy",
       "test_unsafe_plan[worker_ip-100.100.1.1]"
+    ],
+    [
+      "tests.test_s0_preparation_receipt.TokenPreparationReceiptTests",
+      "test_bootstrap_raw_receipt_required_before_source_lookup"
     ],
     [
       "tests.test_s0_preparation_receipt.TokenPreparationReceiptTests",

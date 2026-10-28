@@ -48,7 +48,16 @@ try {
     $entries = @($archive.Entries | Where-Object FullName -CEQ 'native/S0Launcher.dll')
     if ($entries.Count -ne 1 -or $entries[0].Length -le 0 -or $entries[0].Length -gt 4194304) { throw 'S0_NATIVE_MEMBER' }
     $input = $entries[0].Open(); $output = New-Object IO.MemoryStream
-    try { $input.CopyTo($output); $helper = $output.ToArray() } finally { $input.Dispose(); $output.Dispose() }
+    try {
+        $buffer = New-Object byte[] 65536
+        $total = 0
+        while (($count = $input.Read($buffer,0,$buffer.Length)) -gt 0) {
+            $total += $count
+            if ($total -gt $entries[0].Length -or $total -gt 4194304) { throw 'S0_NATIVE_SIZE' }
+            $output.Write($buffer,0,$count)
+        }
+        $helper = $output.ToArray()
+    } finally { $input.Dispose(); $output.Dispose() }
     if ($helper.Length -ne $entries[0].Length) { throw 'S0_NATIVE_SIZE' }
     [void][Reflection.Assembly]::Load($helper)
     # PlanPackage validates the complete manifest and parent custody without writes.

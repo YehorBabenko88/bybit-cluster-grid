@@ -87,14 +87,19 @@ namespace GridS0
             Luid id=new Luid { Low=low,High=high }; uint length=257; StringBuilder name=new StringBuilder(257);
             Need(LookupPrivilegeNameW(null,ref id,name,ref length) && length>0 && length<=256 && name.Length==length); return name.ToString();
         }
+        // Presence matters: disabled assigned privileges can be re-enabled by
+        // the token holder. Unknown or elevated capabilities must fail closed.
+        static readonly HashSet<string> StandardPrivileges=new HashSet<string>(StringComparer.Ordinal) {
+            "SeChangeNotifyPrivilege","SeShutdownPrivilege","SeIncreaseWorkingSetPrivilege","SeTimeZonePrivilege","SeUndockPrivilege"
+        };
         public static bool IsStandard(TokenObservation o)
         {
-            if(o==null || String.IsNullOrEmpty(o.Sid) || o.Pid==0 || o.CreationFileTime<=0 || o.Elevated || o.Integrity!="S-1-16-8192" || o.Groups==null || o.Privileges==null || o.Groups.Length>4096 || o.Privileges.Length>4096) return false;
+            if(o==null || String.IsNullOrEmpty(o.Sid) || o.Pid==0 || o.CreationFileTime<=0 || o.Elevated || o.Integrity!="S-1-16-8192" || o.Groups==null || o.Privileges==null || o.Groups.Length==0 || o.Groups.Length>4096 || o.Privileges.Length>4096) return false;
             HashSet<string> groups=new HashSet<string>(StringComparer.Ordinal), privileges=new HashSet<string>(StringComparer.Ordinal);
             foreach(TokenGroupFact g in o.Groups) { if(g==null || String.IsNullOrEmpty(g.Sid) || !groups.Add(g.Sid)) return false;
                 try { ValidateGroupAttributes(g.Attributes); } catch(InvalidOperationException) { return false; }
                 if(g.Sid=="S-1-5-32-544" && (g.Attributes&4)!=0) return false; }
-            foreach(TokenPrivilegeFact p in o.Privileges) if(p==null || String.IsNullOrEmpty(p.Name) || !privileges.Add(p.Name) || (p.Attributes&~0x80000003u)!=0 || ((p.Attributes&2)!=0 && p.Name!="SeChangeNotifyPrivilege")) return false;
+            foreach(TokenPrivilegeFact p in o.Privileges) if(p==null || String.IsNullOrEmpty(p.Name) || !StandardPrivileges.Contains(p.Name) || !privileges.Add(p.Name) || (p.Attributes&~0x80000003u)!=0 || ((p.Attributes&2)!=0 && p.Name!="SeChangeNotifyPrivilege")) return false;
             return true;
         }
         static TokenObservation ReadCore()

@@ -29,7 +29,8 @@ namespace GridS0 {
   const uint Full=0x1f01ff, Dangerous=0x40|0x10000|0x40000|0x80000|0x10000000|0x40000000;
   const string SystemSid="S-1-5-18", AdminSid="S-1-5-32-544";
   const string Ti="S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464";
-  static void Need(bool ok) { if(!ok) throw new InvalidOperationException("S0_BOOTSTRAP_BLOCKED"); }
+  [ThreadStatic] static string diagnosticPhase;
+  static void Need(bool ok) { if(!ok) throw new InvalidOperationException("S0_BOOTSTRAP_BLOCKED"+(diagnosticPhase==null?"":"_"+diagnosticPhase)); }
   static bool Match(string s,string p) { return s!=null && Regex.IsMatch(s,"\\A(?:"+p+")\\z",RegexOptions.CultureInvariant); }
   static string Hash(byte[] b) { using(var h=SHA256.Create()) return BitConverter.ToString(h.ComputeHash(b)).Replace("-","").ToLowerInvariant(); }
   sealed class Package { internal SortedDictionary<string,byte[]> Files=new SortedDictionary<string,byte[]>(StringComparer.Ordinal); internal long Bytes; }
@@ -114,24 +115,25 @@ namespace GridS0 {
   }
   static BootstrapReceipt Publish(Package package,byte[] sourceZipOrNull,string sha,string head,string target,string sid,string prefix,bool stage) {
    Need(prefix=="GridS0Package-" || prefix=="GridS0Input-");
-   TokenObserver.RequireStandard(sid); new SecurityIdentifier(sid); Need(sid!=SystemSid && sid!=AdminSid);
+   diagnosticPhase="TOKEN"; TokenObserver.RequireStandard(sid); new SecurityIdentifier(sid); Need(sid!=SystemSid && sid!=AdminSid);
    string local=Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData,Environment.SpecialFolderOption.DoNotVerify);
    Need(!String.IsNullOrEmpty(local)); local=Path.GetFullPath(local).TrimEnd('\\');
    Need(target!=null && target==Path.GetFullPath(target) && String.Equals(Path.GetDirectoryName(target),local,StringComparison.OrdinalIgnoreCase));
    string leaf=Path.GetFileName(target); Need(Match(leaf,Regex.Escape(prefix)+"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"));
    Need(target.Length<=240 && Match(local.Substring(0,3),"[A-Za-z]:\\\\"));
+   diagnosticPhase="ANCESTRY";
    using(var pins=new Pins(local,sid)) {
     Absent(target); var receipt=new BootstrapReceipt { Head=head,Sha256=sha,FileCount=package.Files.Count+(sourceZipOrNull==null?0:1),Bytes=package.Bytes+(sourceZipOrNull==null?0:sourceZipOrNull.LongLength),ParentIdentity=pins.ParentId,RootIdentity=null,Status="PLAN_ONLY" };
     if(!stage) return receipt;
     string txn=Path.Combine(local,".GridS0Transaction-"+Guid.NewGuid().ToString("D"));
     using(var security=new Security(sid)) {
-     CreateDir(txn,security); Need(SetFileAttributesW(LongPath(txn),0x12));
-     using(var root=Open(txn,true,true)) {
-      string rootId=Inspect(root,txn,true,true,sid); var made=new HashSet<string>(StringComparer.OrdinalIgnoreCase); made.Add("");
-      foreach(var item in package.Files) WriteMember(txn,item.Key,item.Value,security,sid,made);
+     diagnosticPhase="CREATE_TXN"; CreateDir(txn,security); diagnosticPhase="TXN_ATTRIBUTES"; Need(SetFileAttributesW(LongPath(txn),0x12));
+     diagnosticPhase="OPEN_TXN"; using(var root=Open(txn,true,true)) {
+      diagnosticPhase="INSPECT_TXN"; string rootId=Inspect(root,txn,true,true,sid); var made=new HashSet<string>(StringComparer.OrdinalIgnoreCase); made.Add("");
+      diagnosticPhase="WRITE_MEMBERS"; foreach(var item in package.Files) WriteMember(txn,item.Key,item.Value,security,sid,made);
       if(sourceZipOrNull!=null) WriteMember(txn,"source.zip",sourceZipOrNull,security,sid,made);
       pins.Check(); Need(Inspect(root,txn,true,true,sid)==rootId); Absent(target);
-      Rename(root,pins.Parent,leaf); pins.Check();
+      diagnosticPhase="RENAME"; Rename(root,pins.Parent,leaf); diagnosticPhase="CHECK_PUBLICATION"; pins.Check();
       Need(Inspect(root,target,true,true,sid)==rootId);
       receipt.RootIdentity=rootId; receipt.Status="STAGED_NO_EXECUTION_AUTHORITY"; return receipt;
      }

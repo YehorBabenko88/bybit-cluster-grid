@@ -59,7 +59,7 @@ def run(directory):
    need(native['deadline']['timed_out'] is True and native['normal']['exit_code']==0 and native['descendant_denied']['exit_code']==0 and native['wrong_hash_rejected'] is True and native['wrong_sid_rejected'] is True)
    for n,h in native['source_sha256'].items():need(hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest()==h)
    need(native['binary_sha256']['S0Launcher.dll']==json.loads(zipfile.ZipFile(package).read('s0-package.json'))['files']['native/S0Launcher.dll']['sha256'])
-   validate_bootstrap_record(load_json((data/'native-bootstrap.json').read_bytes()),context,receipt['sha256'])
+   validate_bootstrap_record(load_json((data/'native-bootstrap.json').read_bytes()),context,receipt['sha256'],(data/'native-bootstrap-raw.json').read_bytes())
    token_sources={n:hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest() for n in TOKEN_SOURCES}
    validate_token_record(load_json((data/'native-token-observer.json').read_bytes()),context,token_sources,native['binary_sha256']['S0Launcher.dll'])
    probe=load_json((data/'public-probe.json').read_bytes());need((probe['head'],probe['run_id'],probe['attempt'])==(head,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT']) and all(probe[k] is False for k in ('physical_ready','s0_execute','g1_execute')));counts=probe['counts'];need(probe['status']==validate_observation(counts['subscribe_ack'],counts['book_samples'],counts['trade_samples'],probe['error'],probe['http_status']));portable=json.loads((data/'portable.json').read_text());need(portable['head']==head and portable['package_sha256']==receipt['sha256'] and portable['status']=='PORTABLE_PLAN_AND_IMPORTS_PASS' and portable['s0_execute'] is False)

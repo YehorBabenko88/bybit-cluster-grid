@@ -4,7 +4,7 @@ import json
 import zipfile
 import pytest
 from tools.s0_independent_acceptance import (archive_members, check, check_context,
-    junit, native, sha, strict_json, REQUIRED_SOURCES)
+    junit, native, sha, strict_json, REQUIRED_SOURCES, BOOTSTRAP_CASES, BOOTSTRAP_SOURCES, TOKEN_SOURCES, TOKEN_TRUE)
 
 CTX = dict(head='a'*40,tree='b'*40,run_id='123',attempt='2')
 
@@ -20,6 +20,7 @@ def zip_bytes(files):
 def fixture():
     authority = dict(s0_execute=False,g1_execute=False,cleanup=False)
     sources = {name:b'reviewed source' for name in REQUIRED_SOURCES}
+    for name in BOOTSTRAP_SOURCES | TOKEN_SOURCES: sources.setdefault(name,b'reviewed source')
     sources['integration/s0_inventory.json'] = raw(dict(hosted_nodes=['tests/test_s0.py::test_one']))
     pins = {name:sha(data) for name,data in sources.items() if name in REQUIRED_SOURCES}
     files = {('runtime/App/'+name if name.startswith('s0_smoke/') else name):sources[name] for name in pins}
@@ -34,6 +35,15 @@ def fixture():
     for i,(label,budget,timeout) in enumerate((('normal',5,False),('deadline',1,True),('descendant_denied',5,False)),1):
         nr[label] = dict(pid=i,creation_filetime=100+i,exit_code=0,timed_out=timeout,budget_seconds=budget,observed_user_sid='S-1-5-21-1-2-3-4',observed_elevated=False,observed_integrity='S-1-16-8192',observed_admin_enabled=False,job_member=True,job_flags=8200,active_limit=1)
     outer = {'s0-package/package-receipt.json':raw(receipt),'s0-package/package.zip':package,'s0-results/hosted-sha256.json':raw(idx),'s0-results/hosted.xml':xml,'s0-results/hosted.jsonl':line,'s0-results/native-launcher.json':raw(nr),'s0-results/portable.json':raw(dict(CTX,physical='NOT_RUN',runs=[],status='PORTABLE_PLAN_AND_IMPORTS_PASS',package_sha256=sha(package),s0_execute=False,g1_execute=False))}
+    bootstrap = dict({k:v for k,v in CTX.items() if k != 'tree'},scope='HOSTED_BOOTSTRAP_NOT_PHYSICAL',status='PASS',package_sha256=sha(package),s0_execute=False,g1_execute=False,cleanup=False,**{k:True for k in BOOTSTRAP_CASES})
+    bootstrap_raw=raw({k:v for k,v in bootstrap.items() if k not in {'run_id','attempt'}})
+    outer['s0-results/native-bootstrap-raw.json']=bootstrap_raw
+    bootstrap.update(fixture_sha256=sha(bootstrap_raw),source_sha256={n:sha(sources[n]) for n in BOOTSTRAP_SOURCES})
+    outer['s0-results/native-bootstrap.json']=raw(bootstrap)
+    token=dict({k:v for k,v in CTX.items() if k != 'tree'},scope='HOSTED_FIXTURE_NOT_PHYSICAL',component='TOKEN_OBSERVER',status='TEST_PASS',elevated=False,physical_acceptance=False,group_count=3,privilege_count=1,enabled_privilege_count=1,**{k:True for k in TOKEN_TRUE})
+    outer['s0-results/native-token-observer-raw.txt']=raw({k:v for k,v in token.items() if k not in {'run_id','attempt'}})
+    token.update(source_sha256={n:sha(sources[n]) for n in TOKEN_SOURCES},binary_sha256={'S0Launcher.dll':sha(files['native/S0Launcher.dll']),'TokenObserverFixture.exe':'d'*64})
+    outer['s0-results/native-token-observer.json']=raw(token)
     outer['s0-results/public-probe.json'] = raw(dict({k:v for k,v in CTX.items() if k != 'tree'},schema=1,duration_ms=100,detail=None,last_operation='FRAME_RECEIVE',scope='PUBLIC_HOSTED_DIAGNOSTIC_ONLY',physical_ready=False,s0_execute=False,g1_execute=False,counts=dict(subscribe_ack=False,book_samples=0,trade_samples=0,samples=0),samples=[],error='TIMEOUT',http_status=None,status='BLOCKED'))
     for role in ('LS5','PC4'):
         prefix = 's0-results/component-fixture/'+role+'/'
@@ -149,4 +159,41 @@ def test_missing_source_requirement_rejected():
     m=strict_json(files['s0-package.json']); del m['source']['s0_smoke/cli.py']; files['s0-package.json']=raw(m)
     package=zip_bytes(files); outer['s0-package/package.zip']=package
     receipt=strict_json(outer['s0-package/package-receipt.json']); receipt.update(sha256=sha(package),size=len(package),source=m['source']); outer['s0-package/package-receipt.json']=raw(receipt)
+    with pytest.raises(ValueError): accepted(outer,sources)
+
+
+@pytest.mark.parametrize('path',['native-bootstrap.json','native-bootstrap-raw.json','native-token-observer.json','native-token-observer-raw.txt'])
+def test_new_preparation_receipts_mandatory(path):
+    outer,sources=fixture(); del outer['s0-results/'+path]
+    with pytest.raises((ValueError,KeyError)): accepted(outer,sources)
+
+@pytest.mark.parametrize('case',['bootstrap_failed','bootstrap_stale','bootstrap_raw_changed','bootstrap_source_changed','token_admin_not_rejected','token_coerced_bool','token_dll_changed','token_raw_changed','token_stale'])
+def test_new_preparation_receipts_cannot_be_forged(case):
+    outer,sources=fixture()
+    if case.startswith('bootstrap'):
+        path='s0-results/native-bootstrap.json'; record=strict_json(outer[path])
+        if case=='bootstrap_failed': record['stage_closure']=False
+        elif case=='bootstrap_stale': record['attempt']='1'
+        elif case=='bootstrap_raw_changed': outer['s0-results/native-bootstrap-raw.json']+=b' '
+        else: record['source_sha256']['installer/physical-smoke-s0/S0Bootstrap.cs']='0'*64
+    else:
+        path='s0-results/native-token-observer.json'; record=strict_json(outer[path])
+        if case=='token_admin_not_rejected': record['parent_admin_rejected']=False
+        elif case=='token_coerced_bool': record['medium']=1
+        elif case=='token_dll_changed': record['binary_sha256']['S0Launcher.dll']='0'*64
+        elif case=='token_stale': record['head']='c'*40
+        else: outer['s0-results/native-token-observer-raw.txt']=b'{}'
+    outer[path]=raw(record)
+    with pytest.raises(ValueError): accepted(outer,sources)
+
+
+@pytest.mark.parametrize('component',['bootstrap','token'])
+def test_raw_preparation_booleans_cannot_be_coerced(component):
+    outer,sources=fixture()
+    if component=='bootstrap':
+        path='s0-results/native-bootstrap.json'; rawpath='s0-results/native-bootstrap-raw.json'; field='stage_closure'
+    else:
+        path='s0-results/native-token-observer.json'; rawpath='s0-results/native-token-observer-raw.txt'; field='medium'
+    record=strict_json(outer[path]); facts=strict_json(outer[rawpath]); facts[field]=1; outer[rawpath]=raw(facts)
+    if component=='bootstrap': record['fixture_sha256']=sha(outer[rawpath]); outer[path]=raw(record)
     with pytest.raises(ValueError): accepted(outer,sources)

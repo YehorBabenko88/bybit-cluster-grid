@@ -22,6 +22,8 @@ def test_loader_has_no_extraction_compiler_or_system_mutator():
     assert 's0_bootstrap_fresh_console_required' in source
     assert '536870912' in source
     assert '4194304' in source
+    assert '.copyto(' not in source
+    assert '$total -gt $entries[0].length' in source
 
 
 def test_token_output_does_not_serialize_host_sid_or_groups():
@@ -38,3 +40,9 @@ def test_initial_literal_loader_matches_reviewed_script_body():
     doc = (ROOT / 'docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md').read_text(encoding='utf-8')
     assert body in doc
     assert 'BLOCKED/null argv' in doc
+
+
+def test_token_policy_rejects_disabled_elevated_privilege_presence():
+    source = (ROOT / 'installer/physical-smoke-s0/TokenObserver.cs').read_text()
+    assert '!StandardPrivileges.Contains(p.Name)' in source
+    assert 'o.Groups.Length==0' in source

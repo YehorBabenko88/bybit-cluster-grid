@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 LIMIT = 512 * 1024 * 1024
 ENTRY = 64 * 1024 * 1024
 COUNT = 20000
-REQUIREMENTS_VERSION = 2
+REQUIREMENTS_VERSION = 3
 REQUIRED_SOURCES = frozenset(('s0_smoke/cli.py','s0_smoke/entry.py','installer/physical-smoke-s0.ps1','installer/physical-smoke-s0/S0Launcher.cs','docs/PHYSICAL_SMOKE_S0.md','installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0/S0Bootstrap.cs','installer/physical-smoke-s0/S0Inputs.cs','installer/physical-smoke-s0-bootstrap.ps1','docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md','docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md'))
 
 
@@ -116,6 +116,41 @@ def native(record, context, files, provider):
         need(sid == observed)
 
 
+BOOTSTRAP_CASES = frozenset(('plan_no_write','unapproved_rejected','wrong_sha_rejected','wrong_sid_rejected','outside_parent_rejected','stage_closure','existing_target_rejected','concurrent_no_replace','canary_unchanged'))
+BOOTSTRAP_SOURCES = frozenset(('installer/physical-smoke-s0/S0Launcher.cs','installer/physical-smoke-s0/S0Bootstrap.cs','installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0/S0Inputs.cs','installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs','tools/verify_s0_bootstrap_ci.py'))
+TOKEN_SOURCES = frozenset(('installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0-tests/TokenObserverTests.cs','installer/physical-smoke-s0-tests/TokenObserverFixture.cs'))
+TOKEN_TRUE = frozenset(('pure_cases','parent_admin_rejected','standard_primary_accepted','sid_matches','wrong_sid_rejected','medium'))
+
+
+def preparation_records(outer, context, package_sha, dll_sha, provider):
+    expected = {k:v for k,v in context.items() if k != 'tree'}
+    record = strict_json(outer['s0-results/native-bootstrap.json'])
+    base_keys = BOOTSTRAP_CASES | {'scope','head','package_sha256','status','s0_execute','g1_execute','cleanup'}
+    need(type(record) is dict and set(record) == base_keys | {'run_id','attempt','fixture_sha256','source_sha256'})
+    check_context(record,expected)
+    need(record['scope'] == 'HOSTED_BOOTSTRAP_NOT_PHYSICAL' and record['status'] == 'PASS' and record['package_sha256'] == package_sha)
+    need(all(record[k] is True for k in BOOTSTRAP_CASES) and all(record[k] is False for k in ('s0_execute','g1_execute','cleanup')))
+    need(type(record['source_sha256']) is dict and set(record['source_sha256']) == BOOTSTRAP_SOURCES)
+    source_pins(record['source_sha256'],provider)
+    raw = outer['s0-results/native-bootstrap-raw.json']; need(0 < len(raw) <= 16384)
+    need(record['fixture_sha256'] == sha(raw) and json.dumps(strict_json(raw),sort_keys=True) == json.dumps({k:record[k] for k in base_keys},sort_keys=True))
+    record = strict_json(outer['s0-results/native-token-observer.json'])
+    base_keys = TOKEN_TRUE | {'scope','component','head','status','elevated','group_count','privilege_count','enabled_privilege_count','physical_acceptance'}
+    need(type(record) is dict and set(record) == base_keys | {'run_id','attempt','binary_sha256','source_sha256'})
+    check_context(record,expected)
+    need(record['scope'] == 'HOSTED_FIXTURE_NOT_PHYSICAL' and record['component'] == 'TOKEN_OBSERVER' and record['status'] == 'TEST_PASS')
+    need(all(record[k] is True for k in TOKEN_TRUE) and record['elevated'] is False and record['physical_acceptance'] is False)
+    for key,minimum,maximum in (('group_count',1,4096),('privilege_count',0,4096),('enabled_privilege_count',0,1)):
+        need(type(record[key]) is int and minimum <= record[key] <= maximum)
+    need(record['enabled_privilege_count'] <= record['privilege_count'])
+    need(type(record['source_sha256']) is dict and set(record['source_sha256']) == TOKEN_SOURCES)
+    source_pins(record['source_sha256'],provider)
+    binaries = record['binary_sha256']; need(type(binaries) is dict and set(binaries) == {'S0Launcher.dll','TokenObserverFixture.exe'})
+    need(all(type(value) is str and re.fullmatch('[0-9a-f]{64}',value) for value in binaries.values()) and binaries['S0Launcher.dll'] == dll_sha)
+    raw = outer['s0-results/native-token-observer-raw.txt']; need(0 < len(raw) <= 8192)
+    need(json.dumps(strict_json(raw),sort_keys=True) == json.dumps({k:record[k] for k in base_keys},sort_keys=True))
+
+
 def public_probe(record, context):
     need(set(record) == {'schema','head','run_id','attempt','scope','physical_ready','s0_execute','g1_execute','status','counts','duration_ms','error','http_status','samples','detail','last_operation'})
     need(type(record['schema']) is int and record['schema'] == 1 and type(record['duration_ms']) is int and 0 <= record['duration_ms'] <= 15000)
@@ -203,6 +238,7 @@ def check(outer_raw, outer_sha, context, provider):
     need(sorted(n for _,n in cases) == sorted(n.split('::')[-1] for n in idx['nodes']))
     junit(xml,context,cases)
     native(strict_json(outer['s0-results/native-launcher.json']),context,files,provider)
+    preparation_records(outer,context,receipt['sha256'],sha(files['native/S0Launcher.dll']),provider)
     public_probe(strict_json(outer['s0-results/public-probe.json']),context)
     portable = strict_json(outer['s0-results/portable.json']); check_context(portable,context)
     need(set(portable) == {'head','tree','run_id','attempt','package_sha256','status','runs','s0_execute','g1_execute','physical'} and portable['physical'] == 'NOT_RUN')

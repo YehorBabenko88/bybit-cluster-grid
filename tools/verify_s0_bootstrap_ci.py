@@ -41,6 +41,8 @@ def collect(fixture, package_sha, head):
     if not 0 < len(raw) <= 16384:
         raise ValueError('S0_BOOTSTRAP_FIXTURE_RECEIPT_BLOCKED')
     value=validate(load_json(raw),head,package_sha)
+    with (ROOT/'s0-results/native-bootstrap-raw.json').open('xb') as stream:
+        stream.write(raw)
     sources=(*NATIVE_SOURCES,'installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs',
              'tools/verify_s0_bootstrap_ci.py')
     result=dict(value,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],
@@ -55,12 +57,16 @@ def collect(fixture, package_sha, head):
     return result
 
 
-def validate_record(value, context, sha):
+def validate_record(value, context, sha, raw):
     """Closed enriched artifact record; return original after exact context/pins."""
     enriched={'run_id','attempt','fixture_sha256','source_sha256'}
     if type(value) is not dict or set(value) != KEYS | enriched:
         raise ValueError('S0_BOOTSTRAP_FIXTURE_RECEIPT_BLOCKED')
     validate({key:value[key] for key in KEYS},context['head'],sha)
+    if type(raw) is not bytes or not 0<len(raw)<=16384 or hashlib.sha256(raw).hexdigest()!=value['fixture_sha256']:
+        raise ValueError('S0_BOOTSTRAP_FIXTURE_RECEIPT_BLOCKED')
+    if load_json(raw)!={key:value[key] for key in KEYS}:
+        raise ValueError('S0_BOOTSTRAP_FIXTURE_RECEIPT_BLOCKED')
     if any(type(value.get(k)) is not str or value[k]!=context[k] for k in ('run_id','attempt')):
         raise ValueError('S0_BOOTSTRAP_FIXTURE_RECEIPT_BLOCKED')
     sources=(*NATIVE_SOURCES,'installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs','tools/verify_s0_bootstrap_ci.py')

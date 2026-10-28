@@ -38,9 +38,16 @@ public static class TokenObserverTests
         Need(goodPriv.Length==1 && goodPriv[0].Attributes==2);
         byte[] duplicate=new byte[28]; Put(duplicate,0,2);
         Block(delegate { TokenObserver.DecodePrivileges(duplicate,delegate(uint l,int h) { return "SeChangeNotifyPrivilege"; }); });
-        TokenObservation o=new TokenObservation { Sid="S-1-5-21-1", Pid=1,CreationFileTime=1,Integrity="S-1-16-8192",Groups=new TokenGroupFact[0],Privileges=new TokenPrivilegeFact[]{new TokenPrivilegeFact { Name="SeChangeNotifyPrivilege",Attributes=2 }}};
+        TokenObservation o=new TokenObservation { Sid="S-1-5-21-1", Pid=1,CreationFileTime=1,Integrity="S-1-16-8192",Groups=new TokenGroupFact[]{new TokenGroupFact { Sid="S-1-5-32-545",Attributes=7 }},Privileges=new TokenPrivilegeFact[]{new TokenPrivilegeFact { Name="SeChangeNotifyPrivilege",Attributes=2 }}};
         Need(TokenObserver.IsStandard(o));
         o.Privileges[0].Name="SeDebugPrivilege"; Need(!TokenObserver.IsStandard(o));
+        foreach(string name in new[]{"SeDebugPrivilege","SeBackupPrivilege","SeRestorePrivilege","SeTakeOwnershipPrivilege","SeImpersonatePrivilege","SeTcbPrivilege","SeAssignPrimaryTokenPrivilege","SeCreateTokenPrivilege","SeUnknownPrivilege"}) {
+            o.Privileges[0].Name=name; o.Privileges[0].Attributes=0; Need(!TokenObserver.IsStandard(o));
+        }
+        foreach(string name in new[]{"SeShutdownPrivilege","SeIncreaseWorkingSetPrivilege","SeTimeZonePrivilege","SeUndockPrivilege"}) {
+            o.Privileges[0].Name=name; o.Privileges[0].Attributes=0; Need(TokenObserver.IsStandard(o));
+            o.Privileges[0].Attributes=2; Need(!TokenObserver.IsStandard(o));
+        }
         o.Privileges=new TokenPrivilegeFact[0]; o.Groups=new TokenGroupFact[]{new TokenGroupFact{Sid="S-1-5-32-544",Attributes=4}};
         Need(!TokenObserver.IsStandard(o)); o.Groups[0].Attributes=16; Need(TokenObserver.IsStandard(o));
         o.Elevated=true; Need(!TokenObserver.IsStandard(o));

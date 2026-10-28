@@ -7,6 +7,15 @@ def fact():
     return dict(scope='HOSTED_FIXTURE_NOT_PHYSICAL',component='TOKEN_OBSERVER',head=HEAD,status='TEST_PASS',pure_cases=True,parent_admin_rejected=True,standard_primary_accepted=True,sid_matches=True,wrong_sid_rejected=True,medium=True,elevated=False,group_count=12,privilege_count=3,enabled_privilege_count=1,physical_acceptance=False)
 
 class TokenPreparationReceiptTests(unittest.TestCase):
+    def test_bootstrap_raw_receipt_required_before_source_lookup(self):
+        from tools.verify_s0_bootstrap_ci import validate_record, CASES
+        value=dict(scope='HOSTED_BOOTSTRAP_NOT_PHYSICAL',head=HEAD,package_sha256='b'*64,
+                   status='PASS',s0_execute=False,g1_execute=False,cleanup=False,
+                   run_id='123',attempt='1',fixture_sha256='c'*64,source_sha256={},
+                   **{key:True for key in CASES})
+        with self.assertRaises(ValueError):
+            validate_record(value,dict(head=HEAD,run_id='123',attempt='1'),'b'*64,b'{}')
+
     def test_closed_observation_and_context(self):
         raw=fact(); self.assertIs(validate_token(raw,HEAD),raw)
         context=dict(head=HEAD,run_id='123',attempt='2'); sources={n:'b'*64 for n in TOKEN_SOURCES}
