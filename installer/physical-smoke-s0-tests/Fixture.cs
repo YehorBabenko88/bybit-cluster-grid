@@ -165,7 +165,7 @@ public static class Fixture
         string temporary=Environment.GetEnvironmentVariable("RUNNER_TEMP"); Need(!String.IsNullOrEmpty(temporary),"FIXTURE_ENVIRONMENT");
         env["TEMP"]=temporary; env["TMP"]=temporary; env["PATH"]=Path.Combine((string)env["SystemRoot"],"System32");
         stage="FIXTURE_BOOTSTRAP";
-        BootstrapTests.Hosted(root,sha,head);
+        try { BootstrapTests.Hosted(root,sha,head); } catch { stage=BootstrapTests.Phase=="FIXTURE_INPUTS"?InputTests.Phase:BootstrapTests.Phase; throw; }
         stage="FIXTURE_TOKEN_PROBE_POLICY";
         bool[] probeCases={
             ProcessHost.TokenProbeValid(20,false,122,4),ProcessHost.TokenProbeValid(20,false,24,4),

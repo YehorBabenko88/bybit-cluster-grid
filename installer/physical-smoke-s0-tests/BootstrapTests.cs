@@ -8,6 +8,7 @@ using System.Security.Principal;
 using System.Threading;
 using GridS0;
 public static class BootstrapTests {
+ public static string Phase="FIXTURE_BOOTSTRAP_START";
  static void Need(bool value) { if(!value) throw new InvalidOperationException("FIXTURE_BOOTSTRAP_CHECK"); }
  static void Block(Action action) { try { action(); } catch(InvalidOperationException) { return; } throw new InvalidOperationException("FIXTURE_BOOTSTRAP_EXPECTED_BLOCK"); }
  public static void Hosted(string root,string unusedImageSha,string head) {
@@ -16,13 +17,13 @@ public static class BootstrapTests {
   PureRejects();
   string sid; using(var identity=WindowsIdentity.GetCurrent()) sid=identity.User.Value;
   TokenObserver.RequireStandard(sid);
-  InputTests.Pure(); InputTests.Hosted(sid,head);
+  Phase="FIXTURE_INPUTS"; InputTests.Pure(); InputTests.Hosted(sid,head); Phase="FIXTURE_BOOTSTRAP_PACKAGE";
   string local=Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
   byte[] zip=File.ReadAllBytes(Path.Combine(root,"source.zip")); string sha=Hash(zip);
   string target=Path.Combine(local,"GridS0Package-"+Guid.NewGuid().ToString("D"));
   string canary=Path.Combine(root,"runtime","python.exe"); string original=Hash(File.ReadAllBytes(canary));
   string[] transactions=Directory.GetDirectories(local,".GridS0Transaction-*");
-  BootstrapReceipt plan=Bootstrap.PlanPackage(zip,sha,head,target,sid);
+  Phase="FIXTURE_BOOTSTRAP_PLAN"; BootstrapReceipt plan=Bootstrap.PlanPackage(zip,sha,head,target,sid);
   Need(plan.Status=="PLAN_ONLY" && plan.RootIdentity==null && !plan.S0Execute && !plan.G1Execute && !plan.Cleanup && !Directory.Exists(target));
   Need(Directory.GetDirectories(local,".GridS0Transaction-*").Length==transactions.Length);
   Block(delegate { Bootstrap.StagePackage(zip,sha,head,target,sid,false); });
@@ -30,14 +31,14 @@ public static class BootstrapTests {
   Block(delegate { Bootstrap.StagePackage(zip,sha,head,Path.Combine(root,Path.GetFileName(target)),sid,true); });
   Block(delegate { Bootstrap.StagePackage(zip,sha,head,target,"S-1-5-18",true); });
   Need(!Directory.Exists(target));
-  BootstrapReceipt staged=Bootstrap.StagePackage(zip,sha,head,target,sid,true);
+  Phase="FIXTURE_BOOTSTRAP_STAGE"; BootstrapReceipt staged=Bootstrap.StagePackage(zip,sha,head,target,sid,true);
   Need(staged.Status=="STAGED_NO_EXECUTION_AUTHORITY" && staged.RootIdentity!=null && staged.ParentIdentity==plan.ParentIdentity && staged.FileCount==plan.FileCount && staged.Bytes==plan.Bytes && !staged.S0Execute && !staged.G1Execute && !staged.Cleanup);
-  Need(Hash(File.ReadAllBytes(Path.Combine(target,"source.zip")))==sha);
+  Phase="FIXTURE_BOOTSTRAP_READBACK"; Need(Hash(File.ReadAllBytes(Path.Combine(target,"source.zip")))==sha);
   string publishedIdentity=staged.RootIdentity;
-  Block(delegate { Bootstrap.StagePackage(zip,sha,head,target,sid,true); });
+  Phase="FIXTURE_BOOTSTRAP_REUSE"; Block(delegate { Bootstrap.StagePackage(zip,sha,head,target,sid,true); });
   Need(Hash(File.ReadAllBytes(Path.Combine(target,"source.zip")))==sha && Hash(File.ReadAllBytes(canary))==original);
   // Two independent validated calls may race; exactly one may publish the fresh name.
-  string race=Path.Combine(local,"GridS0Package-"+Guid.NewGuid().ToString("D")); int winners=0,blocked=0; Exception unexpected=null;
+  Phase="FIXTURE_BOOTSTRAP_RACE"; string race=Path.Combine(local,"GridS0Package-"+Guid.NewGuid().ToString("D")); int winners=0,blocked=0; Exception unexpected=null;
   ThreadStart attempt=delegate { try { Bootstrap.StagePackage(zip,sha,head,race,sid,true); Interlocked.Increment(ref winners); } catch(InvalidOperationException) { Interlocked.Increment(ref blocked); } catch(Exception error) { unexpected=error; } };
   Thread first=new Thread(attempt), second=new Thread(attempt); first.Start(); second.Start(); Need(first.Join(45000) && second.Join(45000));
   Need(unexpected==null && winners==1 && blocked==1 && Hash(File.ReadAllBytes(Path.Combine(race,"source.zip")))==sha && Hash(File.ReadAllBytes(canary))==original);
