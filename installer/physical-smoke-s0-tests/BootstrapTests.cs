@@ -38,13 +38,47 @@ public static class BootstrapTests {
   Phase="FIXTURE_BOOTSTRAP_REUSE"; Block(delegate { Bootstrap.StagePackage(zip,sha,head,target,sid,true); });
   Need(Hash(File.ReadAllBytes(Path.Combine(target,"source.zip")))==sha && Hash(File.ReadAllBytes(canary))==original);
   // Two independent validated calls may race; exactly one may publish the fresh name.
-  Phase="FIXTURE_BOOTSTRAP_RACE"; string race=Path.Combine(local,"GridS0Package-"+Guid.NewGuid().ToString("D")); int winners=0,blocked=0; Exception unexpected=null;
-  ThreadStart attempt=delegate { try { Bootstrap.StagePackage(zip,sha,head,race,sid,true); Interlocked.Increment(ref winners); } catch(InvalidOperationException) { Interlocked.Increment(ref blocked); } catch(Exception error) { unexpected=error; } };
-  Thread first=new Thread(attempt), second=new Thread(attempt); first.Start(); second.Start(); Need(first.Join(45000) && second.Join(45000));
-  Need(unexpected==null && winners==1 && blocked==1 && Hash(File.ReadAllBytes(Path.Combine(race,"source.zip")))==sha && Hash(File.ReadAllBytes(canary))==original);
+  Phase="FIXTURE_BOOTSTRAP_RACE_SETUP";
+  string race=Path.Combine(local,"GridS0Package-"+Guid.NewGuid().ToString("D")); int winners=0,blocked=0;
+  // Separate cells are published to the parent by each successful Thread.Join.
+  Exception[] failures=new Exception[2]; string[] workerPhase={"NOT_STARTED","NOT_STARTED"};
+  ThreadStart firstAttempt=delegate { RaceAttempt(0,zip,sha,head,race,sid,ref winners,ref blocked,failures,workerPhase); };
+  ThreadStart secondAttempt=delegate { RaceAttempt(1,zip,sha,head,race,sid,ref winners,ref blocked,failures,workerPhase); };
+  Thread first=new Thread(firstAttempt), second=new Thread(secondAttempt);
+  Phase="FIXTURE_BOOTSTRAP_RACE_START_ONE"; first.Start();
+  Phase="FIXTURE_BOOTSTRAP_RACE_START_TWO"; second.Start();
+  Phase="FIXTURE_BOOTSTRAP_RACE_JOIN_ONE"; Need(first.Join(45000));
+  Phase="FIXTURE_BOOTSTRAP_RACE_JOIN_TWO"; Need(second.Join(45000));
+  for(int i=0;i<failures.Length;i++) if(failures[i]!=null) {
+   Phase="FIXTURE_BOOTSTRAP_RACE_WORKER_"+(i==0?"ONE_":"TWO_")+workerPhase[i]+"_"+FailureKind(failures[i]);
+   // Do not publish the original message, filename, SID, or stack trace.
+   throw new InvalidOperationException("FIXTURE_BOOTSTRAP_RACE_WORKER_FAILED");
+  }
+  Phase="FIXTURE_BOOTSTRAP_RACE_COUNTS"; Need(winners==1 && blocked==1);
+  Phase="FIXTURE_BOOTSTRAP_RACE_ARCHIVE_READ"; byte[] raceArchive=File.ReadAllBytes(Path.Combine(race,"source.zip"));
+  Phase="FIXTURE_BOOTSTRAP_RACE_ARCHIVE_HASH"; Need(Hash(raceArchive)==sha);
+  Phase="FIXTURE_BOOTSTRAP_RACE_CANARY_READ"; byte[] raceCanary=File.ReadAllBytes(canary);
+  Phase="FIXTURE_BOOTSTRAP_RACE_CANARY_HASH"; Need(Hash(raceCanary)==original);
+  Phase="FIXTURE_BOOTSTRAP_RECEIPT";
   string receipt="{\"scope\":\"HOSTED_BOOTSTRAP_NOT_PHYSICAL\",\"head\":\""+head+"\",\"package_sha256\":\""+sha+"\",\"status\":\"PASS\",\"plan_no_write\":true,\"unapproved_rejected\":true,\"wrong_sha_rejected\":true,\"wrong_sid_rejected\":true,\"outside_parent_rejected\":true,\"stage_closure\":true,\"existing_target_rejected\":true,\"concurrent_no_replace\":true,\"canary_unchanged\":true,\"s0_execute\":false,\"g1_execute\":false,\"cleanup\":false}";
   using(var stream=new FileStream(Path.Combine(root,"temp","bootstrap.json"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) { byte[] bytes=Encoding.UTF8.GetBytes(receipt); stream.Write(bytes,0,bytes.Length); stream.Flush(true); }
   // Owned successful/partial fixture roots deliberately remain; no auto cleanup/adoption.
+ }
+ static void RaceAttempt(int index,byte[] zip,string sha,string head,string target,string sid,ref int winners,ref int blocked,Exception[] failures,string[] phases) {
+  try {
+   phases[index]="STAGE";
+   Bootstrap.StagePackage(zip,sha,head,target,sid,true);
+   phases[index]="WINNER"; Interlocked.Increment(ref winners);
+  } catch(InvalidOperationException) { phases[index]="BLOCKED"; Interlocked.Increment(ref blocked); }
+  catch(Exception error) { failures[index]=error; }
+ }
+ static string FailureKind(Exception error) {
+  if(error is UnauthorizedAccessException) return "ACCESS";
+  if(error is System.Security.SecurityException) return "SECURITY";
+  if(error is IOException) return "IO";
+  if(error is OutOfMemoryException) return "MEMORY";
+  if(error is ThreadStateException) return "THREAD";
+  return "OTHER";
  }
  public static void PureRejects() {
   Reject(new byte[0], new string('0',64));
