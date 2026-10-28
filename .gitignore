@@ -56,3 +56,10 @@ installer/native-g1-controller-fixture/obj/
 /transport-undebugged-evidence/
 /pipe-debugged-evidence/
 /pipe-undebugged-evidence/
+
+/s0-package/
+/s0-results/
+
+/s0-downloaded/
+
+/s0-native-build/
