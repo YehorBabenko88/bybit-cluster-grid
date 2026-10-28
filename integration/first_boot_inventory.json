@@ -1195,6 +1195,7 @@
     "tests/test_s0_evidence.py::test_rebound_secret_index_still_refused",
     "tests/test_s0_launcher.py::LauncherContract::test_atomic_job_creation_and_pre_resume_proof",
     "tests/test_s0_launcher.py::LauncherContract::test_exact_closed_entrypoint_and_forbidden_foreign_process_apis",
+    "tests/test_s0_launcher.py::LauncherContract::test_native_only_changes_cannot_skip_s0_ci",
     "tests/test_s0_launcher.py::LauncherContract::test_primary_and_created_child_tokens_are_observed_before_resume",
     "tests/test_s0_materials.py::test_extra_configuration_rejected",
     "tests/test_s0_materials.py::test_role_keys_context_and_config",
@@ -6378,6 +6379,10 @@
     [
       "tests.test_s0_launcher.LauncherContract",
       "test_exact_closed_entrypoint_and_forbidden_foreign_process_apis"
+    ],
+    [
+      "tests.test_s0_launcher.LauncherContract",
+      "test_native_only_changes_cannot_skip_s0_ci"
     ],
     [
       "tests.test_s0_launcher.LauncherContract",

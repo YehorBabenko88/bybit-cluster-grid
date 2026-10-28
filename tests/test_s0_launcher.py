@@ -37,3 +37,12 @@ class LauncherContract(unittest.TestCase):
         for name in ('ObservedUserSid','ObservedElevated','ObservedIntegrity','ObservedAdminEnabled','JobMember','JobFlags','ActiveLimit'):
             self.assertRegex(source,r'public \w+ '+name+r' \{ get; internal set; \}')
         self.assertIn('(attributes&4)!=0 && (attributes&16)==0',source)
+
+    def test_native_only_changes_cannot_skip_s0_ci(self):
+        source=(SOURCE.parents[2]/'.github/workflows/physical-smoke-s0.yml').read_text(encoding='utf-8')
+        import yaml
+        config=yaml.safe_load(source)
+        triggers=config.get('on',config.get(True))
+        paths=triggers['pull_request']['paths']
+        for required in ('installer/physical-smoke-s0/**','installer/physical-smoke-s0-tests/**'):
+            self.assertIn(required,paths)
