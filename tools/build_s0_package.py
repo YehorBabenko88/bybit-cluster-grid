@@ -184,5 +184,3 @@ def build():
     (destination/'package-receipt.json').write_text(json.dumps(receipt,sort_keys=True,indent=2)+'\n',encoding='utf-8')
 
 if __name__ == '__main__': build()
-
-

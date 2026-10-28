@@ -35,15 +35,15 @@ class PackageTests(unittest.TestCase):
             with self.assertRaises(ValueError): package.require_hosted(bad, 'fv-az123')
         for hostname in ('LS5', 'PC4', 'ls5.example'):
             with self.assertRaises(ValueError): package.require_hosted(good, hostname)
-    
-    
+
+
     def test_archive_names_reject_traversal_devices_collision_and_limit(self):
         for name in ('../a', 'C:/a', 'a\\b', '/a', 'a/CON.txt', 'a/../b', 'a./b'):
             with self.assertRaises(ValueError): package.validate_members({name: b'x'})
         with self.assertRaises(ValueError): package.validate_members({'A':b'a','a':b'b'})
         with self.assertRaises(ValueError): package.validate_members({'a':b'xx'}, limit=1)
-    
-    
+
+
     def test_deterministic_zip_and_manifest_detect_mutation(self):
         files = {'runtime/App/s0.py': b'print(1)', 'runtime/python.exe':b'fixture'}
         manifest = package.make_manifest(files, head='a'*40, tree='b'*40, run_id='12', attempt='1', python='3.12.9', source={'s0_smoke/cli.py':'c'*64})
@@ -53,16 +53,16 @@ class PackageTests(unittest.TestCase):
         package.validate_manifest(files,manifest)
         files['runtime/App/s0.py'] = b'changed'
         with self.assertRaises(ValueError): package.validate_manifest(files,manifest)
-    
-    
+
+
     def test_dependency_paths_exclude_hooks_scripts_and_require_closure(self):
         assert package.safe_distribution_member('aiohttp/client.py')
         assert package.safe_distribution_member('cryptography/hazmat/bindings/_rust.pyd')
         for name in ('../Scripts/pip.exe', 'foo.pth', 'foo/__pycache__/a.pyc', 'foo.exe'):
             assert not package.safe_distribution_member(name)
         assert package.DEPENDENCIES == frozenset('aiohttp aiohappyeyeballs aiosignal attrs frozenlist multidict propcache yarl idna cryptography cffi pycparser typing_extensions'.split())
-    
-    
+
+
     def test_dependency_closure_rejects_unreviewed_active_requirement(self):
         package.validate_dependency_closure({'aiohttp': ['aiosignal>=1'], 'aiosignal': []}, parse=lambda r: ('aiosignal', True))
         with self.assertRaises(ValueError):
@@ -104,9 +104,5 @@ class PackageTests(unittest.TestCase):
         package.validate_manifest(files,manifest)
         source=Path(package.__file__).read_text()
         assert "root/'s0-native-build'/'S0Launcher.dll'" in source
-    
+
 if __name__ == '__main__': unittest.main()
-
-
-
-
