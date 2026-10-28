@@ -71,6 +71,11 @@ jobs:
           $tokens=$null;$errors=$null
           [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'installer/physical-smoke-s0.ps1'),[ref]$tokens,[ref]$errors)
           if($errors.Count){throw 'S0_POWERSHELL_SYNTAX'}
+          $localAppData=[Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+          if([string]::IsNullOrWhiteSpace($localAppData) -or [IO.Path]::GetPathRoot($localAppData) -ine 'C:\'){throw 'S0_LOCAL_APP_DATA_C_REQUIRED'}
+          $nativeBuildRoot=Join-Path $localAppData ('s0-native-build-'+[Guid]::NewGuid().ToString('D'))
+          "S0_LOCAL_APP_DATA_ROOT=$localAppData" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "S0_NATIVE_BUILD_ROOT=$nativeBuildRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           New-Item -ItemType Directory s0-results | Out-Null
           python -m pip freeze | Out-File -Encoding utf8 s0-results/dependencies.txt
       - name: Actual loopback mTLS and synthetic market components; own Windows fixture only
@@ -80,12 +85,13 @@ jobs:
       - name: Compile reviewed S0 host and disposable-only fixture without physical compiler
         run: |
           $ErrorActionPreference='Stop'
-          python -c "import os,socket;from pathlib import Path;from tools.build_s0_package import require_hosted;require_hosted(os.environ,socket.gethostname());from s0_smoke.windows import current_identity,create_fresh_root;create_fresh_root(Path('s0-native-build').absolute(),current_identity().sid)"
+          python -c "import os,socket;from tools.build_s0_package import require_hosted,hosted_native_build_root,create_hosted_root;require_hosted(os.environ,socket.gethostname());from s0_smoke.windows import current_identity;create_hosted_root(hosted_native_build_root(),current_identity().sid)"
           if($LASTEXITCODE -ne 0){throw 'S0_NATIVE_FRESH_ROOT_FAILED'}
           $compiler = @'
           $ErrorActionPreference='Stop'
-          Add-Type -Path installer/physical-smoke-s0/S0Launcher.cs -OutputAssembly s0-native-build/S0Launcher.dll -OutputType Library
-          Add-Type -Path installer/physical-smoke-s0-tests/Fixture.cs -ReferencedAssemblies ((Join-Path $PWD 's0-native-build/S0Launcher.dll'),'System.dll','System.Core.dll','System.Security.dll') -OutputAssembly s0-native-build/Fixture.exe -OutputType ConsoleApplication
+          $nativeDll=Join-Path $env:S0_NATIVE_BUILD_ROOT 'S0Launcher.dll'
+          Add-Type -Path installer/physical-smoke-s0/S0Launcher.cs -OutputAssembly $nativeDll -OutputType Library
+          Add-Type -Path installer/physical-smoke-s0-tests/Fixture.cs -ReferencedAssemblies ($nativeDll,'System.dll','System.Core.dll','System.Security.dll') -OutputAssembly (Join-Path $env:S0_NATIVE_BUILD_ROOT 'Fixture.exe') -OutputType ConsoleApplication
           '@
           $compiler | & "$env:SystemRoot/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -NonInteractive -Command -
           if($LASTEXITCODE -ne 0){throw 'S0_NATIVE_COMPILER_FAILED'}

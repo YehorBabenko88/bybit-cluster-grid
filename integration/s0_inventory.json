@@ -42,6 +42,8 @@
     "tests/test_s0_package.py::PackageTests::test_native_launcher_is_pinned_source_and_required_hosted_build_input",
     "tests/test_s0_package.py::PackageTests::test_regular_file_rejects_hardlink_alias",
     "tests/test_s0_package.py::PackageTests::test_wrapper_is_thin_explicit_and_plan_precedes_launch",
+    "tests/test_s0_package.py::test_ci_private_roots_require_resolved_c_localappdata_and_fresh_child",
+    "tests/test_s0_package.py::test_hosted_location_source_contract_without_authority_expansion",
     "tests/test_s0_package_runtime.py::test_closed_package",
     "tests/test_s0_package_runtime.py::test_package_substitution[digest]",
     "tests/test_s0_package_runtime.py::test_package_substitution[extra]",
@@ -210,6 +212,7 @@
     "tests/test_s0_windows.py::SecurityTests::test_unknown_ace_is_blocked_even_inherit_only",
     "tests/test_s0_windows.py::SecurityTests::test_unknown_flags_and_reserved_acl_fields_are_blocked",
     "tests/test_s0_windows.py::SecurityTests::test_untrusted_delete_child_is_blocked",
+    "tests/test_s0_windows.py::test_hosted_networkservice_volume_owner_remains_blocked",
     "tests/test_s0_windows.py::test_native_diagnostics_are_json_serializable_and_preserve_acl",
     "tests/test_s0_wire.py::test_changed_or_stale_reply",
     "tests/test_s0_wire.py::test_no_counter_regression_or_gap",
@@ -397,6 +400,14 @@
     [
       "tests.test_s0_native_receipt.NativeReceiptTests",
       "test_rejects_typed_numeric_boolean_range_and_protocol_changes"
+    ],
+    [
+      "tests.test_s0_package",
+      "test_ci_private_roots_require_resolved_c_localappdata_and_fresh_child"
+    ],
+    [
+      "tests.test_s0_package",
+      "test_hosted_location_source_contract_without_authority_expansion"
     ],
     [
       "tests.test_s0_package.PackageTests",
@@ -981,6 +992,10 @@
     [
       "tests.test_s0_storage",
       "test_stop_only_own_existing_slot"
+    ],
+    [
+      "tests.test_s0_windows",
+      "test_hosted_networkservice_volume_owner_remains_blocked"
     ],
     [
       "tests.test_s0_windows",

@@ -293,3 +293,12 @@ def test_native_diagnostics_are_json_serializable_and_preserve_acl():
     result=w.diagnostic_observation('C:\\',info)
     assert json.loads(json.dumps(result))['acl_hex']==raw.hex()
     assert info['acl']==raw
+
+def test_hosted_networkservice_volume_owner_remains_blocked():
+    import pytest
+    api=Fake();original=api.inspect
+    api.inspect=lambda handle:dict(original(handle),owner='S-1-5-20')
+    with pytest.raises(w.WindowsBlocked):
+        with w.Custody('C:\\safe','S-1-5-1000',api=api):
+            raise AssertionError('untrusted service owner accepted')
+    assert len(api.closed)==len(api.opens)==1

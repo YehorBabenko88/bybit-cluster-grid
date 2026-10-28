@@ -103,6 +103,31 @@ class PackageTests(unittest.TestCase):
         manifest=package.make_manifest(files,head='a'*40,tree='b'*40,run_id='12',attempt='1',python='3.12.9',source={'installer/physical-smoke-s0/S0Launcher.cs':'c'*64})
         package.validate_manifest(files,manifest)
         source=Path(package.__file__).read_text()
-        assert "root/'s0-native-build'/'S0Launcher.dll'" in source
+        assert "hosted_native_build_root()/'S0Launcher.dll'" in source
 
 if __name__ == '__main__': unittest.main()
+
+def test_hosted_location_source_contract_without_authority_expansion():
+    root = Path(__file__).resolve().parents[1]
+    workflow = (root / '.github/workflows/physical-smoke-s0.yml').read_text()
+    builder = (root / 'tools/build_s0_package.py').read_text()
+    portable = (root / 'tools/verify_s0_portable_ci.py').read_text()
+    windows = (root / 's0_smoke/windows.py').read_text()
+    assert 'GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)' in workflow
+    assert 'S0_NATIVE_BUILD_ROOT' in workflow and 'S0_LOCAL_APP_DATA_ROOT' in workflow
+    assert "root/'s0-native-build'" not in builder
+    assert "ROOT/'s0-native-build'" not in portable
+    assert "Path(os.environ['RUNNER_TEMP'])" not in portable
+    assert 'S-1-5-20' not in windows
+    assert 'trusted = {SYSTEM, ADMINS, self.operator_sid}' in windows
+
+def test_ci_private_roots_require_resolved_c_localappdata_and_fresh_child():
+    import pytest
+    local='C:\\Users\\runner\\AppData\\Local'
+    env={'S0_LOCAL_APP_DATA_ROOT':local,'S0_NATIVE_BUILD_ROOT':local+'\\s0-native-build-12345678-1234-4234-8234-123456789abc'}
+    assert str(package.hosted_local_app_data(env))==local
+    assert str(package.hosted_native_build_root(env))==env['S0_NATIVE_BUILD_ROOT']
+    for value in (None,'','D:\\a\\_temp','C:\\a\\..\\b','\\\\server\\share'):
+        with pytest.raises(ValueError):package.hosted_local_app_data({'S0_LOCAL_APP_DATA_ROOT':value})
+    for value in (None,local,local+'\\existing', 'D:\\a\\s0-native-build-12345678-1234-4234-8234-123456789abc'):
+        with pytest.raises(ValueError):package.hosted_native_build_root(dict(env,S0_NATIVE_BUILD_ROOT=value))

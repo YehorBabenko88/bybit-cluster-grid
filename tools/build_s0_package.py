@@ -7,6 +7,7 @@ import hashlib
 import importlib.metadata as metadata
 import io
 import json
+import ntpath
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -29,6 +30,43 @@ def require_hosted(env, hostname):
     for host in (hostname, env.get('COMPUTERNAME',''), env.get('HOSTNAME','')):
         if host.split('.')[0].casefold() in ('ls5','pc4'):
             raise ValueError('PHYSICAL_HOST_FORBIDDEN')
+
+
+def hosted_local_app_data(env=None):
+    """Workflow resolves this via .NET GetFolderPath, never a profile env guess."""
+    env = os.environ if env is None else env
+    value = env.get('S0_LOCAL_APP_DATA_ROOT')
+    if (type(value) is not str or not ntpath.isabs(value) or
+            ntpath.splitdrive(value)[0].casefold() != 'c:' or
+            value.startswith('\\\\') or ntpath.normpath(value) != value):
+        raise ValueError('S0_RESOLVED_LOCAL_APP_DATA_REQUIRED')
+    return Path(value)
+
+
+def hosted_native_build_root(env=None):
+    env = os.environ if env is None else env
+    local = str(hosted_local_app_data(env))
+    value = env.get('S0_NATIVE_BUILD_ROOT')
+    if (type(value) is not str or ntpath.normcase(ntpath.dirname(value)) != ntpath.normcase(local) or
+            re.fullmatch(r's0-native-build-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',ntpath.basename(value)) is None):
+        raise ValueError('S0_NATIVE_BUILD_ROOT_REQUIRED')
+    return Path(value)
+
+
+def create_hosted_root(path, operator_sid):
+    """Keep production custody unchanged; expose only actual ancestors on failure."""
+    require_hosted(os.environ,socket.gethostname())
+    from s0_smoke.windows import create_fresh_root, Win32, diagnostic_observation
+    try:
+        create_fresh_root(path,operator_sid)
+    except Exception:
+        observations=[]; api=Win32()
+        for parent in reversed(path.parents):
+            handle=api.open(str(parent),True)
+            try: observations.append(diagnostic_observation(str(parent),api.inspect(handle)))
+            finally: api.close(handle)
+        print('S0_HOSTED_C_ANCESTORS='+json.dumps(observations,sort_keys=True),flush=True)
+        raise
 
 def validate_members(files, limit=LIMIT):
     if len(files) > FILE_COUNT_LIMIT: raise ValueError('PACKAGE_FILE_COUNT')
@@ -154,7 +192,7 @@ def build():
     if entry not in wanted: raise ValueError('ENTRYPOINT_REQUIRED')
     files['runtime/App/s0.py']=files['runtime/App/'+entry]
     runtime=Path(sys.executable).parent
-    files['native/S0Launcher.dll']=regular_bytes(root/'s0-native-build'/'S0Launcher.dll')
+    files['native/S0Launcher.dll']=regular_bytes(hosted_native_build_root()/'S0Launcher.dll')
     files['runtime/python.exe']=regular_bytes(runtime/'python.exe')
     for path in sorted(runtime.glob('*.dll')): files['runtime/'+path.name]=regular_bytes(path)
     for path in sorted((runtime/'DLLs').glob('*')):

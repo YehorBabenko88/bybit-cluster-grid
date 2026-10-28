@@ -162,7 +162,8 @@ def test_hosted_windows_native_owned_custody():
     from s0_smoke.windows import current_identity, create_fresh_root, create_fresh_file, Custody, Win32, diagnostic_observation
     identity = current_identity()  # Read-only token query; admin runner is not standard-token evidence.
     assert identity.sid.startswith('S-1-')
-    root = Path(os.environ['RUNNER_TEMP']) / ('s0-native-owned-' + str(uuid.uuid4()))
+    from tools.build_s0_package import hosted_local_app_data
+    root = hosted_local_app_data() / ('s0-native-owned-' + str(uuid.uuid4()))
     # Preserve actual ancestor facts on rejection, without changing the policy or ACL.
     import json
     api = Win32()

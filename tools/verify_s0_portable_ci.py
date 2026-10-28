@@ -1,7 +1,7 @@
 """Owned hosted fixture only: execute portable Plan/import checks, never S0 physical Execute."""
 import hashlib,json,os,subprocess,sys,uuid,zipfile
 from pathlib import Path
-from tools.build_s0_package import require_hosted
+from tools.build_s0_package import require_hosted,hosted_local_app_data,hosted_native_build_root,create_hosted_root
 from tools.check_ddl_free_ci import ROOT,verify_checkout
 from s0_smoke.package import verify_package,name
 from tools.s0_native_receipt import validate_native
@@ -12,7 +12,7 @@ def run():
  require_hosted(os.environ,socket.gethostname());head=os.environ['EXACT_HEAD_SHA'];verify_checkout(ROOT,head)
  receipt=json.loads((ROOT/'s0-package/package-receipt.json').read_text());archive=ROOT/'s0-package'/receipt['package'];raw=archive.read_bytes()
  if hashlib.sha256(raw).hexdigest()!=receipt['sha256'] or receipt['head']!=head:raise RuntimeError('S0_PACKAGE_RECEIPT_MISMATCH')
- identity=current_identity();fixture=Path(os.environ['RUNNER_TEMP'])/('s0-portable-'+str(uuid.uuid4()));create_fresh_root(fixture,identity.sid)
+ identity=current_identity();fixture=hosted_local_app_data()/('s0-portable-'+str(uuid.uuid4()));create_hosted_root(fixture,identity.sid)
  with zipfile.ZipFile(archive) as z:
   for info in z.infolist():
    name(info.filename)
@@ -37,7 +37,7 @@ def run():
    if len(runs)==1 and value.get('status')!='BLOCKED':raise RuntimeError('S0_UNAPPROVED_EXECUTE_NOT_BLOCKED')
    if len(runs)==2 and value!=dict(aiohttp='3.14.5',cryptography='50.0.2',isolated=1,no_site=1,grid_absent=True):raise RuntimeError('S0_PORTABLE_CLOSURE_MISMATCH')
    runs.append(dict(pid=pid,exit_code=code,result=value,scope='OWNED_HOSTED_PLAN_OR_IMPORT_ONLY'));custody.guard()
- native_build=ROOT/'s0-native-build';native_files=[native_build/'Fixture.exe',native_build/'S0Launcher.dll']
+ native_build=hosted_native_build_root();native_files=[native_build/'Fixture.exe',native_build/'S0Launcher.dll']
  with Custody(native_build,identity.sid,native_files) as native_custody,Custody(fixture,identity.sid,files) as child_source:
   if hashlib.sha256((native_build/'S0Launcher.dll').read_bytes()).hexdigest()!=manifest['files']['native/S0Launcher.dll']['sha256']:raise RuntimeError('S0_NATIVE_DLL_MISMATCH')
   ci_env=dict(env)
