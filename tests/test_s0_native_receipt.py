@@ -6,7 +6,7 @@ HEAD='a'*40
 SID='S-1-5-21-1-2-3-1001'
 
 def receipt():
-    value=dict(scope='HOSTED_FIXTURE_NOT_PHYSICAL',fixture=True,head=HEAD,wrong_hash_rejected=True,wrong_sid_rejected=True)
+    value=dict(scope='HOSTED_FIXTURE_NOT_PHYSICAL',fixture=True,head=HEAD,token_probe_cases=14,wrong_hash_rejected=True,wrong_sid_rejected=True)
     for index,(label,budget,timeout,code) in enumerate((('normal',5,False,0),('deadline',1,True,1),('descendant_denied',5,False,0)),1):
         value[label]=dict(pid=index,creation_filetime=100+index,exit_code=code,timed_out=timeout,budget_seconds=budget,observed_user_sid=SID,observed_elevated=False,observed_integrity='S-1-16-8192',observed_admin_enabled=False,job_member=True,job_flags=8200,active_limit=1)
     return value
@@ -18,7 +18,7 @@ class NativeReceiptTests(unittest.TestCase):
         self.assertIs(validate_native(value,HEAD),value)
 
     def test_rejects_root_mutations(self):
-        for key,bad in [('fixture',1),('head','b'*40),('scope','PHYSICAL'),('wrong_hash_rejected',1),('wrong_sid_rejected',False),('extra',0)]:
+        for key,bad in [('token_probe_cases',True),('token_probe_cases',0),('token_probe_cases',15),('fixture',1),('head','b'*40),('scope','PHYSICAL'),('wrong_hash_rejected',1),('wrong_sid_rejected',False),('extra',0)]:
             value=receipt();value[key]=bad
             with self.assertRaises(ValueError):validate_native(value,HEAD)
         value=receipt();del value['fixture']

@@ -1,7 +1,7 @@
 """Pure validator for hosted native-fixture facts; never physical acceptance."""
 import re
 
-ROOT_KEYS=frozenset(('scope','fixture','head','normal','deadline','descendant_denied','wrong_hash_rejected','wrong_sid_rejected'))
+ROOT_KEYS=frozenset(('scope','fixture','head','token_probe_cases','normal','deadline','descendant_denied','wrong_hash_rejected','wrong_sid_rejected'))
 FACT_KEYS=frozenset(('pid','creation_filetime','exit_code','timed_out','budget_seconds','observed_user_sid','observed_elevated','observed_integrity','observed_admin_enabled','job_member','job_flags','active_limit'))
 
 def _need(condition):
@@ -21,6 +21,7 @@ def validate_native(value,head,sid=None):
     _need(type(value) is dict and set(value)==ROOT_KEYS)
     _need(value['scope']=='HOSTED_FIXTURE_NOT_PHYSICAL' and value['fixture'] is True and value['head']==head)
     _need(value['wrong_hash_rejected'] is True and value['wrong_sid_rejected'] is True)
+    _need(_integer(value['token_probe_cases'],14,14))
     identities=set();observed_sid=sid
     for label,budget,timeout in (('normal',5,False),('deadline',1,True),('descendant_denied',5,False)):
         fact=value[label];_need(type(fact) is dict and set(fact)==FACT_KEYS)

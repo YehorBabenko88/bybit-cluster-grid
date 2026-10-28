@@ -80,11 +80,21 @@ namespace GridS0
 
         static void Need(bool condition, string code) { if (!condition) throw new InvalidOperationException(code); }
 
+        public static bool TokenProbeValid(int kind, bool success, int error, int size)
+        {
+            // Same scalar contract as native-acl-observer Policy.ScalarProbe.
+            // ERROR_BAD_LENGTH is valid only for the four-byte TokenElevation.
+            if(success) return false;
+            if(kind==20) return size==4 && (error==122 || error==24);
+            return (kind==1 || kind==2 || kind==25) && error==122 && size>0 && size<=65536;
+        }
+
         static void Token(IntPtr token, int kind, Action<IntPtr, int> validate)
         {
             int required;
             bool initial=GetTokenInformation(token, kind, IntPtr.Zero, 0, out required);
-            Need(!initial && Marshal.GetLastWin32Error()==122 && required>0 && required<=65536, "S0_TOKEN_SIZE");
+            int probeError=Marshal.GetLastWin32Error();
+            Need(TokenProbeValid(kind,initial,probeError,required), "S0_TOKEN_SIZE");
             IntPtr buffer=Marshal.AllocHGlobal(required);
             try
             {
