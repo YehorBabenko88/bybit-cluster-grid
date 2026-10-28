@@ -38,3 +38,13 @@ def test_rebound_secret_index_still_refused(tmp_path):
  from s0_smoke.evidence import verify_evidence
  failed_fixture(tmp_path);p=tmp_path/'sha256.json';v=json.loads(p.read_text());v['files']['tls-key.pem']='a'*64;p.write_text(json.dumps(v))
  with pytest.raises(ValueError):verify_evidence(tmp_path,CTX,'c'*64)
+
+@pytest.mark.parametrize('field',['head','run_id','attempt','tree'])
+def test_ci_receipt_rejects_cross_run_or_tree_substitution(field):
+ from tools.verify_s0_artifacts_ci import require_context
+ expected=dict(head='a'*40,run_id='123',attempt='2',tree='b'*40)
+ require_context(dict(expected),expected)
+ wrong=dict(expected);wrong[field]='stale'
+ with pytest.raises(RuntimeError):require_context(wrong,expected)
+ wrong=dict(expected);del wrong[field]
+ with pytest.raises(RuntimeError):require_context(wrong,expected)
