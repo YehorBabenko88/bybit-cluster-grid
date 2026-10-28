@@ -167,12 +167,28 @@ For each role, set `$Root` to its prepared local role directory and `$Config` to
 & $PowerShell51 -NoProfile -File $Wrapper -Root $Root -PackageRoot $PackageRoot -PackageZip $PackageZip -Config $Config -ExpectedHead $ExpectedHead -ExpectedPackageSha $ExpectedPackageSha -Action Preflight
 ```
 
-Start the Coordinator on LS5 first; after it reports ready, start the Worker on PC4 within the same approved window:
+Start the Coordinator on LS5 first. Execute stays foreground and prints its final result on exit; it does not print a live readiness notification. Use the separate read-only LS5 check below, then start the PC4 Worker within **30 seconds of listening** (the registration deadline), without extending either process's budget:
 
 ```powershell
 # Foreground console on the corresponding physical role; explicit approval required.
 & $PowerShell51 -NoProfile -File $Wrapper -Root $Root -PackageRoot $PackageRoot -PackageZip $PackageZip -Config $Config -ExpectedHead $ExpectedHead -ExpectedPackageSha $ExpectedPackageSha -Action Execute -Approved
 ```
+
+In a second LS5 operator console with the same already approved local variables, inspect only the newly prepared role. A missing file/listener or uncertain identity is STOP, not permission to adopt another process:
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$RoleConfig = Get-Content -LiteralPath $Config -Raw | ConvertFrom-Json
+$Claim = Get-Content -LiteralPath (Join-Path $Root 'claim.json') -Raw | ConvertFrom-Json
+if ($Claim.head -cne $ExpectedHead -or $Claim.run_id -cne $RoleConfig.plan.run_id -or $Claim.role -cne 'LS5') { throw 'S0_CLAIM_CONTEXT_BLOCKED' }
+$Owned = Get-Process -Id ([int]$Claim.pid) -ErrorAction Stop # read only; never Kill/Stop-Process
+if ($Owned.StartTime.ToUniversalTime().ToFileTimeUtc() -ne [long]$Claim.creation_filetime) { throw 'S0_PROCESS_IDENTITY_BLOCKED' }
+$Listener = @(Get-NetTCPConnection -State Listen -LocalAddress $RoleConfig.plan.coordinator_ip -LocalPort $RoleConfig.plan.port -ErrorAction Stop | Where-Object OwningProcess -eq $Owned.Id)
+if ($Listener.Count -ne 1) { throw 'S0_OWN_LISTENER_NOT_READY' }
+'S0_OWN_LISTENER_OBSERVED_NOT_AUTHORIZATION'
+```
+
+This is a momentary observation, not continuous custody or a physical PASS. The native launcher's owned process handles and Job enforce lifetime; the check never signals a PID.
 
 Do not restart, reconnect manually, extend the run, reuse a root, or change parameters to turn a partial run into a pass. Use new review/authorization and fresh preparation for any later attempt.
 
