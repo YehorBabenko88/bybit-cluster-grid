@@ -34,6 +34,14 @@ public static class BootstrapTests {
   Phase="FIXTURE_BOOTSTRAP_STAGE"; BootstrapReceipt staged=Bootstrap.StagePackage(zip,sha,head,target,sid,true);
   Need(staged.Status=="STAGED_NO_EXECUTION_AUTHORITY" && staged.RootIdentity!=null && staged.ParentIdentity==plan.ParentIdentity && staged.FileCount==plan.FileCount && staged.Bytes==plan.Bytes && !staged.S0Execute && !staged.G1Execute && !staged.Cleanup);
   Phase="FIXTURE_BOOTSTRAP_READBACK"; Need(Hash(File.ReadAllBytes(Path.Combine(target,"source.zip")))==sha);
+  Phase="FIXTURE_BOOTSTRAP_FULL_CLOSURE";
+  using(var memory=new MemoryStream(zip,false)) using(var source=new ZipArchive(memory,ZipArchiveMode.Read,false)) {
+   Need(Directory.GetFiles(target,"*",SearchOption.AllDirectories).Length==source.Entries.Count+1);
+   foreach(var entry in source.Entries) {
+    string path=Path.Combine(target,entry.FullName.Replace('/','\\')); byte[] actual=File.ReadAllBytes(path);
+    using(var input=entry.Open()) using(var output=new MemoryStream()) { input.CopyTo(output); Need(actual.LongLength==entry.Length && Hash(actual)==Hash(output.ToArray())); }
+   }
+  }
   string publishedIdentity=staged.RootIdentity;
   Phase="FIXTURE_BOOTSTRAP_REUSE"; Block(delegate { Bootstrap.StagePackage(zip,sha,head,target,sid,true); });
   Need(Hash(File.ReadAllBytes(Path.Combine(target,"source.zip")))==sha && Hash(File.ReadAllBytes(canary))==original);

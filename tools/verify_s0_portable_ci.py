@@ -23,7 +23,7 @@ def run():
    target=fixture/info.filename;target.parent.mkdir(parents=True,exist_ok=True)
    with target.open('xb') as f:f.write(z.read(info.filename))
  with (fixture/'source.zip').open('xb') as f:f.write(raw)
- (fixture/'temp').mkdir();manifest=verify_package(fixture,fixture/'source.zip',head,receipt['sha256'])
+ create_fresh_root(fixture/'temp',identity.sid);manifest=verify_package(fixture,fixture/'source.zip',head,receipt['sha256'])
  files=[fixture/n for n in manifest['files']]+[fixture/'s0-package.json',fixture/'source.zip'];runs=[]
  env={k:os.environ[k] for k in ('SystemRoot','WINDIR','USERPROFILE','LOCALAPPDATA','USERNAME','COMPUTERNAME') if k in os.environ};env.update(TEMP=str(fixture/'temp'),TMP=str(fixture/'temp'),PATH=str(Path(os.environ['SystemRoot'])/'System32'))
  with Custody(fixture,identity.sid,files) as custody:
@@ -52,6 +52,17 @@ def run():
   (ROOT/'s0-results/native-assets.json').write_text(json.dumps(dict(head=head,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],operator_sid=identity.sid,scope='HOSTED_READ_ONLY_DIAGNOSTICS_NOT_ACCEPTANCE',assets=assets),indent=2))
   ci_env=dict(env)
   for key in ('GITHUB_ACTIONS','RUNNER_ENVIRONMENT','GITHUB_REPOSITORY','GITHUB_JOB','EXACT_HEAD_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','RUNNER_TEMP'):ci_env[key]=os.environ[key]
+  native_custody.guard();child_source.guard()
+  with subprocess.Popen([str(native_build/'TokenObserverFixture.exe'),'--parent',str(fixture),identity.sid,head,str(fixture/'temp/token-observer-unused.json')],cwd=native_build,env=ci_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
+   token_out,token_err=child.communicate(timeout=100);token_exit=child.returncode
+  native_custody.guard();child_source.guard()
+  (ROOT/'s0-results/native-token-observer-raw.txt').write_bytes(token_out[:8192])
+  if token_exit!=0 or token_err or not 0<len(token_out)<=8192:raise RuntimeError('S0_TOKEN_FIXTURE_FAILED')
+  token_record=validate_token(load_json(token_out),head)
+  token_sources={n:hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest() for n in TOKEN_SOURCES}
+  token_record.update(run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],source_sha256=token_sources,binary_sha256={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in native_files if p.name in {'S0Launcher.dll','TokenObserverFixture.exe'}})
+  validate_token_record(token_record,dict(head=head,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT']),token_sources,manifest['files']['native/S0Launcher.dll']['sha256'])
+  with (ROOT/'s0-results/native-token-observer.json').open('x',encoding='utf-8') as token_file:json.dump(token_record,token_file,indent=2)
   with subprocess.Popen([str(native_build/'Fixture.exe'),'--parent',str(fixture),manifest['files']['runtime/python.exe']['sha256'],head,str(fixture/'temp/native-launcher.json')],cwd=native_build,env=ci_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
    native_out,native_err=child.communicate(timeout=100);native_exit=child.returncode
   native_custody.guard()
@@ -65,17 +76,7 @@ def run():
   native_record.update(run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],binary_sha256={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in native_files if p.name in {'Fixture.exe','S0Launcher.dll'}},source_sha256={n:hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest() for n in ('installer/physical-smoke-s0/S0Launcher.cs','installer/physical-smoke-s0-tests/Fixture.cs')})
   (ROOT/'s0-results/native-launcher.json').write_text(json.dumps(native_record,indent=2))
   collect_bootstrap(fixture,receipt['sha256'],head)
-  native_custody.guard();child_source.guard()
-  with subprocess.Popen([str(native_build/'TokenObserverFixture.exe'),'--parent',str(fixture),identity.sid,head,str(fixture/'temp/token-observer-unused.json')],cwd=native_build,env=ci_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
-   token_out,token_err=child.communicate(timeout=100);token_exit=child.returncode
-  native_custody.guard();child_source.guard()
-  (ROOT/'s0-results/native-token-observer-raw.txt').write_bytes(token_out[:8192])
-  if token_exit!=0 or token_err or not 0<len(token_out)<=8192:raise RuntimeError('S0_TOKEN_FIXTURE_FAILED')
-  token_record=validate_token(load_json(token_out),head)
-  token_sources={n:hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest() for n in TOKEN_SOURCES}
-  token_record.update(run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],source_sha256=token_sources,binary_sha256={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in native_files if p.name in {'S0Launcher.dll','TokenObserverFixture.exe'}})
-  validate_token_record(token_record,dict(head=head,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT']),token_sources,manifest['files']['native/S0Launcher.dll']['sha256'])
-  with (ROOT/'s0-results/native-token-observer.json').open('x',encoding='utf-8') as token_file:json.dump(token_record,token_file,indent=2)
+
  output=dict(head=head,tree=receipt['tree'],run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],package_sha256=receipt['sha256'],status='PORTABLE_PLAN_AND_IMPORTS_PASS',runs=runs,s0_execute=False,g1_execute=False,physical='NOT_RUN')
  (ROOT/'s0-results/portable.json').write_text(json.dumps(output,indent=2));verify_checkout(ROOT,head);print(json.dumps(output))
 

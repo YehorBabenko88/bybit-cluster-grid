@@ -34,8 +34,13 @@ namespace GridS0 {
    var pins=Obj(c["files"],"ca.pem","tls-cert.pem","peer-cert.pem","tls-key.pem"); foreach(var item in pins) { string digest=Str(item.Value); Need(Match(digest,"[0-9a-f]{64}") && Hash(p.Files[item.Key])==digest); }
    CanonicalInput(p.Files["config.json"],c);
    var stop=Obj(new Json(p.Files["stop.json"]).Read(),"head","run_id","role","stop"); Need(Str(stop["head"])==head && Str(stop["run_id"])==run && Str(stop["role"])=="PC4" && stop["stop"] is bool && !(bool)stop["stop"]); CanonicalInput(p.Files["stop.json"],stop);
+   // The archive is flat for transport, but cli.prepare consumes InputRoot/PC4/config.json.
+   // Prefix only after every archive member, config pin and stop record is validated.
+   var publication=new Package();
+   foreach(var item in p.Files) publication.Files.Add("PC4/"+item.Key,item.Value);
+   publication.Bytes=p.Bytes;
    // TLS semantic validation remains the Python prepare/runtime gate; import grants no execution.
-   return Publish(p,null,sha,head,target,sid,"GridS0Input-",stage);
+   return Publish(publication,null,sha,head,target,sid,"GridS0Input-",stage);
   }
   static byte[] CaptureInput(byte[] raw,string sha,int limit) { Need(raw!=null && raw.Length>0 && raw.Length<=limit && Match(sha,"[0-9a-f]{64}")); byte[] copy=(byte[])raw.Clone(); Need(Hash(copy)==sha); return copy; }
   static void ValidateInputPlan(Dictionary<string,object> p,string head,string run) {

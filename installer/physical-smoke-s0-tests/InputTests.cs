@@ -1,5 +1,7 @@
 using System;
 using System.Reflection;
+using System.Collections.Generic;
+using System.IO.Compression;
 using System.IO;
 using System.Text;
 using System.Security.Cryptography;
@@ -31,7 +33,39 @@ public static class InputTests {
   Phase="FIXTURE_INPUT_READBACK"; Need(Directory.GetFiles(target,"*",SearchOption.AllDirectories).Length==1 && Directory.GetDirectories(target).Length==0 && Hash(File.ReadAllBytes(input))==sha);
   Phase="FIXTURE_INPUT_REUSE"; Block(delegate { Bootstrap.StagePlanInput(raw,sha,head,run,target,sid,true); });
   Need(Hash(File.ReadAllBytes(input))==sha && Directory.GetFiles(target).Length==1);
+  HostedRoleImport(sid,head,local);
   // Retain the owned hosted fixture; no cleanup and no physical execution.
+ }
+ static byte[] Canonical(object value) { return Encoding.ASCII.GetBytes((string)typeof(Bootstrap).GetMethod("InputJson",BindingFlags.NonPublic|BindingFlags.Static).Invoke(null,new object[]{value})); }
+ static byte[] RoleArchive(Dictionary<string,byte[]> files) {
+  using(var output=new MemoryStream()) { using(var archive=new ZipArchive(output,ZipArchiveMode.Create,true)) { foreach(var item in files) { var entry=archive.CreateEntry(item.Key); entry.ExternalAttributes=unchecked((int)0x81a40000u); using(var stream=entry.Open()) stream.Write(item.Value,0,item.Value.Length); } } return output.ToArray(); }
+ }
+ static void HostedRoleImport(string sid,string head,string local) {
+  // Opaque synthetic bytes exercise the import contract only, never TLS validity.
+  string run=Guid.NewGuid().ToString("D"), packageSha=new string('b',64);
+  object plan=Decode(Encoding.ASCII.GetBytes(Plan.Replace(Head,head).Replace(Run,run).Replace("S-1-5-21-4-5-6-1002",sid)));
+  var files=new Dictionary<string,byte[]>(StringComparer.Ordinal); var pins=new Dictionary<string,object>(StringComparer.Ordinal);
+  foreach(string name in new[]{"ca.pem","tls-cert.pem","peer-cert.pem","tls-key.pem"}) { byte[] fake=Encoding.ASCII.GetBytes("SYNTHETIC HOSTED IMPORT FIXTURE, NOT TLS: "+name); files.Add(name,fake); pins.Add(name,Hash(fake)); }
+  files.Add("config.json",Canonical(new Dictionary<string,object> {{"schema",1L},{"profile","PHYSICAL_SMOKE_S0"},{"plan",plan},{"role","PC4"},{"package_sha256",packageSha},{"files",pins}}));
+  files.Add("stop.json",Canonical(new Dictionary<string,object> {{"head",head},{"run_id",run},{"role","PC4"},{"stop",false}}));
+  byte[] zip=RoleArchive(files); string sha=Hash(zip), target=Path.Combine(local,"GridS0Input-"+Guid.NewGuid().ToString("D")); int count=Directory.GetDirectories(local,".GridS0Transaction-*").Length;
+  Phase="FIXTURE_ROLE_IMPORT_PLAN"; BootstrapReceipt planned=Bootstrap.PlanRoleImport(zip,sha,head,run,packageSha,target,sid);
+  Need(planned.Status=="PLAN_ONLY" && planned.FileCount==6 && planned.RootIdentity==null && !Directory.Exists(target) && Directory.GetDirectories(local,".GridS0Transaction-*").Length==count);
+  Phase="FIXTURE_ROLE_IMPORT_NEGATIVES";
+  Block(delegate { Bootstrap.StageRoleImport(zip,sha,head,run,packageSha,target,sid,false); });
+  Block(delegate { Bootstrap.StageRoleImport(zip,sha,head,run,packageSha,target,"S-1-5-18",true); });
+  Block(delegate { Bootstrap.StageRoleImport(zip,new string('0',64),head,run,packageSha,target,sid,true); });
+  byte[] original=files["tls-key.pem"]; files["tls-key.pem"]=Encoding.ASCII.GetBytes("SYNTHETIC ALTERED KEY"); byte[] changed=RoleArchive(files); files["tls-key.pem"]=original;
+  Block(delegate { Bootstrap.StageRoleImport(changed,Hash(changed),head,run,packageSha,target,sid,true); });
+  Need(!Directory.Exists(target) && Directory.GetDirectories(local,".GridS0Transaction-*").Length==count);
+  Phase="FIXTURE_ROLE_IMPORT_STAGE"; BootstrapReceipt staged=Bootstrap.StageRoleImport(zip,sha,head,run,packageSha,target,sid,true);
+  Need(staged.Status=="STAGED_NO_EXECUTION_AUTHORITY" && staged.FileCount==6 && staged.Bytes==planned.Bytes && staged.ParentIdentity==planned.ParentIdentity && staged.RootIdentity!=null && !staged.S0Execute && !staged.G1Execute && !staged.Cleanup);
+  Phase="FIXTURE_ROLE_IMPORT_READBACK"; string pc4=Path.Combine(target,"PC4"); Need(Directory.GetDirectories(target).Length==1 && Directory.Exists(pc4) && Directory.GetDirectories(pc4).Length==0 && Directory.GetFiles(target).Length==0);
+  var expected=new HashSet<string>(StringComparer.Ordinal); long total=0;
+  foreach(var item in files) { string path=Path.Combine(pc4,item.Key); expected.Add(path); Need(Hash(File.ReadAllBytes(path))==Hash(item.Value)); total+=item.Value.LongLength; }
+  Need(expected.SetEquals(Directory.GetFiles(target,"*",SearchOption.AllDirectories)) && total==staged.Bytes);
+  Phase="FIXTURE_ROLE_IMPORT_REUSE"; Block(delegate { Bootstrap.StageRoleImport(zip,sha,head,run,packageSha,target,sid,true); });
+  foreach(var item in files) Need(Hash(File.ReadAllBytes(Path.Combine(pc4,item.Key)))==Hash(item.Value));
  }
  public static void Pure() {
   Validate(Plan);

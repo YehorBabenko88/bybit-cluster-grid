@@ -46,3 +46,15 @@ def test_token_policy_rejects_disabled_elevated_privilege_presence():
     source = (ROOT / 'installer/physical-smoke-s0/TokenObserver.cs').read_text()
     assert '!StandardPrivileges.Contains(p.Name)' in source
     assert 'o.Groups.Length==0' in source
+
+
+def test_hosted_receipt_temp_is_new_protected_directory_not_admin_default():
+    source = (ROOT / 'tools/verify_s0_portable_ci.py').read_text()
+    assert "create_fresh_root(fixture/'temp',identity.sid)" in source
+    assert "(fixture/'temp').mkdir()" not in source
+
+
+def test_role_import_retains_pc4_input_namespace():
+    source = (ROOT / 'installer/physical-smoke-s0/S0Inputs.cs').read_text()
+    assert '"PC4/"+item.Key' in source
+    assert 'config.json' in source

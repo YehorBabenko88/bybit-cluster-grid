@@ -1,9 +1,11 @@
 {
   "schema": 1,
   "nodes": [
+    "tests/test_s0_bootstrap_loader.py::test_hosted_receipt_temp_is_new_protected_directory_not_admin_default",
     "tests/test_s0_bootstrap_loader.py::test_initial_literal_loader_matches_reviewed_script_body",
     "tests/test_s0_bootstrap_loader.py::test_loader_authenticates_captured_bytes_before_loading_native_code",
     "tests/test_s0_bootstrap_loader.py::test_loader_has_no_extraction_compiler_or_system_mutator",
+    "tests/test_s0_bootstrap_loader.py::test_role_import_retains_pc4_input_namespace",
     "tests/test_s0_bootstrap_loader.py::test_token_output_does_not_serialize_host_sid_or_groups",
     "tests/test_s0_bootstrap_loader.py::test_token_policy_rejects_disabled_elevated_privilege_presence",
     "tests/test_s0_cli.py::test_mutation_without_approval_never_dispatches[evidence]",
@@ -363,6 +365,10 @@
   "junit_cases": [
     [
       "tests.test_s0_bootstrap_loader",
+      "test_hosted_receipt_temp_is_new_protected_directory_not_admin_default"
+    ],
+    [
+      "tests.test_s0_bootstrap_loader",
       "test_initial_literal_loader_matches_reviewed_script_body"
     ],
     [
@@ -372,6 +378,10 @@
     [
       "tests.test_s0_bootstrap_loader",
       "test_loader_has_no_extraction_compiler_or_system_mutator"
+    ],
+    [
+      "tests.test_s0_bootstrap_loader",
+      "test_role_import_retains_pc4_input_namespace"
     ],
     [
       "tests.test_s0_bootstrap_loader",
