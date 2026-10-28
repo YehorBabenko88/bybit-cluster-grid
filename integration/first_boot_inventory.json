@@ -1206,6 +1206,10 @@
     "tests/test_s0_evidence.py::test_forged_or_interrupted_evidence[sequence]",
     "tests/test_s0_evidence.py::test_forged_or_interrupted_evidence[truncate]",
     "tests/test_s0_evidence.py::test_rebound_secret_index_still_refused",
+    "tests/test_s0_independent_acceptance.py::test_actual_powershell_loader_plan_receipt_required[coerced]",
+    "tests/test_s0_independent_acceptance.py::test_actual_powershell_loader_plan_receipt_required[false]",
+    "tests/test_s0_independent_acceptance.py::test_actual_powershell_loader_plan_receipt_required[missing]",
+    "tests/test_s0_independent_acceptance.py::test_actual_powershell_loader_source_pin_required",
     "tests/test_s0_independent_acceptance.py::test_archive_paths_rejected[../a]",
     "tests/test_s0_independent_acceptance.py::test_archive_paths_rejected[/a]",
     "tests/test_s0_independent_acceptance.py::test_archive_paths_rejected[C:a]",
@@ -1403,6 +1407,8 @@
     "tests/test_s0_runtime.py::test_runtime_async_component_contract[public_connection-arguments2]",
     "tests/test_s0_runtime.py::test_runtime_async_component_contract[worker-arguments1]",
     "tests/test_s0_runtime.py::test_runtime_has_no_production_or_database_imports",
+    "tests/test_s0_ssh_transfer_plan.py::SshTransferPlanTests::test_plan_is_inert_and_pinned",
+    "tests/test_s0_ssh_transfer_plan.py::SshTransferPlanTests::test_rejects_unapproved_or_injectable_inputs",
     "tests/test_s0_storage.py::test_bounded_append",
     "tests/test_s0_storage.py::test_chain_and_no_overwrite",
     "tests/test_s0_storage.py::test_corrupt_stop_fails_closed",
@@ -6520,6 +6526,22 @@
     ],
     [
       "tests.test_s0_independent_acceptance",
+      "test_actual_powershell_loader_plan_receipt_required[coerced]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_actual_powershell_loader_plan_receipt_required[false]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_actual_powershell_loader_plan_receipt_required[missing]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_actual_powershell_loader_source_pin_required"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
       "test_archive_paths_rejected[../a]"
     ],
     [
@@ -7305,6 +7327,14 @@
     [
       "tests.test_s0_runtime",
       "test_runtime_has_no_production_or_database_imports"
+    ],
+    [
+      "tests.test_s0_ssh_transfer_plan.SshTransferPlanTests",
+      "test_plan_is_inert_and_pinned"
+    ],
+    [
+      "tests.test_s0_ssh_transfer_plan.SshTransferPlanTests",
+      "test_rejects_unapproved_or_injectable_inputs"
     ],
     [
       "tests.test_s0_storage",

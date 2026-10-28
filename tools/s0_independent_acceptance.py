@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 LIMIT = 512 * 1024 * 1024
 ENTRY = 64 * 1024 * 1024
 COUNT = 20000
-REQUIREMENTS_VERSION = 3
+REQUIREMENTS_VERSION = 4
 REQUIRED_SOURCES = frozenset(('s0_smoke/cli.py','s0_smoke/entry.py','installer/physical-smoke-s0.ps1','installer/physical-smoke-s0/S0Launcher.cs','docs/PHYSICAL_SMOKE_S0.md','installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0/S0Bootstrap.cs','installer/physical-smoke-s0/S0Inputs.cs','installer/physical-smoke-s0-bootstrap.ps1','docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md','docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md'))
 
 
@@ -116,8 +116,8 @@ def native(record, context, files, provider):
         need(sid == observed)
 
 
-BOOTSTRAP_CASES = frozenset(('plan_no_write','unapproved_rejected','wrong_sha_rejected','wrong_sid_rejected','outside_parent_rejected','stage_closure','existing_target_rejected','concurrent_no_replace','canary_unchanged'))
-BOOTSTRAP_SOURCES = frozenset(('installer/physical-smoke-s0/S0Launcher.cs','installer/physical-smoke-s0/S0Bootstrap.cs','installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0/S0Inputs.cs','installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs','tools/verify_s0_bootstrap_ci.py'))
+BOOTSTRAP_CASES = frozenset(('plan_no_write','unapproved_rejected','wrong_sha_rejected','wrong_sid_rejected','outside_parent_rejected','stage_closure','existing_target_rejected','concurrent_no_replace','canary_unchanged','powershell_loader_plan_only'))
+BOOTSTRAP_SOURCES = frozenset(('installer/physical-smoke-s0/S0Launcher.cs','installer/physical-smoke-s0/S0Bootstrap.cs','installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0/S0Inputs.cs','installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs','installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1','tools/verify_s0_bootstrap_ci.py'))
 TOKEN_SOURCES = frozenset(('installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0-tests/TokenObserverTests.cs','installer/physical-smoke-s0-tests/TokenObserverFixture.cs'))
 TOKEN_TRUE = frozenset(('pure_cases','parent_admin_rejected','standard_primary_accepted','sid_matches','wrong_sid_rejected','medium'))
 

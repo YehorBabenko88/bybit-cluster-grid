@@ -6,6 +6,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Security.Principal;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Diagnostics;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using GridS0;
 public static class BootstrapTests {
  public static string Phase="FIXTURE_BOOTSTRAP_START";
@@ -20,6 +25,7 @@ public static class BootstrapTests {
   Phase="FIXTURE_INPUTS"; InputTests.Pure(); InputTests.Hosted(sid,head); Phase="FIXTURE_BOOTSTRAP_PACKAGE";
   string local=Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
   byte[] zip=File.ReadAllBytes(Path.Combine(root,"source.zip")); string sha=Hash(zip);
+  HostedLoaderPlan(root,sha,head,sid);
   string target=Path.Combine(local,"GridS0Package-"+Guid.NewGuid().ToString("D"));
   string canary=Path.Combine(root,"runtime","python.exe"); string original=Hash(File.ReadAllBytes(canary));
   string[] transactions=Directory.GetDirectories(local,".GridS0Transaction-*");
@@ -68,9 +74,49 @@ public static class BootstrapTests {
   Phase="FIXTURE_BOOTSTRAP_RACE_CANARY_READ"; byte[] raceCanary=File.ReadAllBytes(canary);
   Phase="FIXTURE_BOOTSTRAP_RACE_CANARY_HASH"; Need(Hash(raceCanary)==original);
   Phase="FIXTURE_BOOTSTRAP_RECEIPT";
-  string receipt="{\"scope\":\"HOSTED_BOOTSTRAP_NOT_PHYSICAL\",\"head\":\""+head+"\",\"package_sha256\":\""+sha+"\",\"status\":\"PASS\",\"plan_no_write\":true,\"unapproved_rejected\":true,\"wrong_sha_rejected\":true,\"wrong_sid_rejected\":true,\"outside_parent_rejected\":true,\"stage_closure\":true,\"existing_target_rejected\":true,\"concurrent_no_replace\":true,\"canary_unchanged\":true,\"s0_execute\":false,\"g1_execute\":false,\"cleanup\":false}";
+  string receipt="{\"scope\":\"HOSTED_BOOTSTRAP_NOT_PHYSICAL\",\"head\":\""+head+"\",\"package_sha256\":\""+sha+"\",\"status\":\"PASS\",\"plan_no_write\":true,\"unapproved_rejected\":true,\"wrong_sha_rejected\":true,\"wrong_sid_rejected\":true,\"outside_parent_rejected\":true,\"stage_closure\":true,\"existing_target_rejected\":true,\"concurrent_no_replace\":true,\"canary_unchanged\":true,\"powershell_loader_plan_only\":true,\"s0_execute\":false,\"g1_execute\":false,\"cleanup\":false}";
   using(var stream=new FileStream(Path.Combine(root,"temp","bootstrap.json"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) { byte[] bytes=Encoding.UTF8.GetBytes(receipt); stream.Write(bytes,0,bytes.Length); stream.Flush(true); }
   // Owned successful/partial fixture roots deliberately remain; no auto cleanup/adoption.
+ }
+ [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
+ [DllImport("kernel32.dll",SetLastError=true)] static extern bool IsProcessInJob(IntPtr process,IntPtr job,out bool member);
+ static string QuoteLoader(string value) { Need(value!=null && value.IndexOfAny(new[]{'"','\0','\r','\n'})<0 && !value.EndsWith("\\",StringComparison.Ordinal)); return "\""+value+"\""; }
+ static byte[] ReadLoaderOutput(Stream input) {
+  using(var output=new MemoryStream()) { byte[] buffer=new byte[1024]; int read; while((read=input.Read(buffer,0,buffer.Length))>0) { Need(output.Length+read<=4096); output.Write(buffer,0,read); } return output.ToArray(); }
+ }
+ public static void HostedLoaderPlan(string root,string sha,string head,string sid) {
+  Phase="FIXTURE_LOADER_HOSTED_GATE";
+  Need(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true" && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT")=="github-hosted" && Environment.GetEnvironmentVariable("GITHUB_REPOSITORY")=="YehorBabenko88/bybit-cluster-grid" && Environment.GetEnvironmentVariable("GITHUB_JOB")=="s0-windows");
+  Need(!String.Equals(Environment.MachineName,"LS5",StringComparison.OrdinalIgnoreCase) && !String.Equals(Environment.MachineName,"PC4",StringComparison.OrdinalIgnoreCase)); TokenObserver.RequireStandard(sid);
+  string shell=Environment.GetEnvironmentVariable("S0_TEST_SHELL_PATH"), major=Environment.GetEnvironmentVariable("S0_TEST_SHELL_MAJOR"), shellSha=Environment.GetEnvironmentVariable("S0_TEST_SHELL_SHA");
+  Need(major=="5" || major=="7");
+  string allowed=major=="5"?Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"WindowsPowerShell","v1.0","powershell.exe"):Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"PowerShell","7","pwsh.exe");
+  Need(shell!=null && shell==Path.GetFullPath(shell) && String.Equals(shell,allowed,StringComparison.OrdinalIgnoreCase) && shellSha!=null && System.Text.RegularExpressions.Regex.IsMatch(shellSha,"\\A[0-9a-f]{64}\\z"));
+  string driver=Path.Combine(root,"temp","bootstrap-loader-test.ps1"), loader=Path.Combine(root,"installer","physical-smoke-s0-bootstrap.ps1");
+  string target=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"GridS0Package-"+Guid.NewGuid().ToString("D")); Need(!File.Exists(target) && !Directory.Exists(target));
+  Need((File.GetAttributes(driver)&FileAttributes.ReparsePoint)==0 && (File.GetAttributes(loader)&FileAttributes.ReparsePoint)==0);
+  bool member; Need(IsProcessInJob(GetCurrentProcess(),IntPtr.Zero,out member) && member);
+  Phase="FIXTURE_LOADER_SHELL_PIN";
+  using(var lease=new FileStream(shell,FileMode.Open,FileAccess.Read,FileShare.Read)) {
+   using(var hash=SHA256.Create()) Need(BitConverter.ToString(hash.ComputeHash(lease)).Replace("-","").ToLowerInvariant()==shellSha);
+   var start=new ProcessStartInfo { FileName=shell,Arguments="-NoLogo -NoProfile -NonInteractive -File "+QuoteLoader(driver)+" -Root "+QuoteLoader(root)+" -Head "+QuoteLoader(head)+" -Sha "+QuoteLoader(sha)+" -Sid "+QuoteLoader(sid)+" -Target "+QuoteLoader(target)+" -Loader "+QuoteLoader(loader),UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=root,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true };
+   Phase="FIXTURE_LOADER_PROCESS_START";
+   using(var child=Process.Start(start)) {
+    Need(child!=null); child.StandardInput.Close(); Need(IsProcessInJob(child.Handle,IntPtr.Zero,out member) && member);
+    Task<byte[]> stdout=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardOutput.BaseStream); });
+    Task<byte[]> stderr=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardError.BaseStream); });
+    Phase="FIXTURE_LOADER_PROCESS_WAIT"; Need(child.WaitForExit(30000));
+    Phase="FIXTURE_LOADER_OUTPUT_WAIT"; Need(Task.WaitAll(new Task[]{stdout,stderr},5000)); Need(child.ExitCode==0 && stderr.Result.Length==0);
+    Phase="FIXTURE_LOADER_OUTPUT_VALIDATE"; byte[] bytes=stdout.Result;
+    Type jsonType=typeof(Bootstrap).GetNestedType("Json",BindingFlags.NonPublic); object json=Activator.CreateInstance(jsonType,BindingFlags.NonPublic|BindingFlags.Instance,null,new object[]{bytes},null);
+    var value=jsonType.GetMethod("Read",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(json,null) as Dictionary<string,object>;
+    Need(value!=null && value.Count==9); foreach(string key in new[]{"head","scope","loader_plan_only","shell_major","s0_execute","g1_execute","cleanup","root_absent","standard_primary"}) Need(value.ContainsKey(key));
+    Need(value["head"] is string && (string)value["head"]==head && value["scope"] is string && (string)value["scope"]=="HOSTED_LOADER_NOT_PHYSICAL" && value["shell_major"] is long && (long)value["shell_major"]==(major=="5"?5L:7L));
+    foreach(string key in new[]{"loader_plan_only","root_absent","standard_primary"}) Need(value[key] is bool && (bool)value[key]); foreach(string key in new[]{"s0_execute","g1_execute","cleanup"}) Need(value[key] is bool && !(bool)value[key]);
+   }
+  }
+  Phase="FIXTURE_LOADER_TARGET_ABSENT"; Need(!File.Exists(target) && !Directory.Exists(target));
+  // No timeout kill by PID: failure unwinds to the fixture parent's owned Job.
  }
  static void RaceAttempt(int index,byte[] zip,string sha,string head,string target,string sid,ref int winners,ref int blocked,Exception[] failures,string[] phases) {
   try {

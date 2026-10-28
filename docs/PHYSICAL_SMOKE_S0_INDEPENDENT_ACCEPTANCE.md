@@ -26,7 +26,7 @@ The public raw sample is a hash-only integrity observation when raw bytes are no
 
 ## Reproducible offline checker
 
-`tools/s0_independent_acceptance.py` is a separately implemented standard-library checker. It imports no producer verifier, performs no network/native/host queries, starts no process and extracts or executes no ZIP member. It reads one original hosted artifact ZIP and inner receipt/package ZIP in memory. Limits: 512 MiB outer/archive aggregate, 64 MiB per member, 20,000 members; encrypted, symlink, unsafe, duplicate and case-colliding members fail. Requirements version 3 requires the implemented TokenObserver, Bootstrap,
+`tools/s0_independent_acceptance.py` is a separately implemented standard-library checker. It imports no producer verifier, performs no network/native/host queries, starts no process and extracts or executes no ZIP member. It reads one original hosted artifact ZIP and inner receipt/package ZIP in memory. Limits: 512 MiB outer/archive aggregate, 64 MiB per member, 20,000 members; encrypted, symlink, unsafe, duplicate and case-colliding members fail. Requirements version 4 requires the implemented TokenObserver, Bootstrap,
 Inputs, bootstrap loader and command/checklist sources, plus closed original
 bootstrap/token receipts with raw-byte hashes and exact context/source bindings.
 Older packages without these records are unsupported and BLOCKED.
@@ -70,3 +70,9 @@ disabled: assigned disabled privileges can be re-enabled by the token holder.
 Only ChangeNotify, Shutdown, IncreaseWorkingSet, TimeZone and Undock may be
 present, and only ChangeNotify may be enabled. Unknown membership/effective ACL
 rights remain a separate private G0 review; this predicate is not a sandbox.
+
+Version 4 additionally requires actual PlanOnly invocation of the authentic-first
+bootstrap loader inside the hosted Medium shell, with PowerShell 5 and 7 matrix
+cells. Parsing script syntax or executing a C# helper under a shell is not this
+observation. The new boolean must be literal true, with the loader test source
+independently pinned; older v3 artifacts do not satisfy this new requirement.

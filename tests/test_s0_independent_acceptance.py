@@ -197,3 +197,18 @@ def test_raw_preparation_booleans_cannot_be_coerced(component):
     record=strict_json(outer[path]); facts=strict_json(outer[rawpath]); facts[field]=1; outer[rawpath]=raw(facts)
     if component=='bootstrap': record['fixture_sha256']=sha(outer[rawpath]); outer[path]=raw(record)
     with pytest.raises(ValueError): accepted(outer,sources)
+
+
+@pytest.mark.parametrize('mutation',['missing','false','coerced'])
+def test_actual_powershell_loader_plan_receipt_required(mutation):
+    outer,sources=fixture(); path='s0-results/native-bootstrap.json'
+    record=strict_json(outer[path])
+    if mutation=='missing': del record['powershell_loader_plan_only']
+    else: record['powershell_loader_plan_only']=False if mutation=='false' else 1
+    outer[path]=raw(record)
+    with pytest.raises(ValueError): accepted(outer,sources)
+
+def test_actual_powershell_loader_source_pin_required():
+    outer,sources=fixture(); path='s0-results/native-bootstrap.json'
+    record=strict_json(outer[path]); del record['source_sha256']['installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1']; outer[path]=raw(record)
+    with pytest.raises(ValueError): accepted(outer,sources)

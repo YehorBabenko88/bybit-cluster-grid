@@ -8,7 +8,7 @@ from tools.s0_native_receipt import validate_native
 from tools.s0_preparation_receipt import TOKEN_SOURCES,validate_token,validate_token_record
 from tools.verify_s0_bootstrap_ci import collect as collect_bootstrap
 from s0_smoke.policy import load_json
-from s0_smoke.windows import current_identity,create_fresh_root,Custody
+from s0_smoke.windows import current_identity,create_fresh_root,create_fresh_file,Custody
 
 def run():
  import socket
@@ -23,7 +23,9 @@ def run():
    target=fixture/info.filename;target.parent.mkdir(parents=True,exist_ok=True)
    with target.open('xb') as f:f.write(z.read(info.filename))
  with (fixture/'source.zip').open('xb') as f:f.write(raw)
- create_fresh_root(fixture/'temp',identity.sid);manifest=verify_package(fixture,fixture/'source.zip',head,receipt['sha256'])
+ create_fresh_root(fixture/'temp',identity.sid)
+ create_fresh_file(fixture/'temp/bootstrap-loader-test.ps1',identity.sid,subprocess.check_output(['git','show',head+':installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1'],cwd=ROOT))
+ manifest=verify_package(fixture,fixture/'source.zip',head,receipt['sha256'])
  files=[fixture/n for n in manifest['files']]+[fixture/'s0-package.json',fixture/'source.zip'];runs=[]
  env={k:os.environ[k] for k in ('SystemRoot','WINDIR','USERPROFILE','LOCALAPPDATA','USERNAME','COMPUTERNAME') if k in os.environ};env.update(TEMP=str(fixture/'temp'),TMP=str(fixture/'temp'),PATH=str(Path(os.environ['SystemRoot'])/'System32'))
  with Custody(fixture,identity.sid,files) as custody:
@@ -51,7 +53,7 @@ def run():
    finally:api.close(handle)
   (ROOT/'s0-results/native-assets.json').write_text(json.dumps(dict(head=head,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],operator_sid=identity.sid,scope='HOSTED_READ_ONLY_DIAGNOSTICS_NOT_ACCEPTANCE',assets=assets),indent=2))
   ci_env=dict(env)
-  for key in ('GITHUB_ACTIONS','RUNNER_ENVIRONMENT','GITHUB_REPOSITORY','GITHUB_JOB','EXACT_HEAD_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','RUNNER_TEMP'):ci_env[key]=os.environ[key]
+  for key in ('GITHUB_ACTIONS','RUNNER_ENVIRONMENT','GITHUB_REPOSITORY','GITHUB_JOB','EXACT_HEAD_SHA','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','RUNNER_TEMP','S0_TEST_SHELL_PATH','S0_TEST_SHELL_MAJOR','S0_TEST_SHELL_SHA'):ci_env[key]=os.environ[key]
   native_custody.guard();child_source.guard()
   with subprocess.Popen([str(native_build/'TokenObserverFixture.exe'),'--parent',str(fixture),identity.sid,head,str(fixture/'temp/token-observer-unused.json')],cwd=native_build,env=ci_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
    token_out,token_err=child.communicate(timeout=100);token_exit=child.returncode

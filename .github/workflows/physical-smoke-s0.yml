@@ -68,6 +68,12 @@ jobs:
           $ErrorActionPreference='Stop'
           if((& git rev-parse HEAD) -cne $env:EXACT_HEAD_SHA){throw 'S0_HEAD_MISMATCH'}
           "EXACT_TREE_SHA=$(& git rev-parse 'HEAD^{tree}')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $testShell=[Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+          $testMajor=[int]$PSVersionTable.PSVersion.Major
+          if($testMajor -notin @(5,7)){throw 'S0_TEST_SHELL_VERSION'}
+          "S0_TEST_SHELL_PATH=$testShell" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "S0_TEST_SHELL_MAJOR=$testMajor" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "S0_TEST_SHELL_SHA=$((Get-FileHash -LiteralPath $testShell -Algorithm SHA256).Hash.ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $tokens=$null;$errors=$null
           [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'installer/physical-smoke-s0.ps1'),[ref]$tokens,[ref]$errors)
           if($errors.Count){throw 'S0_POWERSHELL_SYNTAX'}
