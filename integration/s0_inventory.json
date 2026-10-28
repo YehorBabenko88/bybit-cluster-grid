@@ -9,6 +9,8 @@
     "tests/test_s0_cli.py::test_plan_has_no_host_calls",
     "tests/test_s0_cli.py::test_runtime_budget_subtracts_startup_and_finish_reserve",
     "tests/test_s0_cli.py::test_watchdog_only_own_exit_callback",
+    "tests/test_s0_evidence.py::test_ci_component_pair_cannot_reuse_another_run_or_counter_summary",
+    "tests/test_s0_evidence.py::test_ci_junit_subtests_count_without_accepting_missing_or_inflated_cases",
     "tests/test_s0_evidence.py::test_ci_receipt_rejects_cross_run_or_tree_substitution[attempt]",
     "tests/test_s0_evidence.py::test_ci_receipt_rejects_cross_run_or_tree_substitution[head]",
     "tests/test_s0_evidence.py::test_ci_receipt_rejects_cross_run_or_tree_substitution[run_id]",
@@ -162,6 +164,7 @@
     "tests/test_s0_public_probe.py::test_invalid_context_fails_closed[GITHUB_RUN_ID-0]",
     "tests/test_s0_public_probe.py::test_invalid_context_fails_closed[RUNNER_ENVIRONMENT-self-hosted]",
     "tests/test_s0_public_probe.py::test_invalid_context_fails_closed[RUNNER_OS-Linux]",
+    "tests/test_s0_public_probe.py::test_public_protocol_diagnostics_never_echo_unknown_or_secret_errors",
     "tests/test_s0_public_probe.py::test_real_physical_hostname_is_blocked[LS5.example]",
     "tests/test_s0_public_probe.py::test_real_physical_hostname_is_blocked[LS5]",
     "tests/test_s0_public_probe.py::test_real_physical_hostname_is_blocked[pc4]",
@@ -309,6 +312,14 @@
     [
       "tests.test_s0_cli",
       "test_watchdog_only_own_exit_callback"
+    ],
+    [
+      "tests.test_s0_evidence",
+      "test_ci_component_pair_cannot_reuse_another_run_or_counter_summary"
+    ],
+    [
+      "tests.test_s0_evidence",
+      "test_ci_junit_subtests_count_without_accepting_missing_or_inflated_cases"
     ],
     [
       "tests.test_s0_evidence",
@@ -921,6 +932,10 @@
     [
       "tests.test_s0_public_probe",
       "test_invalid_context_fails_closed[RUNNER_OS-Linux]"
+    ],
+    [
+      "tests.test_s0_public_probe",
+      "test_public_protocol_diagnostics_never_echo_unknown_or_secret_errors"
     ],
     [
       "tests.test_s0_public_probe",

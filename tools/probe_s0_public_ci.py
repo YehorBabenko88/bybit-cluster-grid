@@ -18,6 +18,11 @@ import time
 
 ERRORS = frozenset({'INCOMPLETE', 'TIMEOUT', 'HTTP_ERROR', 'TLS_ERROR', 'TRANSPORT_ERROR', 'PROTOCOL_ERROR', 'UNEXPECTED_ERROR'})
 
+def protocol_detail(error):
+    allowed={'S0_REDIRECT_BLOCKED','PROBE_TOPIC_BEFORE_ACK','PROBE_SUBSCRIBE_REJECTED','PROBE_PUBLIC_CONTROL','PROBE_FRAME_TYPE'}
+    value=error.args[0] if len(error.args)==1 else None
+    return value if type(value) is str and len(value)<=80 and value in allowed else 'UNKNOWN_VALUE_ERROR'
+
 
 def hosted_context(env, hostname):
     """Validate supplied metadata without enumerating or serializing environment."""
@@ -57,7 +62,7 @@ async def collect(context):
     from s0_smoke.protocol import MarketState
     from s0_smoke.runtime import public_connection, trace
     started = time.monotonic()
-    ack = False; books = 0; trades = 0; error = None; http_status = None; samples = []
+    ack = False; books = 0; trades = 0; error = None; http_status = None; samples = [];detail=None;last_operation='TLS_WEBSOCKET_CONNECT'
     state = MarketState()
     tls = ssl.create_default_context(); tls.minimum_version = ssl.TLSVersion.TLSv1_2
     try:
@@ -68,10 +73,13 @@ async def collect(context):
                     cookie_jar=aiohttp.DummyCookieJar(), trace_configs=[trace()]) as session:
                 ws = await public_connection(session)
                 try:
+                    last_operation='SUBSCRIBE_SEND'
                     await ws.send_json(outbound('subscribe'))
                     while not (books and trades):
+                        last_operation='FRAME_RECEIVE'
                         message = await ws.receive()
                         if message.type == aiohttp.WSMsgType.TEXT:
+                            last_operation='FRAME_VALIDATE'
                             value = load_json(message.data)
                             if 'topic' in value:
                                 if not ack or value.get('topic') not in TOPICS:
@@ -103,14 +111,14 @@ async def collect(context):
     except (aiohttp.ClientConnectorCertificateError, aiohttp.ClientSSLError, ssl.SSLError): error = 'TLS_ERROR'
     except TimeoutError: error = 'TIMEOUT'
     except (aiohttp.ClientError, OSError): error = 'TRANSPORT_ERROR'
-    except ValueError: error = 'PROTOCOL_ERROR'
+    except ValueError as failure: error = 'PROTOCOL_ERROR';detail=protocol_detail(failure)
     except Exception: error = 'UNEXPECTED_ERROR'
     if error is None and not (ack and books and trades): error = 'INCOMPLETE'
     status = validate_observation(ack, books, trades, error, http_status)
     return dict(schema=1, **context, scope='PUBLIC_HOSTED_DIAGNOSTIC_ONLY', physical_ready=False,
         s0_execute=False, g1_execute=False, status=status,
         counts=dict(subscribe_ack=ack, book_samples=books, trade_samples=trades, samples=len(samples)),
-        duration_ms=int((time.monotonic()-started)*1000), error=error, http_status=http_status, samples=samples)
+        duration_ms=int((time.monotonic()-started)*1000), error=error, http_status=http_status, samples=samples,detail=detail,last_operation=last_operation)
 
 
 def main():

@@ -48,3 +48,23 @@ def test_ci_receipt_rejects_cross_run_or_tree_substitution(field):
  with pytest.raises(RuntimeError):require_context(wrong,expected)
  wrong=dict(expected);del wrong[field]
  with pytest.raises(RuntimeError):require_context(wrong,expected)
+
+def test_ci_junit_subtests_count_without_accepting_missing_or_inflated_cases():
+ from tools.verify_s0_artifacts_ci import require_junit_counts
+ import xml.etree.ElementTree as E
+ def xml(n):return E.fromstring('<testsuites><testsuite tests="'+n+'" /></testsuites>')
+ require_junit_counts(xml('3'),[1,2],1)
+ for n,cases,subtests in [('2',[1,2],1),('4',[1,2],1),('3',[1],1),('3',[1,2],0),('3_0',[1,2],1),('-3',[1,2],1)]:
+  with pytest.raises(RuntimeError):require_junit_counts(xml(n),cases,subtests)
+
+def test_ci_component_pair_cannot_reuse_another_run_or_counter_summary():
+ from tools.verify_s0_artifacts_ci import require_component_pair
+ import copy
+ a=dict(head='a'*40,tree='b'*40,run_id='11111111-1111-4111-8111-111111111111',role='LS5',result=dict(final=True,heartbeats=3,stats={'trade_count':1}))
+ b=copy.deepcopy(a);b['role']='PC4';require_component_pair(a,b,a['head'],a['tree'])
+ for key,value in [('head','c'*40),('tree','c'*40),('run_id','22222222-2222-4222-8222-222222222222'),('role','LS5')]:
+  wrong=copy.deepcopy(b);wrong[key]=value
+  with pytest.raises(RuntimeError):require_component_pair(a,wrong,a['head'],a['tree'])
+ for key,value in [('final',False),('heartbeats',4),('stats',{'trade_count':2})]:
+  wrong=copy.deepcopy(b);wrong['result'][key]=value
+  with pytest.raises(RuntimeError):require_component_pair(a,wrong,a['head'],a['tree'])

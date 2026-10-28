@@ -15,6 +15,20 @@ def require_context(record,expected):
  need(type(record) is dict and type(expected) is dict)
  need(all(type(record.get(k)) is str and record.get(k)==v for k,v in expected.items()))
 
+def require_junit_counts(xml,cases,subtests):
+ suites=list(xml.iter('testsuite'));need(len(suites)==1 and type(subtests) is int and subtests>=0)
+ declared=suites[0].get('tests')
+ need(type(declared) is str and declared.isascii() and declared.isdecimal())
+ need(int(declared)==len(cases)+subtests)
+
+def require_component_pair(coordinator,worker,head,tree):
+ require_context(coordinator,dict(head=head,tree=tree,role='LS5'))
+ need(type(coordinator.get('run_id')) is str)
+ require_context(worker,dict(head=head,tree=tree,role='PC4',run_id=coordinator['run_id']))
+ a=coordinator['result'];b=worker['result']
+ need(a['final'] is True and b['final'] is True)
+ need(a['stats']==b['stats'] and a['heartbeats']==b['heartbeats'])
+
 def run(directory):
  head=os.environ['EXACT_HEAD_SHA'];verify_checkout(ROOT,head);root=Path(directory);folders=[p for p in root.iterdir() if p.is_dir()]
  context=dict(head=head,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'])
@@ -31,7 +45,9 @@ def run(directory):
   raw_xml=(data/(phase+'.xml')).read_bytes();need(len(raw_xml)<=2097152 and b'<!DOCTYPE' not in raw_xml.upper() and b'<!ENTITY' not in raw_xml.upper());xml=E.ElementTree(E.fromstring(raw_xml));need(not list(xml.iter('failure')) and not list(xml.iter('error')) and not list(xml.iter('skipped')))
   cases=sorted([c.get('classname'),c.get('name')] for c in xml.iter('testcase'))
   need(cases==inventory['junit_cases'] if not hosted else sorted(n for _,n in cases)==sorted(n.split('::')[-1] for n in inventory['hosted_nodes']))
-  need(sum(int(s.get('tests','0')) for s in xml.iter('testsuite'))==len(cases))
+  expected_subtests=0 if hosted else len(inventory['subtests'])
+  need(type(idx['subtests']) is int and idx['subtests']==expected_subtests)
+  require_junit_counts(xml,cases,expected_subtests)
   for suite in xml.iter('testsuite'):need(all(int(suite.get(k,'0'))==0 for k in ('errors','failures','skipped')) and suite.get('head')==head and suite.get('run_id')==os.environ['GITHUB_RUN_ID'] and suite.get('attempt')==os.environ['GITHUB_RUN_ATTEMPT'])
   lines=[json.loads(x) for x in (data/(phase+'.jsonl')).read_text().splitlines()];need([x['node'] for x in lines]==idx['nodes'] and all((x['head'],x['run_id'],x['attempt'])==(head,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT']) and x['g1_execute'] is False and x['physical_sid_acl']=='0/10 NOT_RUN' and x['status']=='TEST_PASS' for x in lines))
   if hosted:
@@ -50,9 +66,12 @@ def run(directory):
      need(hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest()==pin)
      target='runtime/App/'+n if n.startswith('s0_smoke/') else n
      need(m['files'][target]['sha256']==pin)
+   summaries=[]
    for role in ('LS5','PC4'):
     component=data/'component-fixture'/role;summary=load_json((component/'summary.json').read_bytes());need(summary['head']==head and summary['status']=='BLOCKED_OR_PARTIAL')
     verify_evidence(component,dict(head=head,run_id=summary['run_id'],role=role),'b'*64)
+    summaries.append(summary)
+   require_component_pair(*summaries,head,tree_context['tree'])
    report.append(dict(artifact=folder.name,package_sha256=receipt['sha256'],scope='PREPARATION_ONLY'))
   else:report.append(dict(artifact=folder.name,scope='OFFLINE_ONLY'))
  print(json.dumps(dict(head=head,status='S0_PREPARATION_ARTIFACTS_CONSISTENT',artifacts=report,s0_execute=False,g1_execute=False)))

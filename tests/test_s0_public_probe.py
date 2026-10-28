@@ -52,3 +52,9 @@ def test_classification_requires_ack_and_both_topics():
     (True,1,1,None,403), (True,1,1,'secret exception text',None)])
 def test_classifier_rejects_impossible_or_opaque_records(args):
     with pytest.raises(ValueError): module().validate_observation(*args)
+
+def test_public_protocol_diagnostics_never_echo_unknown_or_secret_errors():
+    detail=module().protocol_detail
+    assert detail(ValueError('S0_REDIRECT_BLOCKED'))=='S0_REDIRECT_BLOCKED'
+    for error in (ValueError('secret token=never-export'),ValueError('x'*1000000),ValueError(None),ValueError('a','b')):
+        assert detail(error)=='UNKNOWN_VALUE_ERROR'
