@@ -204,7 +204,11 @@ namespace GridS0 {
    IntPtr buffer=Marshal.AllocHGlobal(nameOffset+name.Length); try {
     for(int i=0;i<nameOffset;i++) Marshal.WriteByte(buffer,i,0); // ReplaceIfExists is FALSE
     Marshal.WriteIntPtr(buffer,pointerOffset,parent.DangerousGetHandle()); Marshal.WriteInt32(buffer,lengthOffset,name.Length); Marshal.Copy(name,0,IntPtr.Add(buffer,nameOffset),name.Length);
-    Need(SetFileInformationByHandle(root,3,buffer,(uint)(nameOffset+name.Length)));
+    // Use the native relative-directory operation directly: the Win32 wrapper
+    // rejected this held-parent relative-name call with ERROR_INVALID_PARAMETER
+    // on both genuine hosted shells. No absolute-path or replace fallback.
+    IoStatus io; int status=NtSetInformationFile(root,out io,buffer,(uint)(nameOffset+name.Length),10);
+    if(status!=0) throw new InvalidOperationException("S0_BOOTSTRAP_RENAME_NT_"+status.ToString("X8"));
    } finally { Marshal.FreeHGlobal(buffer); }
   }
   // Small bounded strict JSON parser: no duplicate keys, floating point or coercion.
@@ -236,7 +240,8 @@ namespace GridS0 {
   [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetFileInformationByHandle(SafeFileHandle h,out Info info);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern uint GetFinalPathNameByHandleW(SafeFileHandle h,StringBuilder path,uint size,uint flags);
   [DllImport("kernel32.dll",SetLastError=true)] static extern bool FlushFileBuffers(SafeFileHandle h);
-  [DllImport("kernel32.dll",SetLastError=true)] static extern bool SetFileInformationByHandle(SafeFileHandle h,int kind,IntPtr info,uint size);
+  [StructLayout(LayoutKind.Sequential)] struct IoStatus { internal IntPtr Status; internal UIntPtr Information; }
+  [DllImport("ntdll.dll",ExactSpelling=true)] static extern int NtSetInformationFile(SafeFileHandle h,out IoStatus io,IntPtr info,uint size,int kind);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode)] static extern uint GetDriveTypeW(string root);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool GetVolumeInformationW(string root,StringBuilder volume,uint size,IntPtr serial,IntPtr max,IntPtr flags,StringBuilder fs,uint fsSize);
   [DllImport("advapi32.dll",SetLastError=true)] static extern uint GetSecurityInfo(SafeFileHandle h,int type,uint requested,out IntPtr owner,IntPtr group,out IntPtr dacl,IntPtr sacl,out IntPtr sd);

@@ -130,3 +130,9 @@ Until the SSH sender/receiver and incoming-file custody are independently
 implemented/tested, PC4 import and later phases remain BLOCKED; no upload of
 private role keys to GitHub/chat/CI is allowed. A successful file import is not
 certificate semantic verification; existing Python Prepare still checks that.
+
+Publication uses held source and parent identities and native
+NtSetInformationFile FileRenameInformation (10), with ReplaceIfExists false.
+There is no path-based move/copy or overwrite fallback. Windows API failures
+remain BLOCKED; hosted success is required before asking to stage physically.
+Reference: https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile

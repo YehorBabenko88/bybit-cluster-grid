@@ -26,7 +26,11 @@ The public raw sample is a hash-only integrity observation when raw bytes are no
 
 ## Reproducible offline checker
 
-`tools/s0_independent_acceptance.py` is a separately implemented standard-library checker. It imports no producer verifier, performs no network/native/host queries, starts no process and extracts or executes no ZIP member. It reads one original hosted artifact ZIP and inner receipt/package ZIP in memory. Limits: 512 MiB outer/archive aggregate, 64 MiB per member, 20,000 members; encrypted, symlink, unsafe, duplicate and case-colliding members fail. Requirements version 2 requires the implemented TokenObserver.cs and S0Bootstrap.cs plus this checklist alongside the baseline CLI/entry/wrapper/launcher/runbook source pins. It does not require nonexistent S0Inputs.cs or bootstrap/transfer scripts. Older packages lacking the implemented token/bootstrap source pins are unsupported and BLOCKED. Source presence alone establishes no working bootstrap path or physical readiness. It defines mandatory source files rather than freezing current payload/source counts; additional reviewed source pins are verified through the same independent byte provider.
+`tools/s0_independent_acceptance.py` is a separately implemented standard-library checker. It imports no producer verifier, performs no network/native/host queries, starts no process and extracts or executes no ZIP member. It reads one original hosted artifact ZIP and inner receipt/package ZIP in memory. Limits: 512 MiB outer/archive aggregate, 64 MiB per member, 20,000 members; encrypted, symlink, unsafe, duplicate and case-colliding members fail. Requirements version 3 requires the implemented TokenObserver, Bootstrap,
+Inputs, bootstrap loader and command/checklist sources, plus closed original
+bootstrap/token receipts with raw-byte hashes and exact context/source bindings.
+Older packages without these records are unsupported and BLOCKED.
+Source presence alone establishes no working bootstrap path or physical readiness. It defines mandatory source files rather than freezing current payload/source counts; additional reviewed source pins are verified through the same independent byte provider.
 
 Use a separate reviewed exact Git object byte export directory, whose contents and HEAD/tree association were independently established. Do not execute a bundled interpreter or scripts from the candidate package. Run a trusted existing Python:
 
@@ -43,7 +47,14 @@ Only successful status: `OFFLINE_EVIDENCE_CHECK_PASS_NOT_APPROVAL`, always `appr
 
 The existing package sequence is the manual sequence in [PHYSICAL_SMOKE_S0.md](PHYSICAL_SMOKE_S0.md): establish complete private G0 and independent review; authenticate the original hosted package; obtain separate preparation/staging authorization; use a separately reviewed protected staging procedure; then the wrapper supports Plan, local Prepare, prepared-role Preflight and separately approved Execute. PairRoot is the new GridS0 UUID root passed for Prepare; RoleRoot is its local LS5 or PC4 child passed for Preflight/Execute. Plan cannot bootstrap an absent root or grant authority.
 
-This integration provides native token/bootstrap source review and tests. A reviewed authentic-first PowerShell bootstrap entry/loader is not yet supplied. There is no working `physical-smoke-s0-bootstrap.ps1`, `physical-smoke-s0-transfer.ps1` or S0Inputs helper. Do not construct commands for those filenames or execute native bootstrap directly. Atomic fresh staging and the private six-file PC4 receive/export/import path remain **BLOCKED pending implementation, integration evidence, independent review and separate owner authorization**. The checklist rows describe acceptance requirements for future completion, not claims that those paths exist. Transfer commands remain deliberately absent. No executable extraction or physical staging has been done by this checker.
+This integration supplies an authentic-first literal PowerShell loader and
+`physical-smoke-s0-bootstrap.ps1` convenience entry for a protected checkout,
+plus native atomic package/plan-input staging and six-file archive import.
+Their availability is not a Windows test result or owner authorization.
+There is no protected `physical-smoke-s0-transfer.ps1` sender/receiver.
+The private six-file transfer remains BLOCKED pending implementation, exact-head
+integration evidence, independent review and separate owner approval. No plain
+scp, shared input or inherited-ACL extraction fallback is authorized.
 
 The checker tests are listed explicitly in `integration/s0_inventory.json`; the existing `s0-offline` four-job matrix executes them and checks exact node/JUnit/subtest inventory. This is an offline evidence gate only. It does not run the independent artifact CLI against a genuinely authenticated downloaded outer artifact automatically, and does not replace an external human obtaining the GitHub API digest.
 
@@ -53,3 +64,9 @@ The reviewed literal initial ZIP loader is in
 `installer/physical-smoke-s0-bootstrap.ps1`. Native input staging/import are not
 a protected SSH receiver. Keep transfer BLOCKED until its concrete implementation
 and independent tests exist. Never infer owner authorization from these tools.
+
+The token presence policy rejects elevated or unknown privilege names even when
+disabled: assigned disabled privileges can be re-enabled by the token holder.
+Only ChangeNotify, Shutdown, IncreaseWorkingSet, TimeZone and Undock may be
+present, and only ChangeNotify may be enabled. Unknown membership/effective ACL
+rights remain a separate private G0 review; this predicate is not a sandbox.
