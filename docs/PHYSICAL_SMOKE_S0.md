@@ -38,7 +38,7 @@ A hosted run is only a packaging/test result. It is not approval to access LS5/P
 
 The builder is restricted to exact GitHub-hosted Windows CI for `YehorBabenko88/bybit-cluster-grid`, job `s0-windows`; it rejects physical LS5/PC4 hosts. Its only supported invocation is `python -m tools.build_s0_package` in the reviewed checkout. Do not build a package locally. The expected future outputs are:
 
-Hosted Windows observed `D:\` owned by NETWORK SERVICE (`S-1-5-20`), outside the custody trust set. That rejection is intentional. Native build/extraction/owned-resource fixtures now use fresh GUID children of the actual .NET-resolved C: LocalAppData, with the same ancestor checks and no new trusted SID. A different C: ancestor authority still blocks; moving a path is not evidence of safe custody. Existing filesystem ACLs are never repaired by CI tooling.
+Hosted Windows observed `D:\` owned by NETWORK SERVICE (`S-1-5-20`), outside the custody trust set. That rejection is intentional. Native build/extraction/owned-resource fixtures use fresh GUID children of the actual .NET-resolved C: LocalAppData. Subsequent native evidence identified TrustedInstaller as the owner of `C:\`. Under the declared trusted-OS boundary, its exact canonical service SID is accepted only as **owner of the actual OS volume-root ancestor**, independently obtained from `GetSystemWindowsDirectoryW`, and rechecked on each guard. This does not trust any TI ACE, strict package/data root, file, descendant or other volume. Unknown/API-error/ambiguous observations and dangerous untrusted ACEs still block. Existing filesystem ACLs are never repaired by CI tooling.
 
 - `s0-package/physical-smoke-s0-windows-py312-<HEAD>.zip`
 - `s0-package/package-receipt.json`

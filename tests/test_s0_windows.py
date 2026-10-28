@@ -302,3 +302,40 @@ def test_hosted_networkservice_volume_owner_remains_blocked():
         with w.Custody('C:\\safe','S-1-5-1000',api=api):
             raise AssertionError('untrusted service owner accepted')
     assert len(api.closed)==len(api.opens)==1
+
+def test_trustedinstaller_owner_is_narrowly_os_volume_anchor_only():
+    import pytest
+    ti='S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'
+    def fake(owner_path='C:\\',anchor='C:\\',ti_ace=False):
+        api=Fake();original=api.inspect;api.system_volume_root=lambda:anchor
+        def inspect(handle):
+            info=original(handle)
+            if handle=='C:\\safe':info['acl']=w.root_acl('S-1-5-1000')
+            if handle==owner_path:
+                info['owner']=ti
+                if ti_ace:info['acl']=acl(mask=w.FULL,who=w.encode_sid(ti))
+            return info
+        api.inspect=inspect;return api
+    with w.Custody('C:\\safe','S-1-5-1000',api=fake()) as custody: custody.guard()
+    for api,root,strict in ((fake(anchor='D:\\'),'C:\\safe',True),
+                            (fake(owner_path='C:\\safe'),'C:\\safe',False),
+                            (fake(),'C:\\',True),(fake(ti_ace=True),'C:\\safe',True),
+                            (fake(anchor=None),'C:\\safe',True),
+                            (fake(anchor='relative'),'C:\\safe',True),
+                            (fake(anchor='\\\\server\\share'),'C:\\safe',True),
+                            (fake(anchor='C:\\nested'),'C:\\safe',True)):
+        with pytest.raises(w.WindowsBlocked):
+            with w.Custody(root,'S-1-5-1000',api=api,_strict_root=strict):pass
+        assert len(api.closed)==len(api.opens)
+    api=fake(owner_path='C:\\safe\\a')
+    with pytest.raises(w.WindowsBlocked):
+        with w.Custody('C:\\safe','S-1-5-1000',['C:\\safe\\a'],api=api):pass
+    api=fake()
+    with w.Custody('C:\\safe','S-1-5-1000',api=api) as custody:
+        api.system_volume_root=lambda:'D:\\'
+        with pytest.raises(w.WindowsBlocked):custody.guard()
+    api=fake()
+    def unavailable():raise OSError('synthetic API failure')
+    api.system_volume_root=unavailable
+    with pytest.raises(w.WindowsBlocked):
+        with w.Custody('C:\\safe','S-1-5-1000',api=api):pass

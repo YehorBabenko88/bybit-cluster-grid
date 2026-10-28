@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 SYSTEM = 'S-1-5-18'
 ADMINS = 'S-1-5-32-544'
+TRUSTED_INSTALLER_OWNER = 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'
 FULL = 0x1F01FF
 DANGEROUS = 0x40 | 0x10000 | 0x40000 | 0x80000 | 0x10000000 | 0x40000000
 
@@ -203,14 +204,21 @@ class Custody:
         handle = self.api.open(path, directory)
         self.handles.append(handle)
         info = self.api.inspect(handle)
-        self._validate(info,directory,root)
+        self._validate(info,directory,root,path)
         self.identities.append(info['identity'])
-        self.expectations.append((directory,root))
+        self.expectations.append((directory,root,path))
 
-    def _validate(self, info, directory, root):
+    def _validate(self, info, directory, root, path):
         if info['reparse'] or info['directory'] != directory or (not directory and info['links'] != 1): raise WindowsBlocked()
         trusted = {SYSTEM, ADMINS, self.operator_sid}
-        if info['owner'] not in trusted: raise WindowsBlocked()
+        if info['owner'] not in trusted:
+            # Trusted OS servicing authority only at the actual OS volume anchor.
+            # It is never an ACE trustee or a package/data owner exception.
+            if info['owner']!=TRUSTED_INSTALLER_OWNER or root or not directory: raise WindowsBlocked()
+            try:
+                anchor=_absolute(self.api.system_volume_root())
+                if anchor!=ntpath.splitdrive(anchor)[0]+'\\' or path.casefold()!=anchor.casefold(): raise WindowsBlocked()
+            except Exception: raise WindowsBlocked() from None
         if root and not info['protected']: raise WindowsBlocked()
         validate_acl(info['acl'], trusted, root=root, file=not directory)
 
@@ -237,10 +245,10 @@ class Custody:
 
     def guard(self):
         if len(self.handles) != len(self.identities) or len(self.handles) != len(self.expectations): raise WindowsBlocked()
-        for handle, identity, (directory,root) in zip(self.handles, self.identities,self.expectations):
+        for handle, identity, (directory,root,path) in zip(self.handles, self.identities,self.expectations):
             info=self.api.inspect(handle)
             if info['identity'] != identity: raise WindowsBlocked()
-            self._validate(info,directory,root)
+            self._validate(info,directory,root,path)
 
     def __exit__(self, *args):
         while self.handles: self.api.close(self.handles.pop())
@@ -351,6 +359,15 @@ class Win32:
 
     def close(self, handle):
         if not self._close(handle): raise WindowsBlocked()
+
+    def system_volume_root(self):
+        fn=self.k.GetSystemWindowsDirectoryW
+        fn.argtypes=[self.t.LPWSTR,self.t.UINT];fn.restype=self.t.UINT
+        buffer=ctypes.create_unicode_buffer(32768)
+        length=fn(buffer,len(buffer))
+        if not 0<length<len(buffer): raise WindowsBlocked()
+        path=_absolute(buffer.value)
+        return ntpath.splitdrive(path)[0]+'\\'
 
     def local_volume(self,drive):
         t=self.t
