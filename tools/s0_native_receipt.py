@@ -27,7 +27,9 @@ def validate_native(value,head,sid=None):
         fact=value[label];_need(type(fact) is dict and set(fact)==FACT_KEYS)
         _need(_integer(fact['pid'],1,0xffffffff) and _integer(fact['creation_filetime'],1,0x7fffffffffffffff))
         _need(_integer(fact['exit_code'],0,0xffffffff))
-        _need((fact['exit_code']!=0) if timeout else fact['exit_code']==0)
+        # Preserve the actual OS code, including zero after owned Job closure.
+        # TimedOut, not that code, determines the deadline outcome.
+        if not timeout:_need(fact['exit_code']==0)
         _need(fact['timed_out'] is timeout)
         _need(_integer(fact['budget_seconds'],budget,budget))
         _need(_integer(fact['job_flags'],8200,8200) and _integer(fact['active_limit'],1,1))

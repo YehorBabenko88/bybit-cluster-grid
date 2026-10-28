@@ -16,6 +16,8 @@ class NativeReceiptTests(unittest.TestCase):
         value=receipt();self.assertIs(validate_native(value,HEAD,SID),value)
         value['deadline']['pid']=value['normal']['pid']
         self.assertIs(validate_native(value,HEAD),value)
+        value['deadline']['exit_code']=0 # Actual owned-Job-close observation, still a timeout.
+        self.assertIs(validate_native(value,HEAD),value)
 
     def test_rejects_root_mutations(self):
         for key,bad in [('token_probe_cases',True),('token_probe_cases',0),('token_probe_cases',15),('fixture',1),('head','b'*40),('scope','PHYSICAL'),('wrong_hash_rejected',1),('wrong_sid_rejected',False),('extra',0)]:
@@ -34,7 +36,7 @@ class NativeReceiptTests(unittest.TestCase):
             value=receipt();value['normal'][key]=bad
             with self.subTest(key=key,bad=bad):
                 with self.assertRaises(ValueError):validate_native(value,HEAD)
-        for label,key,bad in [('deadline','exit_code',0),('deadline','timed_out',False),('deadline','budget_seconds',5),('descendant_denied','exit_code',1),('descendant_denied','observed_user_sid','S-1-5-21-1-2-3-1002')]:
+        for label,key,bad in [('deadline','exit_code',-1),('deadline','timed_out',False),('deadline','budget_seconds',5),('descendant_denied','exit_code',1),('descendant_denied','observed_user_sid','S-1-5-21-1-2-3-1002')]:
             value=receipt();value[label][key]=bad
             with self.assertRaises(ValueError):validate_native(value,HEAD)
         value=receipt();del value['normal']['pid']

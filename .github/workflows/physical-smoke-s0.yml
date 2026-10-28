@@ -71,6 +71,7 @@ jobs:
           $tokens=$null;$errors=$null
           [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'installer/physical-smoke-s0.ps1'),[ref]$tokens,[ref]$errors)
           if($errors.Count){throw 'S0_POWERSHELL_SYNTAX'}
+          & installer/physical-smoke-s0-tests/test-timeout-policy.ps1
           $localAppData=[Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
           if([string]::IsNullOrWhiteSpace($localAppData) -or [IO.Path]::GetPathRoot($localAppData) -ine 'C:\'){throw 'S0_LOCAL_APP_DATA_C_REQUIRED'}
           $nativeBuildRoot=Join-Path $localAppData ('s0-native-build-'+[Guid]::NewGuid().ToString('D'))
