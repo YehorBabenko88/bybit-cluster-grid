@@ -107,7 +107,8 @@ public static class BootstrapTests {
   Phase="FIXTURE_LOADER_SHELL_PIN";
   using(var lease=new FileStream(shell,FileMode.Open,FileAccess.Read,FileShare.Read)) {
    using(var hash=SHA256.Create()) Need(BitConverter.ToString(hash.ComputeHash(lease)).Replace("-","").ToLowerInvariant()==shellSha);
-   foreach(bool diagnostic in new[]{true,false}) {
+   // A plain fresh shell must succeed before diagnostics can warm shared caches.
+   foreach(bool diagnostic in new[]{false,true}) {
    var start=new ProcessStartInfo { FileName=shell,Arguments="-NoLogo -NoProfile -NonInteractive -File "+QuoteLoader(driver)+" -Root "+QuoteLoader(root)+" -Head "+QuoteLoader(head)+" -Sha "+QuoteLoader(sha)+" -Sid "+QuoteLoader(sid)+" -Target "+QuoteLoader(target)+" -Loader "+QuoteLoader(loader)+(diagnostic?" -DiagnosticStages":""),UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=root,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true };
    Phase="FIXTURE_LOADER_SELF_DUP_HANDLE";
    IntPtr self=OpenProcess(0x40,false,GetCurrentProcessId()); Need(self!=IntPtr.Zero); Need(CloseHandle(self));
