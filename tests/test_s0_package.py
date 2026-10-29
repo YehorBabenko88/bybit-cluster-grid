@@ -90,7 +90,9 @@ class PackageTests(unittest.TestCase):
         assert '$start.EnvironmentVariables.Clear()' in source
         assert '$start.UseShellExecute = $false' in source
         assert '[System.Reflection.Assembly]::Load($helperBytes)' in source
-        assert "GetEntry('s0-package.json')" in source
+        assert "Read-S0OriginalEntry $zip 's0-package.json'" in source
+        assert source.index('(Get-S0BytesSha $captured) -cne $ExpectedPackageSha') < source.index('[System.Reflection.Assembly]::Load($helperBytes)')
+        assert 'ReadAllBytes($helperPath)' not in source
         assert "'native/S0Launcher.dll'" in source
         assert "$seconds = if ($Action -eq 'Execute') { 300 } else { 60 }" in source
         assert 'S0_NATIVE_TIMEOUT_OWN_JOB_CLOSED' in source

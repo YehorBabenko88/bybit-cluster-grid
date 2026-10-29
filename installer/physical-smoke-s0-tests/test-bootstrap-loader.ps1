@@ -7,6 +7,7 @@ param(
     [Parameter(Mandatory=$true)][string]$Sid,
     [Parameter(Mandatory=$true)][string]$Target,
     [Parameter(Mandatory=$true)][string]$Loader,
+    [ValidateSet('LocalAppData','UserProfileV1')][string]$ParentScope = 'LocalAppData',
     [switch]$DiagnosticStages
 )
 Set-StrictMode -Version Latest
@@ -37,8 +38,8 @@ if ($loaderPath -ine $expectedLoader -or -not [IO.File]::Exists($loaderPath) -or
 }
 if ('GridS0.Bootstrap' -as [type]) { throw 'FIXTURE_LOADER_FRESH_SHELL_REQUIRED' }
 [Console]::Out.WriteLine('S0_LOADER_PLAN')
-if ($DiagnosticStages) { $plans = @(& $loaderPath -Action Plan -DiagnosticStages -SourceZip $sourceZip -ExpectedSha256 $Sha -ExpectedHead $Head -ExpectedSid $Sid -TargetRoot $targetPath) }
-else { $plans = @(& $loaderPath -Action Plan -SourceZip $sourceZip -ExpectedSha256 $Sha -ExpectedHead $Head -ExpectedSid $Sid -TargetRoot $targetPath) }
+if ($DiagnosticStages) { $plans = @(& $loaderPath -Action Plan -DiagnosticStages -SourceZip $sourceZip -ExpectedSha256 $Sha -ExpectedHead $Head -ExpectedSid $Sid -TargetRoot $targetPath -ParentScope $ParentScope) }
+else { $plans = @(& $loaderPath -Action Plan -SourceZip $sourceZip -ExpectedSha256 $Sha -ExpectedHead $Head -ExpectedSid $Sid -TargetRoot $targetPath -ParentScope $ParentScope) }
 if ($plans.Count -ne 1 -or $plans[0].GetType().FullName -cne 'GridS0.BootstrapReceipt') { throw 'FIXTURE_LOADER_RECEIPT' }
 $plan = $plans[0]
 if ($plan.Status -cne 'PLAN_ONLY' -or $plan.Head -cne $Head -or $plan.Sha256 -cne $Sha -or

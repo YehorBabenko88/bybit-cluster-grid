@@ -9,6 +9,7 @@ param(
     [string]$Config,
     [string]$ExpectedHead,
     [string]$ExpectedPackageSha,
+    [ValidateSet('LocalAppData','UserProfileV1')][string]$ParentScope = 'LocalAppData',
     [switch]$Approved
 )
 Set-StrictMode -Version Latest
@@ -27,10 +28,13 @@ if ($missing.Count -ne 0) { throw ('S0_REQUIRED_PINS_OR_PATHS: ' + ($missing -jo
 if ($Action -in @('Prepare', 'Execute', 'Stop', 'Evidence') -and -not $Approved) { throw 'S0_EXPLICIT_APPROVAL_REQUIRED' }
 # The approved, externally staged package must already be in protected custody.
 # Python verifies the complete ZIP and extracted closure before action dispatch.
-$localData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
-if ([string]::IsNullOrWhiteSpace($localData)) { throw 'S0_PRIVATE_PROFILE_UNKNOWN' }
+$localData = $null
+if ($ParentScope -eq 'LocalAppData') {
+    $localData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+    if ([string]::IsNullOrWhiteSpace($localData)) { throw 'S0_PRIVATE_PROFILE_UNKNOWN' }
+}
 $packageFull = [IO.Path]::GetFullPath($PackageRoot).TrimEnd('\')
-if ([IO.Path]::GetDirectoryName($packageFull) -ine $localData -or [IO.Path]::GetFileName($packageFull) -cnotmatch '^GridS0Package-[0-9a-f-]{36}$') { throw 'S0_PRIVATE_PACKAGE_NAMESPACE_REQUIRED' }
+if ($ParentScope -eq 'LocalAppData' -and ([IO.Path]::GetDirectoryName($packageFull) -ine $localData -or [IO.Path]::GetFileName($packageFull) -cnotmatch '^GridS0Package-[0-9a-f-]{36}$')) { throw 'S0_PRIVATE_PACKAGE_NAMESPACE_REQUIRED' }
 $python = Join-Path $PackageRoot 'runtime/python.exe'
 $entrypoint = Join-Path $PackageRoot 'runtime/App/s0.py'
 foreach ($path in @($PackageRoot, $PackageZip, $python, $entrypoint)) {
@@ -38,7 +42,7 @@ foreach ($path in @($PackageRoot, $PackageZip, $python, $entrypoint)) {
     if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'S0_REPARSE_PATH_FORBIDDEN' }
 }
 if ((Get-FileHash -LiteralPath $PackageZip -Algorithm SHA256).Hash.ToLowerInvariant() -cne $ExpectedPackageSha) { throw 'S0_PACKAGE_PIN_MISMATCH' }
-$arguments = @('-I', '-S', '-B', $entrypoint, '--action', $Action.ToLowerInvariant(), '--root', $Root, '--package-root', $PackageRoot, '--package-zip', $PackageZip, '--config', $Config, '--expected-head', $ExpectedHead, '--expected-package-sha', $ExpectedPackageSha)
+$arguments = @('-I', '-S', '-B', $entrypoint, '--action', $Action.ToLowerInvariant(), '--root', $Root, '--package-root', $PackageRoot, '--package-zip', $PackageZip, '--config', $Config, '--expected-head', $ExpectedHead, '--expected-package-sha', $ExpectedPackageSha, '--parent-scope', $ParentScope)
 if ($Approved) { $arguments += '--approved' }
 function ConvertTo-S0WindowsArgument([string]$Value) {
     # Windows CRT argv quoting, including embedded quotes and trailing slashes.
@@ -68,6 +72,7 @@ $start.CreateNoWindow = $false
 $start.WorkingDirectory = $PackageRoot
 $start.EnvironmentVariables.Clear()
 foreach ($name in @('SystemRoot', 'WINDIR', 'USERPROFILE', 'LOCALAPPDATA', 'USERNAME', 'COMPUTERNAME')) {
+    if ($name -eq 'LOCALAPPDATA' -and $ParentScope -eq 'UserProfileV1') { continue }
     $value = [Environment]::GetEnvironmentVariable($name, 'Process')
     if ([string]::IsNullOrWhiteSpace($value)) { throw 'S0_REQUIRED_OS_ENVIRONMENT_MISSING' }
     $start.EnvironmentVariables[$name] = $value
@@ -81,7 +86,8 @@ $actualSystem = [Environment]::SystemDirectory
 $actualWindows = [IO.Directory]::GetParent($actualSystem).FullName
 $start.EnvironmentVariables['SystemRoot'] = $actualWindows
 $start.EnvironmentVariables['WINDIR'] = $actualWindows
-$start.EnvironmentVariables['LOCALAPPDATA'] = $localData
+$start.EnvironmentVariables['LOCALAPPDATA'] = if ($ParentScope -eq 'UserProfileV1') { $privateTemp } else { $localData }
+# V1 libraries get only an owned cache root; native Known Folder resolution ignores this hint.
 $start.EnvironmentVariables['PATH'] = $actualSystem
 # Bootstrap trust is established externally before this script is started.
 # Load only original-ZIP-pinned helper bytes; no local compile or path DLL load.
@@ -92,15 +98,39 @@ function Get-S0BytesSha([byte[]]$Bytes) {
 }
 if ([System.IO.Path]::GetFullPath($PackageZip) -cne [System.IO.Path]::GetFullPath((Join-Path $PackageRoot 'source.zip'))) { throw 'S0_SOURCE_ZIP_LOCATION_REQUIRED' }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zip = [System.IO.Compression.ZipFile]::OpenRead($PackageZip)
+$source = [IO.File]::Open($PackageZip,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
 try {
-    $entry = $zip.GetEntry('s0-package.json')
-    if ($null -eq $entry -or $entry.Length -le 0 -or $entry.Length -gt 4194304 -or @($zip.Entries | Where-Object { $_.FullName -ceq 's0-package.json' }).Count -ne 1) { throw 'S0_ORIGINAL_MANIFEST_BLOCKED' }
-    $stream = $entry.Open()
-    $memory = New-Object System.IO.MemoryStream
-    try { $stream.CopyTo($memory); $manifestBytes = $memory.ToArray() }
-    finally { $stream.Dispose(); $memory.Dispose() }
-} finally { $zip.Dispose() }
+    if ($source.Length -le 0 -or $source.Length -gt 536870912) { throw 'S0_ZIP_SIZE' }
+    $captured = New-Object byte[] ([int]$source.Length)
+    $offset = 0
+    while ($offset -lt $captured.Length) {
+        $read = $source.Read($captured,$offset,$captured.Length-$offset)
+        if ($read -le 0) { throw 'S0_ZIP_SHORT_READ' }
+        $offset += $read
+    }
+    if ($source.ReadByte() -ne -1 -or (Get-S0BytesSha $captured) -cne $ExpectedPackageSha) { throw 'S0_PACKAGE_PIN_MISMATCH' }
+} finally { $source.Dispose() }
+function Read-S0OriginalEntry($Archive,[string]$Name) {
+    $entries = @($Archive.Entries | Where-Object { $_.FullName -ceq $Name })
+    if ($entries.Count -ne 1 -or $entries[0].Length -le 0 -or $entries[0].Length -gt 4194304) { throw 'S0_ORIGINAL_ENTRY_BLOCKED' }
+    $content = $entries[0].Open(); $copy = New-Object IO.MemoryStream
+    try {
+        $buffer = New-Object byte[] 65536; $total = 0
+        while (($read = $content.Read($buffer,0,$buffer.Length)) -gt 0) {
+            $total += $read
+            if ($total -gt $entries[0].Length -or $total -gt 4194304) { throw 'S0_ORIGINAL_ENTRY_SIZE' }
+            $copy.Write($buffer,0,$read)
+        }
+        if ($total -ne $entries[0].Length) { throw 'S0_ORIGINAL_ENTRY_SIZE' }
+        return ,$copy.ToArray()
+    } finally { $content.Dispose(); $copy.Dispose() }
+}
+$memory = New-Object IO.MemoryStream(,$captured)
+$zip = New-Object IO.Compression.ZipArchive($memory,[IO.Compression.ZipArchiveMode]::Read,$true)
+try {
+    $manifestBytes = Read-S0OriginalEntry $zip 's0-package.json'
+    $helperBytes = Read-S0OriginalEntry $zip 'native/S0Launcher.dll'
+} finally { $zip.Dispose(); $memory.Dispose() }
 $extractedManifest = [System.IO.File]::ReadAllBytes((Join-Path $PackageRoot 's0-package.json'))
 if ((Get-S0BytesSha $manifestBytes) -cne (Get-S0BytesSha $extractedManifest)) { throw 'S0_EXTRACTED_MANIFEST_MISMATCH' }
 $manifest = [System.Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
@@ -111,7 +141,6 @@ if ($helperPin.sha256 -cnotmatch '^[0-9a-f]{64}$' -or $exePin.sha256 -cnotmatch 
 $helperPath = Join-Path $PackageRoot 'native/S0Launcher.dll'
 $helperItem = Get-Item -LiteralPath $helperPath -Force
 if (($helperItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or $helperItem.Length -gt 67108864) { throw 'S0_NATIVE_FILE_BLOCKED' }
-$helperBytes = [System.IO.File]::ReadAllBytes($helperPath)
 if ($helperBytes.Length -ne $helperPin.size -or (Get-S0BytesSha $helperBytes) -cne $helperPin.sha256) { throw 'S0_NATIVE_PIN_MISMATCH' }
 if ('GridS0.ProcessHost' -as [type]) { throw 'S0_NATIVE_ALREADY_LOADED' }
 [void][System.Reflection.Assembly]::Load($helperBytes)
@@ -119,7 +148,8 @@ $operatorSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Va
 $seconds = if ($Action -eq 'Execute') { 300 } else { 60 }
 $closedEnvironment = @{}
 foreach ($key in $start.EnvironmentVariables.Keys) { $closedEnvironment[$key] = $start.EnvironmentVariables[$key] }
-$result = [GridS0.ProcessHost]::Run($PackageRoot, $start.Arguments, $closedEnvironment, $operatorSid, $exePin.sha256, $ExpectedHead, $seconds)
+if ($ParentScope -eq 'UserProfileV1') { $result = [GridS0.ProcessHost]::RunAtUserProfileV1($PackageRoot, $start.Arguments, $closedEnvironment, $operatorSid, $exePin.sha256, $ExpectedHead, $seconds, $ExpectedPackageSha) }
+else { $result = [GridS0.ProcessHost]::Run($PackageRoot, $start.Arguments, $closedEnvironment, $operatorSid, $exePin.sha256, $ExpectedHead, $seconds) }
 [ordered]@{schema=1; scope=$result.Scope; pid=$result.Pid; creation_filetime=$result.CreationFileTime; exit_code=$result.ExitCode; timed_out=$result.TimedOut; budget_seconds=$seconds; observed_user_sid=$result.ObservedUserSid; observed_elevated=$result.ObservedElevated; observed_integrity=$result.ObservedIntegrity; observed_admin_enabled=$result.ObservedAdminEnabled; job_member=$result.JobMember; job_flags=$result.JobFlags; active_limit=$result.ActiveLimit; g1_execute=$false; cleanup=$false} | ConvertTo-Json
 if ($result.TimedOut) { throw 'S0_NATIVE_TIMEOUT_OWN_JOB_CLOSED' }
 if ($result.ExitCode -ne 0) { throw 'S0_COMMAND_FAILED' }

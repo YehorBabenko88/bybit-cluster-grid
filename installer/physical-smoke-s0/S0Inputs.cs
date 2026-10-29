@@ -10,15 +10,15 @@ namespace GridS0 {
   static readonly string[] RoleFiles={"ca.pem","tls-cert.pem","peer-cert.pem","tls-key.pem","config.json","stop.json"};
   public static BootstrapReceipt PlanInput(byte[] canonicalPlan,string expectedSha,string expectedHead,string expectedRunId,string targetRoot,string expectedSid) { return Input(canonicalPlan,expectedSha,expectedHead,expectedRunId,targetRoot,expectedSid,false); }
   public static BootstrapReceipt StagePlanInput(byte[] canonicalPlan,string expectedSha,string expectedHead,string expectedRunId,string targetRoot,string expectedSid,bool approved) { Need(approved); return Input(canonicalPlan,expectedSha,expectedHead,expectedRunId,targetRoot,expectedSid,true); }
-  static BootstrapReceipt Input(byte[] raw,string sha,string head,string run,string target,string sid,bool stage) {
+  static BootstrapReceipt Input(byte[] raw,string sha,string head,string run,string target,string sid,bool stage,ParentKind kind=ParentKind.LocalAppData) {
    byte[] captured=CaptureInput(raw,sha,1048576); var plan=Obj(new Json(captured).Read()); ValidateInputPlan(plan,head,run);
    Need(Str(Obj(plan["operator_sids"],"LS5","PC4")["LS5"])==sid); CanonicalInput(captured,plan);
    var p=new Package(); p.Files.Add("s0-plan.json",captured); p.Bytes=captured.LongLength;
-   return Publish(p,null,sha,head,target,sid,"GridS0Input-",stage);
+   return Publish(p,null,sha,head,target,sid,"GridS0Input-",stage,kind);
   }
   public static BootstrapReceipt PlanRoleImport(byte[] sixFileZip,string expectedSha,string expectedHead,string expectedRunId,string expectedPackageSha,string targetRoot,string expectedSid) { return ImportRole(sixFileZip,expectedSha,expectedHead,expectedRunId,expectedPackageSha,targetRoot,expectedSid,false); }
   public static BootstrapReceipt StageRoleImport(byte[] sixFileZip,string expectedSha,string expectedHead,string expectedRunId,string expectedPackageSha,string targetRoot,string expectedSid,bool approved) { Need(approved); return ImportRole(sixFileZip,expectedSha,expectedHead,expectedRunId,expectedPackageSha,targetRoot,expectedSid,true); }
-  static BootstrapReceipt ImportRole(byte[] raw,string sha,string head,string run,string packageSha,string target,string sid,bool stage) {
+  static BootstrapReceipt ImportRole(byte[] raw,string sha,string head,string run,string packageSha,string target,string sid,bool stage,ParentKind kind=ParentKind.LocalAppData) {
    byte[] captured=CaptureInput(raw,sha,6291456); Need(Match(packageSha,"[0-9a-f]{64}")); var p=new Package();
    using(var memory=new MemoryStream(captured,false)) using(var zip=new ZipArchive(memory,ZipArchiveMode.Read,false)) {
     Need(zip.Entries.Count==6); var seen=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -40,7 +40,7 @@ namespace GridS0 {
    foreach(var item in p.Files) publication.Files.Add("PC4/"+item.Key,item.Value);
    publication.Bytes=p.Bytes;
    // TLS semantic validation remains the Python prepare/runtime gate; import grants no execution.
-   return Publish(publication,null,sha,head,target,sid,"GridS0Input-",stage);
+   return Publish(publication,null,sha,head,target,sid,"GridS0Input-",stage,kind);
   }
   static byte[] CaptureInput(byte[] raw,string sha,int limit) { Need(raw!=null && raw.Length>0 && raw.Length<=limit && Match(sha,"[0-9a-f]{64}")); byte[] copy=(byte[])raw.Clone(); Need(Hash(copy)==sha); return copy; }
   static void ValidateInputPlan(Dictionary<string,object> p,string head,string run) {

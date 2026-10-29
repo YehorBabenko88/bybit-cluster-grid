@@ -30,6 +30,7 @@ NATIVE_SOURCES = (
     'installer/physical-smoke-s0/S0Transfer.cs',
     'installer/physical-smoke-s0/S0TransferExport.cs',
     'installer/physical-smoke-s0/S0TransferTransport.cs',
+    'installer/physical-smoke-s0/S0UserProfile.cs',
 )
 PUBLIC_SOURCES = (
     'installer/physical-smoke-s0.ps1', 'installer/physical-smoke-s0-bootstrap.ps1',
@@ -37,6 +38,7 @@ PUBLIC_SOURCES = (
     *NATIVE_SOURCES,
 )
 OPTIONAL_PUBLIC_SOURCES = (
+    'docs/PHYSICAL_SMOKE_S0_USERPROFILE_V1.md',
     'docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md',
 )
 

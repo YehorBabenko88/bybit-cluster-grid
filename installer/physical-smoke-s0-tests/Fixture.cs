@@ -115,7 +115,7 @@ public static class Fixture
             if(descriptor!=IntPtr.Zero) LocalFree(descriptor);
         }
     }
-    static int Parent(string root,string sha,string head,string output) {
+    static int Parent(string root,string sha,string head,string output,bool profileOnly=false) {
         IntPtr token=IntPtr.Zero,job=IntPtr.Zero,list=IntPtr.Zero,jobList=IntPtr.Zero,handleList=IntPtr.Zero; PI process=new PI(); bool initialized=false;
         AnonymousPipeServerStream pipe=null,stdinPipe=null;
         try {
@@ -149,7 +149,7 @@ public static class Fixture
             Need(UpdateProcThreadAttribute(list,0,(UIntPtr)0x20002,handleList,(UIntPtr)(IntPtr.Size*2),IntPtr.Zero,IntPtr.Zero),"FIXTURE_EXACT_PIPE_HANDLE_LIST");
             string self=Assembly.GetExecutingAssembly().Location; SX startup=new SX(); startup.si.cb=(uint)Marshal.SizeOf(typeof(SX)); startup.attributes=list;
             startup.si.flags=0x100; startup.si.input=reader; startup.si.output=writer; startup.si.error=writer;
-            StringBuilder command=new StringBuilder(Quote(self)+" --child "+Quote(root)+" "+Quote(sha)+" "+Quote(head)+" "+Quote(output));
+            StringBuilder command=new StringBuilder(Quote(self)+(profileOnly?" --profile-child ":" --child ")+Quote(root)+" "+Quote(sha)+" "+Quote(head)+" "+Quote(output));
             stage="FIXTURE_CREATE_RESTRICTED_CHILD";
             Need(CreateProcessAsUserW(token,self,command,IntPtr.Zero,IntPtr.Zero,true,0x80004,IntPtr.Zero,Path.GetDirectoryName(self),ref startup,out process),"FIXTURE_CREATE_RESTRICTED_SELF");
             pipe.DisposeLocalCopyOfClientHandle();
@@ -239,7 +239,7 @@ public static class Fixture
         byte[] bytes=new UTF8Encoding(false,true).GetBytes(json); Need(bytes.Length<=8192,"FIXTURE_OUTPUT_BOUND");
         Console.Write(json); Console.Out.Flush();
     }
-    static int Child(string root,string sha,string head,string output) {
+    static int Child(string root,string sha,string head,string output,bool profileOnly=false) {
         stage="FIXTURE_CHILD_STANDARD_NO_INHERIT"; DisarmOwnedStandardHandleInheritance();
         stage="FIXTURE_CHILD_ENVIRONMENT";
         string sid; using(WindowsIdentity identity=WindowsIdentity.GetCurrent()) sid=identity.User.Value;
@@ -250,7 +250,7 @@ public static class Fixture
         string temporary=Environment.GetEnvironmentVariable("RUNNER_TEMP"); Need(!String.IsNullOrEmpty(temporary),"FIXTURE_ENVIRONMENT");
         env["TEMP"]=temporary; env["TMP"]=temporary; env["PATH"]=Path.Combine((string)env["SystemRoot"],"System32");
         stage="FIXTURE_BOOTSTRAP";
-        try { BootstrapTests.Hosted(root,sha,head); } catch { stage=BootstrapTests.Phase=="FIXTURE_INPUTS"?InputTests.Phase:BootstrapTests.Phase=="FIXTURE_TRANSFERS"?TransferTests.Phase:BootstrapTests.Phase=="FIXTURE_EXPORTS"?TransferExportTests.Phase:BootstrapTests.Phase=="FIXTURE_TRANSPORT"?TransferTransportTests.Phase:BootstrapTests.Phase; throw; }
+        try { if(profileOnly) { BootstrapTests.Phase="FIXTURE_USER_PROFILE"; UserProfileTests.Hosted(root,head,sid); } else BootstrapTests.Hosted(root,sha,head); } catch { stage=BootstrapTests.Phase=="FIXTURE_USER_PROFILE"?UserProfileTests.Phase:BootstrapTests.Phase=="FIXTURE_INPUTS"?InputTests.Phase:BootstrapTests.Phase=="FIXTURE_TRANSFERS"?TransferTests.Phase:BootstrapTests.Phase=="FIXTURE_EXPORTS"?TransferExportTests.Phase:BootstrapTests.Phase=="FIXTURE_TRANSPORT"?TransferTransportTests.Phase:BootstrapTests.Phase; throw; }
         stage="FIXTURE_TOKEN_PROBE_POLICY";
         bool[] probeCases={
             ProcessHost.TokenProbeValid(20,false,122,4),ProcessHost.TokenProbeValid(20,false,24,4),
@@ -283,13 +283,13 @@ public static class Fixture
     public static int Main(string[] args) {
         try {
             stage="FIXTURE_ARGUMENTS";
-            Hosted(); Need(args.Length==5 && (args[0]=="--parent" || args[0]=="--child"),"FIXTURE_ARGUMENTS");
+            Hosted(); Need(args.Length==5 && (args[0]=="--parent" || args[0]=="--child" || args[0]=="--profile-parent" || args[0]=="--profile-child"),"FIXTURE_ARGUMENTS");
             Need(Regex.IsMatch(args[2],"\\A[0-9a-fA-F]{64}\\z") && Regex.IsMatch(args[3],"\\A[0-9a-fA-F]{40}\\z"),"FIXTURE_PINS");
             Need(args[3]==Environment.GetEnvironmentVariable("EXACT_HEAD_SHA"),"FIXTURE_CI_HEAD");
             Need(Path.IsPathRooted(args[1]) && !args[1].StartsWith(@"\\",StringComparison.Ordinal),"FIXTURE_PACKAGE_ROOT");
             string output=Path.GetFullPath(args[4]); string prefix=Path.GetFullPath(args[1]).TrimEnd('\\')+"\\";
             Need(output.StartsWith(prefix,StringComparison.OrdinalIgnoreCase) && !File.Exists(output) && !Directory.Exists(output),"FIXTURE_FRESH_OUTPUT");
-            return args[0]=="--parent"?Parent(args[1],args[2],args[3],output):Child(args[1],args[2],args[3],output);
+            return args[0]=="--parent" || args[0]=="--profile-parent"?Parent(args[1],args[2],args[3],output,args[0]=="--profile-parent"):Child(args[1],args[2],args[3],output,args[0]=="--profile-child");
         } catch(Exception error) {
             if(!parentFailureEmitted) WriteOutput(FailureJson(error));
             return 1;

@@ -78,6 +78,23 @@ def run():
    if not(record['observed_elevated'] is False and record['observed_admin_enabled'] is False and record['observed_integrity']=='S-1-16-8192' and record['job_member'] is True and record['job_flags']==0x2008 and record['active_limit']==1):raise RuntimeError('S0_NATIVE_TOKEN_OR_JOB_BLOCKED')
   native_record.update(run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],binary_sha256={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in native_files if p.name in {'Fixture.exe','S0Launcher.dll'}},source_sha256={n:hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest() for n in ('installer/physical-smoke-s0/S0Launcher.cs','installer/physical-smoke-s0-tests/Fixture.cs')})
   (ROOT/'s0-results/native-launcher.json').write_text(json.dumps(native_record,indent=2))
+  # A separate fresh restricted process gets the same90s own-job bound.
+  with subprocess.Popen([str(native_build/'Fixture.exe'),'--profile-parent',str(fixture),manifest['files']['runtime/python.exe']['sha256'],head,str(fixture/'temp/profile-unused.json')],cwd=native_build,env=ci_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
+   profile_out,profile_err=child.communicate(timeout=100);profile_exit=child.returncode
+  (ROOT/'s0-results/native-userprofile-driver-raw.txt').write_bytes(profile_out[:65536])
+  for action in ('prepare','preflight','status','stop','execute','evidence'):
+   path=fixture/'temp'/('profile-cli-'+action+'.json')
+   if path.is_file():
+    raw=path.read_bytes()
+    if len(raw)<=65536:(ROOT/'s0-results'/('native-userprofile-cli-'+action+'.txt')).write_bytes(raw)
+   error_path=fixture/'temp'/('profile-cli-'+action+'.stderr')
+   if error_path.is_file():
+    raw=error_path.read_bytes()
+    if len(raw)<=65536:(ROOT/'s0-results'/('native-userprofile-cli-'+action+'.stderr')).write_bytes(raw)
+  if profile_exit!=0 or profile_err:raise RuntimeError('S0_USER_PROFILE_FIXTURE_FAILED')
+  validate_native(load_json(profile_out),head,identity.sid)
+  from tools.s0_userprofile_receipt import collect_profile
+  collect_profile(ROOT/'s0-results',fixture,dict(head=head,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT']),receipt['sha256'])
   collect_bootstrap(fixture,receipt['sha256'],head)
 
  output=dict(head=head,tree=receipt['tree'],run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],package_sha256=receipt['sha256'],status='PORTABLE_PLAN_AND_IMPORTS_PASS',runs=runs,s0_execute=False,g1_execute=False,physical='NOT_RUN')

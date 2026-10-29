@@ -193,12 +193,12 @@ def _absolute(path):
 
 
 class Custody:
-    def __init__(self, root, operator_sid, files=(), *, api=None, _strict_root=True):
+    def __init__(self, root, operator_sid, files=(), *, api=None, _strict_root=True, _profile_v1=False):
         self.root = _absolute(root); encode_sid(operator_sid)
         self.operator_sid = operator_sid; self.files = tuple(_absolute(p) for p in files)
         prefix=self.root.rstrip('\\').casefold()+'\\'
         if any(not path.casefold().startswith(prefix) for path in self.files): raise WindowsBlocked()
-        self.api = api; self.handles = []; self.identities = []; self.strict_root = _strict_root; self.expectations=[]
+        self.api = api; self.handles = []; self.identities = []; self.strict_root = _strict_root; self.expectations=[]; self.security=[];self.profile_v1=_profile_v1
 
     def _pin(self, path, directory, root=False):
         handle = self.api.open(path, directory)
@@ -206,6 +206,7 @@ class Custody:
         info = self.api.inspect(handle)
         self._validate(info,directory,root,path)
         self.identities.append(info['identity'])
+        self.security.append((info['owner'],info['protected'],info['acl']))
         self.expectations.append((directory,root,path))
 
     def _validate(self, info, directory, root, path):
@@ -221,6 +222,9 @@ class Custody:
             except Exception: raise WindowsBlocked() from None
         if root and not info['protected']: raise WindowsBlocked()
         validate_acl(info['acl'], trusted, root=root, file=not directory)
+        if self.profile_v1:
+            for kind,flags,mask,who in _aces(info['acl']):
+                if kind==0 and not flags&8 and who not in trusted and mask&(0x10|0x100):raise WindowsBlocked()
 
     def __enter__(self):
         self.api = self.api or Win32()
@@ -244,16 +248,17 @@ class Custody:
         return self.api.inspect(handle)['identity']
 
     def guard(self):
-        if len(self.handles) != len(self.identities) or len(self.handles) != len(self.expectations): raise WindowsBlocked()
-        for handle, identity, (directory,root,path) in zip(self.handles, self.identities,self.expectations):
+        if len(self.handles) != len(self.identities) or len(self.handles) != len(self.expectations) or len(self.handles)!=len(self.security): raise WindowsBlocked()
+        for handle, identity, (directory,root,path), security in zip(self.handles, self.identities,self.expectations,self.security):
             info=self.api.inspect(handle)
-            if info['identity'] != identity: raise WindowsBlocked()
+            if info['identity'] != identity or (info['owner'],info['protected'],info['acl'])!=security: raise WindowsBlocked()
             self._validate(info,directory,root,path)
 
     def __exit__(self, *args):
         while self.handles: self.api.close(self.handles.pop())
         self.identities.clear()
         self.expectations.clear()
+        self.security.clear()
 
 
 def create_fresh_root(path, operator_sid, *, api=None):
@@ -353,7 +358,7 @@ class Win32:
         self._free = bind(self.k, 'LocalFree', [t.LPVOID], t.LPVOID)
 
     def open(self, path, directory):
-        h = self._open(path, 0x20000 | (0 if directory else 0x80000000), 3 if directory else 1, None, 3, 0x00200000 | (0x02000000 if directory else 0), None)
+        h = self._open(path, 0x20000 | 0x80000000, 3 if directory else 1, None, 3, 0x00200000 | (0x02000000 if directory else 0), None)
         if h in (None, ctypes.c_void_p(-1).value): raise WindowsBlocked()
         return h
 

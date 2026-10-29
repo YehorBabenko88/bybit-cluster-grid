@@ -6,6 +6,7 @@ from tools.check_ddl_free_ci import ROOT,verify_checkout
 from s0_smoke.policy import load_json
 from s0_smoke.evidence import verify_evidence
 from tools.s0_native_receipt import validate_native
+from tools.s0_userprofile_receipt import verify_profile_bundle
 from tools.verify_s0_bootstrap_ci import validate_record as validate_bootstrap_record
 from tools.s0_preparation_receipt import TOKEN_SOURCES,validate_token_record
 from tools.probe_s0_public_ci import validate_observation
@@ -35,7 +36,7 @@ def run(directory):
  head=os.environ['EXACT_HEAD_SHA'];verify_checkout(ROOT,head);root=Path(directory);folders=[p for p in root.iterdir() if p.is_dir()]
  context=dict(head=head,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'])
  tree_context=dict(context,tree=subprocess.check_output(['git','rev-parse','HEAD^{tree}'],cwd=ROOT,text=True).strip())
- expected={'s0-offline-'+osname+'-'+py+'-'+head for osname in ('ubuntu-latest','windows-latest') for py in ('3.11','3.12')}|{'physical-smoke-s0-'+shell+'-'+head for shell in ('powershell','pwsh')}
+ expected={'s0-offline-'+osname+'-'+py+'-'+head for osname in ('ubuntu-latest','windows-latest') for py in ('3.11','3.12')}|{'physical-smoke-s0-'+shell+'-'+py+'-'+head for shell in ('powershell','pwsh') for py in ('3.11','3.12')}
  need({p.name for p in folders}==expected);inventory=json.loads((ROOT/'integration/s0_inventory.json').read_text());report=[]
  for folder in folders:
   hosted=folder.name.startswith('physical-smoke-s0-');phase='hosted' if hosted else 'offline';data=folder/'s0-results' if hosted else folder;build=folder/'s0-package' if hosted else folder;idx=load_json((data/(phase+'-sha256.json')).read_bytes())
@@ -60,6 +61,7 @@ def run(directory):
    for n,h in native['source_sha256'].items():need(hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest()==h)
    need(native['binary_sha256']['S0Launcher.dll']==json.loads(zipfile.ZipFile(package).read('s0-package.json'))['files']['native/S0Launcher.dll']['sha256'])
    validate_bootstrap_record(load_json((data/'native-bootstrap.json').read_bytes()),context,receipt['sha256'],(data/'native-bootstrap-raw.json').read_bytes())
+   verify_profile_bundle(lambda name:(data/name).read_bytes(),context,receipt['sha256'])
    token_sources={n:hashlib.sha256(subprocess.check_output(['git','show',head+':'+n],cwd=ROOT)).hexdigest() for n in TOKEN_SOURCES}
    validate_token_record(load_json((data/'native-token-observer.json').read_bytes()),context,token_sources,native['binary_sha256']['S0Launcher.dll'])
    probe=load_json((data/'public-probe.json').read_bytes());need((probe['head'],probe['run_id'],probe['attempt'])==(head,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT']) and all(probe[k] is False for k in ('physical_ready','s0_execute','g1_execute')));counts=probe['counts'];need(probe['status']==validate_observation(counts['subscribe_ack'],counts['book_samples'],counts['trade_samples'],probe['error'],probe['http_status']));portable=json.loads((data/'portable.json').read_text());need(portable['head']==head and portable['package_sha256']==receipt['sha256'] and portable['status']=='PORTABLE_PLAN_AND_IMPORTS_PASS' and portable['s0_execute'] is False)

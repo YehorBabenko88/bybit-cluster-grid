@@ -4,7 +4,7 @@ import json
 import zipfile
 import pytest
 from tools.s0_independent_acceptance import (archive_members, check, check_context,
-    junit, native, sha, strict_json, REQUIRED_SOURCES, BOOTSTRAP_CASES, BOOTSTRAP_SOURCES, TOKEN_SOURCES, TOKEN_TRUE)
+    junit, native, sha, strict_json, REQUIRED_SOURCES, BOOTSTRAP_CASES, BOOTSTRAP_SOURCES, TOKEN_SOURCES, TOKEN_TRUE, PROFILE_CASES)
 
 CTX = dict(head='a'*40,tree='b'*40,run_id='123',attempt='2')
 
@@ -40,6 +40,15 @@ def fixture():
     outer['s0-results/native-bootstrap-raw.json']=bootstrap_raw
     bootstrap.update(fixture_sha256=sha(bootstrap_raw),source_sha256={n:sha(sources[n]) for n in BOOTSTRAP_SOURCES})
     outer['s0-results/native-bootstrap.json']=raw(bootstrap)
+    import xml.etree.ElementTree as E
+    profile_context={k:v for k,v in CTX.items() if k!='tree'}
+    profile=dict(scope='HOSTED_NATIVE_USER_PROFILE_NOT_PHYSICAL',head=CTX['head'],package_sha256=sha(package),cases=sorted(PROFILE_CASES),pid=100,creation_filetime=1000,exit_code=0,deadline_pid=101,deadline_exit_code=1,deadline_timed_out=True,execute=False,cleanup=False)
+    profile_raw=raw(profile);suite=E.Element('testsuite',dict(name='native_user_profile_v1',tests=str(len(PROFILE_CASES)),errors='0',failures='0',skipped='0',**profile_context))
+    for name in sorted(PROFILE_CASES):E.SubElement(suite,'testcase',dict(classname='HostedNativeUserProfile',name=name))
+    profile_xml=E.tostring(suite,encoding='utf-8',xml_declaration=True)
+    profile_lines=b''.join(raw(dict(profile_context,node=name,status='HOSTED_NATIVE_PASS_NOT_PHYSICAL',execute=False,cleanup=False))+b'\n' for name in sorted(PROFILE_CASES))
+    outer['s0-results/native-userprofile-raw.json']=profile_raw;outer['s0-results/native-userprofile.xml']=profile_xml;outer['s0-results/native-userprofile.jsonl']=profile_lines
+    outer['s0-results/native-userprofile.json']=raw(dict(profile,**profile_context,raw_sha256=sha(profile_raw),junit_sha256=sha(profile_xml),jsonl_sha256=sha(profile_lines)))
     token=dict({k:v for k,v in CTX.items() if k != 'tree'},scope='HOSTED_FIXTURE_NOT_PHYSICAL',component='TOKEN_OBSERVER',status='TEST_PASS',elevated=False,physical_acceptance=False,group_count=3,privilege_count=1,enabled_privilege_count=1,**{k:True for k in TOKEN_TRUE})
     outer['s0-results/native-token-observer-raw.txt']=raw({k:v for k,v in token.items() if k not in {'run_id','attempt'}})
     token.update(source_sha256={n:sha(sources[n]) for n in TOKEN_SOURCES},binary_sha256={'S0Launcher.dll':sha(files['native/S0Launcher.dll']),'TokenObserverFixture.exe':'d'*64})

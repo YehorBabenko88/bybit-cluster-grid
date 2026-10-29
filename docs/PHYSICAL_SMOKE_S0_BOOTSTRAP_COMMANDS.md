@@ -15,6 +15,7 @@ without replacing any object; partial transactions remain for separate review.
 Administrators, SYSTEM and the operator remain trusted.
 
 ```powershell
+$ParentScope = 'LocalAppData' # legacy contract; new V1 runbook selects UserProfileV1 explicitly
 $DiagnosticStages = $false # optional fixed read-only progress; no authority
 $Action = 'Plan'
 $Approved = $false
@@ -70,11 +71,15 @@ try {
     if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_LOADED'); [Console]::Out.Flush() }
     # PlanPackage validates the complete manifest and parent custody without writes.
     if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_VALIDATE'); [Console]::Out.Flush() }
-    if ($DiagnosticStages) { $plan = [GridS0.Bootstrap]::PlanPackageDiagnostic($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid) }
+    if ($ParentScope -eq 'UserProfileV1') {
+        if ($DiagnosticStages) { $plan = [GridS0.Bootstrap]::PlanPackageDiagnosticAtUserProfileV1($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid) }
+        else { $plan = [GridS0.Bootstrap]::PlanPackageAtUserProfileV1($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid) }
+    } elseif ($DiagnosticStages) { $plan = [GridS0.Bootstrap]::PlanPackageDiagnostic($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid) }
     else { $plan = [GridS0.Bootstrap]::PlanPackage($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid) }
     if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_VALIDATED'); [Console]::Out.Flush() }
     if ($Action -eq 'Stage') {
-        [GridS0.Bootstrap]::StagePackage($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid,$true)
+        if ($ParentScope -eq 'UserProfileV1') { [GridS0.Bootstrap]::StagePackageAtUserProfileV1($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid,$true) }
+        else { [GridS0.Bootstrap]::StagePackage($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid,$true) }
     } elseif ($Action -eq 'ObserveToken') {
         $facts = [GridS0.TokenObserver]::RequireStandard($ExpectedSid)
         # Full SID/group evidence stays in console memory; never upload host facts.

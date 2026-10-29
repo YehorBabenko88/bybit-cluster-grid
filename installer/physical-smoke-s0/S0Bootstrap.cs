@@ -17,6 +17,7 @@ namespace GridS0 {
   public int FileCount { get; internal set; }
   public long Bytes { get; internal set; }
   public string ParentIdentity { get; internal set; }
+  public string ParentScope { get; internal set; }
   public string RootIdentity { get; internal set; }
   public string Status { get; internal set; }
   public bool S0Execute { get { return false; } }
@@ -55,8 +56,8 @@ namespace GridS0 {
   static bool IsSource(string name) {
    return Match(name,"s0_smoke/[A-Za-z_][A-Za-z_0-9]*\\.py") ||
     name=="installer/physical-smoke-s0.ps1" || name=="installer/physical-smoke-s0-bootstrap.ps1" ||
-    name=="docs/PHYSICAL_SMOKE_S0.md" || name=="docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md" || name=="docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md" ||
-    name=="installer/physical-smoke-s0/S0Launcher.cs" || name=="installer/physical-smoke-s0/S0Bootstrap.cs" || name=="installer/physical-smoke-s0/TokenObserver.cs" || name=="installer/physical-smoke-s0/S0Inputs.cs" || name=="installer/physical-smoke-s0/S0Transfer.cs" || name=="installer/physical-smoke-s0/S0TransferExport.cs" || name=="installer/physical-smoke-s0/S0TransferTransport.cs";
+    name=="docs/PHYSICAL_SMOKE_S0.md" || name=="docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md" || name=="docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md" || name=="docs/PHYSICAL_SMOKE_S0_USERPROFILE_V1.md" ||
+    name=="installer/physical-smoke-s0/S0Launcher.cs" || name=="installer/physical-smoke-s0/S0Bootstrap.cs" || name=="installer/physical-smoke-s0/TokenObserver.cs" || name=="installer/physical-smoke-s0/S0Inputs.cs" || name=="installer/physical-smoke-s0/S0Transfer.cs" || name=="installer/physical-smoke-s0/S0TransferExport.cs" || name=="installer/physical-smoke-s0/S0TransferTransport.cs" || name=="installer/physical-smoke-s0/S0UserProfile.cs";
   }
   static Package Validate(byte[] zip,string sha,string head) {
    Need(zip!=null && zip.LongLength>0 && zip.LongLength<=MaxZip && Match(sha,"[0-9a-f]{64}") && Match(head,"[0-9a-f]{40}"));
@@ -115,38 +116,44 @@ namespace GridS0 {
    try { TracePlan("ENTER"); return RunPackage(zip,expectedSha,expectedHead,targetRoot,expectedSid,false); } finally { tracePlan=false; }
   }
   public static BootstrapReceipt StagePackage(byte[] zip,string expectedSha,string expectedHead,string targetRoot,string expectedSid,bool approved) { Need(approved); return RunPackage(zip,expectedSha,expectedHead,targetRoot,expectedSid,true); }
-  static BootstrapReceipt RunPackage(byte[] zip,string sha,string head,string target,string sid,bool stage) {
+  static BootstrapReceipt RunPackage(byte[] zip,string sha,string head,string target,string sid,bool stage,ParentKind kind=ParentKind.LocalAppData) {
    // Copy caller-owned bytes before authentication to prevent concurrent caller mutation.
    Need(zip!=null && zip.LongLength<=MaxZip); byte[] captured=(byte[])zip.Clone(); TracePlan("CAPTURED"); Package package=Validate(captured,sha,head); TracePlan("PACKAGE");
-   return Publish(package,captured,sha,head,target,sid,"GridS0Package-",stage);
+   return Publish(package,captured,sha,head,target,sid,"GridS0Package-",stage,kind);
   }
-  static BootstrapReceipt Publish(Package package,byte[] sourceZipOrNull,string sha,string head,string target,string sid,string prefix,bool stage) {
+  static BootstrapReceipt Publish(Package package,byte[] sourceZipOrNull,string sha,string head,string target,string sid,string prefix,bool stage,ParentKind kind=ParentKind.LocalAppData) {
    Need(prefix=="GridS0Package-" || prefix=="GridS0Input-");
    diagnosticPhase="TOKEN"; TracePlan("TOKEN"); TokenObserver.RequireStandard(sid); new SecurityIdentifier(sid); Need(sid!=SystemSid && sid!=AdminSid);
    TracePlan("FOLDER");
-   string local=Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData,Environment.SpecialFolderOption.DoNotVerify);
+   using(var profile=kind==ParentKind.UserProfileV1?HoldUserProfileV1(sid):null) {
+   string local=profile!=null?profile.ParentPath:ParentPath(sid,kind);
    Need(!String.IsNullOrEmpty(local)); local=Path.GetFullPath(local).TrimEnd('\\');
    Need(target!=null && target==Path.GetFullPath(target) && String.Equals(Path.GetDirectoryName(target),local,StringComparison.OrdinalIgnoreCase));
    string leaf=Path.GetFileName(target); Need(Match(leaf,Regex.Escape(prefix)+"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"));
    Need(target.Length<=240 && Match(local.Substring(0,3),"[A-Za-z]:\\\\"));
    diagnosticPhase="ANCESTRY"; TracePlan("PARENT");
    using(var pins=new Pins(local,sid)) {
-    Absent(target); var receipt=new BootstrapReceipt { Head=head,Sha256=sha,FileCount=package.Files.Count+(sourceZipOrNull==null?0:1),Bytes=package.Bytes+(sourceZipOrNull==null?0:sourceZipOrNull.LongLength),ParentIdentity=pins.ParentId,RootIdentity=null,Status="PLAN_ONLY" };
+    Absent(target); var receipt=new BootstrapReceipt { Head=head,Sha256=sha,FileCount=package.Files.Count+(sourceZipOrNull==null?0:1),Bytes=package.Bytes+(sourceZipOrNull==null?0:sourceZipOrNull.LongLength),ParentIdentity=pins.ParentId,ParentScope=kind.ToString(),RootIdentity=null,Status="PLAN_ONLY" };
     if(!stage) { TracePlan("COMPLETE"); return receipt; }
     string txn=Path.Combine(local,".GridS0Transaction-"+Guid.NewGuid().ToString("D"));
     using(var security=new Security(sid)) {
-     diagnosticPhase="CREATE_TXN"; CreateDir(txn,security); diagnosticPhase="TXN_ATTRIBUTES"; Need(SetFileAttributesW(LongPath(txn),0x12));
-     diagnosticPhase="OPEN_TXN"; using(var root=Open(txn,true,true)) {
+     if(profile!=null) profile.Check(); pins.Check(); Absent(target);
+     diagnosticPhase="CREATE_TXN"; SafeFileHandle created;
+     if(profile!=null) created=CreateProfileTransaction(pins.Parent,Path.GetFileName(txn),security);
+     else { CreateDir(txn,security); created=Open(txn,true,true); }
+     diagnosticPhase="OPEN_TXN"; using(var root=created) {
+      diagnosticPhase="TXN_ATTRIBUTES"; Need(SetFileAttributesW(LongPath(txn),0x12));
       diagnosticPhase="INSPECT_TXN"; string rootId=Inspect(root,txn,true,true,sid); var made=new HashSet<string>(StringComparer.OrdinalIgnoreCase); made.Add("");
       diagnosticPhase="WRITE_MEMBERS"; foreach(var item in package.Files) WriteMember(txn,item.Key,item.Value,security,sid,made);
       if(sourceZipOrNull!=null) WriteMember(txn,"source.zip",sourceZipOrNull,security,sid,made);
-      pins.Check(); Need(Inspect(root,txn,true,true,sid)==rootId); Absent(target);
+      if(profile!=null) profile.Check(); pins.Check(); Need(Inspect(root,txn,true,true,sid)==rootId); Absent(target);
       diagnosticPhase="RENAME"; Rename(root,pins.Parent,leaf); diagnosticPhase="CHECK_PUBLICATION"; pins.Check();
       Need(Inspect(root,target,true,true,sid)==rootId);
       receipt.RootIdentity=rootId; receipt.Status="STAGED_NO_EXECUTION_AUTHORITY"; return receipt;
      }
     }
    }
+  }
   }
   static void WriteMember(string root,string name,byte[] bytes,Security sd,string sid,HashSet<string> made) {
    string relative=""; string[] parts=name.Split('/');
@@ -164,14 +171,14 @@ namespace GridS0 {
   static string LongPath(string path) { return "\\\\?\\"+path; }
   static void Absent(string path) { uint a=GetFileAttributesW(LongPath(path)); int error=Marshal.GetLastWin32Error(); Need(a==0xffffffff && (error==2 || error==3)); }
   sealed class Pins:IDisposable {
-   internal SafeFileHandle Parent; internal string ParentId; readonly string sid; readonly List<SafeFileHandle> handles=new List<SafeFileHandle>(); readonly List<string> paths=new List<string>(), ids=new List<string>();
-   internal Pins(string path,string s) { sid=s; try {
+   internal SafeFileHandle Parent; internal string ParentId; readonly string sid; readonly List<SafeFileHandle> handles=new List<SafeFileHandle>(); readonly List<string> paths=new List<string>(), ids=new List<string>(), stamps=new List<string>(); readonly bool profile;
+   internal Pins(string path,string s,bool profileV1=false) { sid=s; profile=profileV1; try {
     string volume=Path.GetPathRoot(path); Need(GetDriveTypeW(volume)==3); var fs=new StringBuilder(32); Need(GetVolumeInformationW(volume,null,0,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero,fs,32) && fs.ToString()=="NTFS");
     string current=volume; Pin(current); foreach(string part in path.Substring(volume.Length).Split('\\')) { Need(part.Length>0); current=Path.Combine(current,part); Pin(current); }
     Parent=handles[handles.Count-1]; ParentId=ids[ids.Count-1];
    } catch { Dispose(); throw; } }
-   void Pin(string path) { var h=Open(path,true,false); handles.Add(h); paths.Add(path); ids.Add(Inspect(h,path,true,false,sid)); }
-   internal void Check() { for(int i=0;i<handles.Count;i++) Need(Inspect(handles[i],paths[i],true,false,sid)==ids[i]); }
+   void Pin(string path) { var h=Open(path,true,false); handles.Add(h); paths.Add(path); ids.Add(Inspect(h,path,true,false,sid)); stamps.Add(SecurityStamp(h,profile?sid:null)); }
+   internal void Check() { for(int i=0;i<handles.Count;i++) Need(Inspect(handles[i],paths[i],true,false,sid)==ids[i] && SecurityStamp(handles[i],profile?sid:null)==stamps[i]); }
    public void Dispose() { foreach(var h in handles) h.Dispose(); }
   }
   // Metadata-only access does not establish the required read/share custody.

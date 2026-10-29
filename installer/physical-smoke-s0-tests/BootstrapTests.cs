@@ -92,7 +92,7 @@ public static class BootstrapTests {
  static byte[] ReadLoaderOutput(Stream input,LoaderCapture capture) {
   byte[] buffer=new byte[1024]; int read; while((read=input.Read(buffer,0,buffer.Length))>0) capture.Append(buffer,read); return capture.Snapshot();
  }
- public static void HostedLoaderPlan(string root,string sha,string head,string sid) {
+ public static void HostedLoaderPlan(string root,string sha,string head,string sid,bool userProfile=false) {
   Phase="FIXTURE_LOADER_HOSTED_GATE";
   Need(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true" && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT")=="github-hosted" && Environment.GetEnvironmentVariable("GITHUB_REPOSITORY")=="YehorBabenko88/bybit-cluster-grid" && Environment.GetEnvironmentVariable("GITHUB_JOB")=="s0-windows");
   Need(!String.Equals(Environment.MachineName,"LS5",StringComparison.OrdinalIgnoreCase) && !String.Equals(Environment.MachineName,"PC4",StringComparison.OrdinalIgnoreCase)); TokenObserver.RequireStandard(sid);
@@ -101,7 +101,7 @@ public static class BootstrapTests {
   string allowed=major=="5"?Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"WindowsPowerShell","v1.0","powershell.exe"):Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"PowerShell","7","pwsh.exe");
   Need(shell!=null && shell==Path.GetFullPath(shell) && String.Equals(shell,allowed,StringComparison.OrdinalIgnoreCase) && shellSha!=null && System.Text.RegularExpressions.Regex.IsMatch(shellSha,"\\A[0-9a-f]{64}\\z"));
   string driver=Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),"bootstrap-loader-test.ps1"), loader=Path.Combine(root,"installer","physical-smoke-s0-bootstrap.ps1");
-  string target=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"GridS0Package-"+Guid.NewGuid().ToString("D")); Need(!File.Exists(target) && !Directory.Exists(target));
+  string target=Path.Combine(userProfile?ProfileApi.Parent():Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"GridS0Package-"+Guid.NewGuid().ToString("D")); Need(!File.Exists(target) && !Directory.Exists(target));
   Need((File.GetAttributes(driver)&FileAttributes.ReparsePoint)==0 && (File.GetAttributes(loader)&FileAttributes.ReparsePoint)==0);
   bool member; Need(IsProcessInJob(GetCurrentProcess(),IntPtr.Zero,out member) && member);
   Phase="FIXTURE_LOADER_SHELL_PIN";
@@ -109,7 +109,7 @@ public static class BootstrapTests {
    using(var hash=SHA256.Create()) Need(BitConverter.ToString(hash.ComputeHash(lease)).Replace("-","").ToLowerInvariant()==shellSha);
    // A plain fresh shell must succeed before diagnostics can warm shared caches.
    foreach(bool diagnostic in new[]{false,true}) {
-   var start=new ProcessStartInfo { FileName=shell,Arguments="-NoLogo -NoProfile -NonInteractive -File "+QuoteLoader(driver)+" -Root "+QuoteLoader(root)+" -Head "+QuoteLoader(head)+" -Sha "+QuoteLoader(sha)+" -Sid "+QuoteLoader(sid)+" -Target "+QuoteLoader(target)+" -Loader "+QuoteLoader(loader)+(diagnostic?" -DiagnosticStages":""),UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=root,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true };
+   var start=new ProcessStartInfo { FileName=shell,Arguments="-NoLogo -NoProfile -NonInteractive -File "+QuoteLoader(driver)+" -Root "+QuoteLoader(root)+" -Head "+QuoteLoader(head)+" -Sha "+QuoteLoader(sha)+" -Sid "+QuoteLoader(sid)+" -Target "+QuoteLoader(target)+" -Loader "+QuoteLoader(loader)+(diagnostic?" -DiagnosticStages":"")+(userProfile?" -ParentScope UserProfileV1":""),UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=root,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true };
    Phase="FIXTURE_LOADER_SELF_DUP_HANDLE";
    IntPtr self=OpenProcess(0x40,false,GetCurrentProcessId()); Need(self!=IntPtr.Zero); Need(CloseHandle(self));
    Phase="FIXTURE_LOADER_PROCESS_START";
@@ -147,6 +147,22 @@ public static class BootstrapTests {
   Phase="FIXTURE_LOADER_TARGET_ABSENT"; Need(!File.Exists(target) && !Directory.Exists(target));
   // No timeout kill by PID: failure unwinds to the fixture parent's owned Job.
  }
+ public static byte[] HostedRuntimeAction(string package,string head,string sha,string action,string root,string config,bool approved,out byte[] errors,out int exit) {
+  Need(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true" && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT")=="github-hosted" && Environment.GetEnvironmentVariable("GITHUB_JOB")=="s0-windows");
+  string shell=Environment.GetEnvironmentVariable("S0_TEST_SHELL_PATH"),pin=Environment.GetEnvironmentVariable("S0_TEST_SHELL_SHA");
+  using(var binary=new FileStream(shell,FileMode.Open,FileAccess.Read,FileShare.Read)) Need(Hash(TransferTestsBytes(binary))==pin);
+  string script=Path.Combine(package,"installer","physical-smoke-s0.ps1");
+  var start=new ProcessStartInfo { FileName=shell,Arguments="-NoLogo -NoProfile -NonInteractive -File "+QuoteLoader(script)+" -Action "+action+" -ParentScope UserProfileV1 -Root "+QuoteLoader(root)+" -PackageRoot "+QuoteLoader(package)+" -PackageZip "+QuoteLoader(Path.Combine(package,"source.zip"))+" -Config "+QuoteLoader(config)+" -ExpectedHead "+head+" -ExpectedPackageSha "+sha+(approved?" -Approved":""),UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=package,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true };
+  using(var child=Process.Start(start)) {
+   Need(child!=null);child.StandardInput.Close();bool member;Need(IsProcessInJob(child.Handle,IntPtr.Zero,out member) && member);
+   var capturedOut=new LoaderCapture();var capturedErr=new LoaderCapture();
+   Task<byte[]> output=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardOutput.BaseStream,capturedOut); });
+   Task<byte[]> error=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardError.BaseStream,capturedErr); });
+   Need(child.WaitForExit(30000));Need(Task.WaitAll(new Task[]{output,error},5000));
+   errors=error.Result;exit=child.ExitCode;return output.Result;
+  }
+ }
+ static byte[] TransferTestsBytes(Stream stream) { using(var memory=new MemoryStream()) { byte[] bytes=new byte[8192];int count;while((count=stream.Read(bytes,0,bytes.Length))>0) { Need(memory.Length+count<=67108864);memory.Write(bytes,0,count); }return memory.ToArray(); } }
  static void RaceAttempt(int index,byte[] zip,string sha,string head,string target,string sid,ref int winners,ref int blocked,Exception[] failures,string[] phases) {
   try {
    phases[index]="STAGE";

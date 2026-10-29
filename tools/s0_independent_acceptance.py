@@ -13,7 +13,7 @@ LIMIT = 512 * 1024 * 1024
 ENTRY = 64 * 1024 * 1024
 COUNT = 20000
 REQUIREMENTS_VERSION = 6
-REQUIRED_SOURCES = frozenset(('s0_smoke/cli.py','s0_smoke/entry.py','installer/physical-smoke-s0.ps1','installer/physical-smoke-s0/S0Launcher.cs','docs/PHYSICAL_SMOKE_S0.md','installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0/S0Bootstrap.cs','installer/physical-smoke-s0/S0Inputs.cs','installer/physical-smoke-s0/S0Transfer.cs','installer/physical-smoke-s0/S0TransferExport.cs','installer/physical-smoke-s0/S0TransferTransport.cs','installer/physical-smoke-s0-bootstrap.ps1','docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md','docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md'))
+REQUIRED_SOURCES = frozenset(('s0_smoke/profile.py','s0_smoke/cli.py','s0_smoke/entry.py','installer/physical-smoke-s0.ps1','installer/physical-smoke-s0/S0Launcher.cs','docs/PHYSICAL_SMOKE_S0.md','installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0/S0Bootstrap.cs','installer/physical-smoke-s0/S0Inputs.cs','installer/physical-smoke-s0/S0Transfer.cs','installer/physical-smoke-s0/S0TransferExport.cs','installer/physical-smoke-s0/S0TransferTransport.cs','installer/physical-smoke-s0/S0UserProfile.cs','installer/physical-smoke-s0-bootstrap.ps1','docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md','docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md'))
 
 
 def need(value):
@@ -117,12 +117,40 @@ def native(record, context, files, provider):
 
 
 BOOTSTRAP_CASES = frozenset(('plan_no_write','unapproved_rejected','wrong_sha_rejected','wrong_sid_rejected','outside_parent_rejected','stage_closure','existing_target_rejected','concurrent_no_replace','canary_unchanged','powershell_loader_plan_only','transfer_slot_verified','transfer_export_verified','transfer_transport_verified'))
-BOOTSTRAP_SOURCES = frozenset(('installer/physical-smoke-s0/S0Launcher.cs','installer/physical-smoke-s0/S0Bootstrap.cs','installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0/S0Inputs.cs','installer/physical-smoke-s0/S0Transfer.cs','installer/physical-smoke-s0/S0TransferExport.cs','installer/physical-smoke-s0/S0TransferTransport.cs','installer/physical-smoke-s0-tests/TransferTests.cs','installer/physical-smoke-s0-tests/TransferExportTests.cs','installer/physical-smoke-s0-tests/TransferTransportTests.cs','installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs','installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1','tools/verify_s0_bootstrap_ci.py'))
+BOOTSTRAP_SOURCES = frozenset(('installer/physical-smoke-s0/S0Launcher.cs','installer/physical-smoke-s0/S0Bootstrap.cs','installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0/S0Inputs.cs','installer/physical-smoke-s0/S0Transfer.cs','installer/physical-smoke-s0/S0TransferExport.cs','installer/physical-smoke-s0/S0TransferTransport.cs','installer/physical-smoke-s0/S0UserProfile.cs','installer/physical-smoke-s0-tests/TransferTests.cs','installer/physical-smoke-s0-tests/TransferExportTests.cs','installer/physical-smoke-s0-tests/TransferTransportTests.cs','installer/physical-smoke-s0-tests/UserProfileTests.cs','installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs','installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1','tools/verify_s0_bootstrap_ci.py'))
 TOKEN_SOURCES = frozenset(('installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0-tests/TokenObserverTests.cs','installer/physical-smoke-s0-tests/TokenObserverFixture.cs'))
 TOKEN_TRUE = frozenset(('pure_cases','parent_admin_rejected','standard_primary_accepted','sid_matches','wrong_sid_rejected','medium'))
+PROFILE_CASES = frozenset(('cold_first_loader','native_profile_plan','unapproved_stage','sid_mismatch','no_local_fallback','atomic_protected_stage','uuid_reuse','source_write_and_replacement','native_python_token_job','runtime_prepare_preflight_status_stop','runtime_execute_evidence_blocked','native_python_profile_resolution','owned_deadline_shutdown','input_and_import','receiver_replay_race','export_identity_and_scope','sender_and_known_hosts','parent_delete_child_dac_owner','same_file_acl_drift','file_id_fault_rejected','junction_reparse','hardlink_source'))
+
+
+def profile_records(outer,context,pin):
+    expected={k:v for k,v in context.items() if k!='tree'}
+    need(all('s0-results/'+name in outer for name in ('native-userprofile.json','native-userprofile-raw.json','native-userprofile.xml','native-userprofile.jsonl')))
+    read=lambda name:outer['s0-results/'+name]
+    need(len(read('native-userprofile-raw.json'))<=16384 and len(read('native-userprofile.jsonl'))<=32768 and len(read('native-userprofile.xml'))<=65536 and b'<!' not in read('native-userprofile.xml'))
+    value=strict_json(read('native-userprofile.json'))
+    fields={'scope','head','package_sha256','cases','pid','creation_filetime','exit_code','deadline_pid','deadline_exit_code','deadline_timed_out','execute','cleanup'}
+    need(type(value) is dict and set(value)==fields|set(expected)|{'raw_sha256','junit_sha256','jsonl_sha256'})
+    check_context(value,expected)
+    for name,key in [('native-userprofile-raw.json','raw_sha256'),('native-userprofile.xml','junit_sha256'),('native-userprofile.jsonl','jsonl_sha256')]:need(sha(read(name))==value[key])
+    raw=strict_json(read('native-userprofile-raw.json'));need(set(raw)==fields and all(raw[k]==value[k] for k in fields))
+    need(raw['scope']=='HOSTED_NATIVE_USER_PROFILE_NOT_PHYSICAL' and raw['head']==expected['head'] and raw['package_sha256']==pin)
+    need(raw['execute'] is False and raw['cleanup'] is False and raw['deadline_timed_out'] is True)
+    need(type(raw['cases']) is list and len(raw['cases'])==len(PROFILE_CASES) and all(type(n) is str for n in raw['cases']) and set(raw['cases'])==PROFILE_CASES)
+    need(all(type(raw[k]) is int and 0<raw[k]<2**64 for k in ('pid','deadline_pid','creation_filetime')))
+    need(type(raw['exit_code']) is int and raw['exit_code']==0 and type(raw['deadline_exit_code']) is int and 0<=raw['deadline_exit_code']<2**32 and raw['deadline_exit_code']!=259)
+    junit(read('native-userprofile.xml'),expected,[('HostedNativeUserProfile',name) for name in PROFILE_CASES])
+    tree=ET.fromstring(read('native-userprofile.xml'))
+    need(tree.tag=='testsuite' and tree.text in (None,'') and tree.tail in (None,'') and len(tree)==len(PROFILE_CASES))
+    need(tree.attrib==dict(name='native_user_profile_v1',tests=str(len(PROFILE_CASES)),errors='0',failures='0',skipped='0',**expected))
+    for element,name in zip(tree,sorted(PROFILE_CASES)):need(element.tag=='testcase' and element.attrib==dict(classname='HostedNativeUserProfile',name=name) and not len(element) and not element.text and not element.tail)
+    rows=[strict_json(row) for row in read('native-userprofile.jsonl').splitlines()]
+    wanted=[dict(expected,node=name,status='HOSTED_NATIVE_PASS_NOT_PHYSICAL',execute=False,cleanup=False) for name in sorted(PROFILE_CASES)]
+    need(rows==wanted and all(type(row) is dict and row.get('execute') is False and row.get('cleanup') is False for row in rows))
 
 
 def preparation_records(outer, context, package_sha, dll_sha, provider):
+    profile_records(outer,context,package_sha)
     expected = {k:v for k,v in context.items() if k != 'tree'}
     record = strict_json(outer['s0-results/native-bootstrap.json'])
     base_keys = BOOTSTRAP_CASES | {'scope','head','package_sha256','status','s0_execute','g1_execute','cleanup'}

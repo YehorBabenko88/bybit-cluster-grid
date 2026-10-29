@@ -27,26 +27,29 @@ def root_id(root,sid):
  try:return list(api.inspect(h)['identity'])
  finally:api.close(h)
 
-def marker(root,context,sid,pin):
+def marker(root,context,sid,pin,parent):
  from .windows import create_fresh_file,MutableFile
  with MutableFile(Path(root)/'stop.json',sid) as lease:stop_id=list(lease.identity)
  value=dict(schema=1,**context,package_sha256=pin,root_id=root_id(root,sid),stop_id=stop_id)
+ if parent.mode=='UserProfileV1':value.update(parent.binding())
  create_fresh_file(Path(root)/'prepared.json',sid,canonical(value))
 
-def prepared(root,c,sid,pin):
+def prepared(root,c,sid,pin,parent):
  from .windows import MutableFile
  v=load_json(read_small(root,'prepared.json'))
  fields={'schema','head','run_id','role','package_sha256','root_id','stop_id'}
+ if parent.mode=='UserProfileV1':
+  binding=parent.binding();fields.update(binding);need(all(v.get(k)==value for k,value in binding.items()),'S0_PARENT_PROOF_DRIFT')
  need(set(v)==fields and type(v['schema']) is int and v['schema']==1 and all(v[k]==x for k,x in local_context(c).items()) and v['package_sha256']==pin and v['root_id']==root_id(root,sid),'S0_PREPARED_ROOT_IDENTITY_BLOCKED')
  with MutableFile(Path(root)/'stop.json',sid) as lease:need(v['stop_id']==list(lease.identity),'S0_STOP_IDENTITY_BLOCKED')
  return v
 
 def local_context(c):return dict(head=c['plan']['head'],run_id=c['plan']['run_id'],role=c['role'])
 
-def prepare(args,identity):
+def prepare(args,identity,parent):
  from .windows import Custody,create_fresh_root,create_fresh_file
  from .materials import materials,validate_config,TLS_FILES
- local=Path(os.environ['LOCALAPPDATA']).absolute();input_path=Path(args.config).absolute();relative=input_path.relative_to(local);need(len(relative.parts) in (2,3) and re.fullmatch('GridS0Input-[0-9a-f-]{36}',relative.parts[0]) and input_path.name in ('s0-plan.json','config.json'),'S0_PROTECTED_INPUT_NAMESPACE_REQUIRED');need(len(relative.parts)==2 or relative.parts[1]=='PC4');need(Path(args.root).absolute().parent==local,'S0_PRIVATE_PROFILE_ROOT_REQUIRED')
+ local=Path(parent.path).absolute();input_path=Path(args.config).absolute();relative=input_path.relative_to(local);need(len(relative.parts) in (2,3) and re.fullmatch('GridS0Input-[0-9a-f-]{36}',relative.parts[0]) and input_path.name in ('s0-plan.json','config.json'),'S0_PROTECTED_INPUT_NAMESPACE_REQUIRED');need(len(relative.parts)==2 or relative.parts[1]=='PC4');need(Path(args.root).absolute().parent==local,'S0_PRIVATE_PROFILE_ROOT_REQUIRED')
  raw=read_small(input_path.parent,input_path.name);v=load_json(raw)
  with Custody(Path(args.config).parent,identity.sid,[args.config]):
   need(read_small(Path(args.config).parent,Path(args.config).name)==raw)
@@ -63,7 +66,7 @@ def prepare(args,identity):
   for role,files in roles.items():
    child=root/role;create_fresh_root(child,identity.sid);create_fresh_root(child/'temp',identity.sid)
    for name,data in files.items():create_fresh_file(child/name,identity.sid,data)
-   if host()==p['hostnames'][role] and identity.sid==p['operator_sids'][role]:marker(child,dict(head=p['head'],run_id=p['run_id'],role=role),identity.sid,args.expected_package_sha)
+   if host()==p['hostnames'][role] and identity.sid==p['operator_sids'][role]:marker(child,dict(head=p['head'],run_id=p['run_id'],role=role),identity.sid,args.expected_package_sha,parent)
  return dict(status='S0_PREPARED_NOT_EXECUTED',roles=list(roles),private_material='RETAINED_IN_PROTECTED_ROLE_DIRECTORIES_NEVER_EVIDENCE',s0_execute=False,g1_execute=False,cleanup=False)
 
 def finish(root,c,result,error,manifest,pin):
@@ -111,46 +114,48 @@ def dispatch(args):
  tempfile.tempdir=str(Path(args.root).absolute()/'temp')
  from .materials import validate_config,TLS_FILES
  need(sys.platform=='win32','S0_WINDOWS_ONLY');forbidden_environment(os.environ);need(all(Path(os.environ.get(k,'')).absolute()==Path(args.root).absolute()/'temp' for k in ('TEMP','TMP')),'S0_OWN_TEMP_REQUIRED');identity=current_identity();require_operator(identity)
- local=Path(os.environ['LOCALAPPDATA']).absolute();package=Path(args.package_root).absolute();need(package.parent==local and re.fullmatch('GridS0Package-[0-9a-f-]{36}',package.name),'S0_PRIVATE_PACKAGE_NAMESPACE_REQUIRED');need(shutil.disk_usage(local).free>=536870912,'S0_DISK_RESERVE_REQUIRED');archive=Path(args.package_zip).absolute();need(Path(identity.image_path).absolute()==package/'runtime'/'python.exe','S0_BUNDLED_INTERPRETER_REQUIRED');manifest=verify_package(package,archive,args.expected_head,args.expected_package_sha)
- pins=[package/n for n in manifest['files']]+[package/'s0-package.json',archive]
- with Custody(package,identity.sid,pins) as source:
-  verify_package(package,archive,args.expected_head,args.expected_package_sha);source.guard()
-  if args.action=='prepare':return prepare(args,identity)
-  root=Path(args.root).absolute();need(Path(args.config).absolute()==root/'config.json','S0_CONFIG_MUST_BE_OWN_ROLE_CONFIG')
-  c=validate_config(read_small(root,'config.json'),args.expected_head,args.expected_package_sha);role=c['role'];need(host()==c['plan']['hostnames'][role] and identity.sid==c['plan']['operator_sids'][role],'S0_HOST_SID_MISMATCH')
-  need(root.parent.parent==local and root.name==role and root.parent.name=='GridS0-'+c['plan']['run_id'],'S0_ROLE_ROOT_NAME_BLOCKED')
-  with Custody(root,identity.sid,[root/'config.json',root/'prepared.json',*[root/n for n in TLS_FILES]]) as data,MutableFile(root/'tls-key.pem',identity.sid) as key_custody,Custody(root/'temp',identity.sid) as temp_custody:
-   prepared(root,c,identity.sid,args.expected_package_sha)
-   def guard():source.guard();data.guard();key_custody.guard();temp_custody.guard()
-   guard()
-   if args.action=='preflight':
-    need(not (root/'claim.json').exists(),'S0_ALREADY_STARTED')
-    if role=='LS5':need(port_available(c['plan']['port']),'S0_PORT_OCCUPIED')
-    return dict(status='APPLICATION_PREFLIGHT_PASS_NOT_AUTHORIZATION',**local_context(c),token=dict(elevated=identity.elevated,admin_enabled=identity.admin_enabled,integrity=identity.integrity,enabled_privileges=list(identity.enabled_privileges)),s0_execute=False,g1_execute=False)
-   if args.action=='execute':
-    if role=='LS5':need(port_available(c['plan']['port']),'S0_PORT_OCCUPIED')
-    return execute(args,c,identity,manifest,guard)
-   if args.action=='stop':
-    with MutableFile(root/'stop.json',identity.sid) as slot:request_stop(root,local_context(c));slot.guard()
-    return dict(status='OWN_STOP_NOTIFICATION_WRITTEN_NO_SIGNALS',**local_context(c),g1_execute=False)
-   if args.action=='status':
-    result=dict(status='S0_NOT_STARTED',**local_context(c),g1_execute=False)
-    if (root/'claim.json').exists():
-     try:
-      with ExclusiveFile(root/'claim.json',identity.sid):result['status']='S0_CLAIM_RELEASED'
-     except Exception:result['status']='RUNNING_OR_UNKNOWN'
-    if (root/'summary.json').exists():result['summary']=load_json(read_small(root,'summary.json'))
-    return result
-   if args.action=='evidence':
-    from .evidence import archive_evidence
-    with ExclusiveFile(root/'claim.json',identity.sid):return archive_evidence(root,local_context(c),args.expected_package_sha)
-   raise ValueError('S0_ACTION_BLOCKED')
+ from .profile import ParentLease
+ with ParentLease(args.parent_scope,identity.sid) as parent:
+  local=Path(parent.path).absolute();package=Path(args.package_root).absolute();need(package.parent==local and re.fullmatch('GridS0Package-[0-9a-f-]{36}',package.name),'S0_PRIVATE_PACKAGE_NAMESPACE_REQUIRED');need(shutil.disk_usage(local).free>=536870912,'S0_DISK_RESERVE_REQUIRED');archive=Path(args.package_zip).absolute();need(Path(identity.image_path).absolute()==package/'runtime'/'python.exe','S0_BUNDLED_INTERPRETER_REQUIRED');manifest=verify_package(package,archive,args.expected_head,args.expected_package_sha)
+  pins=[package/n for n in manifest['files']]+[package/'s0-package.json',archive]
+  with Custody(package,identity.sid,pins) as source:
+   verify_package(package,archive,args.expected_head,args.expected_package_sha);source.guard()
+   if args.action=='prepare':return prepare(args,identity,parent)
+   root=Path(args.root).absolute();need(Path(args.config).absolute()==root/'config.json','S0_CONFIG_MUST_BE_OWN_ROLE_CONFIG')
+   c=validate_config(read_small(root,'config.json'),args.expected_head,args.expected_package_sha);role=c['role'];need(host()==c['plan']['hostnames'][role] and identity.sid==c['plan']['operator_sids'][role],'S0_HOST_SID_MISMATCH')
+   need(root.parent.parent==local and root.name==role and root.parent.name=='GridS0-'+c['plan']['run_id'],'S0_ROLE_ROOT_NAME_BLOCKED')
+   with Custody(root,identity.sid,[root/'config.json',root/'prepared.json',*[root/n for n in TLS_FILES]]) as data,MutableFile(root/'tls-key.pem',identity.sid) as key_custody,Custody(root/'temp',identity.sid) as temp_custody:
+    prepared(root,c,identity.sid,args.expected_package_sha,parent)
+    def guard():parent.guard();source.guard();data.guard();key_custody.guard();temp_custody.guard()
+    guard()
+    if args.action=='preflight':
+     need(not (root/'claim.json').exists(),'S0_ALREADY_STARTED')
+     if role=='LS5':need(port_available(c['plan']['port']),'S0_PORT_OCCUPIED')
+     return dict(status='APPLICATION_PREFLIGHT_PASS_NOT_AUTHORIZATION',**local_context(c),token=dict(elevated=identity.elevated,admin_enabled=identity.admin_enabled,integrity=identity.integrity,enabled_privileges=list(identity.enabled_privileges)),s0_execute=False,g1_execute=False)
+    if args.action=='execute':
+     if role=='LS5':need(port_available(c['plan']['port']),'S0_PORT_OCCUPIED')
+     return execute(args,c,identity,manifest,guard)
+    if args.action=='stop':
+     with MutableFile(root/'stop.json',identity.sid) as slot:request_stop(root,local_context(c));slot.guard()
+     return dict(status='OWN_STOP_NOTIFICATION_WRITTEN_NO_SIGNALS',**local_context(c),g1_execute=False)
+    if args.action=='status':
+     result=dict(status='S0_NOT_STARTED',**local_context(c),g1_execute=False)
+     if (root/'claim.json').exists():
+      try:
+       with ExclusiveFile(root/'claim.json',identity.sid):result['status']='S0_CLAIM_RELEASED'
+      except Exception:result['status']='RUNNING_OR_UNKNOWN'
+     if (root/'summary.json').exists():result['summary']=load_json(read_small(root,'summary.json'))
+     return result
+    if args.action=='evidence':
+     from .evidence import archive_evidence
+     with ExclusiveFile(root/'claim.json',identity.sid):return archive_evidence(root,local_context(c),args.expected_package_sha)
+    raise ValueError('S0_ACTION_BLOCKED')
 
 def main(argv=None):
  try:
   p=Parser(description=__doc__);p.add_argument('--action',choices=('plan','preflight','prepare','execute','status','stop','evidence'),default='plan')
   for name in ('root','package-root','package-zip','config','expected-head','expected-package-sha'):p.add_argument('--'+name)
-  p.add_argument('--approved',action='store_true');args=p.parse_args(argv)
+  p.add_argument('--parent-scope',choices=('LocalAppData','UserProfileV1'),default='LocalAppData');p.add_argument('--approved',action='store_true');args=p.parse_args(argv)
   if args.action=='plan':print(json.dumps(dict(status='PLAN_ONLY',profile='PHYSICAL_SMOKE_S0',command=None,s0_execute=False,g1_execute=False,cleanup=False)));return 0
   if args.action in ('prepare','execute','stop','evidence'):need(args.approved,'S0_EXPLICIT_APPROVAL_REQUIRED')
   need(all(getattr(args,k) for k in ('root','package_root','package_zip','config','expected_head','expected_package_sha')),'S0_PINS_REQUIRED')

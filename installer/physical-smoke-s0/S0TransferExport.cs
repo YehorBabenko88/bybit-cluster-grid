@@ -20,9 +20,10 @@ namespace GridS0 {
    Need(expected.SetEquals(Directory.GetFiles(root))); string[] directories=Directory.GetDirectories(root); Need(directories.Length<=1);
    if(directories.Length==1) Need(directories[0]==Path.Combine(root,"temp") && Directory.GetFileSystemEntries(directories[0]).Length==0);
   }
-  static TransferExportReceipt TransferExport(string source,string head,string run,string packageSha,string target,string sid,bool stage) {
+  static TransferExportReceipt TransferExport(string source,string head,string run,string packageSha,string target,string sid,bool stage,ParentKind kind=ParentKind.LocalAppData) {
+   using(var profile=kind==ParentKind.UserProfileV1?HoldUserProfileV1(sid):null) {
    TransferContext(head,run,packageSha,1,sid); TokenObserver.RequireStandard(sid);
-   string local=Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData,Environment.SpecialFolderOption.DoNotVerify).TrimEnd('\\');
+   string local=profile!=null?profile.ParentPath:ParentPath(sid,kind);
    string pair=Path.Combine(local,"GridS0-"+run), expected=Path.Combine(pair,"PC4"); Need(source!=null && source==Path.GetFullPath(source) && String.Equals(source,expected,StringComparison.OrdinalIgnoreCase));
    using(var ancestry=new Pins(source,sid)) {
     string roleId=Inspect(ancestry.Parent,source,true,true,sid);
@@ -53,11 +54,13 @@ namespace GridS0 {
       ancestry.Check(); Need(Inspect(ancestry.Parent,source,true,true,sid)==roleId && Inspect(pairHandle,pair,true,true,sid)==pairId); ExportClosure(source);
       if(temporary!=null) Need(Inspect(temporary,Path.Combine(source,"temp"),true,true,sid)==tempId);
       foreach(var item in streams) Need(Inspect(item.Value.SafeFileHandle,Path.Combine(source,item.Key),false,true,sid)==identities[item.Key]);
-      string sha=Hash(payload); var publication=new Package(); publication.Files.Add("pc4-role.zip",payload); publication.Bytes=payload.LongLength;
-      var receipt=new TransferExportReceipt { Materialization=Publish(publication,null,sha,head,target,sid,"GridS0Input-",stage),PayloadSha256=sha,Size=payload.LongLength };
+      if(profile!=null) profile.Check(); string sha=Hash(payload); var publication=new Package(); publication.Files.Add("pc4-role.zip",payload); publication.Bytes=payload.LongLength;
+      var receipt=new TransferExportReceipt { Materialization=Publish(publication,null,sha,head,target,sid,"GridS0Input-",stage,kind),PayloadSha256=sha,Size=payload.LongLength };
       ancestry.Check(); ExportClosure(source); return receipt;
      } finally { foreach(var stream in streams.Values) stream.Dispose(); if(temporary!=null) temporary.Dispose(); }
     }
+   }
+
    }
   }
  }

@@ -28,7 +28,7 @@ namespace GridS0
 
     // S0 is a normal standard-token process with a one-process job lifetime.
     // This is explicitly NOT a G1 sandbox or an OS network restriction.
-    public static class ProcessHost
+    public static partial class ProcessHost
     {
         [StructLayout(LayoutKind.Sequential)] struct StartupInfo
         {

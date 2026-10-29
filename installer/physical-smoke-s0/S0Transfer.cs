@@ -30,27 +30,28 @@ namespace GridS0 {
    Need(Match(head,"[0-9a-f]{40}") && Match(run,"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}") && Match(sha,"[0-9a-f]{64}") && size>0 && size<=TransferLimit);
    Need(Match(sid,"S-1-5-21(?:-(?:0|[1-9][0-9]{0,9})){4}")); foreach(string part in sid.Substring(9).Split('-')) { uint n; Need(UInt32.TryParse(part,out n)); }
   }
-  static TransferSlotReceipt TransferSlot(string head,string run,string sha,long size,string target,string sid,bool stage) {
+  static TransferSlotReceipt TransferSlot(string head,string run,string sha,long size,string target,string sid,bool stage,ParentKind kind=ParentKind.LocalAppData) {
    TransferContext(head,run,sha,size,sid);
    var m=new Dictionary<string,object> {{"schema",1L},{"profile","PHYSICAL_SMOKE_S0_TRANSFER_SLOT"},{"head",head},{"run_id",run},{"payload_sha256",sha},{"size",size},{"operator_sid",sid},{"created_utc",DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ",System.Globalization.CultureInfo.InvariantCulture)}};
    byte[] metadata=Encoding.ASCII.GetBytes(InputJson(m)); var p=new Package(); p.Files.Add("incoming.zip",new byte[0]); p.Files.Add("slot.json",metadata); p.Bytes=metadata.LongLength;
-   var receipt=new TransferSlotReceipt { Materialization=Publish(p,null,sha,head,target,sid,"GridS0Input-",stage),MetadataSha256=Hash(metadata) };
+   var receipt=new TransferSlotReceipt { Materialization=Publish(p,null,sha,head,target,sid,"GridS0Input-",stage,kind),MetadataSha256=Hash(metadata) };
    if(stage) using(var pins=new Pins(target,sid)) { Need(Inspect(pins.Parent,target,true,true,sid)==receipt.Materialization.RootIdentity); using(var file=Open(Path.Combine(target,"incoming.zip"),false,false)) { receipt.IncomingIdentity=Inspect(file,Path.Combine(target,"incoming.zip"),false,true,sid); Info info; Need(GetFileInformationByHandle(file,out info) && info.SizeHigh==0 && info.SizeLow==0); } pins.Check(); }
    return receipt;
   }
-  public static TransferSlotLease OpenTransferSlot(string root,string expectedRootId,string expectedFileId,string head,string run,string sha,long size,string sid,bool approved) {
+  public static TransferSlotLease OpenTransferSlot(string root,string expectedRootId,string expectedFileId,string head,string run,string sha,long size,string sid,bool approved) { return OpenTransferSlotCore(root,expectedRootId,expectedFileId,head,run,sha,size,sid,approved); }
+  static TransferSlotLease OpenTransferSlotCore(string root,string expectedRootId,string expectedFileId,string head,string run,string sha,long size,string sid,bool approved,ParentKind kind=ParentKind.LocalAppData) {
    Need(approved); TransferContext(head,run,sha,size,sid); TokenObserver.RequireStandard(sid);
    Need(Match(expectedRootId,"[0-9a-f]{8}:[0-9a-f]{16}") && Match(expectedFileId,"[0-9a-f]{8}:[0-9a-f]{16}"));
-   string local=Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData,Environment.SpecialFolderOption.DoNotVerify).TrimEnd('\\');
+   string local=ParentPath(sid,kind);
    Need(root!=null && root==Path.GetFullPath(root) && String.Equals(Path.GetDirectoryName(root),local,StringComparison.OrdinalIgnoreCase) && Match(Path.GetFileName(root),"GridS0Input-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"));
-   return new TransferSlotLease(root,expectedRootId,expectedFileId,head,run,sha,size,sid);
+   return new TransferSlotLease(root,expectedRootId,expectedFileId,head,run,sha,size,sid,kind);
   }
   public static BootstrapReceipt PlanTransferImport(TransferSlotLease lease,string head,string run,string packageSha,string target,string sid) {
-   Need(lease!=null && lease.BoundHead==head && lease.BoundRun==run && lease.BoundSid==sid);
+   Need(lease!=null && lease.BoundKind==ParentKind.LocalAppData && lease.BoundHead==head && lease.BoundRun==run && lease.BoundSid==sid);
    return PlanRoleImport(lease.CaptureVerified(),lease.BoundSha,head,run,packageSha,target,sid);
   }
   public static BootstrapReceipt StageTransferImport(TransferSlotLease lease,string head,string run,string packageSha,string target,string sid,bool approved) {
-   Need(approved && lease!=null && lease.BoundHead==head && lease.BoundRun==run && lease.BoundSid==sid);
+   Need(approved && lease!=null && lease.BoundKind==ParentKind.LocalAppData && lease.BoundHead==head && lease.BoundRun==run && lease.BoundSid==sid);
    byte[] captured=lease.CaptureForImport();
    return StageRoleImport(captured,lease.BoundSha,head,run,packageSha,target,sid,true);
   }
@@ -59,10 +60,11 @@ namespace GridS0 {
   public sealed class TransferSlotLease:IDisposable {
    readonly string root,rootId,fileId,sha,sid,boundHead,boundRun; readonly long size; readonly Stopwatch clock=Stopwatch.StartNew(); readonly DateTime created;
    readonly object gate=new object();
-   Pins pins; SafeFileHandle incoming; FileStream metadata,claim; string metadataId,metadataHash,claimId,claimHash; bool disposed,consumed;
-   internal TransferSlotLease(string r,string rid,string fid,string head,string run,string digest,long length,string operatorSid) {
-    root=r; rootId=rid; fileId=fid; boundHead=head; boundRun=run; sha=digest; size=length; sid=operatorSid;
+   Pins pins; UserProfileLease profile; internal ParentKind BoundKind { get; private set; } SafeFileHandle incoming; FileStream metadata,claim; string metadataId,metadataHash,claimId,claimHash; bool disposed,consumed;
+   internal TransferSlotLease(string r,string rid,string fid,string head,string run,string digest,long length,string operatorSid,ParentKind kind=ParentKind.LocalAppData) {
+    root=r; rootId=rid; fileId=fid; boundHead=head; boundRun=run; sha=digest; size=length; sid=operatorSid; BoundKind=kind;
     try {
+     if(kind==ParentKind.UserProfileV1) { profile=HoldUserProfileV1(sid); Need(String.Equals(Path.GetDirectoryName(root),profile.ParentPath,StringComparison.OrdinalIgnoreCase)); }
      pins=new Pins(root,sid); Need(Inspect(pins.Parent,root,true,true,sid)==rootId); Closure(false);
      incoming=Open(Path.Combine(root,"incoming.zip"),false,false); Need(Inspect(incoming,Path.Combine(root,"incoming.zip"),false,true,sid)==fileId);
      Info info; Need(GetFileInformationByHandle(incoming,out info) && info.SizeHigh==0 && info.SizeLow==0);
@@ -88,7 +90,7 @@ namespace GridS0 {
    void Fresh() { Need(!disposed && !consumed && clock.ElapsedMilliseconds<=300000); TimeSpan age=DateTime.UtcNow-created; Need(age.TotalSeconds>=0 && age.TotalSeconds<=300); }
    void Stable() {
     Fresh();
-    pins.Check(); Need(Inspect(pins.Parent,root,true,true,sid)==rootId && Inspect(incoming,Path.Combine(root,"incoming.zip"),false,true,sid)==fileId && Inspect(metadata.SafeFileHandle,Path.Combine(root,"slot.json"),false,true,sid)==metadataId && Inspect(claim.SafeFileHandle,Path.Combine(root,"lease.json"),false,true,sid)==claimId); Closure(true);
+    if(profile!=null) profile.Check(); pins.Check(); Need(Inspect(pins.Parent,root,true,true,sid)==rootId && Inspect(incoming,Path.Combine(root,"incoming.zip"),false,true,sid)==fileId && Inspect(metadata.SafeFileHandle,Path.Combine(root,"slot.json"),false,true,sid)==metadataId && Inspect(claim.SafeFileHandle,Path.Combine(root,"lease.json"),false,true,sid)==claimId); Closure(true);
     metadata.Position=0; Need(Hash(TransferRead(metadata,1048576))==metadataHash);
     claim.Position=0; Need(Hash(TransferRead(claim,1048576))==claimHash);
    }
@@ -107,7 +109,7 @@ namespace GridS0 {
     }
     return captured;
    }
-   public void Dispose() { lock(gate) { if(disposed) return; disposed=true; if(claim!=null) claim.Dispose(); if(metadata!=null) metadata.Dispose(); if(incoming!=null) incoming.Dispose(); if(pins!=null) pins.Dispose(); } }
+   public void Dispose() { lock(gate) { if(disposed) return; disposed=true; if(claim!=null) claim.Dispose(); if(metadata!=null) metadata.Dispose(); if(incoming!=null) incoming.Dispose(); if(pins!=null) pins.Dispose(); if(profile!=null) profile.Dispose(); } }
   }
  }
 }

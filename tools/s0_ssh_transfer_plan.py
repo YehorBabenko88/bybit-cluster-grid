@@ -27,12 +27,12 @@ def _path(value):
         _need(part not in ('','.','..') and not part.endswith('.') and re.fullmatch(r'(?i:CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(?:\..*)?',part) is None)
     return value
 
-def _known_folder(value):
+def _known_folder(value,profile=False):
     _path(value)
-    _need(re.fullmatch(r'C:\\Users\\[A-Za-z0-9_-]+\\AppData\\Local',value) is not None)
+    _need(re.fullmatch(r'C:\\Users\\[A-Za-z0-9_-]+' if profile else r'C:\\Users\\[A-Za-z0-9_-]+\\AppData\\Local',value) is not None)
 
-def _root(folder,root):
-    _known_folder(folder);_path(root)
+def _root(folder,root,profile=False):
+    _known_folder(folder,profile);_path(root)
     _need(ntpath.dirname(root)==folder)
     leaf=ntpath.basename(root);prefix='GridS0Input-';_need(leaf.startswith(prefix))
     token=leaf[len(prefix):]
@@ -63,6 +63,20 @@ def _host_key(blob,fingerprint):
     _need(actual==fingerprint)
 
 def build_transfer_plan(record):
+    return _build_transfer_plan(record,False)
+
+
+def build_transfer_plan_at_user_profile_v1(record):
+    extras={'parent_scope','source_parent_identity','recipient_parent_identity'}
+    _need(type(record) is dict and set(record)==KEYS|extras and record['parent_scope']=='UserProfileV1')
+    for key in ('source_parent_identity','recipient_parent_identity'):
+        value=record[key]
+        _need(type(value) is str and re.fullmatch('[0-9a-f]{8}:[0-9a-f]{16}',value) is not None and value[:8]!='0'*8 and value[9:]!='0'*16)
+    out=_build_transfer_plan({k:record[k] for k in KEYS},True)
+    out.update({k:record[k] for k in extras});return out
+
+
+def _build_transfer_plan(record,profile):
     """Return an inert closed proposal from strictly supplied private G0 facts."""
     _need(type(record) is dict and set(record)==KEYS)
     r=record
@@ -72,7 +86,7 @@ def build_transfer_plan(record):
     _need(type(r['payload_size']) is int and 1<=r['payload_size']<=6*1024*1024)
     _need(r['ssh_path']==r'C:\Windows\System32\OpenSSH\ssh.exe' and r['scp_path']==r'C:\Windows\System32\OpenSSH\scp.exe')
     _need(r['username']=='ls4');address=_host(r['host']);_host_key(r['host_key_blob'],r['host_key_fingerprint'])
-    _root(r['source_known_folder'],r['source_root']);_root(r['recipient_known_folder'],r['recipient_root'])
+    _root(r['source_known_folder'],r['source_root'],profile);_root(r['recipient_known_folder'],r['recipient_root'],profile)
     _path(r['source_path']);_path(r['recipient_path'])
     _need(r['source_path']==ntpath.join(r['source_root'],'pc4-role.zip') and r['recipient_path']==ntpath.join(r['recipient_root'],'incoming.zip'))
     _need(r['source_root']!=r['recipient_root'])
