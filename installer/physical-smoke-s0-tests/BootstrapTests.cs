@@ -118,7 +118,9 @@ public static class BootstrapTests {
     Task<byte[]> stderr=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardError.BaseStream,capturedErr); });
     Phase="FIXTURE_LOADER_PROCESS_WAIT"; if(!child.WaitForExit(30000)) {
      string progress=Encoding.UTF8.GetString(capturedOut.Snapshot());
-     Phase=progress.IndexOf("S0_LOADER_PLAN",StringComparison.Ordinal)>=0?"FIXTURE_LOADER_PLAN_DEADLINE":progress.IndexOf("S0_LOADER_ENTER",StringComparison.Ordinal)>=0?"FIXTURE_LOADER_DRIVER_DEADLINE":"FIXTURE_LOADER_STARTUP_DEADLINE";
+     string[] steps={"VALIDATED","VALIDATE","LOADED","LOAD","ARCHIVE","HASHED","CAPTURED","OPEN"}; string last=null;
+     foreach(string step in steps) if(progress.IndexOf("S0_BOOTSTRAP_"+step+"\n",StringComparison.Ordinal)>=0 || progress.IndexOf("S0_BOOTSTRAP_"+step+"\r\n",StringComparison.Ordinal)>=0) { last=step; break; }
+     Phase=last!=null?"FIXTURE_LOADER_"+last+"_DEADLINE":progress.IndexOf("S0_LOADER_PLAN",StringComparison.Ordinal)>=0?"FIXTURE_LOADER_PLAN_DEADLINE":progress.IndexOf("S0_LOADER_ENTER",StringComparison.Ordinal)>=0?"FIXTURE_LOADER_DRIVER_DEADLINE":"FIXTURE_LOADER_STARTUP_DEADLINE";
      throw new InvalidOperationException("FIXTURE_LOADER_PROCESS_DEADLINE");
     }
     Phase="FIXTURE_LOADER_OUTPUT_WAIT"; Need(Task.WaitAll(new Task[]{stdout,stderr},5000));
@@ -128,7 +130,7 @@ public static class BootstrapTests {
      throw new InvalidOperationException(child.ExitCode!=0?"FIXTURE_LOADER_EXIT_NONZERO":"FIXTURE_LOADER_STDERR_NOT_EMPTY");
     }
     Phase="FIXTURE_LOADER_OUTPUT_VALIDATE";
-    string framed=Encoding.UTF8.GetString(stdout.Result).Replace("\r\n","\n"), prefix="S0_LOADER_ENTER\nS0_LOADER_PLAN\nS0_LOADER_VERIFIED\n";
+    string framed=Encoding.UTF8.GetString(stdout.Result).Replace("\r\n","\n"), prefix="S0_LOADER_ENTER\nS0_LOADER_PLAN\nS0_BOOTSTRAP_OPEN\nS0_BOOTSTRAP_CAPTURED\nS0_BOOTSTRAP_HASHED\nS0_BOOTSTRAP_ARCHIVE\nS0_BOOTSTRAP_LOAD\nS0_BOOTSTRAP_LOADED\nS0_BOOTSTRAP_VALIDATE\nS0_BOOTSTRAP_VALIDATED\nS0_LOADER_VERIFIED\n";
     Need(framed.StartsWith(prefix,StringComparison.Ordinal)); byte[] bytes=Encoding.UTF8.GetBytes(framed.Substring(prefix.Length));
     Type jsonType=typeof(Bootstrap).GetNestedType("Json",BindingFlags.NonPublic); object json=Activator.CreateInstance(jsonType,BindingFlags.NonPublic|BindingFlags.Instance,null,new object[]{bytes},null);
     var value=jsonType.GetMethod("Read",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(json,null) as Dictionary<string,object>;

@@ -15,6 +15,7 @@ without replacing any object; partial transactions remain for separate review.
 Administrators, SYSTEM and the operator remain trusted.
 
 ```powershell
+$DiagnosticStages = $false # optional fixed read-only progress; no authority
 $Action = 'Plan'
 $Approved = $false
 $SourceZip = Read-Host 'Absolute inert original inner package ZIP path'
@@ -24,12 +25,14 @@ $ExpectedSid = Read-Host 'Independently matched local operator SID'
 $TargetRoot = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) ('GridS0Package-'+[Guid]::NewGuid().ToString('D'))
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+if ($DiagnosticStages -and $Action -ne 'Plan') { throw 'S0_DIAGNOSTIC_PLAN_ONLY' }
 if ($Action -eq 'Stage' -and -not $Approved) { throw 'S0_BOOTSTRAP_NOT_AUTHORIZED' }
 if ('GridS0.Bootstrap' -as [type]) { throw 'S0_BOOTSTRAP_FRESH_CONSOLE_REQUIRED' }
 Add-Type -AssemblyName System.IO.Compression
 $file = $null; $hash = $null; $memory = $null; $archive = $null
 try {
     # No write/delete sharing; capture once and authenticate before loading code.
+    if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_OPEN'); [Console]::Out.Flush() }
     $file = [IO.File]::Open($SourceZip,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
     if ($file.Length -le 0 -or $file.Length -gt 536870912) { throw 'S0_ZIP_SIZE' }
     $bytes = New-Object byte[] ([int]$file.Length)
@@ -40,11 +43,14 @@ try {
         $offset += $count
     }
     if ($file.ReadByte() -ne -1) { throw 'S0_ZIP_CHANGED' }
+    if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_CAPTURED'); [Console]::Out.Flush() }
     $hash = [Security.Cryptography.SHA256]::Create()
     $actual = [BitConverter]::ToString($hash.ComputeHash($bytes)).Replace('-','').ToLowerInvariant()
     if ($actual -cne $ExpectedSha256) { throw 'S0_ZIP_SHA256' }
+    if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_HASHED'); [Console]::Out.Flush() }
     $memory = New-Object IO.MemoryStream(,$bytes)
     $archive = New-Object IO.Compression.ZipArchive($memory,[IO.Compression.ZipArchiveMode]::Read,$true)
+    if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_ARCHIVE'); [Console]::Out.Flush() }
     $entries = @($archive.Entries | Where-Object FullName -CEQ 'native/S0Launcher.dll')
     if ($entries.Count -ne 1 -or $entries[0].Length -le 0 -or $entries[0].Length -gt 4194304) { throw 'S0_NATIVE_MEMBER' }
     $input = $entries[0].Open(); $output = New-Object IO.MemoryStream
@@ -59,9 +65,13 @@ try {
         $helper = $output.ToArray()
     } finally { $input.Dispose(); $output.Dispose() }
     if ($helper.Length -ne $entries[0].Length) { throw 'S0_NATIVE_SIZE' }
+    if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_LOAD'); [Console]::Out.Flush() }
     [void][Reflection.Assembly]::Load($helper)
+    if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_LOADED'); [Console]::Out.Flush() }
     # PlanPackage validates the complete manifest and parent custody without writes.
+    if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_VALIDATE'); [Console]::Out.Flush() }
     $plan = [GridS0.Bootstrap]::PlanPackage($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid)
+    if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_VALIDATED'); [Console]::Out.Flush() }
     if ($Action -eq 'Stage') {
         [GridS0.Bootstrap]::StagePackage($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid,$true)
     } elseif ($Action -eq 'ObserveToken') {
