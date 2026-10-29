@@ -212,3 +212,19 @@ def test_actual_powershell_loader_source_pin_required():
     outer,sources=fixture(); path='s0-results/native-bootstrap.json'
     record=strict_json(outer[path]); del record['source_sha256']['installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1']; outer[path]=raw(record)
     with pytest.raises(ValueError): accepted(outer,sources)
+
+
+@pytest.mark.parametrize('field',['transfer_slot_verified','transfer_export_verified','transfer_transport_verified'])
+@pytest.mark.parametrize('mutation',['missing','false','coerced'])
+def test_native_transfer_receipt_assertions_required(field,mutation):
+    outer,sources=fixture(); path='s0-results/native-bootstrap.json'; record=strict_json(outer[path])
+    if mutation=='missing': del record[field]
+    else: record[field]=False if mutation=='false' else 1
+    outer[path]=raw(record)
+    with pytest.raises(ValueError): accepted(outer,sources)
+
+@pytest.mark.parametrize('name',['installer/physical-smoke-s0/S0Transfer.cs','installer/physical-smoke-s0/S0TransferExport.cs','installer/physical-smoke-s0-tests/TransferTests.cs','installer/physical-smoke-s0-tests/TransferExportTests.cs','installer/physical-smoke-s0/S0TransferTransport.cs','installer/physical-smoke-s0-tests/TransferTransportTests.cs'])
+def test_native_transfer_receipt_source_pins_required(name):
+    outer,sources=fixture(); path='s0-results/native-bootstrap.json'; record=strict_json(outer[path])
+    del record['source_sha256'][name]; outer[path]=raw(record)
+    with pytest.raises(ValueError): accepted(outer,sources)

@@ -1177,6 +1177,7 @@
     "tests/test_retention_metadata_locking.py::test_retention_locks_metadata_and_deletes_in_one_transaction",
     "tests/test_retention_metadata_locking.py::test_retention_refuses_deletion_without_required_consumers",
     "tests/test_s0_bootstrap_loader.py::test_hosted_receipt_temp_is_new_protected_directory_not_admin_default",
+    "tests/test_s0_bootstrap_loader.py::test_hosted_test_driver_is_outside_closed_package_tree",
     "tests/test_s0_bootstrap_loader.py::test_initial_literal_loader_matches_reviewed_script_body",
     "tests/test_s0_bootstrap_loader.py::test_loader_authenticates_captured_bytes_before_loading_native_code",
     "tests/test_s0_bootstrap_loader.py::test_loader_has_no_extraction_compiler_or_system_mutator",
@@ -1237,6 +1238,21 @@
     "tests/test_s0_independent_acceptance.py::test_external_outer_digest_not_receipt_digest",
     "tests/test_s0_independent_acceptance.py::test_junit_subtests_and_stale_identity",
     "tests/test_s0_independent_acceptance.py::test_missing_source_requirement_rejected",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_assertions_required[coerced-transfer_export_verified]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_assertions_required[coerced-transfer_slot_verified]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_assertions_required[coerced-transfer_transport_verified]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_assertions_required[false-transfer_export_verified]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_assertions_required[false-transfer_slot_verified]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_assertions_required[false-transfer_transport_verified]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_assertions_required[missing-transfer_export_verified]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_assertions_required[missing-transfer_slot_verified]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_assertions_required[missing-transfer_transport_verified]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0-tests/TransferExportTests.cs]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0-tests/TransferTests.cs]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0-tests/TransferTransportTests.cs]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0/S0Transfer.cs]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0/S0TransferExport.cs]",
+    "tests/test_s0_independent_acceptance.py::test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0/S0TransferTransport.cs]",
     "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[bootstrap_failed]",
     "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[bootstrap_raw_changed]",
     "tests/test_s0_independent_acceptance.py::test_new_preparation_receipts_cannot_be_forged[bootstrap_source_changed]",
@@ -6410,6 +6426,10 @@
     ],
     [
       "tests.test_s0_bootstrap_loader",
+      "test_hosted_test_driver_is_outside_closed_package_tree"
+    ],
+    [
+      "tests.test_s0_bootstrap_loader",
       "test_initial_literal_loader_matches_reviewed_script_body"
     ],
     [
@@ -6647,6 +6667,66 @@
     [
       "tests.test_s0_independent_acceptance",
       "test_missing_source_requirement_rejected"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_assertions_required[coerced-transfer_export_verified]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_assertions_required[coerced-transfer_slot_verified]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_assertions_required[coerced-transfer_transport_verified]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_assertions_required[false-transfer_export_verified]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_assertions_required[false-transfer_slot_verified]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_assertions_required[false-transfer_transport_verified]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_assertions_required[missing-transfer_export_verified]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_assertions_required[missing-transfer_slot_verified]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_assertions_required[missing-transfer_transport_verified]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0-tests/TransferExportTests.cs]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0-tests/TransferTests.cs]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0-tests/TransferTransportTests.cs]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0/S0Transfer.cs]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0/S0TransferExport.cs]"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
+      "test_native_transfer_receipt_source_pins_required[installer/physical-smoke-s0/S0TransferTransport.cs]"
     ],
     [
       "tests.test_s0_independent_acceptance",

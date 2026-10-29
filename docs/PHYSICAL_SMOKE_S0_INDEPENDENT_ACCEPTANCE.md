@@ -76,3 +76,19 @@ bootstrap loader inside the hosted Medium shell, with PowerShell 5 and 7 matrix
 cells. Parsing script syntax or executing a C# helper under a shell is not this
 observation. The new boolean must be literal true, with the loader test source
 independently pinned; older v3 artifacts do not satisfy this new requirement.
+
+
+### Transfer preparation supplement (requirements v6)
+
+The independent checker requires source pins for all seven native sources,
+original token/bootstrap raw receipts, actual PowerShell loader Plan inside a
+standard token, and literal true transfer slot/export/transport fixture assertions.
+Tamper tests must reject absent assertions even if all outer hashes are repaired.
+Hosted transfer tests use owned file handles and opaque/public bytes; they do NOT
+run SSH or establish a physical secure channel. Check source/export/receiver
+closure, same identity before/after, live-writer rejection, hardlink and reuse
+rejection, exact pinned known_hosts and no byte-array leakage in public DTOs.
+Require a separately approved PUBLIC_NO_KEYS SFTP rehearsal before private TLS
+role transfer. Capture its source/receiver file IDs and hashes privately, no keys.
+The two human reviewers independently record G0/token/source/SSH custody findings
+and unresolved states; no AI/offline result can sign their authorization.

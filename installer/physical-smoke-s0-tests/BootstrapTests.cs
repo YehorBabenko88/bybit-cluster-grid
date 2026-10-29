@@ -22,7 +22,7 @@ public static class BootstrapTests {
   PureRejects();
   string sid; using(var identity=WindowsIdentity.GetCurrent()) sid=identity.User.Value;
   TokenObserver.RequireStandard(sid);
-  Phase="FIXTURE_INPUTS"; InputTests.Pure(); InputTests.Hosted(sid,head); Phase="FIXTURE_BOOTSTRAP_PACKAGE";
+  Phase="FIXTURE_INPUTS"; InputTests.Pure(); InputTests.Hosted(sid,head); Phase="FIXTURE_TRANSFERS"; TransferTests.Hosted(sid,head); Phase="FIXTURE_EXPORTS"; TransferExportTests.Hosted(sid,head); Phase="FIXTURE_TRANSPORT"; TransferTransportTests.Hosted(sid,head); Phase="FIXTURE_BOOTSTRAP_PACKAGE";
   string local=Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
   byte[] zip=File.ReadAllBytes(Path.Combine(root,"source.zip")); string sha=Hash(zip);
   HostedLoaderPlan(root,sha,head,sid);
@@ -74,7 +74,7 @@ public static class BootstrapTests {
   Phase="FIXTURE_BOOTSTRAP_RACE_CANARY_READ"; byte[] raceCanary=File.ReadAllBytes(canary);
   Phase="FIXTURE_BOOTSTRAP_RACE_CANARY_HASH"; Need(Hash(raceCanary)==original);
   Phase="FIXTURE_BOOTSTRAP_RECEIPT";
-  string receipt="{\"scope\":\"HOSTED_BOOTSTRAP_NOT_PHYSICAL\",\"head\":\""+head+"\",\"package_sha256\":\""+sha+"\",\"status\":\"PASS\",\"plan_no_write\":true,\"unapproved_rejected\":true,\"wrong_sha_rejected\":true,\"wrong_sid_rejected\":true,\"outside_parent_rejected\":true,\"stage_closure\":true,\"existing_target_rejected\":true,\"concurrent_no_replace\":true,\"canary_unchanged\":true,\"powershell_loader_plan_only\":true,\"s0_execute\":false,\"g1_execute\":false,\"cleanup\":false}";
+  string receipt="{\"scope\":\"HOSTED_BOOTSTRAP_NOT_PHYSICAL\",\"head\":\""+head+"\",\"package_sha256\":\""+sha+"\",\"status\":\"PASS\",\"plan_no_write\":true,\"unapproved_rejected\":true,\"wrong_sha_rejected\":true,\"wrong_sid_rejected\":true,\"outside_parent_rejected\":true,\"stage_closure\":true,\"existing_target_rejected\":true,\"concurrent_no_replace\":true,\"canary_unchanged\":true,\"powershell_loader_plan_only\":true,\"transfer_slot_verified\":true,\"transfer_export_verified\":true,\"transfer_transport_verified\":true,\"s0_execute\":false,\"g1_execute\":false,\"cleanup\":false}";
   using(var stream=new FileStream(Path.Combine(root,"temp","bootstrap.json"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) { byte[] bytes=Encoding.UTF8.GetBytes(receipt); stream.Write(bytes,0,bytes.Length); stream.Flush(true); }
   // Owned successful/partial fixture roots deliberately remain; no auto cleanup/adoption.
  }
@@ -92,7 +92,7 @@ public static class BootstrapTests {
   Need(major=="5" || major=="7");
   string allowed=major=="5"?Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"WindowsPowerShell","v1.0","powershell.exe"):Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"PowerShell","7","pwsh.exe");
   Need(shell!=null && shell==Path.GetFullPath(shell) && String.Equals(shell,allowed,StringComparison.OrdinalIgnoreCase) && shellSha!=null && System.Text.RegularExpressions.Regex.IsMatch(shellSha,"\\A[0-9a-f]{64}\\z"));
-  string driver=Path.Combine(root,"temp","bootstrap-loader-test.ps1"), loader=Path.Combine(root,"installer","physical-smoke-s0-bootstrap.ps1");
+  string driver=Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),"bootstrap-loader-test.ps1"), loader=Path.Combine(root,"installer","physical-smoke-s0-bootstrap.ps1");
   string target=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"GridS0Package-"+Guid.NewGuid().ToString("D")); Need(!File.Exists(target) && !Directory.Exists(target));
   Need((File.GetAttributes(driver)&FileAttributes.ReparsePoint)==0 && (File.GetAttributes(loader)&FileAttributes.ReparsePoint)==0);
   bool member; Need(IsProcessInJob(GetCurrentProcess(),IntPtr.Zero,out member) && member);

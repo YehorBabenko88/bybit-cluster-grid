@@ -54,7 +54,7 @@ namespace GridS0 {
    return Match(name,"s0_smoke/[A-Za-z_][A-Za-z_0-9]*\\.py") ||
     name=="installer/physical-smoke-s0.ps1" || name=="installer/physical-smoke-s0-bootstrap.ps1" ||
     name=="docs/PHYSICAL_SMOKE_S0.md" || name=="docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md" || name=="docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md" ||
-    name=="installer/physical-smoke-s0/S0Launcher.cs" || name=="installer/physical-smoke-s0/S0Bootstrap.cs" || name=="installer/physical-smoke-s0/TokenObserver.cs" || name=="installer/physical-smoke-s0/S0Inputs.cs";
+    name=="installer/physical-smoke-s0/S0Launcher.cs" || name=="installer/physical-smoke-s0/S0Bootstrap.cs" || name=="installer/physical-smoke-s0/TokenObserver.cs" || name=="installer/physical-smoke-s0/S0Inputs.cs" || name=="installer/physical-smoke-s0/S0Transfer.cs" || name=="installer/physical-smoke-s0/S0TransferExport.cs" || name=="installer/physical-smoke-s0/S0TransferTransport.cs";
   }
   static Package Validate(byte[] zip,string sha,string head) {
    Need(zip!=null && zip.LongLength>0 && zip.LongLength<=MaxZip && Match(sha,"[0-9a-f]{64}") && Match(head,"[0-9a-f]{40}"));

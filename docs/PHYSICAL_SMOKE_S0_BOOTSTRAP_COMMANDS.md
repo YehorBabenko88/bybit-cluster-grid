@@ -82,7 +82,7 @@ After independent review and separate owner staging permission ONLY, repeat
 with Action Stage and Approved true. That permission covers new package objects,
 not input preparation, transfer, Execute, Stop, Evidence or Cleanup.
 
-## Ordered phases and unresolved commands
+## Ordered phases and required authorization
 
 1. LS5 local standard console: ObserveToken, Plan, then separately approved Stage.
 2. PC4 existing PC4\ls4 non-elevated LOCAL console: independently repeat these.
@@ -126,9 +126,10 @@ Then the separately approved LS5 Prepare uses `$InputRoot/s0-plan.json` and the
 fresh PairRoot from the runbook. Native StageRoleImport similarly accepts an
 independently hashed six-file ZIP and atomically publishes a fresh PC4 input
 root. It does not obtain that private ZIP safely across hosts by itself.
-Until the SSH sender/receiver and incoming-file custody are independently
-implemented/tested, PC4 import and later phases remain BLOCKED; no upload of
-private role keys to GitHub/chat/CI is allowed. A successful file import is not
+The native sender/receiver now have hosted fixture tests; actual OpenSSH/SFTP
+interoperability and physical custody remain UNVERIFIED. PC4 import and later
+phases remain BLOCKED pending that evidence; no upload of private role keys
+to GitHub/chat/CI is allowed. A successful file import is not
 certificate semantic verification; existing Python Prepare still checks that.
 
 Publication uses held source and parent identities and native
@@ -136,3 +137,155 @@ NtSetInformationFile FileRenameInformation (10), with ReplaceIfExists false.
 There is no path-based move/copy or overwrite fallback. Windows API failures
 remain BLOCKED; hosted success is required before asking to stage physically.
 Reference: https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile
+
+
+## Concrete transfer and role command manifest (proposal, never authorization)
+
+All variables are private operator inputs from independently reviewed G0 and the
+ONE canonical PowerShell 5.1 CI package. Do not mix packages across hosts.
+`ExpectedHead`, `ExpectedPackageSha`, `ExpectedSid`, `PackageRoot` and `PackageZip`
+come from the reviewed literal loader above. Do not fetch code to establish its
+own trust. The package root must be new and Stage must have separate approval.
+Use the existing **local non-elevated** account console on each host, not the
+administrative SSH session. `ObserveToken`/`RequireStandard` reads the actual
+primary token; no account, logon, token creation or privilege adjustment occurs.
+
+```powershell
+# READ ONLY, same fresh standard console after authenticating the helper:
+[GridS0.TokenObserver]::RequireStandard($ExpectedSid)
+$Local = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+$PairRoot = Join-Path $Local ('GridS0-'+$RunId)
+$Role = Read-Host 'Reviewed local role, exactly LS5 or PC4'
+if ($Role -cnotin @('LS5','PC4')) { throw 'S0_ROLE_BLOCKED' }
+$RoleRoot = Join-Path $PairRoot $Role
+$Wrapper = Join-Path $PackageRoot 'installer/physical-smoke-s0.ps1'
+$PowerShell51 = Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell/v1.0/powershell.exe'
+```
+
+**M1, separately approved fresh package/input preparation.** Use the literal
+Plan/StagePackage and LS5 PlanInput/StagePlanInput calls above. Then:
+
+```powershell
+# LS5 ONLY; MUTATES exclusively the fresh PairRoot and its role files.
+# Requires approval of PairRoot, plan digest, operators, addresses and port.
+& $PowerShell51 -NoProfile -File $Wrapper -Root $PairRoot -PackageRoot $PackageRoot -PackageZip $PackageZip -Config (Join-Path $InputRoot 's0-plan.json') -ExpectedHead $ExpectedHead -ExpectedPackageSha $ExpectedPackageSha -Action Prepare -Approved
+```
+
+**M2, transfer rehearsal first: PUBLIC, NO KEYS.** Actual SSH/SFTP behavior is not
+proved by FileStream fixtures. Do not send a private role archive until this
+rehearsal is separately approved, completed and reviewed. Obtain host IP, exact
+ed25519 SSH wire blob and full SHA256 fingerprint independently from private G0;
+never trust a key learned from the proposed connection itself.
+
+```powershell
+# LS5: READ ONLY proposal; Stage is a separate mutation approval.
+$ExportRoot = Join-Path $Local ('GridS0Input-'+[Guid]::NewGuid().ToString('D'))
+[GridS0.Bootstrap]::PlanTransferProbe($ExpectedHead,$RunId,$Pc4IP,$Pc4HostKeyBlob,$Pc4Fingerprint,$ExportRoot,$ExpectedSid)
+# ONLY after M2 preparation approval:
+# $Export = [GridS0.Bootstrap]::StageTransferProbe($ExpectedHead,$RunId,$Pc4IP,$Pc4HostKeyBlob,$Pc4Fingerprint,$ExportRoot,$ExpectedSid,$true)
+```
+
+For a **later separate private transfer approval**, replace the probe with:
+
+```powershell
+# LS5: reads ONLY the six PC4 role files; never the LS5 private key/marker.
+[GridS0.Bootstrap]::PlanTransferExport((Join-Path $PairRoot 'PC4'),$ExpectedHead,$RunId,$ExpectedPackageSha,$ExportRoot,$ExpectedSid)
+# $Export = [GridS0.Bootstrap]::StageTransferExport((Join-Path $PairRoot 'PC4'),$ExpectedHead,$RunId,$ExpectedPackageSha,$ExportRoot,$ExpectedSid,$true)
+# $Known = [GridS0.Bootstrap]::StageTransferKnownHosts($ExportRoot,$Export.Materialization.RootIdentity,$Export.PayloadSha256,$ExpectedHead,$RunId,$Pc4IP,$Pc4HostKeyBlob,$Pc4Fingerprint,$ExpectedSid,$true)
+# Probe already contains known_hosts; do NOT call StageTransferKnownHosts on it.
+```
+
+**M3, PC4 fresh receiver and bounded channel.** PC4 local console independently
+checks head/run/hash/length received over the authorized review channel. It
+creates only a fresh `GridS0Input-UUID/incoming.zip` plus `slot.json`. Opening
+the separately approved lease creates protected CREATE_NEW `lease.json`, which
+blocks reopening even after a crash or truncation to zero. Start the
+lease immediately before the approved transfer and keep that console alive.
+
+```powershell
+# PC4: Plan is read only; Stage requires independent M3 approval.
+$ReceiveRoot = Join-Path $Local ('GridS0Input-'+[Guid]::NewGuid().ToString('D'))
+[GridS0.Bootstrap]::PlanTransferSlot($ExpectedHead,$RunId,$PayloadSha,$PayloadSize,$ReceiveRoot,$ExpectedSid)
+# $Slot = [GridS0.Bootstrap]::StageTransferSlot($ExpectedHead,$RunId,$PayloadSha,$PayloadSize,$ReceiveRoot,$ExpectedSid,$true)
+# $Receiver = [GridS0.Bootstrap]::OpenTransferSlot($ReceiveRoot,$Slot.Materialization.RootIdentity,$Slot.IncomingIdentity,$ExpectedHead,$RunId,$PayloadSha,$PayloadSize,$ExpectedSid,$true)
+```
+
+The private transfer plan is produced by the pure, non-executing
+`tools/s0_ssh_transfer_plan.py::build_transfer_plan(record)`. Its closed input
+contract requires the observed full receiver root/file identities, approved
+existing key path, stock ssh/scp binary paths and hashes, exact host key and
+private source/receiver paths. Output is always `BLOCKED`, `argv=null` and all
+permissions false. Independently review **every proposed_argv element** and the
+actual executable/key/parent custody before separate transfer approval.
+The proposed stock `scp` uses pinned `known_hosts`, `-F NUL`, no agent, passwords,
+forwarding, proxy, connection reuse, preserve or recursive flags. It does not
+modify sshd, PATH, accounts, system known_hosts or existing keys. Do not use
+legacy `scp -O`, change SSH policy or fix PATH to make this pass.
+
+```powershell
+# LS5, ONLY after explicit transfer approval; Plan object is privately supplied,
+# never evaluate a command string or use Invoke-Expression.
+# $Sender = [GridS0.Bootstrap]::OpenTransferSender($ExportRoot,$Export.Materialization.RootIdentity,$Export.PayloadSha256,$KnownHostsSha,$ExpectedSid)
+# try {
+#   $Sender.Verify()
+#   $Scp = $TransferPlan.proposed_argv[0]
+#   $ScpArgs = @($TransferPlan.proposed_argv | Select-Object -Skip 1)
+#   & $Scp @ScpArgs
+#   if ($LASTEXITCODE -ne 0) { throw 'S0_TRANSFER_FAILED' }
+#   $Sender.Verify()
+# } finally { $Sender.Dispose() }
+# PC4, within 300 seconds, after scp has closed all writers:
+# $Receiver.Verify() # nonsecret DTO only, never returns the private ZIP bytes
+```
+
+Unknown binary/key custody, SFTP open/truncate behavior, metadata ACL changes,
+PATH `$_` source, fingerprint, expired lease, sharing error or surviving writer
+means **STOP/BLOCKED**. The probe intentionally fails role-import validation;
+**do not import a public probe**. It only establishes the tested transfer facts.
+No automatic retry, adoption or cleanup exists. Reboot/crash loses the handles;
+claimed leftover slots cannot be reopened/adopted as a new transfer. This is
+not an anti-rollback guarantee against the trusted owner/admin restoring state.
+
+**M4, private PC4 import and Prepare**, only after private transfer approval:
+
+```powershell
+# PC4, with the original live receiver lease, after verified private transfer:
+$Pc4InputRoot = Join-Path $Local ('GridS0Input-'+[Guid]::NewGuid().ToString('D'))
+# [GridS0.Bootstrap]::PlanTransferImport($Receiver,$ExpectedHead,$RunId,$ExpectedPackageSha,$Pc4InputRoot,$ExpectedSid)
+# [GridS0.Bootstrap]::StageTransferImport($Receiver,$ExpectedHead,$RunId,$ExpectedPackageSha,$Pc4InputRoot,$ExpectedSid,$true)
+# $Receiver.Dispose() # releases only held handles; does NOT remove resources
+# & $PowerShell51 -NoProfile -File $Wrapper -Root $PairRoot -PackageRoot $PackageRoot -PackageZip $PackageZip -Config (Join-Path $Pc4InputRoot 'PC4/config.json') -ExpectedHead $ExpectedHead -ExpectedPackageSha $ExpectedPackageSha -Action Prepare -Approved
+```
+
+Import captures immutable verified bytes internally, atomically consumes its
+in-process lease and publishes a new input root. It grants no execution authority.
+A failed import remains consumed; no retry on the same slot. Python Prepare
+independently checks TLS semantics and creates the local prepared marker.
+
+**M5, both Preflight (read-only), then separate S0 Execute approval:**
+
+```powershell
+$Config = Join-Path $RoleRoot 'config.json'
+& $PowerShell51 -NoProfile -File $Wrapper -Root $RoleRoot -PackageRoot $PackageRoot -PackageZip $PackageZip -Config $Config -ExpectedHead $ExpectedHead -ExpectedPackageSha $ExpectedPackageSha -Action Preflight
+# Only after BOTH preflights, G0 and human acceptance; LS5 foreground first,
+# then PC4 within the registration deadline. Execute runs at most 300 seconds.
+# & $PowerShell51 -NoProfile -File $Wrapper -Root $RoleRoot -PackageRoot $PackageRoot -PackageZip $PackageZip -Config $Config -ExpectedHead $ExpectedHead -ExpectedPackageSha $ExpectedPackageSha -Action Execute -Approved
+```
+
+**M6, status/controlled stop/evidence**, separate consoles with exact own RoleRoot:
+
+```powershell
+& $PowerShell51 -NoProfile -File $Wrapper -Root $RoleRoot -PackageRoot $PackageRoot -PackageZip $PackageZip -Config $Config -ExpectedHead $ExpectedHead -ExpectedPackageSha $ExpectedPackageSha -Action Status
+# Stop mutates ONLY the owned stop.json; no PID termination by this command.
+# & $PowerShell51 -NoProfile -File $Wrapper -Root $RoleRoot -PackageRoot $PackageRoot -PackageZip $PackageZip -Config $Config -ExpectedHead $ExpectedHead -ExpectedPackageSha $ExpectedPackageSha -Action Stop -Approved
+# Evidence creates an owned bounded archive, excluding private key material.
+# & $PowerShell51 -NoProfile -File $Wrapper -Root $RoleRoot -PackageRoot $PackageRoot -PackageZip $PackageZip -Config $Config -ExpectedHead $ExpectedHead -ExpectedPackageSha $ExpectedPackageSha -Action Evidence -Approved
+```
+
+Every commented mutation remains NOT_AUTHORIZED. Human approvals must identify
+exact head/package/run/host/SID/resources/actions/expiry, not merely say "CI PASS".
+Creation-time ACLs apply only to new owned objects; existing ACLs never change.
+Partial roots and private archives remain protected for manual review; **Cleanup
+is not implemented or authorized**. This scope does not provide G1 sandboxing,
+OS network confinement, durable anti-rollback or protection from trusted local
+administrators/the authorized user's malicious same-SID processes.

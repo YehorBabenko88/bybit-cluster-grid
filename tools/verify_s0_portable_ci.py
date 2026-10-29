@@ -24,7 +24,6 @@ def run():
    with target.open('xb') as f:f.write(z.read(info.filename))
  with (fixture/'source.zip').open('xb') as f:f.write(raw)
  create_fresh_root(fixture/'temp',identity.sid)
- create_fresh_file(fixture/'temp/bootstrap-loader-test.ps1',identity.sid,subprocess.check_output(['git','show',head+':installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1'],cwd=ROOT))
  manifest=verify_package(fixture,fixture/'source.zip',head,receipt['sha256'])
  files=[fixture/n for n in manifest['files']]+[fixture/'s0-package.json',fixture/'source.zip'];runs=[]
  env={k:os.environ[k] for k in ('SystemRoot','WINDIR','USERPROFILE','LOCALAPPDATA','USERNAME','COMPUTERNAME') if k in os.environ};env.update(TEMP=str(fixture/'temp'),TMP=str(fixture/'temp'),PATH=str(Path(os.environ['SystemRoot'])/'System32'))
@@ -42,7 +41,9 @@ def run():
    if len(runs)==1 and value.get('status')!='BLOCKED':raise RuntimeError('S0_UNAPPROVED_EXECUTE_NOT_BLOCKED')
    if len(runs)==2 and value!=dict(aiohttp='3.14.5',cryptography='50.0.2',isolated=1,no_site=1,grid_absent=True):raise RuntimeError('S0_PORTABLE_CLOSURE_MISMATCH')
    runs.append(dict(pid=pid,exit_code=code,result=value,scope='OWNED_HOSTED_PLAN_OR_IMPORT_ONLY'));custody.guard()
- native_build=hosted_native_build_root();native_files=[native_build/'Fixture.exe',native_build/'S0Launcher.dll',native_build/'TokenObserverFixture.exe']
+ native_build=hosted_native_build_root()
+ create_fresh_file(native_build/'bootstrap-loader-test.ps1',identity.sid,subprocess.check_output(['git','show',head+':installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1'],cwd=ROOT))
+ native_files=[native_build/'Fixture.exe',native_build/'S0Launcher.dll',native_build/'TokenObserverFixture.exe',native_build/'bootstrap-loader-test.ps1']
  with Custody(native_build,identity.sid,native_files) as native_custody,Custody(fixture,identity.sid,files) as child_source:
   if hashlib.sha256((native_build/'S0Launcher.dll').read_bytes()).hexdigest()!=manifest['files']['native/S0Launcher.dll']['sha256']:raise RuntimeError('S0_NATIVE_DLL_MISMATCH')
   from s0_smoke.windows import Win32,diagnostic_observation

@@ -27,6 +27,9 @@ NATIVE_SOURCES = (
     'installer/physical-smoke-s0/S0Bootstrap.cs',
     'installer/physical-smoke-s0/TokenObserver.cs',
     'installer/physical-smoke-s0/S0Inputs.cs',
+    'installer/physical-smoke-s0/S0Transfer.cs',
+    'installer/physical-smoke-s0/S0TransferExport.cs',
+    'installer/physical-smoke-s0/S0TransferTransport.cs',
 )
 PUBLIC_SOURCES = (
     'installer/physical-smoke-s0.ps1', 'installer/physical-smoke-s0-bootstrap.ps1',

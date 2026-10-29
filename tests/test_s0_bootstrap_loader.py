@@ -58,3 +58,9 @@ def test_role_import_retains_pc4_input_namespace():
     source = (ROOT / 'installer/physical-smoke-s0/S0Inputs.cs').read_text()
     assert '"PC4/"+item.Key' in source
     assert 'config.json' in source
+
+
+def test_hosted_test_driver_is_outside_closed_package_tree():
+    source = (ROOT / 'tools/verify_s0_portable_ci.py').read_text()
+    assert "create_fresh_file(native_build/'bootstrap-loader-test.ps1'" in source
+    assert "create_fresh_file(fixture/'temp/bootstrap-loader-test.ps1'" not in source

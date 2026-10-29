@@ -16,7 +16,7 @@ from s0_smoke.policy import load_json
 
 CASES = frozenset(('plan_no_write','unapproved_rejected','wrong_sha_rejected',
                   'wrong_sid_rejected','outside_parent_rejected','stage_closure',
-                  'existing_target_rejected','concurrent_no_replace','canary_unchanged','powershell_loader_plan_only'))
+                  'existing_target_rejected','concurrent_no_replace','canary_unchanged','powershell_loader_plan_only','transfer_slot_verified','transfer_export_verified','transfer_transport_verified'))
 KEYS = CASES | {'scope','head','package_sha256','status','s0_execute','g1_execute','cleanup'}
 
 
@@ -43,7 +43,7 @@ def collect(fixture, package_sha, head):
     value=validate(load_json(raw),head,package_sha)
     with (ROOT/'s0-results/native-bootstrap-raw.json').open('xb') as stream:
         stream.write(raw)
-    sources=(*NATIVE_SOURCES,'installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs','installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1',
+    sources=(*NATIVE_SOURCES,'installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs','installer/physical-smoke-s0-tests/TransferTests.cs','installer/physical-smoke-s0-tests/TransferExportTests.cs','installer/physical-smoke-s0-tests/TransferTransportTests.cs','installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1',
              'tools/verify_s0_bootstrap_ci.py')
     result=dict(value,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],
                 fixture_sha256=hashlib.sha256(raw).hexdigest(),
@@ -69,7 +69,7 @@ def validate_record(value, context, sha, raw):
         raise ValueError('S0_BOOTSTRAP_FIXTURE_RECEIPT_BLOCKED')
     if any(type(value.get(k)) is not str or value[k]!=context[k] for k in ('run_id','attempt')):
         raise ValueError('S0_BOOTSTRAP_FIXTURE_RECEIPT_BLOCKED')
-    sources=(*NATIVE_SOURCES,'installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs','installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1','tools/verify_s0_bootstrap_ci.py')
+    sources=(*NATIVE_SOURCES,'installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs','installer/physical-smoke-s0-tests/TransferTests.cs','installer/physical-smoke-s0-tests/TransferExportTests.cs','installer/physical-smoke-s0-tests/TransferTransportTests.cs','installer/physical-smoke-s0-tests/test-bootstrap-loader.ps1','tools/verify_s0_bootstrap_ci.py')
     pins=value['source_sha256']
     if type(pins) is not dict or set(pins)!=set(sources) or type(value['fixture_sha256']) is not str or re.fullmatch('[0-9a-f]{64}',value['fixture_sha256']) is None:
         raise ValueError('S0_BOOTSTRAP_FIXTURE_RECEIPT_BLOCKED')
