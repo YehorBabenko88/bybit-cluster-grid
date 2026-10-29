@@ -16,6 +16,8 @@ public static class Fixture
 {
     static string stage="FIXTURE_ENTRY";
     static uint? childExit=null;
+    static string childDiagnosticStage=null,childDiagnosticError=null;
+    static bool parentFailureEmitted=false;
     [StructLayout(LayoutKind.Sequential)] struct SI {
         public uint cb; public IntPtr reserved, desktop, title;
         public uint x,y,xs,ys,xc,yc,fill,flags; public ushort show,reservedSize;
@@ -51,6 +53,8 @@ public static class Fixture
     [DllImport("kernel32.dll",SetLastError=true)] static extern uint WaitForSingleObject(IntPtr handle,uint milliseconds);
     [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetExitCodeProcess(IntPtr process,out uint code);
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr GetStdHandle(int kind);
+    [DllImport("kernel32.dll",SetLastError=true)] static extern bool SetHandleInformation(IntPtr handle,uint mask,uint flags);
     [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetHandleInformation(IntPtr handle,out uint flags);
     [DllImport("kernel32.dll",SetLastError=true)] static extern bool PeekNamedPipe(IntPtr handle,IntPtr buffer,uint length,IntPtr read,out uint available,IntPtr left);
 
@@ -168,13 +172,14 @@ public static class Fixture
                     bool peek=PeekNamedPipe(pipe.SafePipeHandle.DangerousGetHandle(),IntPtr.Zero,0,IntPtr.Zero,out available,IntPtr.Zero);
                     int error=Marshal.GetLastWin32Error();
                     if(!peek) { Need(error==109,"FIXTURE_PIPE_PEEK"); break; }
-                    Need(available>0,"FIXTURE_PIPE_SURVIVING_WRITER");
+                    if(available==0) { CaptureChildFailure(raw,count); throw new InvalidOperationException("FIXTURE_PIPE_SURVIVING_WRITER"); }
                     Need(count<8193,"FIXTURE_OUTPUT_BOUND");
                     int requested=(int)Math.Min((uint)(8193-count),available);
                     int read=pipe.Read(raw,count,requested); Need(read>0,"FIXTURE_OUTPUT_READ"); count+=read;
                     Need(count<=8192,"FIXTURE_OUTPUT_BOUND");
                 }
                 Need(count>0,"FIXTURE_OUTPUT_EMPTY");
+                CaptureChildFailure(raw,count);
                 string json=new UTF8Encoding(false,true).GetString(raw,0,count);
                 Need(json.StartsWith("{\"scope\":\"HOSTED_FIXTURE_NOT_PHYSICAL\",",StringComparison.Ordinal) && json.EndsWith("}",StringComparison.Ordinal) && json.IndexOf('\n')<0 && json.IndexOf('\r')<0 && json.IndexOf('\0')<0,"FIXTURE_OUTPUT_FORMAT");
                 string fact="\\{\"pid\":[1-9][0-9]{0,9},\"creation_filetime\":[1-9][0-9]{0,18},\"exit_code\":[0-9]{1,10},\"timed_out\":(?:true|false),\"budget_seconds\":[1-5],\"observed_user_sid\":\"S-1-[0-9]+(?:-[0-9]+)+\",\"observed_elevated\":false,\"observed_integrity\":\"S-1-16-8192\",\"observed_admin_enabled\":false,\"job_member\":true,\"job_flags\":8200,\"active_limit\":1\\}";
@@ -184,6 +189,11 @@ public static class Fixture
                 Console.WriteLine(json);
             }
             return code==0?0:1;
+        } catch(Exception error) {
+            // Preserve only validated bounded diagnostic codes before our owned
+            // Job closes any unexpected descendant that retained a pipe writer.
+            if(childDiagnosticStage!=null) { WriteOutput(FailureJson(error)); parentFailureEmitted=true; }
+            throw;
         } finally {
             // Closing only this unnamed owned job stops only this fixture's descendants.
             if(job!=IntPtr.Zero) CloseHandle(job);
@@ -193,6 +203,29 @@ public static class Fixture
             if(stdinPipe!=null) stdinPipe.Dispose();
             if(initialized) DeleteProcThreadAttributeList(list);
             if(list!=IntPtr.Zero) Marshal.FreeHGlobal(list); if(jobList!=IntPtr.Zero) Marshal.FreeHGlobal(jobList); if(handleList!=IntPtr.Zero) Marshal.FreeHGlobal(handleList); if(token!=IntPtr.Zero) CloseHandle(token);
+        }
+    }
+    static void CaptureChildFailure(byte[] raw,int count) {
+        if(raw==null || count<=0 || count>8192) return;
+        string json; try { json=new UTF8Encoding(false,true).GetString(raw,0,count); } catch(DecoderFallbackException) { return; }
+        string pattern="\\A\\{\"scope\":\"HOSTED_FIXTURE_NOT_PHYSICAL\",\"status\":\"BLOCKED\",\"error\":\"(?<error>(?:FIXTURE|S0)_[A-Z0-9_]{1,80})\",\"stage\":\"(?<stage>FIXTURE_[A-Z0-9_]{1,80})\",\"exception_type\":\"[A-Za-z0-9_.+]{1,160}\",\"hresult\":-?[0-9]{1,10},\"last_win32_diagnostic\":[0-9]{1,10},\"child_exit_code\":(?:null|[0-9]{1,10})\\}\\z";
+        Match match=Regex.Match(json,pattern); if(!match.Success) return;
+        childDiagnosticStage=match.Groups["stage"].Value; childDiagnosticError=match.Groups["error"].Value;
+    }
+    static string FailureJson(Exception error) {
+        string code=error is InvalidOperationException && Regex.IsMatch(error.Message,"\\A(?:FIXTURE|S0)_[A-Z0-9_]{1,80}\\z")?error.Message:"FIXTURE_CHECK_FAILED";
+        string type=error.GetType().FullName; if(type==null || !Regex.IsMatch(type,"\\A[A-Za-z0-9_.+]{1,160}\\z"))type="Unknown";
+        string child=childDiagnosticStage==null?"":",\"child_stage\":\""+childDiagnosticStage+"\",\"child_error\":\""+childDiagnosticError+"\"";
+        return "{\"scope\":\"HOSTED_FIXTURE_NOT_PHYSICAL\",\"status\":\"BLOCKED\",\"error\":\""+code+"\",\"stage\":\""+stage+"\",\"exception_type\":\""+type+"\",\"hresult\":"+error.HResult+",\"last_win32_diagnostic\":"+unchecked((uint)Marshal.GetLastWin32Error())+",\"child_exit_code\":"+(childExit.HasValue?childExit.Value.ToString():"null")+child+"}";
+    }
+    static void DisarmOwnedStandardHandleInheritance() {
+        var seen=new HashSet<IntPtr>();
+        foreach(int kind in new[]{-10,-11,-12}) {
+            IntPtr handle=GetStdHandle(kind); Need(handle!=IntPtr.Zero && handle!=new IntPtr(-1),"FIXTURE_OWN_STANDARD_HANDLE");
+            if(!seen.Add(handle)) continue; uint before,after;
+            Need(GetHandleInformation(handle,out before),"FIXTURE_OWN_STANDARD_FLAGS");
+            Need(SetHandleInformation(handle,1,0),"FIXTURE_OWN_STANDARD_NO_INHERIT");
+            Need(GetHandleInformation(handle,out after) && (after&1)==0 && (after&~1u)==(before&~1u),"FIXTURE_OWN_STANDARD_READBACK");
         }
     }
     static string Fact(Result result,int budget) {
@@ -207,6 +240,7 @@ public static class Fixture
         Console.Write(json); Console.Out.Flush();
     }
     static int Child(string root,string sha,string head,string output) {
+        stage="FIXTURE_CHILD_STANDARD_NO_INHERIT"; DisarmOwnedStandardHandleInheritance();
         stage="FIXTURE_CHILD_ENVIRONMENT";
         string sid; using(WindowsIdentity identity=WindowsIdentity.GetCurrent()) sid=identity.User.Value;
         Hashtable env=new Hashtable();
@@ -257,14 +291,7 @@ public static class Fixture
             Need(output.StartsWith(prefix,StringComparison.OrdinalIgnoreCase) && !File.Exists(output) && !Directory.Exists(output),"FIXTURE_FRESH_OUTPUT");
             return args[0]=="--parent"?Parent(args[1],args[2],args[3],output):Child(args[1],args[2],args[3],output);
         } catch(Exception error) {
-            string code=error is InvalidOperationException && Regex.IsMatch(error.Message,"\\A(?:FIXTURE|S0)_[A-Z0-9_]{1,80}\\z")?error.Message:"FIXTURE_CHECK_FAILED";
-            string type=error.GetType().FullName;
-            if(type==null || !Regex.IsMatch(type,"\\A[A-Za-z0-9_.+]{1,160}\\z"))type="Unknown";
-            // Numeric diagnostics only, never exception messages/paths/arguments.
-            // Last Win32 value is diagnostic context, not an attributed cause.
-            string json="{\"scope\":\"HOSTED_FIXTURE_NOT_PHYSICAL\",\"status\":\"BLOCKED\",\"error\":\""+code+"\",\"stage\":\""+stage+"\",\"exception_type\":\""+type+"\",\"hresult\":"+error.HResult+",\"last_win32_diagnostic\":"+unchecked((uint)Marshal.GetLastWin32Error())+",\"child_exit_code\":"+(childExit.HasValue?childExit.Value.ToString():"null")+"}";
-            // Includes early Hosted/argument failures: no ACL-dependent file handoff.
-            WriteOutput(json);
+            if(!parentFailureEmitted) WriteOutput(FailureJson(error));
             return 1;
         }
     }

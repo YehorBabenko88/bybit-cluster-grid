@@ -110,8 +110,13 @@ public static class BootstrapTests {
     Need(child!=null); child.StandardInput.Close(); Need(IsProcessInJob(child.Handle,IntPtr.Zero,out member) && member);
     Task<byte[]> stdout=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardOutput.BaseStream); });
     Task<byte[]> stderr=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardError.BaseStream); });
-    Phase="FIXTURE_LOADER_PROCESS_WAIT"; Need(child.WaitForExit(30000));
-    Phase="FIXTURE_LOADER_OUTPUT_WAIT"; Need(Task.WaitAll(new Task[]{stdout,stderr},5000)); Need(child.ExitCode==0 && stderr.Result.Length==0);
+    Phase="FIXTURE_LOADER_PROCESS_WAIT"; if(!child.WaitForExit(30000)) throw new InvalidOperationException("FIXTURE_LOADER_PROCESS_DEADLINE");
+    Phase="FIXTURE_LOADER_OUTPUT_WAIT"; Need(Task.WaitAll(new Task[]{stdout,stderr},5000));
+    if(child.ExitCode!=0 || stderr.Result.Length!=0) {
+     string diagnostic=Encoding.UTF8.GetString(stderr.Result);
+     if(diagnostic.IndexOf("PSSecurityException",StringComparison.OrdinalIgnoreCase)>=0 || diagnostic.IndexOf("ExecutionPolicy",StringComparison.OrdinalIgnoreCase)>=0) throw new InvalidOperationException("FIXTURE_LOADER_EXECUTION_POLICY");
+     throw new InvalidOperationException(child.ExitCode!=0?"FIXTURE_LOADER_EXIT_NONZERO":"FIXTURE_LOADER_STDERR_NOT_EMPTY");
+    }
     Phase="FIXTURE_LOADER_OUTPUT_VALIDATE"; byte[] bytes=stdout.Result;
     Type jsonType=typeof(Bootstrap).GetNestedType("Json",BindingFlags.NonPublic); object json=Activator.CreateInstance(jsonType,BindingFlags.NonPublic|BindingFlags.Instance,null,new object[]{bytes},null);
     var value=jsonType.GetMethod("Read",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(json,null) as Dictionary<string,object>;
