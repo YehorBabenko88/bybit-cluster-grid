@@ -84,8 +84,13 @@ public static class BootstrapTests {
  [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
  [DllImport("kernel32.dll",SetLastError=true)] static extern bool IsProcessInJob(IntPtr process,IntPtr job,out bool member);
  static string QuoteLoader(string value) { Need(value!=null && value.IndexOfAny(new[]{'"','\0','\r','\n'})<0 && !value.EndsWith("\\",StringComparison.Ordinal)); return "\""+value+"\""; }
- static byte[] ReadLoaderOutput(Stream input) {
-  using(var output=new MemoryStream()) { byte[] buffer=new byte[1024]; int read; while((read=input.Read(buffer,0,buffer.Length))>0) { Need(output.Length+read<=4096); output.Write(buffer,0,read); } return output.ToArray(); }
+ sealed class LoaderCapture {
+  readonly object gate=new object(); readonly MemoryStream data=new MemoryStream();
+  internal void Append(byte[] buffer,int count) { lock(gate) { Need(data.Length+count<=4096); data.Write(buffer,0,count); } }
+  internal byte[] Snapshot() { lock(gate) return data.ToArray(); }
+ }
+ static byte[] ReadLoaderOutput(Stream input,LoaderCapture capture) {
+  byte[] buffer=new byte[1024]; int read; while((read=input.Read(buffer,0,buffer.Length))>0) capture.Append(buffer,read); return capture.Snapshot();
  }
  public static void HostedLoaderPlan(string root,string sha,string head,string sid) {
   Phase="FIXTURE_LOADER_HOSTED_GATE";
@@ -108,16 +113,23 @@ public static class BootstrapTests {
    Phase="FIXTURE_LOADER_PROCESS_START";
    using(var child=Process.Start(start)) {
     Need(child!=null); child.StandardInput.Close(); Need(IsProcessInJob(child.Handle,IntPtr.Zero,out member) && member);
-    Task<byte[]> stdout=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardOutput.BaseStream); });
-    Task<byte[]> stderr=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardError.BaseStream); });
-    Phase="FIXTURE_LOADER_PROCESS_WAIT"; if(!child.WaitForExit(30000)) throw new InvalidOperationException("FIXTURE_LOADER_PROCESS_DEADLINE");
+    var capturedOut=new LoaderCapture(); var capturedErr=new LoaderCapture();
+    Task<byte[]> stdout=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardOutput.BaseStream,capturedOut); });
+    Task<byte[]> stderr=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardError.BaseStream,capturedErr); });
+    Phase="FIXTURE_LOADER_PROCESS_WAIT"; if(!child.WaitForExit(30000)) {
+     string progress=Encoding.UTF8.GetString(capturedOut.Snapshot());
+     Phase=progress.IndexOf("S0_LOADER_PLAN",StringComparison.Ordinal)>=0?"FIXTURE_LOADER_PLAN_DEADLINE":progress.IndexOf("S0_LOADER_ENTER",StringComparison.Ordinal)>=0?"FIXTURE_LOADER_DRIVER_DEADLINE":"FIXTURE_LOADER_STARTUP_DEADLINE";
+     throw new InvalidOperationException("FIXTURE_LOADER_PROCESS_DEADLINE");
+    }
     Phase="FIXTURE_LOADER_OUTPUT_WAIT"; Need(Task.WaitAll(new Task[]{stdout,stderr},5000));
     if(child.ExitCode!=0 || stderr.Result.Length!=0) {
      string diagnostic=Encoding.UTF8.GetString(stderr.Result);
      if(diagnostic.IndexOf("PSSecurityException",StringComparison.OrdinalIgnoreCase)>=0 || diagnostic.IndexOf("ExecutionPolicy",StringComparison.OrdinalIgnoreCase)>=0) throw new InvalidOperationException("FIXTURE_LOADER_EXECUTION_POLICY");
      throw new InvalidOperationException(child.ExitCode!=0?"FIXTURE_LOADER_EXIT_NONZERO":"FIXTURE_LOADER_STDERR_NOT_EMPTY");
     }
-    Phase="FIXTURE_LOADER_OUTPUT_VALIDATE"; byte[] bytes=stdout.Result;
+    Phase="FIXTURE_LOADER_OUTPUT_VALIDATE";
+    string framed=Encoding.UTF8.GetString(stdout.Result).Replace("\r\n","\n"), prefix="S0_LOADER_ENTER\nS0_LOADER_PLAN\nS0_LOADER_VERIFIED\n";
+    Need(framed.StartsWith(prefix,StringComparison.Ordinal)); byte[] bytes=Encoding.UTF8.GetBytes(framed.Substring(prefix.Length));
     Type jsonType=typeof(Bootstrap).GetNestedType("Json",BindingFlags.NonPublic); object json=Activator.CreateInstance(jsonType,BindingFlags.NonPublic|BindingFlags.Instance,null,new object[]{bytes},null);
     var value=jsonType.GetMethod("Read",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(json,null) as Dictionary<string,object>;
     Need(value!=null && value.Count==9); foreach(string key in new[]{"head","scope","loader_plan_only","shell_major","s0_execute","g1_execute","cleanup","root_absent","standard_primary"}) Need(value.ContainsKey(key));

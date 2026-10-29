@@ -15,6 +15,7 @@ if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or -not [Enviro
     $env:GITHUB_REPOSITORY -cne 'YehorBabenko88/bybit-cluster-grid' -or $env:GITHUB_JOB -cne 's0-windows' -or
     [Environment]::MachineName -ieq 'LS5' -or [Environment]::MachineName -ieq 'PC4' -or
     $Head -cne $env:EXACT_HEAD_SHA) { throw 'FIXTURE_LOADER_HOSTED_REQUIRED' }
+[Console]::Out.WriteLine('S0_LOADER_ENTER')
 $shellMajor = [int]$PSVersionTable.PSVersion.Major
 if ($shellMajor -ne 5 -and $shellMajor -ne 7) { throw 'FIXTURE_LOADER_SHELL' }
 foreach ($path in @($Root,$Target,$Loader)) {
@@ -34,6 +35,7 @@ if ($loaderPath -ine $expectedLoader -or -not [IO.File]::Exists($loaderPath) -or
     throw 'FIXTURE_LOADER_INPUT'
 }
 if ('GridS0.Bootstrap' -as [type]) { throw 'FIXTURE_LOADER_FRESH_SHELL_REQUIRED' }
+[Console]::Out.WriteLine('S0_LOADER_PLAN')
 $plans = @(& $loaderPath -Action Plan -SourceZip $sourceZip -ExpectedSha256 $Sha -ExpectedHead $Head -ExpectedSid $Sid -TargetRoot $targetPath)
 if ($plans.Count -ne 1 -or $plans[0].GetType().FullName -cne 'GridS0.BootstrapReceipt') { throw 'FIXTURE_LOADER_RECEIPT' }
 $plan = $plans[0]
@@ -46,6 +48,7 @@ $facts = [GridS0.TokenObserver]::RequireStandard($Sid)
 if (-not $facts.Standard -or $facts.Sid -cne $Sid -or $facts.Integrity -cne 'S-1-16-8192' -or $facts.Elevated) {
     throw 'FIXTURE_LOADER_STANDARD_PRIMARY'
 }
+[Console]::Out.WriteLine('S0_LOADER_VERIFIED')
 # No raw host SID, groups, privileges, path or token identifiers leave this shell.
 [ordered]@{
     head=$Head
