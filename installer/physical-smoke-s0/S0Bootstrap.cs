@@ -30,6 +30,8 @@ namespace GridS0 {
   const string SystemSid="S-1-5-18", AdminSid="S-1-5-32-544";
   const string Ti="S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464";
   [ThreadStatic] static string diagnosticPhase;
+  [ThreadStatic] static bool tracePlan;
+  static void TracePlan(string phase) { if(tracePlan) { Console.Out.WriteLine("S0_NATIVE_"+phase); Console.Out.Flush(); } }
   static void Need(bool ok) { if(!ok) throw new InvalidOperationException("S0_BOOTSTRAP_BLOCKED"+(diagnosticPhase==null?"":"_"+diagnosticPhase)); }
   static bool Match(string s,string p) { return s!=null && Regex.IsMatch(s,"\\A(?:"+p+")\\z",RegexOptions.CultureInvariant); }
   static string Hash(byte[] b) { using(var h=SHA256.Create()) return BitConverter.ToString(h.ComputeHash(b)).Replace("-","").ToLowerInvariant(); }
@@ -75,6 +77,7 @@ namespace GridS0 {
     }
    }
    Need(p.Files.ContainsKey("s0-package.json") && !p.Files.ContainsKey("source.zip"));
+   TracePlan("ZIP");
    var m=Obj(new Json(p.Files["s0-package.json"]).Read(),"schema","profile","head","tree","run_id","attempt","python","authority","files","source");
    Need(Num(m["schema"])==1 && Str(m["profile"])=="PHYSICAL_SMOKE_S0" && Str(m["head"])==head);
    Need(Match(Str(m["tree"]),"[0-9a-f]{40}") && Match(Str(m["python"]),"3\\.12\\.(?:0|[1-9][0-9]{0,2})"));
@@ -107,24 +110,29 @@ namespace GridS0 {
    return p;
   }
   public static BootstrapReceipt PlanPackage(byte[] zip,string expectedSha,string expectedHead,string targetRoot,string expectedSid) { return RunPackage(zip,expectedSha,expectedHead,targetRoot,expectedSid,false); }
+  public static BootstrapReceipt PlanPackageDiagnostic(byte[] zip,string expectedSha,string expectedHead,string targetRoot,string expectedSid) {
+   Need(!tracePlan); tracePlan=true;
+   try { TracePlan("ENTER"); return RunPackage(zip,expectedSha,expectedHead,targetRoot,expectedSid,false); } finally { tracePlan=false; }
+  }
   public static BootstrapReceipt StagePackage(byte[] zip,string expectedSha,string expectedHead,string targetRoot,string expectedSid,bool approved) { Need(approved); return RunPackage(zip,expectedSha,expectedHead,targetRoot,expectedSid,true); }
   static BootstrapReceipt RunPackage(byte[] zip,string sha,string head,string target,string sid,bool stage) {
    // Copy caller-owned bytes before authentication to prevent concurrent caller mutation.
-   Need(zip!=null && zip.LongLength<=MaxZip); byte[] captured=(byte[])zip.Clone(); Package package=Validate(captured,sha,head);
+   Need(zip!=null && zip.LongLength<=MaxZip); byte[] captured=(byte[])zip.Clone(); TracePlan("CAPTURED"); Package package=Validate(captured,sha,head); TracePlan("PACKAGE");
    return Publish(package,captured,sha,head,target,sid,"GridS0Package-",stage);
   }
   static BootstrapReceipt Publish(Package package,byte[] sourceZipOrNull,string sha,string head,string target,string sid,string prefix,bool stage) {
    Need(prefix=="GridS0Package-" || prefix=="GridS0Input-");
-   diagnosticPhase="TOKEN"; TokenObserver.RequireStandard(sid); new SecurityIdentifier(sid); Need(sid!=SystemSid && sid!=AdminSid);
+   diagnosticPhase="TOKEN"; TracePlan("TOKEN"); TokenObserver.RequireStandard(sid); new SecurityIdentifier(sid); Need(sid!=SystemSid && sid!=AdminSid);
+   TracePlan("FOLDER");
    string local=Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData,Environment.SpecialFolderOption.DoNotVerify);
    Need(!String.IsNullOrEmpty(local)); local=Path.GetFullPath(local).TrimEnd('\\');
    Need(target!=null && target==Path.GetFullPath(target) && String.Equals(Path.GetDirectoryName(target),local,StringComparison.OrdinalIgnoreCase));
    string leaf=Path.GetFileName(target); Need(Match(leaf,Regex.Escape(prefix)+"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"));
    Need(target.Length<=240 && Match(local.Substring(0,3),"[A-Za-z]:\\\\"));
-   diagnosticPhase="ANCESTRY";
+   diagnosticPhase="ANCESTRY"; TracePlan("PARENT");
    using(var pins=new Pins(local,sid)) {
     Absent(target); var receipt=new BootstrapReceipt { Head=head,Sha256=sha,FileCount=package.Files.Count+(sourceZipOrNull==null?0:1),Bytes=package.Bytes+(sourceZipOrNull==null?0:sourceZipOrNull.LongLength),ParentIdentity=pins.ParentId,RootIdentity=null,Status="PLAN_ONLY" };
-    if(!stage) return receipt;
+    if(!stage) { TracePlan("COMPLETE"); return receipt; }
     string txn=Path.Combine(local,".GridS0Transaction-"+Guid.NewGuid().ToString("D"));
     using(var security=new Security(sid)) {
      diagnosticPhase="CREATE_TXN"; CreateDir(txn,security); diagnosticPhase="TXN_ATTRIBUTES"; Need(SetFileAttributesW(LongPath(txn),0x12));

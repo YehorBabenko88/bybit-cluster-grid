@@ -58,7 +58,8 @@ try {
     if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_LOADED'); [Console]::Out.Flush() }
     # PlanPackage validates the complete manifest and parent custody without writes.
     if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_VALIDATE'); [Console]::Out.Flush() }
-    $plan = [GridS0.Bootstrap]::PlanPackage($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid)
+    if ($DiagnosticStages) { $plan = [GridS0.Bootstrap]::PlanPackageDiagnostic($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid) }
+    else { $plan = [GridS0.Bootstrap]::PlanPackage($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid) }
     if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_VALIDATED'); [Console]::Out.Flush() }
     if ($Action -eq 'Stage') {
         [GridS0.Bootstrap]::StagePackage($bytes,$ExpectedSha256,$ExpectedHead,$TargetRoot,$ExpectedSid,$true)
