@@ -3,7 +3,7 @@ from copy import deepcopy
 
 import pytest
 
-from tools.s0_ancestor_acl_review import review_snapshot
+from tools.s0_ancestor_acl_review import review_snapshot, review_profile_candidate
 
 USER = 'S-1-5-21-1-2-3-1002'
 CAP = 'S-1-15-3-2968813833-811790644-2202111208-3784096404-1081847329-2708967783-1438471679'
@@ -139,3 +139,79 @@ def test_effective_generic_all_blocks(flags):
 def test_schema_types_are_not_coerced(schema):
     data = snapshot(); data['schema'] = schema
     assert review_snapshot(data)['model'] == 'BLOCKED'
+
+
+def profile_candidate():
+    chain = snapshot()
+    chain['ancestors'].append(dict(identity='volume:3', owner=USER, dacl_present=True,
+                                   reparse=False, complete=True, aces=[ace(USER)]))
+    return dict(mode='USER_PROFILE_V1_DESIGN', known_folder_id='5e6c858f-0e22-4760-9afe-ea3317b67173',
+                flags=0x4000, htoken='CURRENT_USER_NULL', profile_path=r'C:\Users\Synthetic',
+                token_profile_path=r'C:\Users\Synthetic', os_volume='C:\\',
+                target=r'C:\Users\Synthetic\GridS0Package-2ca86b89-7793-41e8-a8cf-b830a6655739',
+                target_absent=True, profile_mount=False, filesystem='NTFS', source_links=1,
+                source_reparse=False, token_sid=USER, standard_token=True,
+                thread_token_absent=True, package_identity_absent=True,
+                parent_identity='volume:3', parent_acl=chain,
+                ancestor_paths=['C:\\', r'C:\Users', r'C:\Users\Synthetic'])
+
+
+def test_explicit_profile_design_has_no_host_or_stage_authority():
+    result = review_profile_candidate(profile_candidate())
+    assert result['model'] == 'OFFLINE_MODEL_PASS'
+    assert result['host'] == 'BLOCKED' and result['execute'] is False
+    assert result['cleanup'] is False
+
+
+@pytest.mark.parametrize('field,value', [
+    ('mode', 'AUTO_FALLBACK'), ('known_folder_id', 'f1b32785-6fba-4fcf-9d55-7b8e7f157091'),
+    ('flags', 0x8000), ('flags', True), ('htoken', 'DEFAULT_USER'),
+    ('token_profile_path', r'C:\Users\Other'), ('os_volume', 'D:\\'),
+    ('profile_mount', True), ('profile_mount', None), ('filesystem', 'ReFS'),
+    ('target_absent', False), ('target_absent', None), ('target_absent', 1),
+    ('source_links', 2), ('source_links', True), ('source_reparse', True),
+    ('token_sid', CAP), ('standard_token', False), ('thread_token_absent', False),
+    ('package_identity_absent', None), ('parent_identity', 'substituted'),
+    ('profile_path', r'\\server\profile'), ('profile_path', r'D:\Users\Synthetic'),
+    ('target', r'C:\Users\Synthetic\existing'),
+    ('target', r'C:\Users\Synthetic\..\GridS0Package-2ca86b89-7793-41e8-a8cf-b830a6655739'),
+])
+def test_profile_design_rejects_unknown_or_incompatible_proof(field, value):
+    data = profile_candidate(); data[field] = value
+    assert review_profile_candidate(data)['model'] == 'BLOCKED'
+
+
+@pytest.mark.parametrize('index', [0, 2])
+def test_unknown_parent_or_candidate_capability_blocks_with_no_fallback(index):
+    data = profile_candidate(); data['parent_acl']['ancestors'][index]['aces'].append(ace())
+    assert review_profile_candidate(data)['model'] == 'BLOCKED'
+
+
+def test_profile_parent_reparse_or_identity_race_is_not_redeemed_by_target_absence():
+    data = profile_candidate(); data['parent_acl']['ancestors'][0]['reparse'] = True
+    assert review_profile_candidate(data)['model'] == 'BLOCKED'
+    data = profile_candidate(); data['parent_acl']['ancestors'][2]['identity'] = 'replacement'
+    assert review_profile_candidate(data)['model'] == 'BLOCKED'
+
+
+def test_design_parent_inherit_only_cannot_hide_current_delete_child():
+    data = profile_candidate()
+    data['parent_acl']['ancestors'][1]['aces'].extend([ace(mask=0x40), ace(mask=0x10000000, flags=11)])
+    assert review_profile_candidate(data)['model'] == 'BLOCKED'
+
+
+@pytest.mark.parametrize('leaf', ['CON', 'NUL.txt', 'COM1', 'SYNTH~1',
+                                'COM¹', 'COM².txt', 'COM³', 'LPT¹', 'LPT².txt', 'LPT³'])
+def test_profile_design_refuses_reserved_names_and_short_path_aliases(leaf):
+    data = profile_candidate(); profile = 'C:\\Users\\' + leaf
+    data['profile_path'] = data['token_profile_path'] = profile
+    data['ancestor_paths'][-1] = profile
+    data['target'] = profile + '\\' + data['target'].split('\\')[-1]
+    assert review_profile_candidate(data)['model'] == 'BLOCKED'
+
+
+@pytest.mark.parametrize('paths', [[], [r'C:\Users\Synthetic'],
+                                 ['C:\\', r'C:\Users\Other', r'C:\Users\Synthetic']])
+def test_profile_design_blocks_incomplete_or_substituted_path_chain(paths):
+    data = profile_candidate(); data['ancestor_paths'] = paths
+    assert review_profile_candidate(data)['model'] == 'BLOCKED'

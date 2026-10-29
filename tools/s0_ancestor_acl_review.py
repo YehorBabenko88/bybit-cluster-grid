@@ -4,6 +4,7 @@ Raw ACE flags use Win32 ACE_HEADER values, not .NET PropagationFlags values.
 No host APIs, paths, SID resolution, token membership inference or mutations.
 The supported subset intentionally cannot certify real Known Folder custody.
 """
+import ntpath
 import re
 
 _REPLACEMENT = 0x40 | 0x10000 | 0x40000 | 0x80000 | 0x10000000 | 0x40000000
@@ -85,4 +86,66 @@ def review_snapshot(snapshot):
     result['findings'] = sorted(findings)
     if not findings:
         result['model'] = 'OFFLINE_MODEL_PASS'
+    return result
+
+
+def review_profile_candidate(proposal):
+    """Synthetic proposed UserProfile contract, not a Known Folder API call.
+
+    Input booleans/identities are hypothetical evidence, not observations or
+    authorization. Host/execute/cleanup remain blocked even for a model PASS.
+    """
+    result = dict(model='BLOCKED', host='BLOCKED', execute=False, cleanup=False,
+                  effective_access='NOT_EVALUATED', findings=['INVALID_PROFILE_PROPOSAL'])
+    strings = ('mode', 'known_folder_id', 'htoken', 'profile_path', 'token_profile_path',
+               'os_volume', 'target', 'filesystem', 'token_sid', 'parent_identity')
+    keys = (*strings, 'flags', 'target_absent', 'profile_mount', 'source_links',
+            'source_reparse', 'standard_token', 'thread_token_absent',
+            'package_identity_absent', 'parent_acl', 'ancestor_paths')
+    if not _exact(proposal, keys) or not all(type(proposal[k]) is str for k in strings):
+        return result
+    p = proposal
+    if (p['mode'] != 'USER_PROFILE_V1_DESIGN'
+            or p['known_folder_id'] != '5e6c858f-0e22-4760-9afe-ea3317b67173'
+            or type(p['flags']) is not int or p['flags'] != 0x4000
+            or p['htoken'] != 'CURRENT_USER_NULL' or p['filesystem'] != 'NTFS'
+            or p['target_absent'] is not True or p['profile_mount'] is not False
+            or type(p['source_links']) is not int or p['source_links'] != 1
+            or p['source_reparse'] is not False or p['standard_token'] is not True
+            or p['thread_token_absent'] is not True or p['package_identity_absent'] is not True):
+        return result
+    profile, target = p['profile_path'], p['target']
+    if (re.fullmatch(r'[A-Z]:\\', p['os_volume']) is None
+            or p['token_profile_path'] != profile
+            or not profile.startswith(p['os_volume']) or profile == p['os_volume']
+            or ntpath.dirname(target) != profile
+            or re.fullmatch(r'GridS0Package-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',
+                            ntpath.basename(target)) is None):
+        return result
+    for path in (profile, target):
+        try:
+            if len(path.encode('utf-16le')) > 480:
+                return result
+        except UnicodeError:
+            return result
+        if ntpath.normpath(path) != path or '/' in path:
+            return result
+        for part in path[3:].split('\\'):
+            if (not part or part.rstrip(' .') != part
+                    or any(ord(c) < 32 or c in ':<>"|?*%~' for c in part)
+                    or re.fullmatch(r'CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[0-9¹²³]|LPT[0-9¹²³]',
+                                    part.split('.')[0].upper()) is not None):
+                return result
+    result = review_snapshot(p['parent_acl'])
+    if result['model'] != 'OFFLINE_MODEL_PASS':
+        return result
+    parent = p['parent_acl']
+    expected_paths = [p['os_volume']]
+    for part in profile[3:].split('\\'):
+        expected_paths.append(ntpath.join(expected_paths[-1], part))
+    if (p['token_sid'] != parent['operator_sid']
+            or type(p['ancestor_paths']) is not list or p['ancestor_paths'] != expected_paths
+            or len(parent['ancestors']) != len(expected_paths)
+            or p['parent_identity'] != parent['ancestors'][-1]['identity']):
+        result['model'] = 'BLOCKED'; result['findings'] = ['PROFILE_IDENTITY_MISMATCH']
     return result

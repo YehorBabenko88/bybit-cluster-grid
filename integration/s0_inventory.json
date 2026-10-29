@@ -4,6 +4,7 @@
     "tests/test_s0_ancestor_acl_review.py::test_allow_order_and_inheritance_mapping_do_not_redeem_effective_rights",
     "tests/test_s0_ancestor_acl_review.py::test_capability_prefix_is_not_a_trust_rule",
     "tests/test_s0_ancestor_acl_review.py::test_deny_ace_does_not_establish_effective_access_or_cancel_conservative_risk",
+    "tests/test_s0_ancestor_acl_review.py::test_design_parent_inherit_only_cannot_hide_current_delete_child",
     "tests/test_s0_ancestor_acl_review.py::test_duplicate_identity_or_missing_ancestry_blocks",
     "tests/test_s0_ancestor_acl_review.py::test_effective_full_control_not_neutralized_by_inherit_only_sibling[0]",
     "tests/test_s0_ancestor_acl_review.py::test_effective_full_control_not_neutralized_by_inherit_only_sibling[16]",
@@ -11,6 +12,7 @@
     "tests/test_s0_ancestor_acl_review.py::test_effective_generic_all_blocks[16]",
     "tests/test_s0_ancestor_acl_review.py::test_effective_generic_all_blocks[19]",
     "tests/test_s0_ancestor_acl_review.py::test_effective_generic_all_blocks[3]",
+    "tests/test_s0_ancestor_acl_review.py::test_explicit_profile_design_has_no_host_or_stage_authority",
     "tests/test_s0_ancestor_acl_review.py::test_incomplete_ancestor_custody_cannot_pass[aces-None]",
     "tests/test_s0_ancestor_acl_review.py::test_incomplete_ancestor_custody_cannot_pass[complete-1]",
     "tests/test_s0_ancestor_acl_review.py::test_incomplete_ancestor_custody_cannot_pass[complete-False]",
@@ -31,6 +33,45 @@
     "tests/test_s0_ancestor_acl_review.py::test_parent_replacement_control_bits_block_even_with_clean_descendant[524288]",
     "tests/test_s0_ancestor_acl_review.py::test_parent_replacement_control_bits_block_even_with_clean_descendant[64]",
     "tests/test_s0_ancestor_acl_review.py::test_parent_replacement_control_bits_block_even_with_clean_descendant[65536]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_blocks_incomplete_or_substituted_path_chain[paths0]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_blocks_incomplete_or_substituted_path_chain[paths1]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_blocks_incomplete_or_substituted_path_chain[paths2]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_refuses_reserved_names_and_short_path_aliases[COM1]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_refuses_reserved_names_and_short_path_aliases[COM\\xb2.txt]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_refuses_reserved_names_and_short_path_aliases[COM\\xb3]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_refuses_reserved_names_and_short_path_aliases[COM\\xb9]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_refuses_reserved_names_and_short_path_aliases[CON]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_refuses_reserved_names_and_short_path_aliases[LPT\\xb2.txt]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_refuses_reserved_names_and_short_path_aliases[LPT\\xb3]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_refuses_reserved_names_and_short_path_aliases[LPT\\xb9]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_refuses_reserved_names_and_short_path_aliases[NUL.txt]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_refuses_reserved_names_and_short_path_aliases[SYNTH~1]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[filesystem-ReFS]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[flags-32768]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[flags-True]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[htoken-DEFAULT_USER]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[known_folder_id-f1b32785-6fba-4fcf-9d55-7b8e7f157091]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[mode-AUTO_FALLBACK]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[os_volume-D:\\\\]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[package_identity_absent-None]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[parent_identity-substituted]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[profile_mount-None]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[profile_mount-True]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[profile_path-D:\\\\Users\\\\Synthetic]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[profile_path-\\\\\\\\server\\\\profile]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[source_links-2]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[source_links-True]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[source_reparse-True]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[standard_token-False]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[target-C:\\\\Users\\\\Synthetic\\\\..\\\\GridS0Package-2ca86b89-7793-41e8-a8cf-b830a6655739]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[target-C:\\\\Users\\\\Synthetic\\\\existing]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[target_absent-1]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[target_absent-False]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[target_absent-None]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[thread_token_absent-False]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[token_profile_path-C:\\\\Users\\\\Other]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_design_rejects_unknown_or_incompatible_proof[token_sid-S-1-15-3-2968813833-811790644-2202111208-3784096404-1081847329-2708967783-1438471679]",
+    "tests/test_s0_ancestor_acl_review.py::test_profile_parent_reparse_or_identity_race_is_not_redeemed_by_target_absence",
     "tests/test_s0_ancestor_acl_review.py::test_raw_object_inherit_bit_is_not_dotnet_propagation_inherit_only",
     "tests/test_s0_ancestor_acl_review.py::test_read_only_unknown_ace_is_not_silently_an_enabled_token_membership_proof",
     "tests/test_s0_ancestor_acl_review.py::test_safe_model_never_grants_host_or_execution_authority",
@@ -52,6 +93,8 @@
     "tests/test_s0_ancestor_acl_review.py::test_unknown_ace_or_invalid_numeric_representation_blocks[mask--1]",
     "tests/test_s0_ancestor_acl_review.py::test_unknown_ace_or_invalid_numeric_representation_blocks[mask-4294967296]",
     "tests/test_s0_ancestor_acl_review.py::test_unknown_ace_or_invalid_numeric_representation_blocks[mask-True]",
+    "tests/test_s0_ancestor_acl_review.py::test_unknown_parent_or_candidate_capability_blocks_with_no_fallback[0]",
+    "tests/test_s0_ancestor_acl_review.py::test_unknown_parent_or_candidate_capability_blocks_with_no_fallback[2]",
     "tests/test_s0_ancestor_acl_review.py::test_unsupported_access_mask_bits_block_even_for_trusted_or_deny_ace[S-1-15-3-2968813833-811790644-2202111208-3784096404-1081847329-2708967783-1438471679-0-134217728]",
     "tests/test_s0_ancestor_acl_review.py::test_unsupported_access_mask_bits_block_even_for_trusted_or_deny_ace[S-1-15-3-2968813833-811790644-2202111208-3784096404-1081847329-2708967783-1438471679-0-16777216]",
     "tests/test_s0_ancestor_acl_review.py::test_unsupported_access_mask_bits_block_even_for_trusted_or_deny_ace[S-1-15-3-2968813833-811790644-2202111208-3784096404-1081847329-2708967783-1438471679-0-33554432]",
@@ -468,6 +511,10 @@
     ],
     [
       "tests.test_s0_ancestor_acl_review",
+      "test_design_parent_inherit_only_cannot_hide_current_delete_child"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
       "test_duplicate_identity_or_missing_ancestry_blocks"
     ],
     [
@@ -493,6 +540,10 @@
     [
       "tests.test_s0_ancestor_acl_review",
       "test_effective_generic_all_blocks[3]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_explicit_profile_design_has_no_host_or_stage_authority"
     ],
     [
       "tests.test_s0_ancestor_acl_review",
@@ -573,6 +624,162 @@
     [
       "tests.test_s0_ancestor_acl_review",
       "test_parent_replacement_control_bits_block_even_with_clean_descendant[65536]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_blocks_incomplete_or_substituted_path_chain[paths0]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_blocks_incomplete_or_substituted_path_chain[paths1]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_blocks_incomplete_or_substituted_path_chain[paths2]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_refuses_reserved_names_and_short_path_aliases[COM1]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_refuses_reserved_names_and_short_path_aliases[COM\\xb2.txt]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_refuses_reserved_names_and_short_path_aliases[COM\\xb3]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_refuses_reserved_names_and_short_path_aliases[COM\\xb9]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_refuses_reserved_names_and_short_path_aliases[CON]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_refuses_reserved_names_and_short_path_aliases[LPT\\xb2.txt]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_refuses_reserved_names_and_short_path_aliases[LPT\\xb3]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_refuses_reserved_names_and_short_path_aliases[LPT\\xb9]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_refuses_reserved_names_and_short_path_aliases[NUL.txt]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_refuses_reserved_names_and_short_path_aliases[SYNTH~1]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[filesystem-ReFS]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[flags-32768]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[flags-True]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[htoken-DEFAULT_USER]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[known_folder_id-f1b32785-6fba-4fcf-9d55-7b8e7f157091]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[mode-AUTO_FALLBACK]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[os_volume-D:\\\\]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[package_identity_absent-None]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[parent_identity-substituted]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[profile_mount-None]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[profile_mount-True]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[profile_path-D:\\\\Users\\\\Synthetic]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[profile_path-\\\\\\\\server\\\\profile]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[source_links-2]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[source_links-True]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[source_reparse-True]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[standard_token-False]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[target-C:\\\\Users\\\\Synthetic\\\\..\\\\GridS0Package-2ca86b89-7793-41e8-a8cf-b830a6655739]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[target-C:\\\\Users\\\\Synthetic\\\\existing]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[target_absent-1]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[target_absent-False]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[target_absent-None]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[thread_token_absent-False]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[token_profile_path-C:\\\\Users\\\\Other]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_design_rejects_unknown_or_incompatible_proof[token_sid-S-1-15-3-2968813833-811790644-2202111208-3784096404-1081847329-2708967783-1438471679]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_profile_parent_reparse_or_identity_race_is_not_redeemed_by_target_absence"
     ],
     [
       "tests.test_s0_ancestor_acl_review",
@@ -657,6 +864,14 @@
     [
       "tests.test_s0_ancestor_acl_review",
       "test_unknown_ace_or_invalid_numeric_representation_blocks[mask-True]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_unknown_parent_or_candidate_capability_blocks_with_no_fallback[0]"
+    ],
+    [
+      "tests.test_s0_ancestor_acl_review",
+      "test_unknown_parent_or_candidate_capability_blocks_with_no_fallback[2]"
     ],
     [
       "tests.test_s0_ancestor_acl_review",

@@ -168,3 +168,197 @@ review; it is not installed on a physical host or invoked by CI.
 G0: **BLOCKED**. Physical S0: **NO-GO**. No physical permission request to execute
 is ready. Physical SID/ACL **0/10 NOT_RUN**. Execute/Cleanup **NOT_AUTHORIZED**.
 All twenty G1 phases stay **BLOCKED / null argv**. Deployment **NO-GO**.
+
+## Coordinator follow-up: explicit UserProfile design only
+
+Task: [comment 6504282964](https://github.com/YehorBabenko88/bybit-cluster-grid/pull/244#issuecomment-6504282964).
+This section and the additional pure tests are a proposal, not a native
+implementation or physical authorization. LocalAppData code stays byte-for-byte
+unchanged. No canonical artifact is replaced while run `40923824071` is queued.
+
+| Approach | Decision | Reason |
+|---|---|---|
+| Keep current LocalAppData API | Retain, currently BLOCKED on LS5 | No unsafe fallback or retroactive ACL repair |
+| New explicit UserProfile API | Recommended for further review only | Can select a different independently checked ancestry without trusting the capability |
+| Arbitrary caller path or automatic retry elsewhere | Reject | Loses Known Folder and owner binding; hides the first safety failure |
+
+### Proposed native API semantics — not implemented
+
+Proposed distinct entry point: `PlanPackageAtUserProfileV1(...)`, later a separately
+approved `StagePackageAtUserProfileV1(...)`. Existing `PlanPackage` / `StagePackage`
+must not acquire a boolean fallback switch or changed defaults. A versioned parent
+proof must accompany ALL package, input, recipient, export, transfer, pair and
+runtime root operations. One success must not leave downstream code checking
+LocalAppData or accepting caller-chosen roots.
+
+1. Require the observed current primary token's exact SID, Medium integrity,
+   non-elevated state, groups and privileges under existing policy. Query and
+   reject an impersonating thread, AppContainer or packaged identity; unknown
+   API results remain BLOCKED. Do not create, duplicate, log on or impersonate
+   a user. Recheck the same token identity at the final mutation boundary.
+2. Resolve `FOLDERID_Profile` `{5E6C858F-0E22-4760-9AFE-EA3317B67173}` with
+   `SHGetKnownFolderPath`, exactly `KF_FLAG_DONT_VERIFY=0x4000`, `hToken=NULL`.
+   Check HRESULT and bounded non-null UTF-16 result; free its CoTaskMem pointer
+   on every success/error path. No CREATE, INIT, DEFAULT_PATH, redirection or
+   environment-based substitution. NULL means current user, not Default User;
+   `hToken=-1` is expressly forbidden. A non-null token has different documented
+   access requirements; do not silently request those extra rights as a fallback.
+3. Independently query `GetUserProfileDirectoryW` using an owned query-only
+   handle to the same current primary token. Bound its size probe/retry, check
+   Win32 errors and terminating NUL, require the same canonical path and SID.
+   This is a consistency check, not an independently authenticated authority:
+   both APIs ultimately depend on the trusted local OS/profile configuration.
+4. Reject UNC/device/relative paths, aliases, dot components, alternate volumes,
+   non-NTFS/remote filesystems, profile junctions/mount points, package redirection
+   and unknown volume mappings. Initially require the verified OS volume only.
+   Never infer the path from `$env:USERPROFILE`, a hostname or `C:\Users\<name>`.
+5. Hold and inspect every ancestor from that volume root to the resolved profile,
+   including each *current-directory* non-inheriting ACE. Compare final paths,
+   volume/file identities, owner, full DACL and supported ACE structure before
+   and after each boundary; deny reparse and identity/ACL drift. A no-share-delete
+   handle is necessary custody evidence, not a general lock on DACL modification.
+   Unknown effective DELETE_CHILD, DELETE, WRITE_DAC, WRITE_OWNER, GenericAll or
+   GenericWrite remains BLOCKED, including on the candidate parent itself.
+6. Propose exactly one fresh UUID leaf immediately below this verified parent.
+   Probe nonexistence through that held parent; AccessDenied, collision or any
+   ambiguous error BLOCKS. Future native creation must be relative to the held
+   parent with create-new semantics and the protected three-principal DACL at
+   creation, never create then repair ACL. Pin transaction/root handles, populate
+   only validated members, reject reparse/hardlinks, hash through owned handles,
+   revalidate all pins, and publish atomically without replacement to the same
+   held parent. Do not adopt or delete a partial/existing target after failure.
+
+References: [Known Folder identifiers](https://learn.microsoft.com/en-us/windows/win32/shell/knownfolderid),
+[SHGetKnownFolderPath](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shgetknownfolderpath),
+[Known Folder flags](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/ne-shlobj_core-known_folder_flag),
+[GetUserProfileDirectoryW](https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-getuserprofiledirectoryw).
+These APIs are documented; the proposed combination has NOT been executed on
+LS5/PC4 or accepted as a working native implementation.
+
+### Existing chain comparison, not a new host attestation
+
+Earlier read-only metadata includes this exact UserProfile Owner/Group/DACL SDDL:
+
+```text
+O:SYG:SYD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;S-1-5-21-12977273-2956189057-260416802-1002)(A;;0x100020;;;S-1-15-3-65536-599108337-2355189375-1353122160-3480128286-3345335107-485756383-4087318168-230526575)
+```
+
+Its current-directory capability ACE is execute/traverse plus synchronize, with
+no inheritance. It is not omitted simply because the DACL is protected. Its
+origin is also not asserted; benign mask observation is not general SID trust.
+
+`C:\Users`:
+
+```text
+O:SYG:SYD:PAI(A;OICIIO;GXGR;;;WD)(A;;0x1200a9;;;WD)(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;;0x1200a9;;;BU)(A;OICIIO;GXGR;;;BU)(A;;0x100021;;;S-1-15-3-65536-4045685566-1323397456-4055816110-285687253-194181-4019357623-1925838800-191844675)
+```
+
+System volume root `C:\`:
+
+```text
+O:S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464G:S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464D:(A;;LC;;;AU)(A;OICIIO;SDGXGWGR;;;AU)(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;BU)(A;;0x1000a1;;;S-1-15-3-65536-1888954469-739942743-1668119174-2468466756-4239452838-1296943325-355587736-700089176)
+```
+
+Volume-root Authenticated Users has effective ADD_SUBDIRECTORY plus a separate
+inherit-only grant; that is not effective DELETE_CHILD on the root. The current
+native ancestor rule deliberately distinguishes creation from replacement.
+Its contextual TrustedInstaller exception is volume-root-only. The pure model
+is more conservative and does not certify this actual chain. No held file IDs,
+mount resolution, effective token access or continuous custody was established
+by these path-based metadata reads. Do not claim that this profile is ready.
+
+Trust boundary: SYSTEM, Administrators and the exact operator SID remain trusted.
+This design does not isolate malicious code already running as that operator,
+privileged administrators, kernel drivers or a compromised OS. Fresh protected
+child DACLs do not neutralize dangerous *effective* parent rights. Read-only
+metadata and synthetic tests establish none of these stronger guarantees.
+
+### Minimal plan and test gates
+
+The offline spike `review_profile_candidate()` only reviews synthetic strings,
+ACLs and hypothetical facts; it does NOT call Shell32/Userenv, open handles,
+create directories or authorize anything. It requires explicit mode/GUID/flags,
+token SID match, same query paths, fixed volume/NTFS, non-mounted profile, fresh
+UUID target, single-link non-reparse source and matching parent model identity.
+The declared ancestor paths must enumerate every component from the OS volume
+to the profile and have the same depth as the ACL model. This is consistency
+between hypothetical inputs, not evidence that the OS supplied those facts.
+Even model PASS leaves host BLOCKED and Execute/Cleanup false. Existing
+`review_snapshot()` remains unchanged; its actual-chain limitations still apply.
+
+Independent review also exposed Unicode device-name aliases (`COM¹/²/³` and
+`LPT¹/²/³`, including extensions). Six RED cases isolated the alias rule after
+correcting their path-chain fixtures; the model now rejects these as well as
+ordinary DOS devices and tilde aliases. Tilde rejection alone is not proof of
+long-path identity; the future handle-based final path check is still required.
+[Windows naming rules](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file).
+
+- [x] Add targeted negative fixtures first: simplified ACL-only acceptance
+  reproduces 25 incompatible proposals as false model PASS.
+- [x] Enforce the explicit pure proposal contract; targeted GREEN plus the
+  existing capability/ACE regressions. No claim of actual Win32 fault injection.
+- [x] Extend the S0 inventory/JUnit expectations for the new cases locally.
+- [ ] Independent review of this design and its proposed native API.
+- [ ] After that review, implement native resolution, handle lifetime and common
+  parent-proof propagation across Bootstrap, Inputs, Transfer, Export, Transport,
+  launcher/runtime path validation and command manifests in a separate change.
+- [ ] Genuine disposable hosted Windows 5.1/7 negatives: failed HRESULT/size
+  probes, SID/primary/thread-token mismatch, unknown capabilities on each ancestor
+  and candidate, inheritance/current-dir ACEs, existing-target races, junction,
+  symlink, hardlink, alternate volume/profile mount, pre-opened conflicting
+  handles, same-file ACL drift and atomic publish crash. No physical mutation.
+- [ ] Exact-head offline/native CI and independently verified original package.
+- [ ] Separately authorized read-only per-host native Plan, followed by a new
+  owner decision on any specific physical Stage; never inferred from test PASS.
+
+Current queued run `40923824071` is not cancelled or rerun for this design. Until
+it finishes, retain the existing remote HEAD and publish this proposal/diff for
+discussion rather than automatically replacing its artifact or concurrency slot.
+
+### Separate future physical approval contract — all authority absent
+
+Required future fields: exact reviewed HEAD/tree, independently pinned original
+ZIP/manifest/source digests, selected explicit API version, LS5/PC4 host identity,
+observed local operator SID/token/session, run UUID, expiration, exact parent
+volume/file identity and ACL digest, fresh package/input/pair/transfer leaves,
+approved literal argv, expected side effects, bounded runtime and STOP/ownership
+rules. No secret material belongs in the approval record.
+
+For this proposal every action is `authorized=false`, `argv=null`, expiry unset.
+Read-only native observation, public no-key transfer rehearsal, each Stage, input
+Prepare and final 300-second Execute require separate explicit scopes and owner
+approval after their prerequisites pass. Cleanup is excluded; failure preserves
+owned evidence and must not delete/adopt resources. No existing ACL/service/task,
+PostgreSQL, SSH, Tailscale or firewall change is part of any proposed scope.
+
+P0: native UserProfile support and independent custody proof absent. P1: no
+physical token/handle/transfer approval. P2: model/API distinction is explicit.
+S0 **NO-GO**, all20 G1 **BLOCKED/null argv**, Execute/Cleanup **NOT_AUTHORIZED**.
+
+Illustrative future approval record (not read or accepted by current runtime):
+
+```json
+{
+  "schema": "USER_PROFILE_STAGE_REQUEST_V1_DRAFT",
+  "head": null,
+  "tree": null,
+  "package_sha256": null,
+  "source_manifest_sha256": null,
+  "host_identity": null,
+  "operator_sid": null,
+  "run_id": null,
+  "parent_identity": null,
+  "parent_acl_sha256": null,
+  "target": null,
+  "expires_utc": null,
+  "owner_authentication": null,
+  "authorized": false,
+  "argv": null,
+  "execute": false,
+  "cleanup": false,
+  "g1_argv": null
+}
+```
+
+Missing/unknown bindings must BLOCK any future consumer; a valid hash alone or
+a model PASS must not fill these fields or grant authorization automatically.
