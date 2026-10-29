@@ -71,3 +71,13 @@ def test_native_identity_pins_participate_in_read_share_checks_and_ci_tracks_com
     assert '0x80000000|0x20000|0x80|(deletion?' in native
     workflow = (ROOT / '.github/workflows/physical-smoke-s0.yml').read_text()
     assert "'docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md'" in workflow.split('workflow_dispatch:')[0]
+
+
+# Fresh-token object DACL is CI setup, not a mutation in the read-only observer.
+def test_ci_token_object_defaults_do_not_change_physical_observer():
+    fixture = (ROOT / 'installer/physical-smoke-s0-tests/Fixture.cs').read_text()
+    assert 'SetFreshTokenDefaultDacl(token,freshSid)' in fixture
+    assert 'SetTokenInformation(freshToken,6,tokenDefault,IntPtr.Size)' in fixture
+    observer = (ROOT / 'installer/physical-smoke-s0/TokenObserver.cs').read_text()
+    assert 'SetTokenInformation' not in observer
+    assert 'SetSecurityInfo' not in observer

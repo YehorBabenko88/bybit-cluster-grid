@@ -1,6 +1,7 @@
 {
   "schema": 1,
   "nodes": [
+    "tests/test_s0_bootstrap_loader.py::test_ci_token_object_defaults_do_not_change_physical_observer",
     "tests/test_s0_bootstrap_loader.py::test_hosted_receipt_temp_is_new_protected_directory_not_admin_default",
     "tests/test_s0_bootstrap_loader.py::test_hosted_test_driver_is_outside_closed_package_tree",
     "tests/test_s0_bootstrap_loader.py::test_initial_literal_loader_matches_reviewed_script_body",
@@ -386,6 +387,10 @@
     "tests/test_s0_native_receipt.py::NativeReceiptTests::test_rejects_typed_numeric_boolean_range_and_protocol_changes:fc58f8fabe76dcea94da2733b1d10512c43c3c5121ddd25e5829dd3a0215cfb0"
   ],
   "junit_cases": [
+    [
+      "tests.test_s0_bootstrap_loader",
+      "test_ci_token_object_defaults_do_not_change_physical_observer"
+    ],
     [
       "tests.test_s0_bootstrap_loader",
       "test_hosted_receipt_temp_is_new_protected_directory_not_admin_default"

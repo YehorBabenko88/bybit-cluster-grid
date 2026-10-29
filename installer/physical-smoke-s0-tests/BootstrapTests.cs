@@ -79,6 +79,9 @@ public static class BootstrapTests {
   // Owned successful/partial fixture roots deliberately remain; no auto cleanup/adoption.
  }
  [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
+ [DllImport("kernel32.dll")] static extern uint GetCurrentProcessId();
+ [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr OpenProcess(uint access,bool inherit,uint pid);
+ [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
  [DllImport("kernel32.dll",SetLastError=true)] static extern bool IsProcessInJob(IntPtr process,IntPtr job,out bool member);
  static string QuoteLoader(string value) { Need(value!=null && value.IndexOfAny(new[]{'"','\0','\r','\n'})<0 && !value.EndsWith("\\",StringComparison.Ordinal)); return "\""+value+"\""; }
  static byte[] ReadLoaderOutput(Stream input) {
@@ -100,6 +103,8 @@ public static class BootstrapTests {
   using(var lease=new FileStream(shell,FileMode.Open,FileAccess.Read,FileShare.Read)) {
    using(var hash=SHA256.Create()) Need(BitConverter.ToString(hash.ComputeHash(lease)).Replace("-","").ToLowerInvariant()==shellSha);
    var start=new ProcessStartInfo { FileName=shell,Arguments="-NoLogo -NoProfile -NonInteractive -File "+QuoteLoader(driver)+" -Root "+QuoteLoader(root)+" -Head "+QuoteLoader(head)+" -Sha "+QuoteLoader(sha)+" -Sid "+QuoteLoader(sid)+" -Target "+QuoteLoader(target)+" -Loader "+QuoteLoader(loader),UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=root,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true };
+   Phase="FIXTURE_LOADER_SELF_DUP_HANDLE";
+   IntPtr self=OpenProcess(0x40,false,GetCurrentProcessId()); Need(self!=IntPtr.Zero); Need(CloseHandle(self));
    Phase="FIXTURE_LOADER_PROCESS_START";
    using(var child=Process.Start(start)) {
     Need(child!=null); child.StandardInput.Close(); Need(IsProcessInJob(child.Handle,IntPtr.Zero,out member) && member);

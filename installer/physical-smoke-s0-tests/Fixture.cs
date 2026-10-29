@@ -6,6 +6,8 @@ using System.IO.Pipes;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using System.Security.AccessControl;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 using GridS0;
@@ -30,6 +32,11 @@ public static class Fixture
     [StructLayout(LayoutKind.Sequential)] struct Label { public IntPtr sid; public uint attributes; }
     [DllImport("advapi32.dll",SetLastError=true)] static extern bool CreateRestrictedToken(IntPtr token,uint flags,uint disabled,IntPtr sids,uint removed,IntPtr privileges,uint restricted,IntPtr restrictedSids,out IntPtr result);
     [DllImport("advapi32.dll",SetLastError=true)] static extern bool SetTokenInformation(IntPtr token,int kind,IntPtr buffer,int size);
+    [DllImport("advapi32.dll",SetLastError=true)] static extern bool GetTokenInformation(IntPtr token,int kind,IntPtr buffer,int size,out int returned);
+    [DllImport("advapi32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool ConvertStringSecurityDescriptorToSecurityDescriptorW(string value,uint revision,out IntPtr descriptor,out uint size);
+    [DllImport("advapi32.dll",SetLastError=true)] static extern bool GetSecurityDescriptorDacl(IntPtr descriptor,out bool present,out IntPtr dacl,out bool defaulted);
+    [DllImport("advapi32.dll")] static extern uint GetSecurityDescriptorLength(IntPtr descriptor);
+    [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr memory);
     [DllImport("advapi32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateProcessAsUserW(IntPtr token,string app,StringBuilder command,IntPtr pa,IntPtr ta,bool inherit,uint flags,IntPtr environment,string cwd,ref SX startup,out PI process);
     [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr CreateJobObjectW(IntPtr attributes,IntPtr name);
     [DllImport("kernel32.dll",SetLastError=true)] static extern bool SetInformationJobObject(IntPtr job,int kind,ref Limits limits,int size);
@@ -63,12 +70,56 @@ public static class Fixture
         try { IntPtr pointer=IntPtr.Add(buffer,prefix); Marshal.Copy(bytes,0,pointer,bytes.Length); Marshal.StructureToPtr(new Label{sid=pointer,attributes=0x20},buffer,false); Need(SetTokenInformation(token,25,buffer,prefix+bytes.Length),"FIXTURE_FRESH_TOKEN_MEDIUM"); }
         finally { Marshal.FreeHGlobal(buffer); }
     }
+    static byte[] ReadBoundedAcl(IntPtr pointer,IntPtr allocation,int allocationSize,int minimumOffset) {
+        long offset=pointer.ToInt64()-allocation.ToInt64();
+        Need(pointer!=IntPtr.Zero && allocation!=IntPtr.Zero && allocationSize>=8 && offset>=minimumOffset && offset<=allocationSize-8 && offset%4==0,"FIXTURE_DEFAULT_DACL_POINTER");
+        int size=(ushort)Marshal.ReadInt16(pointer,2); Need(size>=8 && size<=allocationSize-offset,"FIXTURE_DEFAULT_DACL_BOUNDS");
+        byte[] raw=new byte[size]; Marshal.Copy(pointer,raw,0,size); return raw;
+    }
+    static void ValidateFreshDefaultDacl(byte[] raw,string sid) {
+        Need(raw!=null && raw.Length>=8 && raw.Length<=65536 && raw[0]==2 && raw[1]==0 && raw[6]==0 && raw[7]==0,"FIXTURE_DEFAULT_DACL_HEADER");
+        RawAcl acl=new RawAcl(raw,0); Need(acl.BinaryLength==raw.Length && acl.Count==3,"FIXTURE_DEFAULT_DACL_SHAPE");
+        var expected=new HashSet<string>(new[]{"S-1-5-18","S-1-5-32-544",sid},StringComparer.Ordinal); Need(expected.Count==3,"FIXTURE_DEFAULT_DACL_TRUSTEES");
+        foreach(GenericAce entry in acl) {
+            var ace=entry as CommonAce;
+            Need(ace!=null && !ace.IsCallback && ace.AceQualifier==AceQualifier.AccessAllowed && ace.AceFlags==AceFlags.None && (uint)ace.AccessMask==0x10000000 && expected.Remove(ace.SecurityIdentifier.Value),"FIXTURE_DEFAULT_DACL_ACE");
+        }
+        Need(expected.Count==0,"FIXTURE_DEFAULT_DACL_CLOSED");
+    }
+    static void SetFreshTokenDefaultDacl(IntPtr freshToken,string sid) {
+        // Only the newly owned CreateRestrictedToken result is passed here. This
+        // affects default security of subsequently created objects, never any
+        // existing process, thread, pipe, file or directory security descriptor.
+        IntPtr descriptor=IntPtr.Zero,tokenDefault=IntPtr.Zero,readback=IntPtr.Zero; uint descriptorSize;
+        try {
+            Need(ConvertStringSecurityDescriptorToSecurityDescriptorW("D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;"+sid+")",1,out descriptor,out descriptorSize),"FIXTURE_DEFAULT_DACL_CONVERT");
+            Need(descriptorSize>=20 && descriptorSize<=65536 && GetSecurityDescriptorLength(descriptor)==descriptorSize,"FIXTURE_DEFAULT_DACL_DESCRIPTOR");
+            bool present,defaulted; IntPtr dacl;
+            Need(GetSecurityDescriptorDacl(descriptor,out present,out dacl,out defaulted) && present && !defaulted,"FIXTURE_DEFAULT_DACL_PRESENT");
+            byte[] expected=ReadBoundedAcl(dacl,descriptor,(int)descriptorSize,20); ValidateFreshDefaultDacl(expected,sid);
+            tokenDefault=Marshal.AllocHGlobal(IntPtr.Size); Marshal.WriteIntPtr(tokenDefault,dacl);
+            Need(SetTokenInformation(freshToken,6,tokenDefault,IntPtr.Size),"FIXTURE_DEFAULT_DACL_SET");
+            int needed; bool probe=GetTokenInformation(freshToken,6,IntPtr.Zero,0,out needed); int error=Marshal.GetLastWin32Error();
+            Need(!probe && error==122 && needed>=IntPtr.Size+8 && needed<=65536,"FIXTURE_DEFAULT_DACL_PROBE");
+            readback=Marshal.AllocHGlobal(needed); int returned;
+            Need(GetTokenInformation(freshToken,6,readback,needed,out returned) && returned==needed,"FIXTURE_DEFAULT_DACL_READBACK");
+            byte[] actual=ReadBoundedAcl(Marshal.ReadIntPtr(readback),readback,returned,IntPtr.Size); ValidateFreshDefaultDacl(actual,sid);
+            Need(actual.Length==expected.Length,"FIXTURE_DEFAULT_DACL_EQUAL"); for(int i=0;i<actual.Length;i++) Need(actual[i]==expected[i],"FIXTURE_DEFAULT_DACL_EQUAL");
+        } finally {
+            if(readback!=IntPtr.Zero) Marshal.FreeHGlobal(readback);
+            if(tokenDefault!=IntPtr.Zero) Marshal.FreeHGlobal(tokenDefault);
+            if(descriptor!=IntPtr.Zero) LocalFree(descriptor);
+        }
+    }
     static int Parent(string root,string sha,string head,string output) {
         IntPtr token=IntPtr.Zero,job=IntPtr.Zero,list=IntPtr.Zero,jobList=IntPtr.Zero,handleList=IntPtr.Zero; PI process=new PI(); bool initialized=false;
         AnonymousPipeServerStream pipe=null,stdinPipe=null;
         try {
             stage="FIXTURE_CREATE_TOKEN";
-            using(WindowsIdentity identity=WindowsIdentity.GetCurrent()) Need(CreateRestrictedToken(identity.Token,5,0,IntPtr.Zero,0,IntPtr.Zero,0,IntPtr.Zero,out token),"FIXTURE_RESTRICTED_SELF_TOKEN");
+            string freshSid;
+            using(WindowsIdentity identity=WindowsIdentity.GetCurrent()) { freshSid=identity.User.Value; Need(CreateRestrictedToken(identity.Token,5,0,IntPtr.Zero,0,IntPtr.Zero,0,IntPtr.Zero,out token),"FIXTURE_RESTRICTED_SELF_TOKEN"); }
+            stage="FIXTURE_FRESH_TOKEN_DEFAULT_DACL";
+            SetFreshTokenDefaultDacl(token,freshSid);
             stage="FIXTURE_LOWER_TOKEN";
             LowerFreshToken(token);
             stage="FIXTURE_CREATE_JOB";

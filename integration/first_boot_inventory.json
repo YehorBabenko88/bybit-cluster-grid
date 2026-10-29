@@ -1176,6 +1176,7 @@
     "tests/test_retention_bounded.py::test_retention_rejects_unsafe_limits_before_database_access[7-100-0]",
     "tests/test_retention_metadata_locking.py::test_retention_locks_metadata_and_deletes_in_one_transaction",
     "tests/test_retention_metadata_locking.py::test_retention_refuses_deletion_without_required_consumers",
+    "tests/test_s0_bootstrap_loader.py::test_ci_token_object_defaults_do_not_change_physical_observer",
     "tests/test_s0_bootstrap_loader.py::test_hosted_receipt_temp_is_new_protected_directory_not_admin_default",
     "tests/test_s0_bootstrap_loader.py::test_hosted_test_driver_is_outside_closed_package_tree",
     "tests/test_s0_bootstrap_loader.py::test_initial_literal_loader_matches_reviewed_script_body",
@@ -6420,6 +6421,10 @@
     [
       "tests.test_retention_metadata_locking",
       "test_retention_refuses_deletion_without_required_consumers"
+    ],
+    [
+      "tests.test_s0_bootstrap_loader",
+      "test_ci_token_object_defaults_do_not_change_physical_observer"
     ],
     [
       "tests.test_s0_bootstrap_loader",
