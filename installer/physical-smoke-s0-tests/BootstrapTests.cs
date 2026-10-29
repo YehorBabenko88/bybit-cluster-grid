@@ -107,7 +107,8 @@ public static class BootstrapTests {
   Phase="FIXTURE_LOADER_SHELL_PIN";
   using(var lease=new FileStream(shell,FileMode.Open,FileAccess.Read,FileShare.Read)) {
    using(var hash=SHA256.Create()) Need(BitConverter.ToString(hash.ComputeHash(lease)).Replace("-","").ToLowerInvariant()==shellSha);
-   var start=new ProcessStartInfo { FileName=shell,Arguments="-NoLogo -NoProfile -NonInteractive -File "+QuoteLoader(driver)+" -Root "+QuoteLoader(root)+" -Head "+QuoteLoader(head)+" -Sha "+QuoteLoader(sha)+" -Sid "+QuoteLoader(sid)+" -Target "+QuoteLoader(target)+" -Loader "+QuoteLoader(loader),UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=root,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true };
+   foreach(bool diagnostic in new[]{true,false}) {
+   var start=new ProcessStartInfo { FileName=shell,Arguments="-NoLogo -NoProfile -NonInteractive -File "+QuoteLoader(driver)+" -Root "+QuoteLoader(root)+" -Head "+QuoteLoader(head)+" -Sha "+QuoteLoader(sha)+" -Sid "+QuoteLoader(sid)+" -Target "+QuoteLoader(target)+" -Loader "+QuoteLoader(loader)+(diagnostic?" -DiagnosticStages":""),UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=root,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true };
    Phase="FIXTURE_LOADER_SELF_DUP_HANDLE";
    IntPtr self=OpenProcess(0x40,false,GetCurrentProcessId()); Need(self!=IntPtr.Zero); Need(CloseHandle(self));
    Phase="FIXTURE_LOADER_PROCESS_START";
@@ -132,6 +133,7 @@ public static class BootstrapTests {
     }
     Phase="FIXTURE_LOADER_OUTPUT_VALIDATE";
     string framed=Encoding.UTF8.GetString(stdout.Result).Replace("\r\n","\n"), prefix="S0_LOADER_ENTER\nS0_LOADER_PLAN\nS0_BOOTSTRAP_OPEN\nS0_BOOTSTRAP_CAPTURED\nS0_BOOTSTRAP_HASHED\nS0_BOOTSTRAP_ARCHIVE\nS0_BOOTSTRAP_LOAD\nS0_BOOTSTRAP_LOADED\nS0_BOOTSTRAP_VALIDATE\nS0_NATIVE_ENTER\nS0_NATIVE_CAPTURED\nS0_NATIVE_ZIP\nS0_NATIVE_PACKAGE\nS0_NATIVE_TOKEN\nS0_NATIVE_FOLDER\nS0_NATIVE_PARENT\nS0_NATIVE_COMPLETE\nS0_BOOTSTRAP_VALIDATED\nS0_LOADER_VERIFIED\n";
+    if(!diagnostic) prefix="S0_LOADER_ENTER\nS0_LOADER_PLAN\nS0_LOADER_VERIFIED\n";
     Need(framed.StartsWith(prefix,StringComparison.Ordinal)); byte[] bytes=Encoding.UTF8.GetBytes(framed.Substring(prefix.Length));
     Type jsonType=typeof(Bootstrap).GetNestedType("Json",BindingFlags.NonPublic); object json=Activator.CreateInstance(jsonType,BindingFlags.NonPublic|BindingFlags.Instance,null,new object[]{bytes},null);
     var value=jsonType.GetMethod("Read",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(json,null) as Dictionary<string,object>;
@@ -139,6 +141,7 @@ public static class BootstrapTests {
     Need(value["head"] is string && (string)value["head"]==head && value["scope"] is string && (string)value["scope"]=="HOSTED_LOADER_NOT_PHYSICAL" && value["shell_major"] is long && (long)value["shell_major"]==(major=="5"?5L:7L));
     foreach(string key in new[]{"loader_plan_only","root_absent","standard_primary"}) Need(value[key] is bool && (bool)value[key]); foreach(string key in new[]{"s0_execute","g1_execute","cleanup"}) Need(value[key] is bool && !(bool)value[key]);
    }
+  }
   }
   Phase="FIXTURE_LOADER_TARGET_ABSENT"; Need(!File.Exists(target) && !Directory.Exists(target));
   // No timeout kill by PID: failure unwinds to the fixture parent's owned Job.
