@@ -30,10 +30,11 @@ public static class TransferTests {
   Need(!File.Exists(Path.Combine(target,"lease.json")) && Directory.GetFiles(target).Length==2);
   Phase="FIXTURE_TRANSFER_LEASE";
   using(var lease=Bootstrap.OpenTransferSlot(target,slot.Materialization.RootIdentity,slot.IncomingIdentity,head,run,sha,payload.LongLength,sid,true)) {
-   Need(File.Exists(Path.Combine(target,"lease.json")) && Directory.GetFiles(target).Length==3);
-   Block(delegate { Bootstrap.OpenTransferSlot(target,slot.Materialization.RootIdentity,slot.IncomingIdentity,head,run,sha,payload.LongLength,sid,true).Dispose(); });
+   Phase="FIXTURE_TRANSFER_CLAIM_PRESENT"; Need(File.Exists(Path.Combine(target,"lease.json")) && Directory.GetFiles(target).Length==3);
+   Phase="FIXTURE_TRANSFER_SECOND_LEASE"; Block(delegate { Bootstrap.OpenTransferSlot(target,slot.Materialization.RootIdentity,slot.IncomingIdentity,head,run,sha,payload.LongLength,sid,true).Dispose(); });
    // Held identity handles permit truncating this exact empty object, but no rename/delete.
-   bool replacementBlocked=false; try { File.Move(incoming,Path.Combine(target,"replaced.zip")); } catch(IOException) { replacementBlocked=true; } catch(UnauthorizedAccessException) { replacementBlocked=true; } Need(replacementBlocked && !File.Exists(Path.Combine(target,"replaced.zip")));
+   Phase="FIXTURE_TRANSFER_REPLACEMENT"; bool replacementBlocked=false; try { File.Move(incoming,Path.Combine(target,"replaced.zip")); } catch(IOException) { replacementBlocked=true; } catch(UnauthorizedAccessException) { replacementBlocked=true; } Need(replacementBlocked && !File.Exists(Path.Combine(target,"replaced.zip")));
+   Phase="FIXTURE_TRANSFER_PARENT_REPLACEMENT"; bool parentBlocked=false; try { Directory.Move(target,target+".replacement"); } catch(IOException) { parentBlocked=true; } catch(UnauthorizedAccessException) { parentBlocked=true; } Need(parentBlocked && !Directory.Exists(target+".replacement"));
    using(var writer=new FileStream(incoming,FileMode.Truncate,FileAccess.Write,FileShare.ReadWrite)) {
     writer.Write(payload,0,payload.Length); writer.Flush(true);
     Phase="FIXTURE_TRANSFER_LIVE_WRITER"; Block(delegate { lease.Verify(); });

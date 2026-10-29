@@ -6,6 +6,7 @@
     "tests/test_s0_bootstrap_loader.py::test_initial_literal_loader_matches_reviewed_script_body",
     "tests/test_s0_bootstrap_loader.py::test_loader_authenticates_captured_bytes_before_loading_native_code",
     "tests/test_s0_bootstrap_loader.py::test_loader_has_no_extraction_compiler_or_system_mutator",
+    "tests/test_s0_bootstrap_loader.py::test_native_identity_pins_participate_in_read_share_checks_and_ci_tracks_commands",
     "tests/test_s0_bootstrap_loader.py::test_role_import_retains_pc4_input_namespace",
     "tests/test_s0_bootstrap_loader.py::test_token_output_does_not_serialize_host_sid_or_groups",
     "tests/test_s0_bootstrap_loader.py::test_token_policy_rejects_disabled_elevated_privilege_presence",
@@ -404,6 +405,10 @@
     [
       "tests.test_s0_bootstrap_loader",
       "test_loader_has_no_extraction_compiler_or_system_mutator"
+    ],
+    [
+      "tests.test_s0_bootstrap_loader",
+      "test_native_identity_pins_participate_in_read_share_checks_and_ci_tracks_commands"
     ],
     [
       "tests.test_s0_bootstrap_loader",

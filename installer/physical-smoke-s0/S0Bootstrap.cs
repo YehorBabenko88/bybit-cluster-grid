@@ -166,8 +166,10 @@ namespace GridS0 {
    internal void Check() { for(int i=0;i<handles.Count;i++) Need(Inspect(handles[i],paths[i],true,false,sid)==ids[i]); }
    public void Dispose() { foreach(var h in handles) h.Dispose(); }
   }
+  // Metadata-only access does not establish the required read/share custody.
+  // GENERIC_READ participates in share checking; no FILE_SHARE_DELETE fallback.
   static SafeFileHandle Open(string path,bool directory,bool deletion) {
-   var h=CreateFileNoSecurity(LongPath(path),0x20000|0x80|(deletion?0x10000u:0u),3,IntPtr.Zero,3,0x200000|(directory?0x2000000u:0u),IntPtr.Zero);
+   var h=CreateFileNoSecurity(LongPath(path),0x80000000|0x20000|0x80|(deletion?0x10000u:0u),3,IntPtr.Zero,3,0x200000|(directory?0x2000000u:0u),IntPtr.Zero);
    if(h.IsInvalid) { h.Dispose(); Need(false); } return h;
   }
   static string Inspect(SafeFileHandle h,string path,bool directory,bool strict,string sid) {

@@ -75,7 +75,7 @@ namespace GridS0 {
      Fresh(); pins.Check(); Closure(false);
      Need(Inspect(pins.Parent,root,true,true,sid)==rootId && Inspect(incoming,Path.Combine(root,"incoming.zip"),false,true,sid)==fileId);
      byte[] claimBytes=Encoding.ASCII.GetBytes(InputJson(new Dictionary<string,object> {{"schema",1L},{"profile","PHYSICAL_SMOKE_S0_TRANSFER_LEASE"},{"head",head},{"run_id",run},{"root_id",rootId},{"file_id",fileId},{"payload_sha256",sha},{"size",size},{"metadata_sha256",metadataHash}}));
-     // CREATE_NEW is the durable one-shot claim; never delete, replace or repair it.
+     // CREATE_NEW is the persisted one-shot claim; never delete, replace or repair it.
      using(var security=new Security(sid)) WriteMember(root,"lease.json",claimBytes,security,sid,new HashSet<string>(StringComparer.OrdinalIgnoreCase));
      SafeFileHandle ch=TransferReadHandle(Path.Combine(root,"lease.json"));
      try { claim=new FileStream(ch,FileAccess.Read,8192,false); } catch { ch.Dispose(); throw; }

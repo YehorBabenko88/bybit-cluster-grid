@@ -289,3 +289,13 @@ Partial roots and private archives remain protected for manual review; **Cleanup
 is not implemented or authorized**. This scope does not provide G1 sandboxing,
 OS network confinement, durable anti-rollback or protection from trusted local
 administrators/the authorized user's malicious same-SID processes.
+
+
+Handle custody requests GENERIC_READ (including directory list access), not only
+READ_CONTROL/READ_ATTRIBUTES, with no FILE_SHARE_DELETE. Windows sharing semantics
+exclude attribute-only access; hosted replacement negatives must demonstrate the
+actual refusal. AccessDenied from the stronger read request stays BLOCKED.
+Reference: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
+The transfer claim is persisted with FlushFileBuffers and CREATE_NEW, not a proof
+of storage survival after power loss. Any reboot, interrupted write, missing claim
+or uncertain storage state stops this attempt; no recovery/adoption is authorized.

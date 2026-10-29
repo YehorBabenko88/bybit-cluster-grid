@@ -64,3 +64,10 @@ def test_hosted_test_driver_is_outside_closed_package_tree():
     source = (ROOT / 'tools/verify_s0_portable_ci.py').read_text()
     assert "create_fresh_file(native_build/'bootstrap-loader-test.ps1'" in source
     assert "create_fresh_file(fixture/'temp/bootstrap-loader-test.ps1'" not in source
+
+
+def test_native_identity_pins_participate_in_read_share_checks_and_ci_tracks_commands():
+    native = (ROOT / 'installer/physical-smoke-s0/S0Bootstrap.cs').read_text()
+    assert '0x80000000|0x20000|0x80|(deletion?' in native
+    workflow = (ROOT / '.github/workflows/physical-smoke-s0.yml').read_text()
+    assert "'docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md'" in workflow.split('workflow_dispatch:')[0]
