@@ -127,8 +127,8 @@ public static class BootstrapTests {
     }
     Phase="FIXTURE_LOADER_OUTPUT_WAIT"; Need(Task.WaitAll(new Task[]{stdout,stderr},5000));
     if(child.ExitCode!=0 || stderr.Result.Length!=0) {
-     string diagnostic=Encoding.UTF8.GetString(stderr.Result);
-     if(diagnostic.IndexOf("PSSecurityException",StringComparison.OrdinalIgnoreCase)>=0 || diagnostic.IndexOf("ExecutionPolicy",StringComparison.OrdinalIgnoreCase)>=0) throw new InvalidOperationException("FIXTURE_LOADER_EXECUTION_POLICY");
+     string stderrDiagnostic=Encoding.UTF8.GetString(stderr.Result);
+     if(stderrDiagnostic.IndexOf("PSSecurityException",StringComparison.OrdinalIgnoreCase)>=0 || stderrDiagnostic.IndexOf("ExecutionPolicy",StringComparison.OrdinalIgnoreCase)>=0) throw new InvalidOperationException("FIXTURE_LOADER_EXECUTION_POLICY");
      throw new InvalidOperationException(child.ExitCode!=0?"FIXTURE_LOADER_EXIT_NONZERO":"FIXTURE_LOADER_STDERR_NOT_EMPTY");
     }
     Phase="FIXTURE_LOADER_OUTPUT_VALIDATE";
