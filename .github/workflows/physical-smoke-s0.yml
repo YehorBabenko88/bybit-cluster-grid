@@ -1,7 +1,7 @@
 name: physical-smoke-s0-preparation
 on:
   pull_request:
-    paths: ['s0_smoke/**', 'tests/test_s0_*.py', 'tools/*s0*.py', 'installer/physical-smoke-s0.ps1', 'installer/physical-smoke-s0-bootstrap.ps1', 'installer/physical-smoke-s0/**', 'installer/physical-smoke-s0-tests/**', 'docs/PHYSICAL_SMOKE_S0.md', 'docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md', 'docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md', 'integration/s0_inventory.json', '.github/workflows/physical-smoke-s0.yml']
+    paths: ['s0_smoke/**', 'tests/test_s0_*.py', 'tools/*s0*.py', 'installer/physical-smoke-s0.ps1', 'installer/physical-smoke-s0-bootstrap.ps1', 'installer/physical-smoke-s0/**', 'installer/physical-smoke-s0-tests/**', 'docs/LS5_S0_CAPABILITY_SID_REVIEW.md', 'docs/PHYSICAL_SMOKE_S0.md', 'docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md', 'docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md', 'integration/s0_inventory.json', '.github/workflows/physical-smoke-s0.yml']
   workflow_dispatch:
 permissions:
   contents: read
