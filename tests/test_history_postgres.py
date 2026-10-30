@@ -2,6 +2,7 @@
 import os
 import unittest
 from grid.history_export import read_postgres
+from grid.history_export_v11 import read_postgres_v11
 from test_history_export import fixture
 
 @unittest.skipUnless(os.environ.get('HISTORY_DISPOSABLE_DSN'),'disposable PostgreSQL not configured')
@@ -17,6 +18,11 @@ class DisposablePostgres(unittest.TestCase):
                 cur.executemany('INSERT INTO provenance_minutes VALUES(%s,%s,%s,%s)',
                     [(Jsonb(x),x['symbol'],x['start_ms'],x['dataset_fingerprint']) for x in r])
             # Use explicit transaction, so SET TRANSACTION is first statement.
+            with setup.transaction():
+                timed=read_postgres_v11(setup,q,t)
+                self.assertEqual(timed['schema'],'grid.history.v1.1')
+                self.assertEqual(timed['rows'][0]['watermark_ms'],60000)
+                self.assertEqual(setup.execute('SHOW transaction_read_only').fetchone()[0],'on')
             with setup.transaction():
                 exported=read_postgres(setup,q,t)
                 self.assertEqual(len(exported['rows']),len(r))

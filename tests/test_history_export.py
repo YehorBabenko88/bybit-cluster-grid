@@ -8,6 +8,7 @@ def fixture(n=80):
     rows=[]; receipts={}
     for i in range(n):
         r={'symbol':'BTCUSDT','start_ms':i*60000,'end_ms':i*60000+59999,
+           'source_event_start_ms':i*60000+1,'source_event_end_ms':i*60000+59998,
            'source':{'identity':'fixture','source_revision':'a'*40,'epoch':'fixture-epoch','market_type':'linear'},
            'representation':'historical_aggregate','status':'PARTIAL',
            'candle':{'open':100+i*.1,'high':102+i*.1,'low':99+i*.1,'close':101+i*.1,'buy_volume':2.,'sell_volume':1.}}

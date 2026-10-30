@@ -57,7 +57,7 @@ def export_records(records, request, trust):
         raise ValueError('HISTORY_UNAVAILABLE') from exc
 
 
-def read_postgres(conn, request, trust):
+def _read_records_postgres(conn, request):
     """Caller supplies a fresh dedicated read-only connection; owns rollback/close.
 
     Transaction setting fails if caller already issued a query. Oversize records
@@ -81,4 +81,9 @@ def read_postgres(conn, request, trust):
             (q['symbol'],q['start_ms'],q['end_ms'],MAX_ROWS+1))
         rows=cur.fetchall()
         if any(r[0] is None for r in rows):raise ValueError('BYTE_LIMIT')
-        return export_records([r[0] for r in rows],request,trust)
+        return [r[0] for r in rows]
+
+
+def read_postgres(conn, request, trust):
+    """Compatibility v1 export through the bounded source-owned SQL reader."""
+    return export_records(_read_records_postgres(conn,request),request,trust)
