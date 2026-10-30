@@ -10,6 +10,18 @@ from tools.verify_s0_bootstrap_ci import collect as collect_bootstrap
 from s0_smoke.policy import load_json
 from s0_smoke.windows import current_identity,create_fresh_root,create_fresh_file,Custody
 
+def record_failed_loader_probe(native_build,fixture,env,head,image_sha,custody):
+ # Post-failure observation only: never a substitute for mandatory plain cold-first.
+ import socket
+ require_hosted(os.environ,socket.gethostname())
+ custody.guard()
+ with subprocess.Popen([str(native_build/'Fixture.exe'),'--loader-diagnostic-parent',str(fixture),image_sha,head,str(fixture/'temp/diagnostic-unused.json')],cwd=native_build,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
+  out,err=child.communicate(timeout=100);code=child.returncode
+ custody.guard()
+ (ROOT/'s0-results/cold-loader-postfailure-raw.txt').write_bytes(out[:65536])
+ (ROOT/'s0-results/cold-loader-postfailure-stderr.txt').write_bytes(err[:65536])
+ (ROOT/'s0-results/cold-loader-postfailure.json').write_text(json.dumps(dict(head=head,exit_code=code,scope='POST_FAILURE_DIAGNOSTIC_NOT_ACCEPTANCE',original_failure_preserved=True,execute=False,cleanup=False)))
+
 def run():
  import socket
  require_hosted(os.environ,socket.gethostname());head=os.environ['EXACT_HEAD_SHA'];verify_checkout(ROOT,head)
@@ -70,7 +82,9 @@ def run():
    native_out,native_err=child.communicate(timeout=100);native_exit=child.returncode
   native_custody.guard()
   (ROOT/'s0-results/native-launcher-raw.txt').write_bytes(native_out[:65536])
-  if native_exit!=0 or native_err:raise RuntimeError('S0_NATIVE_FIXTURE_FAILED')
+  if native_exit!=0 or native_err:
+   record_failed_loader_probe(native_build,fixture,ci_env,head,manifest['files']['runtime/python.exe']['sha256'],native_custody)
+   raise RuntimeError('S0_NATIVE_FIXTURE_FAILED')
   native_record=validate_native(json.loads(native_out),head,identity.sid)
   if not(native_record.get('head')==head and native_record.get('scope')=='HOSTED_FIXTURE_NOT_PHYSICAL' and native_record.get('wrong_hash_rejected') is True and native_record.get('wrong_sid_rejected') is True):raise RuntimeError('S0_NATIVE_RECORD_BLOCKED')
   for label in ('normal','deadline','descendant_denied'):
@@ -91,7 +105,9 @@ def run():
    if error_path.is_file():
     raw=error_path.read_bytes()
     if len(raw)<=65536:(ROOT/'s0-results'/('native-userprofile-cli-'+action+'.stderr')).write_bytes(raw)
-  if profile_exit!=0 or profile_err:raise RuntimeError('S0_USER_PROFILE_FIXTURE_FAILED')
+  if profile_exit!=0 or profile_err:
+   record_failed_loader_probe(native_build,fixture,ci_env,head,manifest['files']['runtime/python.exe']['sha256'],native_custody)
+   raise RuntimeError('S0_USER_PROFILE_FIXTURE_FAILED')
   validate_native(load_json(profile_out),head,identity.sid)
   from tools.s0_userprofile_receipt import collect_profile
   collect_profile(ROOT/'s0-results',fixture,dict(head=head,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT']),receipt['sha256'])

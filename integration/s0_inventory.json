@@ -118,6 +118,8 @@
     "tests/test_s0_bootstrap_loader.py::test_loader_authenticates_captured_bytes_before_loading_native_code",
     "tests/test_s0_bootstrap_loader.py::test_loader_has_no_extraction_compiler_or_system_mutator",
     "tests/test_s0_bootstrap_loader.py::test_native_identity_pins_participate_in_read_share_checks_and_ci_tracks_commands",
+    "tests/test_s0_bootstrap_loader.py::test_postfailure_probe_cannot_launch_outside_hosted_gate",
+    "tests/test_s0_bootstrap_loader.py::test_postfailure_probe_success_never_becomes_acceptance",
     "tests/test_s0_bootstrap_loader.py::test_role_import_retains_pc4_input_namespace",
     "tests/test_s0_bootstrap_loader.py::test_token_output_does_not_serialize_host_sid_or_groups",
     "tests/test_s0_bootstrap_loader.py::test_token_policy_rejects_disabled_elevated_privilege_presence",
@@ -1008,6 +1010,14 @@
     [
       "tests.test_s0_bootstrap_loader",
       "test_native_identity_pins_participate_in_read_share_checks_and_ci_tracks_commands"
+    ],
+    [
+      "tests.test_s0_bootstrap_loader",
+      "test_postfailure_probe_cannot_launch_outside_hosted_gate"
+    ],
+    [
+      "tests.test_s0_bootstrap_loader",
+      "test_postfailure_probe_success_never_becomes_acceptance"
     ],
     [
       "tests.test_s0_bootstrap_loader",

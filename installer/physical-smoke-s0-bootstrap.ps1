@@ -16,7 +16,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($DiagnosticStages -and $Action -ne 'Plan') { throw 'S0_DIAGNOSTIC_PLAN_ONLY' }
 if ($Action -eq 'Stage' -and -not $Approved) { throw 'S0_BOOTSTRAP_NOT_AUTHORIZED' }
+if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_ENTRY'); [Console]::Out.Flush() }
 if ('GridS0.Bootstrap' -as [type]) { throw 'S0_BOOTSTRAP_FRESH_CONSOLE_REQUIRED' }
+if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_BOOTSTRAP_DEPENDENCY'); [Console]::Out.Flush() }
 Add-Type -AssemblyName System.IO.Compression
 $file = $null; $hash = $null; $memory = $null; $archive = $null
 try {

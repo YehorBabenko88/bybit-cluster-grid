@@ -92,7 +92,7 @@ public static class BootstrapTests {
  static byte[] ReadLoaderOutput(Stream input,LoaderCapture capture) {
   byte[] buffer=new byte[1024]; int read; while((read=input.Read(buffer,0,buffer.Length))>0) capture.Append(buffer,read); return capture.Snapshot();
  }
- public static void HostedLoaderPlan(string root,string sha,string head,string sid,bool userProfile=false) {
+ public static void HostedLoaderPlan(string root,string sha,string head,string sid,bool userProfile=false,bool diagnosticOnly=false) {
   Phase="FIXTURE_LOADER_HOSTED_GATE";
   Need(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true" && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT")=="github-hosted" && Environment.GetEnvironmentVariable("GITHUB_REPOSITORY")=="YehorBabenko88/bybit-cluster-grid" && Environment.GetEnvironmentVariable("GITHUB_JOB")=="s0-windows");
   Need(!String.Equals(Environment.MachineName,"LS5",StringComparison.OrdinalIgnoreCase) && !String.Equals(Environment.MachineName,"PC4",StringComparison.OrdinalIgnoreCase)); TokenObserver.RequireStandard(sid);
@@ -108,7 +108,7 @@ public static class BootstrapTests {
   using(var lease=new FileStream(shell,FileMode.Open,FileAccess.Read,FileShare.Read)) {
    using(var hash=SHA256.Create()) Need(BitConverter.ToString(hash.ComputeHash(lease)).Replace("-","").ToLowerInvariant()==shellSha);
    // A plain fresh shell must succeed before diagnostics can warm shared caches.
-   foreach(bool diagnostic in new[]{false,true}) {
+   foreach(bool diagnostic in diagnosticOnly?new[]{true}:new[]{false,true}) {
    var start=new ProcessStartInfo { FileName=shell,Arguments="-NoLogo -NoProfile -NonInteractive -File "+QuoteLoader(driver)+" -Root "+QuoteLoader(root)+" -Head "+QuoteLoader(head)+" -Sha "+QuoteLoader(sha)+" -Sid "+QuoteLoader(sid)+" -Target "+QuoteLoader(target)+" -Loader "+QuoteLoader(loader)+(diagnostic?" -DiagnosticStages":"")+(userProfile?" -ParentScope UserProfileV1":""),UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=root,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true };
    Phase="FIXTURE_LOADER_SELF_DUP_HANDLE";
    IntPtr self=OpenProcess(0x40,false,GetCurrentProcessId()); Need(self!=IntPtr.Zero); Need(CloseHandle(self));
@@ -121,7 +121,7 @@ public static class BootstrapTests {
     Phase="FIXTURE_LOADER_PROCESS_WAIT"; if(!child.WaitForExit(30000)) {
      string progress=Encoding.UTF8.GetString(capturedOut.Snapshot());
      string[] natives={"COMPLETE","PARENT","FOLDER","TOKEN","PACKAGE","ZIP","CAPTURED","ENTER"}; string nativeLast=null; foreach(string step in natives) if(progress.IndexOf("S0_NATIVE_"+step+"\n",StringComparison.Ordinal)>=0 || progress.IndexOf("S0_NATIVE_"+step+"\r\n",StringComparison.Ordinal)>=0) { nativeLast=step; break; }
-     string[] steps={"VALIDATED","VALIDATE","LOADED","LOAD","ARCHIVE","HASHED","CAPTURED","OPEN"}; string last=null;
+     string[] steps={"VALIDATED","VALIDATE","LOADED","LOAD","ARCHIVE","HASHED","CAPTURED","OPEN","DEPENDENCY","ENTRY"}; string last=null;
      foreach(string step in steps) if(progress.IndexOf("S0_BOOTSTRAP_"+step+"\n",StringComparison.Ordinal)>=0 || progress.IndexOf("S0_BOOTSTRAP_"+step+"\r\n",StringComparison.Ordinal)>=0) { last=step; break; }
      Phase=nativeLast!=null?"FIXTURE_LOADER_NATIVE_"+nativeLast+"_DEADLINE":last!=null?"FIXTURE_LOADER_"+last+"_DEADLINE":progress.IndexOf("S0_LOADER_PLAN",StringComparison.Ordinal)>=0?"FIXTURE_LOADER_PLAN_DEADLINE":progress.IndexOf("S0_LOADER_ENTER",StringComparison.Ordinal)>=0?"FIXTURE_LOADER_DRIVER_DEADLINE":"FIXTURE_LOADER_STARTUP_DEADLINE";
      throw new InvalidOperationException("FIXTURE_LOADER_PROCESS_DEADLINE");
@@ -133,7 +133,7 @@ public static class BootstrapTests {
      throw new InvalidOperationException(child.ExitCode!=0?"FIXTURE_LOADER_EXIT_NONZERO":"FIXTURE_LOADER_STDERR_NOT_EMPTY");
     }
     Phase="FIXTURE_LOADER_OUTPUT_VALIDATE";
-    string framed=Encoding.UTF8.GetString(stdout.Result).Replace("\r\n","\n"), prefix="S0_LOADER_ENTER\nS0_LOADER_PLAN\nS0_BOOTSTRAP_OPEN\nS0_BOOTSTRAP_CAPTURED\nS0_BOOTSTRAP_HASHED\nS0_BOOTSTRAP_ARCHIVE\nS0_BOOTSTRAP_LOAD\nS0_BOOTSTRAP_LOADED\nS0_BOOTSTRAP_VALIDATE\nS0_NATIVE_ENTER\nS0_NATIVE_CAPTURED\nS0_NATIVE_ZIP\nS0_NATIVE_PACKAGE\nS0_NATIVE_TOKEN\nS0_NATIVE_FOLDER\nS0_NATIVE_PARENT\nS0_NATIVE_COMPLETE\nS0_BOOTSTRAP_VALIDATED\nS0_LOADER_VERIFIED\n";
+    string framed=Encoding.UTF8.GetString(stdout.Result).Replace("\r\n","\n"), prefix="S0_LOADER_ENTER\nS0_LOADER_PLAN\nS0_BOOTSTRAP_ENTRY\nS0_BOOTSTRAP_DEPENDENCY\nS0_BOOTSTRAP_OPEN\nS0_BOOTSTRAP_CAPTURED\nS0_BOOTSTRAP_HASHED\nS0_BOOTSTRAP_ARCHIVE\nS0_BOOTSTRAP_LOAD\nS0_BOOTSTRAP_LOADED\nS0_BOOTSTRAP_VALIDATE\nS0_NATIVE_ENTER\nS0_NATIVE_CAPTURED\nS0_NATIVE_ZIP\nS0_NATIVE_PACKAGE\nS0_NATIVE_TOKEN\nS0_NATIVE_FOLDER\nS0_NATIVE_PARENT\nS0_NATIVE_COMPLETE\nS0_BOOTSTRAP_VALIDATED\nS0_LOADER_VERIFIED\n";
     if(!diagnostic) prefix="S0_LOADER_ENTER\nS0_LOADER_PLAN\nS0_LOADER_VERIFIED\n";
     Need(framed.StartsWith(prefix,StringComparison.Ordinal)); byte[] bytes=Encoding.UTF8.GetBytes(framed.Substring(prefix.Length));
     Type jsonType=typeof(Bootstrap).GetNestedType("Json",BindingFlags.NonPublic); object json=Activator.CreateInstance(jsonType,BindingFlags.NonPublic|BindingFlags.Instance,null,new object[]{bytes},null);
