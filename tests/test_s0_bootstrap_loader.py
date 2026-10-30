@@ -83,7 +83,7 @@ def test_ci_token_object_defaults_do_not_change_physical_observer():
     assert 'SetSecurityInfo' not in observer
 
 
-def test_postfailure_probe_success_never_becomes_acceptance(tmp_path,monkeypatch):
+def _check_postfailure_probe(tmp_path,monkeypatch,runtime):
     import json
     from tools import verify_s0_portable_ci as tool
     calls=[]
@@ -98,12 +98,20 @@ def test_postfailure_probe_success_never_becomes_acceptance(tmp_path,monkeypatch
     monkeypatch.setattr(tool,'require_hosted',lambda *args:calls.append('host-gate'))
     monkeypatch.setattr(tool.subprocess,'Popen',Process);monkeypatch.setattr(tool,'ROOT',tmp_path)
     (tmp_path/'s0-results').mkdir()
-    tool.record_failed_loader_probe(tmp_path,tmp_path,{},'a'*40,'b'*64,Custody())
-    receipt=json.loads((tmp_path/'s0-results/cold-loader-postfailure.json').read_text())
+    tool.record_failed_loader_probe(tmp_path,tmp_path,{},'a'*40,'b'*64,Custody(),runtime=runtime)
+    receipt=json.loads((tmp_path/'s0-results'/('runtime-postfailure.json' if runtime else 'cold-loader-postfailure.json')).read_text())
     assert receipt['scope']=='POST_FAILURE_DIAGNOSTIC_NOT_ACCEPTANCE'
     assert receipt['original_failure_preserved'] is True
     assert receipt['execute'] is False and receipt['cleanup'] is False
-    assert calls[0]=='host-gate' and calls[1]=='guard' and calls[2][1]=='--loader-diagnostic-parent'
+    assert receipt['expected_zip_sha256']=='b'*64
+    assert calls[0]=='host-gate' and calls[1]=='guard' and calls[2][1]==('--runtime-diagnostic-parent' if runtime else '--loader-diagnostic-parent')
+    assert calls[2][3]=='b'*64
+
+def test_postfailure_probe_success_never_becomes_acceptance(tmp_path,monkeypatch):
+    _check_postfailure_probe(tmp_path,monkeypatch,False)
+
+def test_runtime_postfailure_probe_success_never_becomes_acceptance(tmp_path,monkeypatch):
+    _check_postfailure_probe(tmp_path,monkeypatch,True)
 
 
 def test_postfailure_probe_cannot_launch_outside_hosted_gate(monkeypatch):

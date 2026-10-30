@@ -10,12 +10,14 @@ from tools.verify_s0_bootstrap_ci import collect as collect_bootstrap
 from s0_smoke.policy import load_json
 from s0_smoke.windows import current_identity,create_fresh_root,create_fresh_file,Custody
 
-def record_failed_loader_probe(native_build,fixture,env,head,image_sha,custody):
- # Post-failure observation only: never a substitute for mandatory plain cold-first.
+def record_failed_loader_probe(native_build,fixture,env,head,zip_sha,custody,*,runtime=False):
+ # Post-failure diagnostic only. Runtime mode prepares a fresh hosted GUID fixture;
+ # it never replaces mandatory ordinary actions or produces accepted phase evidence.
  import socket
  require_hosted(os.environ,socket.gethostname())
  custody.guard()
- with subprocess.Popen([str(native_build/'Fixture.exe'),'--loader-diagnostic-parent',str(fixture),image_sha,head,str(fixture/'temp/diagnostic-unused.json')],cwd=native_build,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
+ mode='--runtime-diagnostic-parent' if runtime else '--loader-diagnostic-parent'
+ with subprocess.Popen([str(native_build/'Fixture.exe'),mode,str(fixture),zip_sha,head,str(fixture/'temp/diagnostic-unused.json')],cwd=native_build,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
   out,err=child.communicate(timeout=100);code=child.returncode
  custody.guard()
  captures=sorted((fixture/'temp').glob('loader-failure-*.txt'))
@@ -25,9 +27,17 @@ def record_failed_loader_probe(native_build,fixture,env,head,image_sha,custody):
    if path.stat().st_size>4096:raise RuntimeError('S0_LOADER_DIAGNOSTIC_SIZE_BLOCKED')
    target=ROOT/'s0-results/loader-captures';target.mkdir(exist_ok=True)
    (target/path.name).write_bytes(path.read_bytes())
- (ROOT/'s0-results/cold-loader-postfailure-raw.txt').write_bytes(out[:65536])
- (ROOT/'s0-results/cold-loader-postfailure-stderr.txt').write_bytes(err[:65536])
- (ROOT/'s0-results/cold-loader-postfailure.json').write_text(json.dumps(dict(head=head,exit_code=code,scope='POST_FAILURE_DIAGNOSTIC_NOT_ACCEPTANCE',original_failure_preserved=True,execute=False,cleanup=False)))
+ prefix='runtime-postfailure' if runtime else 'cold-loader-postfailure'
+ if runtime:
+  for extension in ('json','stderr'):
+   path=fixture/'temp'/('profile-diag-prepare.'+extension)
+   if path.is_file():
+    with Custody(fixture/'temp',custody.operator_sid,[path]):
+     if path.stat().st_size>4096:raise RuntimeError('S0_RUNTIME_DIAGNOSTIC_SIZE_BLOCKED')
+     (ROOT/'s0-results'/('runtime-postfailure-prepare.'+extension)).write_bytes(path.read_bytes())
+ (ROOT/'s0-results'/(prefix+'-raw.txt')).write_bytes(out[:65536])
+ (ROOT/'s0-results'/(prefix+'-stderr.txt')).write_bytes(err[:65536])
+ (ROOT/'s0-results'/(prefix+'.json')).write_text(json.dumps(dict(head=head,expected_zip_sha256=zip_sha,mode='runtime-prepare' if runtime else 'loader-plan',exit_code=code,scope='POST_FAILURE_DIAGNOSTIC_NOT_ACCEPTANCE',original_failure_preserved=True,execute=False,cleanup=False)))
 
 def run():
  import socket
@@ -90,7 +100,7 @@ def run():
   native_custody.guard()
   (ROOT/'s0-results/native-launcher-raw.txt').write_bytes(native_out[:65536])
   if native_exit!=0 or native_err:
-   record_failed_loader_probe(native_build,fixture,ci_env,head,manifest['files']['runtime/python.exe']['sha256'],native_custody)
+   record_failed_loader_probe(native_build,fixture,ci_env,head,receipt['sha256'],native_custody)
    raise RuntimeError('S0_NATIVE_FIXTURE_FAILED')
   native_record=validate_native(json.loads(native_out),head,identity.sid)
   if not(native_record.get('head')==head and native_record.get('scope')=='HOSTED_FIXTURE_NOT_PHYSICAL' and native_record.get('wrong_hash_rejected') is True and native_record.get('wrong_sid_rejected') is True):raise RuntimeError('S0_NATIVE_RECORD_BLOCKED')
@@ -104,10 +114,16 @@ def run():
    profile_out,profile_err=child.communicate(timeout=100);profile_exit=child.returncode
   (ROOT/'s0-results/native-userprofile-driver-raw.txt').write_bytes(profile_out[:65536])
   if profile_exit!=0 or profile_err:
-   record_failed_loader_probe(native_build,fixture,ci_env,head,manifest['files']['runtime/python.exe']['sha256'],native_custody)
+   record_failed_loader_probe(native_build,fixture,ci_env,head,receipt['sha256'],native_custody)
    raise RuntimeError('S0_USER_PROFILE_FIXTURE_FAILED')
   validate_native(load_json(profile_out),head,identity.sid)
   native_custody.guard();child_source.guard()
+  from tools.s0_userprofile_receipt import validate_profile_raw,validate_runtime_raw
+  core_path=fixture/'temp/user-profile.json'
+  with Custody(fixture/'temp',identity.sid,[core_path]):
+   if not 0<core_path.stat().st_size<=16384:raise RuntimeError('S0_CORE_PHASE_SIZE_BLOCKED')
+   core_raw=core_path.read_bytes();core_value=validate_profile_raw(core_raw,head,receipt['sha256'])
+  (ROOT/'s0-results/native-userprofile-core-phase-raw.json').write_bytes(core_raw)
   # Cold-first/core finishes BEFORE any dispatcher action. Distinct mandatory
   # processes keep the same90s bound, rather than enlarging a combined deadline.
   with subprocess.Popen([str(native_build/'Fixture.exe'),'--runtime-parent',str(fixture),manifest['files']['runtime/python.exe']['sha256'],head,str(fixture/'temp/runtime-unused.json')],cwd=native_build,env=ci_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
@@ -122,8 +138,15 @@ def run():
    if error_path.is_file():
     raw=error_path.read_bytes()
     if len(raw)<=65536:(ROOT/'s0-results'/('native-userprofile-cli-'+action+'.stderr')).write_bytes(raw)
+  phase=fixture/'temp/user-profile-runtime.json'
+  if phase.is_file():
+   with Custody(fixture/'temp',identity.sid,[phase]):
+    if not 0<phase.stat().st_size<=4096:raise RuntimeError('S0_RUNTIME_PHASE_SIZE_BLOCKED')
+    phase_raw=phase.read_bytes();phase_value=validate_runtime_raw(phase_raw,dict(head=head,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT']),receipt['sha256'])
+    if phase_value['fixture_id']!=core_value['fixture_id']:raise RuntimeError('S0_PHASE_FIXTURE_MISMATCH')
+   (ROOT/'s0-results/native-userprofile-runtime-phase-raw.json').write_bytes(phase_raw)
   if runtime_exit!=0 or runtime_err:
-   record_failed_loader_probe(native_build,fixture,ci_env,head,manifest['files']['runtime/python.exe']['sha256'],native_custody)
+   record_failed_loader_probe(native_build,fixture,ci_env,head,receipt['sha256'],native_custody,runtime=True)
    raise RuntimeError('S0_USER_PROFILE_RUNTIME_FIXTURE_FAILED')
   runtime_record=load_json(runtime_out)
   if runtime_record!=dict(scope='HOSTED_RUNTIME_PHASE_NOT_ACCEPTANCE',head=head,execute=False,cleanup=False) or runtime_record['execute'] is not False or runtime_record['cleanup'] is not False:raise RuntimeError('S0_RUNTIME_PHASE_RECEIPT_BLOCKED')

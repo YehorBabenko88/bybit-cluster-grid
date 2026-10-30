@@ -57,33 +57,33 @@ public static class UserProfileTests {
  static string Slot(string parent,string sid,string head) {
   string target=Fresh(parent,"GridS0Input-");Bootstrap.StageTransferSlotAtUserProfileV1(head,Guid.NewGuid().ToString("D"),new string('a',64),1,target,sid,true);return target;
  }
- public static void HostedRuntime(string sourceRoot,string head,string sid) {
+ public static void HostedRuntime(string sourceRoot,string head,string sid,bool diagnosticOnly=false) {
   Need(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true" && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT")=="github-hosted" && Environment.GetEnvironmentVariable("GITHUB_JOB")=="s0-windows");
   Need(!String.Equals(Environment.MachineName,"LS5",StringComparison.OrdinalIgnoreCase) && !String.Equals(Environment.MachineName,"PC4",StringComparison.OrdinalIgnoreCase));
   TokenObserver.RequireStandard(sid);passed.Clear();
   string parent;using(var proof=Bootstrap.HoldUserProfileV1(sid)) parent=proof.ParentPath;
   byte[] zip=File.ReadAllBytes(Path.Combine(sourceRoot,"source.zip"));string sha=Hash(zip),target=Fresh(parent,"GridS0Package-");
   Phase="FIXTURE_PROFILE_RUNTIME_STAGE";Bootstrap.StagePackageAtUserProfileV1(zip,sha,head,target,sid,true);
-  RuntimeActions(sourceRoot,target,parent,sid,head,sha);Need(passed.Count==2);
+  RuntimeActions(sourceRoot,target,parent,sid,head,sha,diagnosticOnly);if(diagnosticOnly)return;Need(passed.Count==2);
   string run=Environment.GetEnvironmentVariable("GITHUB_RUN_ID"),attempt=Environment.GetEnvironmentVariable("GITHUB_RUN_ATTEMPT");
   Need(System.Text.RegularExpressions.Regex.IsMatch(run??"","\\A[1-9][0-9]*\\z") && System.Text.RegularExpressions.Regex.IsMatch(attempt??"","\\A[1-9][0-9]*\\z"));
   string json="{\"scope\":\"HOSTED_NATIVE_USER_PROFILE_RUNTIME_NOT_PHYSICAL\",\"head\":\""+head+"\",\"package_sha256\":\""+sha+"\",\"fixture_id\":\""+FixtureId(sourceRoot)+"\",\"run_id\":\""+run+"\",\"attempt\":\""+attempt+"\",\"cases\":[\"runtime_prepare_preflight_status_stop\",\"runtime_execute_evidence_blocked\"],\"execute\":false,\"cleanup\":false}";
   using(var output=new FileStream(Path.Combine(sourceRoot,"temp","user-profile-runtime.json"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) { byte[] bytes=Encoding.ASCII.GetBytes(json);output.Write(bytes,0,bytes.Length);output.Flush(true); }
  }
- static void RuntimeActions(string sourceRoot,string package,string parent,string sid,string head,string packageSha) {
+ static void RuntimeActions(string sourceRoot,string package,string parent,string sid,string head,string packageSha,bool diagnosticOnly=false) {
   string run=Guid.NewGuid().ToString("D"),pair=Path.Combine(parent,"GridS0-"+run),role=Path.Combine(pair,"LS5"),input=Fresh(parent,"GridS0Input-");
   string plan=(string)typeof(InputTests).GetField("Plan",BindingFlags.Static|BindingFlags.NonPublic).GetRawConstantValue();
   plan=plan.Replace(new string('a',40),head).Replace("12345678-1234-4234-8234-123456789abc",run).Replace("S-1-5-21-1-2-3-1001",sid).Replace("\"LS5\":\"LS5\"","\"LS5\":\""+Environment.MachineName.ToUpperInvariant()+"\"").Replace("\"PC4\":\"PC4\"","\"PC4\":\"NOT-A-NODE\"");
   var occupied=new System.Collections.Generic.HashSet<int>();foreach(var endpoint in System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners()) occupied.Add(endpoint.Port);
   int port=62044;while(occupied.Contains(port) && port<65535) port++;Need(!occupied.Contains(port));plan=plan.Replace("49152",port.ToString());
   byte[] bytes=Encoding.ASCII.GetBytes(plan);Bootstrap.StagePlanInputAtUserProfileV1(bytes,Hash(bytes),head,run,input,sid,true);
-  foreach(string action in new[]{"prepare","preflight","status","stop","execute","evidence"}) {
+  foreach(string action in diagnosticOnly?new[]{"prepare"}:new[]{"prepare","preflight","status","stop","execute","evidence"}) {
    Phase="FIXTURE_PROFILE_RUNTIME_"+action.ToUpperInvariant();string dataRoot=action=="prepare"?pair:role;
    string config=action=="prepare"?Path.Combine(input,"s0-plan.json"):Path.Combine(role,"config.json");
-   byte[] errors;int exit;byte[] raw=BootstrapTests.HostedRuntimeAction(package,head,packageSha,action,dataRoot,config,sourceRoot,action=="prepare" || action=="stop" || action=="evidence",out errors,out exit);
+   byte[] errors;int exit;byte[] raw=BootstrapTests.HostedRuntimeAction(package,head,packageSha,action,dataRoot,config,sourceRoot,action=="prepare" || action=="stop" || action=="evidence",out errors,out exit,diagnosticOnly);
    Need(raw.Length<=65536 && errors.Length<=65536);
-   using(var saved=new FileStream(Path.Combine(sourceRoot,"temp","profile-cli-"+action+".json"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) saved.Write(raw,0,raw.Length);
-   using(var saved=new FileStream(Path.Combine(sourceRoot,"temp","profile-cli-"+action+".stderr"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) saved.Write(errors,0,errors.Length);
+   using(var saved=new FileStream(Path.Combine(sourceRoot,"temp",(diagnosticOnly?"profile-diag-":"profile-cli-")+action+".json"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) saved.Write(raw,0,raw.Length);
+   using(var saved=new FileStream(Path.Combine(sourceRoot,"temp",(diagnosticOnly?"profile-diag-":"profile-cli-")+action+".stderr"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) saved.Write(errors,0,errors.Length);
    string text=Encoding.UTF8.GetString(raw),errorText=Encoding.UTF8.GetString(errors);
    if(action=="execute") Need(exit!=0 && errorText.Contains("S0_EXPLICIT_APPROVAL_REQUIRED"));
    else if(action=="evidence") Need(exit!=0 && text.Contains("BLOCKED") && errorText.Contains("S0_COMMAND_FAILED"));
@@ -92,7 +92,7 @@ public static class UserProfileTests {
     Need(exit==0 && errors.Length==0 && text.Contains(expected));
    }
   }
-  Done("runtime_prepare_preflight_status_stop");Done("runtime_execute_evidence_blocked");
+  if(diagnosticOnly)return;Done("runtime_prepare_preflight_status_stop");Done("runtime_execute_evidence_blocked");
  }
  public static void Hosted(string sourceRoot,string head,string sid) {
   Need(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true" && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT")=="github-hosted" && Environment.GetEnvironmentVariable("GITHUB_JOB")=="s0-windows");

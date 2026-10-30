@@ -121,6 +121,7 @@
     "tests/test_s0_bootstrap_loader.py::test_postfailure_probe_cannot_launch_outside_hosted_gate",
     "tests/test_s0_bootstrap_loader.py::test_postfailure_probe_success_never_becomes_acceptance",
     "tests/test_s0_bootstrap_loader.py::test_role_import_retains_pc4_input_namespace",
+    "tests/test_s0_bootstrap_loader.py::test_runtime_postfailure_probe_success_never_becomes_acceptance",
     "tests/test_s0_bootstrap_loader.py::test_token_output_does_not_serialize_host_sid_or_groups",
     "tests/test_s0_bootstrap_loader.py::test_token_policy_rejects_disabled_elevated_privilege_presence",
     "tests/test_s0_cli.py::test_failure_diagnostics_are_bounded_codes_and_never_exception_messages[POSTGRES_DSN=secret-UNCLASSIFIED]",
@@ -1028,6 +1029,10 @@
     [
       "tests.test_s0_bootstrap_loader",
       "test_role_import_retains_pc4_input_namespace"
+    ],
+    [
+      "tests.test_s0_bootstrap_loader",
+      "test_runtime_postfailure_probe_success_never_becomes_acceptance"
     ],
     [
       "tests.test_s0_bootstrap_loader",

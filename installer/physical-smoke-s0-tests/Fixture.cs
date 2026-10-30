@@ -149,7 +149,7 @@ public static class Fixture
             Need(UpdateProcThreadAttribute(list,0,(UIntPtr)0x20002,handleList,(UIntPtr)(IntPtr.Size*2),IntPtr.Zero,IntPtr.Zero),"FIXTURE_EXACT_PIPE_HANDLE_LIST");
             string self=Assembly.GetExecutingAssembly().Location; SX startup=new SX(); startup.si.cb=(uint)Marshal.SizeOf(typeof(SX)); startup.attributes=list;
             startup.si.flags=0x100; startup.si.input=reader; startup.si.output=writer; startup.si.error=writer;
-            StringBuilder command=new StringBuilder(Quote(self)+(runtimeOnly?" --runtime-child ":diagnosticOnly?" --loader-diagnostic-child ":profileOnly?" --profile-child ":" --child ")+Quote(root)+" "+Quote(sha)+" "+Quote(head)+" "+Quote(output));
+            StringBuilder command=new StringBuilder(Quote(self)+(runtimeOnly?(diagnosticOnly?" --runtime-diagnostic-child ":" --runtime-child "):diagnosticOnly?" --loader-diagnostic-child ":profileOnly?" --profile-child ":" --child ")+Quote(root)+" "+Quote(sha)+" "+Quote(head)+" "+Quote(output));
             stage="FIXTURE_CREATE_RESTRICTED_CHILD";
             Need(CreateProcessAsUserW(token,self,command,IntPtr.Zero,IntPtr.Zero,true,0x80004,IntPtr.Zero,Path.GetDirectoryName(self),ref startup,out process),"FIXTURE_CREATE_RESTRICTED_SELF");
             pipe.DisposeLocalCopyOfClientHandle();
@@ -182,7 +182,7 @@ public static class Fixture
                 CaptureChildFailure(raw,count);
                 string json=new UTF8Encoding(false,true).GetString(raw,0,count);
                 if(runtimeOnly && code==0) {
-                    Need(json=="{\"scope\":\"HOSTED_RUNTIME_PHASE_NOT_ACCEPTANCE\",\"head\":\""+head+"\",\"execute\":false,\"cleanup\":false}","FIXTURE_RUNTIME_SCHEMA");
+                    Need(json=="{\"scope\":\""+(diagnosticOnly?"HOSTED_RUNTIME_DIAGNOSTIC_NOT_ACCEPTANCE":"HOSTED_RUNTIME_PHASE_NOT_ACCEPTANCE")+"\",\"head\":\""+head+"\",\"execute\":false,\"cleanup\":false}","FIXTURE_RUNTIME_SCHEMA");
                     Console.WriteLine(json);return 0;
                 }
                 if(diagnosticOnly && code==0) {
@@ -258,8 +258,8 @@ public static class Fixture
         string temporary=Environment.GetEnvironmentVariable("RUNNER_TEMP"); Need(!String.IsNullOrEmpty(temporary),"FIXTURE_ENVIRONMENT");
         env["TEMP"]=temporary; env["TMP"]=temporary; env["PATH"]=Path.Combine((string)env["SystemRoot"],"System32");
         if(runtimeOnly) {
-            try { UserProfileTests.HostedRuntime(root,head,sid); } catch { stage=UserProfileTests.Phase;throw; }
-            WriteOutput("{\"scope\":\"HOSTED_RUNTIME_PHASE_NOT_ACCEPTANCE\",\"head\":\""+head+"\",\"execute\":false,\"cleanup\":false}");return 0;
+            try { UserProfileTests.HostedRuntime(root,head,sid,diagnosticOnly); } catch { stage=UserProfileTests.Phase;throw; }
+            WriteOutput("{\"scope\":\""+(diagnosticOnly?"HOSTED_RUNTIME_DIAGNOSTIC_NOT_ACCEPTANCE":"HOSTED_RUNTIME_PHASE_NOT_ACCEPTANCE")+"\",\"head\":\""+head+"\",\"execute\":false,\"cleanup\":false}");return 0;
         }
         if(diagnosticOnly) {
             stage="FIXTURE_LOADER_DIAGNOSTIC_ONLY";
@@ -301,13 +301,13 @@ public static class Fixture
     public static int Main(string[] args) {
         try {
             stage="FIXTURE_ARGUMENTS";
-            Hosted(); Need(args.Length==5 && (args[0]=="--parent" || args[0]=="--child" || args[0]=="--profile-parent" || args[0]=="--profile-child" || args[0]=="--loader-diagnostic-parent" || args[0]=="--loader-diagnostic-child" || args[0]=="--runtime-parent" || args[0]=="--runtime-child"),"FIXTURE_ARGUMENTS");
+            Hosted(); Need(args.Length==5 && (args[0]=="--parent" || args[0]=="--child" || args[0]=="--profile-parent" || args[0]=="--profile-child" || args[0]=="--loader-diagnostic-parent" || args[0]=="--loader-diagnostic-child" || args[0]=="--runtime-parent" || args[0]=="--runtime-child" || args[0]=="--runtime-diagnostic-parent" || args[0]=="--runtime-diagnostic-child"),"FIXTURE_ARGUMENTS");
             Need(Regex.IsMatch(args[2],"\\A[0-9a-fA-F]{64}\\z") && Regex.IsMatch(args[3],"\\A[0-9a-fA-F]{40}\\z"),"FIXTURE_PINS");
             Need(args[3]==Environment.GetEnvironmentVariable("EXACT_HEAD_SHA"),"FIXTURE_CI_HEAD");
             Need(Path.IsPathRooted(args[1]) && !args[1].StartsWith(@"\\",StringComparison.Ordinal),"FIXTURE_PACKAGE_ROOT");
             string output=Path.GetFullPath(args[4]); string prefix=Path.GetFullPath(args[1]).TrimEnd('\\')+"\\";
             Need(output.StartsWith(prefix,StringComparison.OrdinalIgnoreCase) && !File.Exists(output) && !Directory.Exists(output),"FIXTURE_FRESH_OUTPUT");
-            return args[0]=="--parent" || args[0]=="--profile-parent" || args[0]=="--loader-diagnostic-parent" || args[0]=="--runtime-parent"?Parent(args[1],args[2],args[3],output,args[0]=="--profile-parent",args[0]=="--loader-diagnostic-parent",args[0]=="--runtime-parent"):Child(args[1],args[2],args[3],output,args[0]=="--profile-child",args[0]=="--loader-diagnostic-child",args[0]=="--runtime-child");
+            return args[0]=="--parent" || args[0]=="--profile-parent" || args[0]=="--loader-diagnostic-parent" || args[0]=="--runtime-parent" || args[0]=="--runtime-diagnostic-parent"?Parent(args[1],args[2],args[3],output,args[0]=="--profile-parent",args[0]=="--loader-diagnostic-parent" || args[0]=="--runtime-diagnostic-parent",args[0]=="--runtime-parent" || args[0]=="--runtime-diagnostic-parent"):Child(args[1],args[2],args[3],output,args[0]=="--profile-child",args[0]=="--loader-diagnostic-child" || args[0]=="--runtime-diagnostic-child",args[0]=="--runtime-child" || args[0]=="--runtime-diagnostic-child");
         } catch(Exception error) {
             if(!parentFailureEmitted) WriteOutput(FailureJson(error));
             return 1;

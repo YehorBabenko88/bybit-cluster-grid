@@ -54,6 +54,11 @@ dispatcher keeps its30-second fixture wait and native action budget. The final
 22-case receipt requires both raw phase receipts, exact HEAD/package/run/attempt
 and SHA256. Missing/replayed phase evidence blocks acceptance. A post-failure
 diagnostic Plan never substitutes for a failed mandatory cold-first invocation.
+If an ordinary runtime action fails, an optional genuine-hosted-only diagnostic
+Prepare uses fresh GUID resources and fixed progress labels. It retains the
+original FAILURE, publishes no accepted runtime-phase receipt, and is never a
+physical command. Probe pins are the independently checked ZIP digest, not the
+interpreter digest. Diagnostic execution cannot authorize Execute or cleanup.
 
 ## 1. Read-only console identity and authenticated initial load
 

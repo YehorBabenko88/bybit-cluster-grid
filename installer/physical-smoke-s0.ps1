@@ -10,7 +10,8 @@ param(
     [string]$ExpectedHead,
     [string]$ExpectedPackageSha,
     [ValidateSet('LocalAppData','UserProfileV1')][string]$ParentScope = 'LocalAppData',
-    [switch]$Approved
+    [switch]$Approved,
+    [switch]$DiagnosticStages
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -26,6 +27,9 @@ if ($Action -eq 'Plan') {
 }
 if ($missing.Count -ne 0) { throw ('S0_REQUIRED_PINS_OR_PATHS: ' + ($missing -join ', ')) }
 if ($Action -in @('Prepare', 'Execute', 'Stop', 'Evidence') -and -not $Approved) { throw 'S0_EXPLICIT_APPROVAL_REQUIRED' }
+if ($DiagnosticStages -and ($Action -ne 'Prepare' -or [Environment]::GetEnvironmentVariable('GITHUB_ACTIONS','Process') -cne 'true' -or [Environment]::GetEnvironmentVariable('RUNNER_ENVIRONMENT','Process') -cne 'github-hosted' -or [Environment]::GetEnvironmentVariable('GITHUB_JOB','Process') -cne 's0-windows' -or [Environment]::GetEnvironmentVariable('GITHUB_REPOSITORY','Process') -cne 'YehorBabenko88/bybit-cluster-grid' -or [Environment]::GetEnvironmentVariable('EXACT_HEAD_SHA','Process') -cne $ExpectedHead -or [Environment]::MachineName -in @('LS5','PC4'))) { throw 'S0_HOSTED_DIAGNOSTIC_ONLY' }
+function Write-S0RuntimeStage([string]$Stage) { if ($DiagnosticStages) { [Console]::Out.WriteLine('S0_RUNTIME_'+$Stage); [Console]::Out.Flush() } }
+Write-S0RuntimeStage 'ENTRY'
 # The approved, externally staged package must already be in protected custody.
 # Python verifies the complete ZIP and extracted closure before action dispatch.
 $localData = $null
@@ -37,10 +41,12 @@ $packageFull = [IO.Path]::GetFullPath($PackageRoot).TrimEnd('\')
 if ($ParentScope -eq 'LocalAppData' -and ([IO.Path]::GetDirectoryName($packageFull) -ine $localData -or [IO.Path]::GetFileName($packageFull) -cnotmatch '^GridS0Package-[0-9a-f-]{36}$')) { throw 'S0_PRIVATE_PACKAGE_NAMESPACE_REQUIRED' }
 $python = Join-Path $PackageRoot 'runtime/python.exe'
 $entrypoint = Join-Path $PackageRoot 'runtime/App/s0.py'
+Write-S0RuntimeStage 'PACKAGE_PATHS'
 foreach ($path in @($PackageRoot, $PackageZip, $python, $entrypoint)) {
     $item = Get-Item -LiteralPath $path -Force
     if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'S0_REPARSE_PATH_FORBIDDEN' }
 }
+Write-S0RuntimeStage 'ZIP_PIN'
 if ((Get-FileHash -LiteralPath $PackageZip -Algorithm SHA256).Hash.ToLowerInvariant() -cne $ExpectedPackageSha) { throw 'S0_PACKAGE_PIN_MISMATCH' }
 $arguments = @('-I', '-S', '-B', $entrypoint, '--action', $Action.ToLowerInvariant(), '--root', $Root, '--package-root', $PackageRoot, '--package-zip', $PackageZip, '--config', $Config, '--expected-head', $ExpectedHead, '--expected-package-sha', $ExpectedPackageSha, '--parent-scope', $ParentScope)
 if ($Approved) { $arguments += '--approved' }
@@ -64,6 +70,7 @@ function ConvertTo-S0WindowsArgument([string]$Value) {
     [void]$builder.Append('"')
     return $builder.ToString()
 }
+Write-S0RuntimeStage 'ENVIRONMENT'
 $start = New-Object System.Diagnostics.ProcessStartInfo
 $start.FileName = $python
 $start.Arguments = (($arguments | ForEach-Object { ConvertTo-S0WindowsArgument $_ }) -join ' ')
@@ -97,8 +104,10 @@ function Get-S0BytesSha([byte[]]$Bytes) {
     finally { $sha.Dispose() }
 }
 if ([System.IO.Path]::GetFullPath($PackageZip) -cne [System.IO.Path]::GetFullPath((Join-Path $PackageRoot 'source.zip'))) { throw 'S0_SOURCE_ZIP_LOCATION_REQUIRED' }
+Write-S0RuntimeStage 'DEPENDENCY'
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+Write-S0RuntimeStage 'CAPTURE'
 $source = [IO.File]::Open($PackageZip,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
 try {
     if ($source.Length -le 0 -or $source.Length -gt 536870912) { throw 'S0_ZIP_SIZE' }
@@ -109,6 +118,7 @@ try {
         if ($read -le 0) { throw 'S0_ZIP_SHORT_READ' }
         $offset += $read
     }
+    Write-S0RuntimeStage 'HASH_CAPTURED'
     if ($source.ReadByte() -ne -1 -or (Get-S0BytesSha $captured) -cne $ExpectedPackageSha) { throw 'S0_PACKAGE_PIN_MISMATCH' }
 } finally { $source.Dispose() }
 function Read-S0OriginalEntry($Archive,[string]$Name) {
@@ -126,6 +136,7 @@ function Read-S0OriginalEntry($Archive,[string]$Name) {
         return ,$copy.ToArray()
     } finally { $content.Dispose(); $copy.Dispose() }
 }
+Write-S0RuntimeStage 'ARCHIVE'
 $memory = New-Object IO.MemoryStream(,$captured)
 $zip = New-Object IO.Compression.ZipArchive($memory,[IO.Compression.ZipArchiveMode]::Read,$true)
 try {
@@ -144,11 +155,13 @@ $helperItem = Get-Item -LiteralPath $helperPath -Force
 if (($helperItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or $helperItem.Length -gt 67108864) { throw 'S0_NATIVE_FILE_BLOCKED' }
 if ($helperBytes.Length -ne $helperPin.size -or (Get-S0BytesSha $helperBytes) -cne $helperPin.sha256) { throw 'S0_NATIVE_PIN_MISMATCH' }
 if ('GridS0.ProcessHost' -as [type]) { throw 'S0_NATIVE_ALREADY_LOADED' }
+Write-S0RuntimeStage 'HELPER'
 [void][System.Reflection.Assembly]::Load($helperBytes)
 $operatorSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 $seconds = if ($Action -eq 'Execute') { 300 } else { 60 }
 $closedEnvironment = @{}
 foreach ($key in $start.EnvironmentVariables.Keys) { $closedEnvironment[$key] = $start.EnvironmentVariables[$key] }
+Write-S0RuntimeStage 'NATIVE_RUN'
 if ($ParentScope -eq 'UserProfileV1') { $result = [GridS0.ProcessHost]::RunAtUserProfileV1($PackageRoot, $start.Arguments, $closedEnvironment, $operatorSid, $exePin.sha256, $ExpectedHead, $seconds, $ExpectedPackageSha) }
 else { $result = [GridS0.ProcessHost]::Run($PackageRoot, $start.Arguments, $closedEnvironment, $operatorSid, $exePin.sha256, $ExpectedHead, $seconds) }
 [ordered]@{schema=1; scope=$result.Scope; pid=$result.Pid; creation_filetime=$result.CreationFileTime; exit_code=$result.ExitCode; timed_out=$result.TimedOut; budget_seconds=$seconds; observed_user_sid=$result.ObservedUserSid; observed_elevated=$result.ObservedElevated; observed_integrity=$result.ObservedIntegrity; observed_admin_enabled=$result.ObservedAdminEnabled; job_member=$result.JobMember; job_flags=$result.JobFlags; active_limit=$result.ActiveLimit; g1_execute=$false; cleanup=$false} | ConvertTo-Json
