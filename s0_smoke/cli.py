@@ -20,7 +20,7 @@ def failure_phase(name):
 def failure_diagnostic(exc):
  from .windows import WindowsBlocked
  phase=getattr(exc,'s0_phase',None);code=getattr(exc,'code',None)
- safe=isinstance(exc,WindowsBlocked) and type(code) is str and (code=='WINDOWS_CUSTODY_BLOCKED' or re.fullmatch(r'S0_WIN32_OPEN_(?:READ|MUTABLE|EXCLUSIVE)_[0-9]{1,10}',code) is not None)
+ safe=isinstance(exc,WindowsBlocked) and type(code) is str and (code=='WINDOWS_CUSTODY_BLOCKED' or re.fullmatch(r'S0_WIN32_OPEN_(?:READ|MUTABLE|EXCLUSIVE)_[0-9]{1,10}|S0_TCP_(?:PROBE|READ|SHAPE|STATE)_AF(?:2|23)_(?:STATUS|SIZE|COUNT|STATE)[0-9]{1,10}(?:_COUNT[0-9]{1,10})?',code) is not None)
  return dict(phase=phase if phase in FAILURE_PHASES else 'UNCLASSIFIED',code=code if safe else 'UNCLASSIFIED')
 
 class PublicOnlyImports(importlib.abc.MetaPathFinder):

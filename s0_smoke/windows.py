@@ -155,11 +155,12 @@ def decode_tcp_listeners(raw,family,port):
     if not isinstance(raw,(bytes,bytearray)) or not 4<=len(raw)<=1024*1024: raise WindowsBlocked()
     count=struct.unpack_from('<I',raw)[0]
     stride,state_offset,port_offset=(24,0,8) if family==2 else (56,48,20)
-    if count>4096 or len(raw)!=4+stride*count: raise WindowsBlocked()
+    if count>4096 or len(raw)!=4+stride*count: raise WindowsBlocked('S0_TCP_SHAPE_AF'+str(family)+'_SIZE'+str(len(raw))+'_COUNT'+str(count))
     occupied=False
     for index in range(count):
         offset=4+stride*index
-        if struct.unpack_from('<I',raw,offset+state_offset)[0]!=2: raise WindowsBlocked()
+        state=struct.unpack_from('<I',raw,offset+state_offset)[0]
+        if state!=2: raise WindowsBlocked('S0_TCP_STATE_AF'+str(family)+'_STATE'+str(state))
         if int.from_bytes(raw[offset+port_offset:offset+port_offset+2],'big')==port: occupied=True
     return not occupied
 
@@ -395,10 +396,12 @@ class Win32:
         get_table.restype=t.DWORD
         size=t.DWORD()
         status=get_table(None,ctypes.byref(size),False,family,3,0)
-        if status not in (0,122) or not 4<=size.value<=1024*1024: raise WindowsBlocked()
+        if status not in (0,122): raise WindowsBlocked('S0_TCP_PROBE_AF'+str(family)+'_STATUS'+str(status))
+        if not 4<=size.value<=1024*1024: raise WindowsBlocked('S0_TCP_PROBE_AF'+str(family)+'_SIZE'+str(size.value))
         buffer=ctypes.create_string_buffer(size.value)
-        if get_table(buffer,ctypes.byref(size),False,family,3,0)!=0 or not 4<=size.value<=len(buffer):
-            raise WindowsBlocked()
+        status=get_table(buffer,ctypes.byref(size),False,family,3,0)
+        if status!=0:raise WindowsBlocked('S0_TCP_READ_AF'+str(family)+'_STATUS'+str(status))
+        if not 4<=size.value<=len(buffer):raise WindowsBlocked('S0_TCP_READ_AF'+str(family)+'_SIZE'+str(size.value))
         return buffer.raw[:size.value]
 
     def open_mutable(self,path):

@@ -5,6 +5,7 @@ from s0_smoke.lifecycle import deadline_wait
 @pytest.mark.parametrize('error,expected',[
  ('S0_WIN32_OPEN_READ_32','S0_WIN32_OPEN_READ_32'),
  ('WINDOWS_CUSTODY_BLOCKED','WINDOWS_CUSTODY_BLOCKED'),
+ ('S0_TCP_SHAPE_AF23_SIZE64_COUNT1','S0_TCP_SHAPE_AF23_SIZE64_COUNT1'),
  ('POSTGRES_DSN=secret','UNCLASSIFIED'),
  ('S0_WIN32_OPEN_READ_32\nsecret','UNCLASSIFIED')])
 def test_failure_diagnostics_are_bounded_codes_and_never_exception_messages(error,expected):
