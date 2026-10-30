@@ -40,6 +40,7 @@ public static class UserProfileTests {
  static string Hash(byte[] b) { using(var sha=SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(b)).Replace("-","").ToLowerInvariant(); }
  static void Done(string name) { passed.Add(name); }
  static string Fresh(string parent,string prefix) { return Path.Combine(parent,prefix+Guid.NewGuid().ToString("D")); }
+ static string FixtureId(string sourceRoot) { string id=Path.GetFileName(sourceRoot);Need(System.Text.RegularExpressions.Regex.IsMatch(id,"\\As0-portable-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\z"));return id; }
  static IDisposable Pins(string path,string sid) { return (IDisposable)Activator.CreateInstance(typeof(Bootstrap).GetNestedType("Pins",BindingFlags.NonPublic),BindingFlags.Instance|BindingFlags.NonPublic,null,new object[]{path,sid,true},null); }
  static void Check(IDisposable pins) { pins.GetType().GetMethod("Check",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(pins,null); }
  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateHardLinkW(string link,string existing,IntPtr attributes);
@@ -55,6 +56,19 @@ public static class UserProfileTests {
  }
  static string Slot(string parent,string sid,string head) {
   string target=Fresh(parent,"GridS0Input-");Bootstrap.StageTransferSlotAtUserProfileV1(head,Guid.NewGuid().ToString("D"),new string('a',64),1,target,sid,true);return target;
+ }
+ public static void HostedRuntime(string sourceRoot,string head,string sid) {
+  Need(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true" && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT")=="github-hosted" && Environment.GetEnvironmentVariable("GITHUB_JOB")=="s0-windows");
+  Need(!String.Equals(Environment.MachineName,"LS5",StringComparison.OrdinalIgnoreCase) && !String.Equals(Environment.MachineName,"PC4",StringComparison.OrdinalIgnoreCase));
+  TokenObserver.RequireStandard(sid);passed.Clear();
+  string parent;using(var proof=Bootstrap.HoldUserProfileV1(sid)) parent=proof.ParentPath;
+  byte[] zip=File.ReadAllBytes(Path.Combine(sourceRoot,"source.zip"));string sha=Hash(zip),target=Fresh(parent,"GridS0Package-");
+  Phase="FIXTURE_PROFILE_RUNTIME_STAGE";Bootstrap.StagePackageAtUserProfileV1(zip,sha,head,target,sid,true);
+  RuntimeActions(sourceRoot,target,parent,sid,head,sha);Need(passed.Count==2);
+  string run=Environment.GetEnvironmentVariable("GITHUB_RUN_ID"),attempt=Environment.GetEnvironmentVariable("GITHUB_RUN_ATTEMPT");
+  Need(System.Text.RegularExpressions.Regex.IsMatch(run??"","\\A[1-9][0-9]*\\z") && System.Text.RegularExpressions.Regex.IsMatch(attempt??"","\\A[1-9][0-9]*\\z"));
+  string json="{\"scope\":\"HOSTED_NATIVE_USER_PROFILE_RUNTIME_NOT_PHYSICAL\",\"head\":\""+head+"\",\"package_sha256\":\""+sha+"\",\"fixture_id\":\""+FixtureId(sourceRoot)+"\",\"run_id\":\""+run+"\",\"attempt\":\""+attempt+"\",\"cases\":[\"runtime_prepare_preflight_status_stop\",\"runtime_execute_evidence_blocked\"],\"execute\":false,\"cleanup\":false}";
+  using(var output=new FileStream(Path.Combine(sourceRoot,"temp","user-profile-runtime.json"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) { byte[] bytes=Encoding.ASCII.GetBytes(json);output.Write(bytes,0,bytes.Length);output.Flush(true); }
  }
  static void RuntimeActions(string sourceRoot,string package,string parent,string sid,string head,string packageSha) {
   string run=Guid.NewGuid().ToString("D"),pair=Path.Combine(parent,"GridS0-"+run),role=Path.Combine(pair,"LS5"),input=Fresh(parent,"GridS0Input-");
@@ -116,7 +130,6 @@ public static class UserProfileTests {
    Need(normal.ExitCode==0 && !normal.TimedOut && normal.Pid>0 && normal.CreationFileTime>0 && normal.JobMember && !normal.ObservedElevated && !normal.ObservedAdminEnabled);Done("native_python_token_job");
    string versionRecord=File.ReadAllText(Path.Combine(runtimeTemp,"python-profile.json"));Need(versionRecord.Contains("3.12."));Done("native_python_profile_resolution");
    Result deadline=ProcessHost.RunAtUserProfileV1(target,"-I -S -B -c \"import time; time.sleep(10)\"",env,sid,imageSha,head,1,sha);Need(deadline.TimedOut && deadline.ExitCode!=259);Done("owned_deadline_shutdown");
-   RuntimeActions(sourceRoot,target,parent,sid,head,sha);
    Phase="FIXTURE_PROFILE_INPUTS";InputTests.Hosted(sid,head);Done("input_and_import");
    Phase="FIXTURE_PROFILE_RECEIVER";TransferTests.Hosted(sid,head);Done("receiver_replay_race");
    Phase="FIXTURE_PROFILE_EXPORT";TransferExportTests.Hosted(sid,head);Done("export_identity_and_scope");
@@ -140,9 +153,9 @@ public static class UserProfileTests {
    Block(delegate { using(var pins=Pins(link,sid)) {} });Done("junction_reparse");
    Phase="FIXTURE_PROFILE_HARDLINK";Need(CreateHardLinkW(Path.Combine(fixture,"image-hardlink"),Path.Combine(target,"runtime","python.exe"),IntPtr.Zero));
    Block(delegate { using(var source=(IDisposable)hold.Invoke(null,new object[]{target,sid,sha,head})) {} });Done("hardlink_source");
-   Need(passed.Count==22);Phase="FIXTURE_PROFILE_RECEIPT";
+   Need(passed.Count==20);Phase="FIXTURE_PROFILE_RECEIPT";
    string cases="["+String.Join(",",passed.ConvertAll(delegate(string name) { return "\""+name+"\""; }).ToArray())+"]";
-   string json="{\"scope\":\"HOSTED_NATIVE_USER_PROFILE_NOT_PHYSICAL\",\"head\":\""+head+"\",\"package_sha256\":\""+sha+"\",\"cases\":"+cases+",\"pid\":"+normal.Pid+",\"creation_filetime\":"+normal.CreationFileTime+",\"exit_code\":"+normal.ExitCode+",\"deadline_pid\":"+deadline.Pid+" ,\"deadline_timed_out\":true,\"deadline_exit_code\":"+deadline.ExitCode+",\"execute\":false,\"cleanup\":false}";
+   string json="{\"scope\":\"HOSTED_NATIVE_USER_PROFILE_CORE_NOT_PHYSICAL\",\"head\":\""+head+"\",\"package_sha256\":\""+sha+"\",\"fixture_id\":\""+FixtureId(sourceRoot)+"\",\"cases\":"+cases+",\"pid\":"+normal.Pid+",\"creation_filetime\":"+normal.CreationFileTime+",\"exit_code\":"+normal.ExitCode+",\"deadline_pid\":"+deadline.Pid+" ,\"deadline_timed_out\":true,\"deadline_exit_code\":"+deadline.ExitCode+",\"execute\":false,\"cleanup\":false}";
    using(var output=new FileStream(Path.Combine(sourceRoot,"temp","user-profile.json"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) { byte[] bytes=Encoding.ASCII.GetBytes(json);output.Write(bytes,0,bytes.Length);output.Flush(true); }
   } finally { ProfileApi.UserProfile=false; }
  }

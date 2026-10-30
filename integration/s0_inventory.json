@@ -213,6 +213,7 @@
     "tests/test_s0_independent_acceptance.py::test_public_probe_cannot_claim_physical_ready",
     "tests/test_s0_independent_acceptance.py::test_raw_preparation_booleans_cannot_be_coerced[bootstrap]",
     "tests/test_s0_independent_acceptance.py::test_raw_preparation_booleans_cannot_be_coerced[token]",
+    "tests/test_s0_independent_acceptance.py::test_runtime_phase_cannot_be_replayed_after_rehash",
     "tests/test_s0_independent_acceptance.py::test_source_provider_prevents_rebinding_source",
     "tests/test_s0_independent_acceptance.py::test_synthetic_pass_is_never_approval",
     "tests/test_s0_independent_acceptance.py::test_unknown_native_boolean_rejected",
@@ -407,6 +408,7 @@
     "tests/test_s0_subscription.py::test_rejects_wrong_ack_or_private_or_unknown_input[value9]",
     "tests/test_s0_subscription.py::test_total_byte_limit",
     "tests/test_s0_userprofile.py::test_explicit_profile_resolution_does_not_use_localappdata",
+    "tests/test_s0_userprofile.py::test_full_profile_receipt_cannot_be_collected_without_runtime_phase",
     "tests/test_s0_userprofile.py::test_native_profile_receipt_unknown_or_substituted_facts_block[cases-value9]",
     "tests/test_s0_userprofile.py::test_native_profile_receipt_unknown_or_substituted_facts_block[cleanup-True]",
     "tests/test_s0_userprofile.py::test_native_profile_receipt_unknown_or_substituted_facts_block[creation_filetime-None]",
@@ -422,6 +424,10 @@
     "tests/test_s0_userprofile.py::test_profile_bundle_does_not_accept_rehashed_false_pass[jsonl_boolean]",
     "tests/test_s0_userprofile.py::test_profile_bundle_does_not_accept_rehashed_false_pass[junit_text]",
     "tests/test_s0_userprofile.py::test_profile_bundle_does_not_accept_rehashed_false_pass[missing]",
+    "tests/test_s0_userprofile.py::test_profile_bundle_does_not_accept_rehashed_false_pass[record_boolean]",
+    "tests/test_s0_userprofile.py::test_profile_bundle_does_not_accept_rehashed_false_pass[runtime_attempt]",
+    "tests/test_s0_userprofile.py::test_profile_bundle_does_not_accept_rehashed_false_pass[runtime_fixture]",
+    "tests/test_s0_userprofile.py::test_profile_bundle_does_not_accept_rehashed_false_pass[runtime_missing]",
     "tests/test_s0_userprofile.py::test_profile_path_aliases_and_unknown_results_are_blocked[C:\\\\Users\\\\..\\\\fixture]",
     "tests/test_s0_userprofile.py::test_profile_path_aliases_and_unknown_results_are_blocked[C:\\\\Users\\\\COM\\xb9]",
     "tests/test_s0_userprofile.py::test_profile_path_aliases_and_unknown_results_are_blocked[C:\\\\Users\\\\CON]",
@@ -1393,6 +1399,10 @@
     ],
     [
       "tests.test_s0_independent_acceptance",
+      "test_runtime_phase_cannot_be_replayed_after_rehash"
+    ],
+    [
+      "tests.test_s0_independent_acceptance",
       "test_source_provider_prevents_rebinding_source"
     ],
     [
@@ -2169,6 +2179,10 @@
     ],
     [
       "tests.test_s0_userprofile",
+      "test_full_profile_receipt_cannot_be_collected_without_runtime_phase"
+    ],
+    [
+      "tests.test_s0_userprofile",
       "test_native_profile_receipt_unknown_or_substituted_facts_block[cases-value9]"
     ],
     [
@@ -2226,6 +2240,22 @@
     [
       "tests.test_s0_userprofile",
       "test_profile_bundle_does_not_accept_rehashed_false_pass[missing]"
+    ],
+    [
+      "tests.test_s0_userprofile",
+      "test_profile_bundle_does_not_accept_rehashed_false_pass[record_boolean]"
+    ],
+    [
+      "tests.test_s0_userprofile",
+      "test_profile_bundle_does_not_accept_rehashed_false_pass[runtime_attempt]"
+    ],
+    [
+      "tests.test_s0_userprofile",
+      "test_profile_bundle_does_not_accept_rehashed_false_pass[runtime_fixture]"
+    ],
+    [
+      "tests.test_s0_userprofile",
+      "test_profile_bundle_does_not_accept_rehashed_false_pass[runtime_missing]"
     ],
     [
       "tests.test_s0_userprofile",

@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 LIMIT = 512 * 1024 * 1024
 ENTRY = 64 * 1024 * 1024
 COUNT = 20000
-REQUIREMENTS_VERSION = 6
+REQUIREMENTS_VERSION = 7
 REQUIRED_SOURCES = frozenset(('s0_smoke/profile.py','s0_smoke/cli.py','s0_smoke/entry.py','installer/physical-smoke-s0.ps1','installer/physical-smoke-s0/S0Launcher.cs','docs/PHYSICAL_SMOKE_S0.md','installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0/S0Bootstrap.cs','installer/physical-smoke-s0/S0Inputs.cs','installer/physical-smoke-s0/S0Transfer.cs','installer/physical-smoke-s0/S0TransferExport.cs','installer/physical-smoke-s0/S0TransferTransport.cs','installer/physical-smoke-s0/S0UserProfile.cs','installer/physical-smoke-s0-bootstrap.ps1','docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md','docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md'))
 
 
@@ -125,18 +125,28 @@ PROFILE_CASES = frozenset(('cold_first_loader','native_profile_plan','unapproved
 
 def profile_records(outer,context,pin):
     expected={k:v for k,v in context.items() if k!='tree'}
-    need(all('s0-results/'+name in outer for name in ('native-userprofile.json','native-userprofile-raw.json','native-userprofile.xml','native-userprofile.jsonl')))
+    need(all('s0-results/'+name in outer for name in ('native-userprofile.json','native-userprofile-raw.json','native-userprofile-runtime.json','native-userprofile.xml','native-userprofile.jsonl')))
     read=lambda name:outer['s0-results/'+name]
     need(len(read('native-userprofile-raw.json'))<=16384 and len(read('native-userprofile.jsonl'))<=32768 and len(read('native-userprofile.xml'))<=65536 and b'<!' not in read('native-userprofile.xml'))
     value=strict_json(read('native-userprofile.json'))
-    fields={'scope','head','package_sha256','cases','pid','creation_filetime','exit_code','deadline_pid','deadline_exit_code','deadline_timed_out','execute','cleanup'}
-    need(type(value) is dict and set(value)==fields|set(expected)|{'raw_sha256','junit_sha256','jsonl_sha256'})
+    fields={'scope','head','package_sha256','fixture_id','cases','pid','creation_filetime','exit_code','deadline_pid','deadline_exit_code','deadline_timed_out','execute','cleanup'}
+    need(type(value) is dict and set(value)==fields|set(expected)|{'raw_sha256','runtime_sha256','junit_sha256','jsonl_sha256'})
     check_context(value,expected)
-    for name,key in [('native-userprofile-raw.json','raw_sha256'),('native-userprofile.xml','junit_sha256'),('native-userprofile.jsonl','jsonl_sha256')]:need(sha(read(name))==value[key])
-    raw=strict_json(read('native-userprofile-raw.json'));need(set(raw)==fields and all(raw[k]==value[k] for k in fields))
-    need(raw['scope']=='HOSTED_NATIVE_USER_PROFILE_NOT_PHYSICAL' and raw['head']==expected['head'] and raw['package_sha256']==pin)
+    for name,key in [('native-userprofile-raw.json','raw_sha256'),('native-userprofile-runtime.json','runtime_sha256'),('native-userprofile.xml','junit_sha256'),('native-userprofile.jsonl','jsonl_sha256')]:need(sha(read(name))==value[key])
+    raw=strict_json(read('native-userprofile-raw.json'));need(set(raw)==fields and all(type(raw[k]) is type(value[k]) and raw[k]==value[k] for k in fields-{'scope','cases'}))
+    runtime_cases={'runtime_prepare_preflight_status_stop','runtime_execute_evidence_blocked'}
+    need(raw['scope']=='HOSTED_NATIVE_USER_PROFILE_CORE_NOT_PHYSICAL' and raw['head']==expected['head'] and raw['package_sha256']==pin)
+    need(type(raw['fixture_id']) is str and re.fullmatch(r's0-portable-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}',raw['fixture_id']) is not None)
+    need(value['scope']=='HOSTED_NATIVE_USER_PROFILE_NOT_PHYSICAL' and type(value['cases']) is list and value['cases']==sorted(PROFILE_CASES))
     need(raw['execute'] is False and raw['cleanup'] is False and raw['deadline_timed_out'] is True)
-    need(type(raw['cases']) is list and len(raw['cases'])==len(PROFILE_CASES) and all(type(n) is str for n in raw['cases']) and set(raw['cases'])==PROFILE_CASES)
+    need(type(raw['cases']) is list and len(raw['cases'])==len(PROFILE_CASES)-2 and all(type(n) is str for n in raw['cases']) and set(raw['cases'])==PROFILE_CASES-runtime_cases)
+    need(0<len(read('native-userprofile-runtime.json'))<=4096)
+    runtime=strict_json(read('native-userprofile-runtime.json'))
+    need(type(runtime) is dict and set(runtime)=={'scope','head','package_sha256','fixture_id','run_id','attempt','cases','execute','cleanup'})
+    check_context(runtime,expected)
+    need(runtime['scope']=='HOSTED_NATIVE_USER_PROFILE_RUNTIME_NOT_PHYSICAL' and runtime['package_sha256']==pin and runtime['execute'] is False and runtime['cleanup'] is False)
+    need(runtime['fixture_id']==raw['fixture_id'])
+    need(type(runtime['cases']) is list and len(runtime['cases'])==2 and all(type(n) is str for n in runtime['cases']) and set(runtime['cases'])==runtime_cases)
     need(all(type(raw[k]) is int and 0<raw[k]<2**64 for k in ('pid','deadline_pid','creation_filetime')))
     need(type(raw['exit_code']) is int and raw['exit_code']==0 and type(raw['deadline_exit_code']) is int and 0<=raw['deadline_exit_code']<2**32 and raw['deadline_exit_code']!=259)
     junit(read('native-userprofile.xml'),expected,[('HostedNativeUserProfile',name) for name in PROFILE_CASES])

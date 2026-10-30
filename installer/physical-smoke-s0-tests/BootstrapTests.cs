@@ -92,6 +92,12 @@ public static class BootstrapTests {
  static byte[] ReadLoaderOutput(Stream input,LoaderCapture capture) {
   byte[] buffer=new byte[1024]; int read; while((read=input.Read(buffer,0,buffer.Length))>0) capture.Append(buffer,read); return capture.Snapshot();
  }
+ static void SaveLoaderFailure(string root,LoaderCapture output,LoaderCapture error) {
+  string prefix="loader-failure-"+Process.GetCurrentProcess().Id+"-"+Guid.NewGuid().ToString("D");
+  foreach(var item in new[]{new KeyValuePair<string,byte[]>("stdout",output.Snapshot()),new KeyValuePair<string,byte[]>("stderr",error.Snapshot())}) {
+   using(var saved=new FileStream(Path.Combine(root,"temp",prefix+"-"+item.Key+".txt"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) saved.Write(item.Value,0,item.Value.Length);
+  }
+ }
  public static void HostedLoaderPlan(string root,string sha,string head,string sid,bool userProfile=false,bool diagnosticOnly=false) {
   Phase="FIXTURE_LOADER_HOSTED_GATE";
   Need(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true" && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT")=="github-hosted" && Environment.GetEnvironmentVariable("GITHUB_REPOSITORY")=="YehorBabenko88/bybit-cluster-grid" && Environment.GetEnvironmentVariable("GITHUB_JOB")=="s0-windows");
@@ -119,6 +125,7 @@ public static class BootstrapTests {
     Task<byte[]> stdout=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardOutput.BaseStream,capturedOut); });
     Task<byte[]> stderr=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardError.BaseStream,capturedErr); });
     Phase="FIXTURE_LOADER_PROCESS_WAIT"; if(!child.WaitForExit(30000)) {
+     SaveLoaderFailure(root,capturedOut,capturedErr);
      string progress=Encoding.UTF8.GetString(capturedOut.Snapshot());
      string[] natives={"COMPLETE","PARENT","FOLDER","TOKEN","PACKAGE","ZIP","CAPTURED","ENTER"}; string nativeLast=null; foreach(string step in natives) if(progress.IndexOf("S0_NATIVE_"+step+"\n",StringComparison.Ordinal)>=0 || progress.IndexOf("S0_NATIVE_"+step+"\r\n",StringComparison.Ordinal)>=0) { nativeLast=step; break; }
      string[] steps={"VALIDATED","VALIDATE","LOADED","LOAD","ARCHIVE","HASHED","CAPTURED","OPEN","DEPENDENCY","ENTRY"}; string last=null;
@@ -128,6 +135,7 @@ public static class BootstrapTests {
     }
     Phase="FIXTURE_LOADER_OUTPUT_WAIT"; Need(Task.WaitAll(new Task[]{stdout,stderr},5000));
     if(child.ExitCode!=0 || stderr.Result.Length!=0) {
+     SaveLoaderFailure(root,capturedOut,capturedErr);
      string stderrDiagnostic=Encoding.UTF8.GetString(stderr.Result);
      if(stderrDiagnostic.IndexOf("PSSecurityException",StringComparison.OrdinalIgnoreCase)>=0 || stderrDiagnostic.IndexOf("ExecutionPolicy",StringComparison.OrdinalIgnoreCase)>=0) throw new InvalidOperationException("FIXTURE_LOADER_EXECUTION_POLICY");
      throw new InvalidOperationException(child.ExitCode!=0?"FIXTURE_LOADER_EXIT_NONZERO":"FIXTURE_LOADER_STDERR_NOT_EMPTY");

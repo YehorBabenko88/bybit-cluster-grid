@@ -42,13 +42,17 @@ def fixture():
     outer['s0-results/native-bootstrap.json']=raw(bootstrap)
     import xml.etree.ElementTree as E
     profile_context={k:v for k,v in CTX.items() if k!='tree'}
-    profile=dict(scope='HOSTED_NATIVE_USER_PROFILE_NOT_PHYSICAL',head=CTX['head'],package_sha256=sha(package),cases=sorted(PROFILE_CASES),pid=100,creation_filetime=1000,exit_code=0,deadline_pid=101,deadline_exit_code=1,deadline_timed_out=True,execute=False,cleanup=False)
-    profile_raw=raw(profile);suite=E.Element('testsuite',dict(name='native_user_profile_v1',tests=str(len(PROFILE_CASES)),errors='0',failures='0',skipped='0',**profile_context))
+    profile=dict(scope='HOSTED_NATIVE_USER_PROFILE_NOT_PHYSICAL',head=CTX['head'],package_sha256=sha(package),fixture_id='s0-portable-12345678-1234-4234-8234-123456789abc',cases=sorted(PROFILE_CASES),pid=100,creation_filetime=1000,exit_code=0,deadline_pid=101,deadline_exit_code=1,deadline_timed_out=True,execute=False,cleanup=False)
+    runtime_cases={'runtime_prepare_preflight_status_stop','runtime_execute_evidence_blocked'}
+    profile_raw=raw(dict(profile,scope='HOSTED_NATIVE_USER_PROFILE_CORE_NOT_PHYSICAL',cases=sorted(PROFILE_CASES-runtime_cases)))
+    runtime_raw=raw(dict(scope='HOSTED_NATIVE_USER_PROFILE_RUNTIME_NOT_PHYSICAL',package_sha256=sha(package),fixture_id=profile['fixture_id'],cases=sorted(runtime_cases),execute=False,cleanup=False,**profile_context))
+    suite=E.Element('testsuite',dict(name='native_user_profile_v1',tests=str(len(PROFILE_CASES)),errors='0',failures='0',skipped='0',**profile_context))
     for name in sorted(PROFILE_CASES):E.SubElement(suite,'testcase',dict(classname='HostedNativeUserProfile',name=name))
     profile_xml=E.tostring(suite,encoding='utf-8',xml_declaration=True)
     profile_lines=b''.join(raw(dict(profile_context,node=name,status='HOSTED_NATIVE_PASS_NOT_PHYSICAL',execute=False,cleanup=False))+b'\n' for name in sorted(PROFILE_CASES))
     outer['s0-results/native-userprofile-raw.json']=profile_raw;outer['s0-results/native-userprofile.xml']=profile_xml;outer['s0-results/native-userprofile.jsonl']=profile_lines
-    outer['s0-results/native-userprofile.json']=raw(dict(profile,**profile_context,raw_sha256=sha(profile_raw),junit_sha256=sha(profile_xml),jsonl_sha256=sha(profile_lines)))
+    outer['s0-results/native-userprofile-runtime.json']=runtime_raw
+    outer['s0-results/native-userprofile.json']=raw(dict(profile,**profile_context,raw_sha256=sha(profile_raw),runtime_sha256=sha(runtime_raw),junit_sha256=sha(profile_xml),jsonl_sha256=sha(profile_lines)))
     token=dict({k:v for k,v in CTX.items() if k != 'tree'},scope='HOSTED_FIXTURE_NOT_PHYSICAL',component='TOKEN_OBSERVER',status='TEST_PASS',elevated=False,physical_acceptance=False,group_count=3,privilege_count=1,enabled_privilege_count=1,**{k:True for k in TOKEN_TRUE})
     outer['s0-results/native-token-observer-raw.txt']=raw({k:v for k,v in token.items() if k not in {'run_id','attempt'}})
     token.update(source_sha256={n:sha(sources[n]) for n in TOKEN_SOURCES},binary_sha256={'S0Launcher.dll':sha(files['native/S0Launcher.dll']),'TokenObserverFixture.exe':'d'*64})
@@ -142,6 +146,13 @@ def test_unknown_native_boolean_rejected():
     outer,sources=fixture(); path='s0-results/native-launcher.json'
     n=strict_json(outer[path]); n['approval']=True; outer[path]=raw(n)
     with pytest.raises(ValueError): accepted(outer,sources)
+
+
+def test_runtime_phase_cannot_be_replayed_after_rehash():
+    outer,sources=fixture();path='s0-results/native-userprofile-runtime.json'
+    runtime=strict_json(outer[path]);runtime['attempt']='99';outer[path]=raw(runtime)
+    index='s0-results/native-userprofile.json';record=strict_json(outer[index]);record['runtime_sha256']=sha(outer[path]);outer[index]=raw(record)
+    with pytest.raises(ValueError):accepted(outer,sources)
 
 def test_public_probe_cannot_claim_physical_ready():
     outer,sources=fixture(); path='s0-results/public-probe.json'

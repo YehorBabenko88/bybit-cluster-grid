@@ -18,6 +18,13 @@ def record_failed_loader_probe(native_build,fixture,env,head,image_sha,custody):
  with subprocess.Popen([str(native_build/'Fixture.exe'),'--loader-diagnostic-parent',str(fixture),image_sha,head,str(fixture/'temp/diagnostic-unused.json')],cwd=native_build,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
   out,err=child.communicate(timeout=100);code=child.returncode
  custody.guard()
+ captures=sorted((fixture/'temp').glob('loader-failure-*.txt'))
+ if len(captures)>16:raise RuntimeError('S0_LOADER_DIAGNOSTIC_COUNT_BLOCKED')
+ for path in captures:
+  with Custody(fixture/'temp',custody.operator_sid,[path]):
+   if path.stat().st_size>4096:raise RuntimeError('S0_LOADER_DIAGNOSTIC_SIZE_BLOCKED')
+   target=ROOT/'s0-results/loader-captures';target.mkdir(exist_ok=True)
+   (target/path.name).write_bytes(path.read_bytes())
  (ROOT/'s0-results/cold-loader-postfailure-raw.txt').write_bytes(out[:65536])
  (ROOT/'s0-results/cold-loader-postfailure-stderr.txt').write_bytes(err[:65536])
  (ROOT/'s0-results/cold-loader-postfailure.json').write_text(json.dumps(dict(head=head,exit_code=code,scope='POST_FAILURE_DIAGNOSTIC_NOT_ACCEPTANCE',original_failure_preserved=True,execute=False,cleanup=False)))
@@ -96,6 +103,16 @@ def run():
   with subprocess.Popen([str(native_build/'Fixture.exe'),'--profile-parent',str(fixture),manifest['files']['runtime/python.exe']['sha256'],head,str(fixture/'temp/profile-unused.json')],cwd=native_build,env=ci_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
    profile_out,profile_err=child.communicate(timeout=100);profile_exit=child.returncode
   (ROOT/'s0-results/native-userprofile-driver-raw.txt').write_bytes(profile_out[:65536])
+  if profile_exit!=0 or profile_err:
+   record_failed_loader_probe(native_build,fixture,ci_env,head,manifest['files']['runtime/python.exe']['sha256'],native_custody)
+   raise RuntimeError('S0_USER_PROFILE_FIXTURE_FAILED')
+  validate_native(load_json(profile_out),head,identity.sid)
+  native_custody.guard();child_source.guard()
+  # Cold-first/core finishes BEFORE any dispatcher action. Distinct mandatory
+  # processes keep the same90s bound, rather than enlarging a combined deadline.
+  with subprocess.Popen([str(native_build/'Fixture.exe'),'--runtime-parent',str(fixture),manifest['files']['runtime/python.exe']['sha256'],head,str(fixture/'temp/runtime-unused.json')],cwd=native_build,env=ci_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
+   runtime_out,runtime_err=child.communicate(timeout=100);runtime_exit=child.returncode
+  (ROOT/'s0-results/native-userprofile-runtime-driver-raw.txt').write_bytes(runtime_out[:65536])
   for action in ('prepare','preflight','status','stop','execute','evidence'):
    path=fixture/'temp'/('profile-cli-'+action+'.json')
    if path.is_file():
@@ -105,10 +122,12 @@ def run():
    if error_path.is_file():
     raw=error_path.read_bytes()
     if len(raw)<=65536:(ROOT/'s0-results'/('native-userprofile-cli-'+action+'.stderr')).write_bytes(raw)
-  if profile_exit!=0 or profile_err:
+  if runtime_exit!=0 or runtime_err:
    record_failed_loader_probe(native_build,fixture,ci_env,head,manifest['files']['runtime/python.exe']['sha256'],native_custody)
-   raise RuntimeError('S0_USER_PROFILE_FIXTURE_FAILED')
-  validate_native(load_json(profile_out),head,identity.sid)
+   raise RuntimeError('S0_USER_PROFILE_RUNTIME_FIXTURE_FAILED')
+  runtime_record=load_json(runtime_out)
+  if runtime_record!=dict(scope='HOSTED_RUNTIME_PHASE_NOT_ACCEPTANCE',head=head,execute=False,cleanup=False) or runtime_record['execute'] is not False or runtime_record['cleanup'] is not False:raise RuntimeError('S0_RUNTIME_PHASE_RECEIPT_BLOCKED')
+  native_custody.guard();child_source.guard()
   from tools.s0_userprofile_receipt import collect_profile
   collect_profile(ROOT/'s0-results',fixture,dict(head=head,run_id=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT']),receipt['sha256'])
   collect_bootstrap(fixture,receipt['sha256'],head)

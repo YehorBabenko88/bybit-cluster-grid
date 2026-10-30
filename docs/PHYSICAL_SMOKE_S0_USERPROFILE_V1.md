@@ -47,6 +47,14 @@ runtime remains Python3.12**, reported in its manifest. Do not call this an
 embedded-Python3.11 physical package. Native profile fixtures use real restricted
 Medium processes and GUID resources on hosted Windows only; no physical PASS.
 
+Hosted evidence contract v7 requires two sequential owned fixture processes:
+core20 (including the original plain cold-first bootstrap) then runtime2
+(six fresh dispatcher actions). Each retains its90-second Job bound; each
+dispatcher keeps its30-second fixture wait and native action budget. The final
+22-case receipt requires both raw phase receipts, exact HEAD/package/run/attempt
+and SHA256. Missing/replayed phase evidence blocks acceptance. A post-failure
+diagnostic Plan never substitutes for a failed mandatory cold-first invocation.
+
 ## 1. Read-only console identity and authenticated initial load
 
 On **each real host**, use its existing local non-elevated console. Expected LS5
