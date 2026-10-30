@@ -15,6 +15,30 @@ def instrument_fixture(source):
     return source[:a]+start+'\n  HandoffProbe.Run(sourceRoot,head,sid);\n }\n'+source[b:]
 
 
+def create_hosted_payload(path,sid,data,*,archive=False,api=None):
+    """Diagnostic package payload, not the 1MiB production mutable-file API.
+
+    Preserve its exclusive CREATE_NEW/handle custody; write at most1MiB per call.
+    Package-member bound64MiB, complete sourceZIP bound512MiB, hosted-only.
+    """
+    require_hosted(os.environ,socket.gethostname())
+    from s0_smoke.windows import Win32,WindowsBlocked,_absolute,_protected_sddl,_validate_mutable
+    import ntpath
+    if type(archive) is not bool or type(data) is not bytes or len(data)>(512 if archive else 64)*1024*1024:raise WindowsBlocked()
+    path=_absolute(path);sddl=_protected_sddl(sid);api=api or Win32()
+    with Custody(ntpath.dirname(path),sid,api=api) as parent:
+        handle=api.create_file(path,sddl)
+        try:
+            before=api.inspect(handle);_validate_mutable(before,sid);parent.guard()
+            for offset in range(0,len(data),1024*1024):
+                parent.guard();api.write(handle,data[offset:offset+1024*1024])
+            api.flush(handle)
+            after=api.inspect(handle);_validate_mutable(after,sid)
+            if before['identity']!=after['identity']:raise WindowsBlocked()
+            parent.guard()
+        finally:api.close(handle)
+
+
 def run():
     require_hosted(os.environ,socket.gethostname());head=os.environ['EXACT_HEAD_SHA'];verify_checkout(ROOT,head)
     receipt=strict_json((ROOT/'s0-package/package-receipt.json').read_bytes())
@@ -29,8 +53,8 @@ def run():
         chain=[];parent=path.parent
         while parent!=fixture and not parent.exists():chain.append(parent);parent=parent.parent
         for directory in reversed(chain):create_hosted_root(directory,identity.sid)
-        create_fresh_file(path,identity.sid,data)
-    create_fresh_file(fixture/'source.zip',identity.sid,raw);manifest=verify_package(fixture,fixture/'source.zip',head,receipt['sha256']);create_hosted_root(fixture/'temp',identity.sid)
+        create_hosted_payload(path,identity.sid,data)
+    create_hosted_payload(fixture/'source.zip',identity.sid,raw,archive=True);manifest=verify_package(fixture,fixture/'source.zip',head,receipt['sha256']);create_hosted_root(fixture/'temp',identity.sid)
     env=dict(os.environ);build=hosted_native_build_root()
     with Custody(build,identity.sid,[build/name for name in ('HandoffFixture.exe','S0Launcher.dll','HandoffChild.ps1')]) as custody:
         with subprocess.Popen([str(build/'HandoffFixture.exe'),'--runtime-diagnostic-parent',str(fixture),manifest['files']['runtime/python.exe']['sha256'],head,str(fixture/'temp/unused.json')],cwd=build,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:

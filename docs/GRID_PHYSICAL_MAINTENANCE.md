@@ -183,3 +183,20 @@ physical local-token acceptance. P1: no SQL catalog confirmation, no route/SSH
 host-key attestation or effective firewall proof, fixed-path inventory is not
 exhaustive cleanup verification. P2: metadata is point-in-time, wall time is
 untrusted, SID digests are pseudonyms and remain potentially identifying.
+
+
+### First hosted maintenance run:41113467110 (HEAD12164b78)
+
+All four offline jobs and both PS7 native jobs succeeded; both PS5 native jobs
+failed, with aggregate pending at observation. Original PS5 artifacts prove the
+mandatory failure was **cold loader Plan30s**, before Core20/Runtime2, rather than
+proof of a new Prepare failure. Do not inherit a later stage from another HEAD.
+The separate minimal probe failed before executing native code: it mistakenly
+used the production1MiB mutable-file helper for larger package DLL/ZIP payloads.
+
+The diagnostic-only package writer now keeps a single exclusive CREATE_NEW
+handle and parent custody, writes chunks <=1MiB, and retains per-member64MiB and
+sourceZIP512MiB limits. The production1MiB helper and Win32 write bound are
+unchanged. Missing hosting gate, wrong types, oversized payloads, hardlinks and
+partial-write faults are covered by pure fake APIs. This fixes the reproducer,
+not the PS5 cold loader or physical readiness.
