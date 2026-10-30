@@ -1,0 +1,279 @@
+name: grid-physical-maintenance
+'on':
+  pull_request:
+    paths:
+    - installer/maintenance/**
+    - tools/grid_maintenance_ci.py
+    - tools/grid_physical_maintenance.py
+    - tools/run_grid_handoff_probe.py
+    - tests/maintenance/**
+    - integration/grid_maintenance_inventory.json
+    - docs/GRID*MAINTENANCE*
+    - .github/workflows/grid-physical-maintenance.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: maintenance-${{ github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+jobs:
+  s0-offline:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+        python:
+        - '3.11'
+        - '3.12'
+    env:
+      EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        persist-credentials: false
+        fetch-depth: 0
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      with:
+        python-version: ${{ matrix.python }}
+    - run: python -m pip install -r integration/requirements-first-boot.txt
+    - run: python -m tools.check_s0_ci offline
+    - name: Maintenance strict offline inventory and JUnit
+      run: python -m tools.grid_maintenance_ci test --head "${{ github.event.pull_request.head.sha || github.sha }}"
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: s0-offline-${{ matrix.os }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+        path: s0-results/
+        if-no-files-found: error
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: maintenance-offline-${{ matrix.os }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha
+          }}
+        path: maintenance-results/
+        if-no-files-found: error
+  s0-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shell:
+        - powershell
+        - pwsh
+        python:
+        - '3.11'
+        - '3.12'
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    env:
+      EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      S0_HOSTED_TESTS: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        persist-credentials: false
+        fetch-depth: 0
+    - name: Mocked maintenance dispatcher PS5.1/7 (no host providers)
+      run: '$ErrorActionPreference=''Stop''
+
+        New-Item -ItemType Directory maintenance-results -ErrorAction Stop | Out-Null
+
+        $raw=& installer/maintenance/Test-Maintenance.ps1
+
+        if($LASTEXITCODE -ne 0){throw ''MAINTENANCE_MOCKED_FAILED''}
+
+        [IO.File]::WriteAllText((Join-Path $PWD ''maintenance-results/powershell.json''),($raw -join "`n"),[Text.UTF8Encoding]::new($false))'
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      with:
+        python-version: ${{ matrix.python }}
+    - run: python -m pip install -r integration/requirements-first-boot.txt
+    - name: Verify mocked evidence inventory and source pins
+      run: 'python -m tools.grid_maintenance_ci ps
+
+        if($LASTEXITCODE -ne 0){throw ''MAINTENANCE_PS_JUNIT_FAILED''}
+
+        python -m tools.grid_maintenance_ci receipt --head "$env:EXACT_HEAD_SHA" --phase mocked
+
+        if($LASTEXITCODE -ne 0){throw ''MAINTENANCE_PS_RECEIPT_FAILED''}'
+    - name: Bind exact tree, parse dispatcher, and collect dependency inventory
+      run: '$ErrorActionPreference=''Stop''
+
+        if((& git rev-parse HEAD) -cne $env:EXACT_HEAD_SHA){throw ''S0_HEAD_MISMATCH''}
+
+        "EXACT_TREE_SHA=$(& git rev-parse ''HEAD^{tree}'')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+        $testShell=[Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+
+        $testMajor=[int]$PSVersionTable.PSVersion.Major
+
+        if($testMajor -notin @(5,7)){throw ''S0_TEST_SHELL_VERSION''}
+
+        "S0_TEST_SHELL_PATH=$testShell" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+        "S0_TEST_SHELL_MAJOR=$testMajor" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+        "S0_TEST_SHELL_SHA=$((Get-FileHash -LiteralPath $testShell -Algorithm SHA256).Hash.ToLowerInvariant())" | Out-File
+        -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+        $tokens=$null;$errors=$null
+
+        [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ''installer/physical-smoke-s0.ps1''),[ref]$tokens,[ref]$errors)
+
+        if($errors.Count){throw ''S0_POWERSHELL_SYNTAX''}
+
+        [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD ''installer/physical-smoke-s0-bootstrap.ps1''),[ref]$tokens,[ref]$errors)
+
+        if($errors.Count){throw ''S0_BOOTSTRAP_POWERSHELL_SYNTAX''}
+
+        & installer/physical-smoke-s0-tests/test-timeout-policy.ps1
+
+        $localAppData=[Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+
+        if([string]::IsNullOrWhiteSpace($localAppData) -or [IO.Path]::GetPathRoot($localAppData) -ine ''C:\''){throw ''S0_LOCAL_APP_DATA_C_REQUIRED''}
+
+        $nativeBuildRoot=Join-Path $localAppData (''s0-native-build-''+[Guid]::NewGuid().ToString(''D''))
+
+        "S0_LOCAL_APP_DATA_ROOT=$localAppData" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+        "S0_NATIVE_BUILD_ROOT=$nativeBuildRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+        New-Item -ItemType Directory s0-results | Out-Null
+
+        python -m pip freeze | Out-File -Encoding utf8 s0-results/dependencies.txt
+
+        '
+    - name: Actual loopback mTLS and synthetic market components; own Windows fixture only
+      run: 'python -m tools.check_s0_ci hosted
+
+        if($LASTEXITCODE -ne 0){throw ''S0_HOSTED_FIXTURE_FAILED''}
+
+        '
+    - name: Record control interpreter; canonical portable remains Python3.12
+      run: python -c "import sys;print(sys.version)"
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      with:
+        python-version: '3.12'
+    - run: python -m pip install -r integration/requirements-first-boot.txt
+    - name: Build original launcher plus separate minimal reproducer in fresh PS5 processes
+      run: '$ErrorActionPreference=''Stop''
+
+        python -c "import os,socket;from tools.build_s0_package import require_hosted,hosted_native_build_root,create_hosted_root;from
+        s0_smoke.windows import current_identity;require_hosted(os.environ,socket.gethostname());create_hosted_root(hosted_native_build_root(),current_identity().sid)"
+
+        if($LASTEXITCODE -ne 0){throw ''MAINTENANCE_FRESH_BUILD_FAILED''}
+
+        python -c "import subprocess;from tools.run_grid_handoff_probe import instrument_fixture;from tools.build_s0_package
+        import hosted_native_build_root;from s0_smoke.windows import current_identity,create_fresh_file;p=hosted_native_build_root();sid=current_identity().sid;raw=subprocess.check_output([''git'',''show'',''HEAD:installer/physical-smoke-s0-tests/UserProfileTests.cs'']).decode();create_fresh_file(p/''ProbeUserProfileTests.cs'',sid,instrument_fixture(raw).encode());create_fresh_file(p/''HandoffChild.ps1'',sid,subprocess.check_output([''git'',''show'',''HEAD:installer/maintenance/HandoffChild.ps1'']))"
+
+        if($LASTEXITCODE -ne 0){throw ''MAINTENANCE_REPRODUCER_COPY_FAILED''}
+
+        & "$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -NonInteractive -File installer/maintenance/Build-HandoffFixture.ps1
+
+        if($LASTEXITCODE -ne 0){throw ''MAINTENANCE_ORIGINAL_BUILD_FAILED''}
+
+        & "$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -NonInteractive -File installer/maintenance/Build-HandoffFixture.ps1
+        -Probe
+
+        if($LASTEXITCODE -ne 0){throw ''MAINTENANCE_PROBE_BUILD_FAILED''}'
+    - name: Build inert public package without keys or physical host pins
+      run: 'python -m tools.build_s0_package
+
+        if($LASTEXITCODE -ne 0){throw ''S0_PACKAGE_BUILD_FAILED''}
+
+        '
+    - name: Verify portable runtime and PlanOnly; no physical Execute
+      run: 'python -m tools.verify_s0_portable_ci
+
+        if($LASTEXITCODE -ne 0){throw ''S0_PORTABLE_PLAN_FAILED''}
+
+        '
+      id: portable
+    - name: Standalone original-launcher handoff diagnostic (never acceptance)
+      if: ${{ !cancelled() && steps.portable.outcome == 'failure' }}
+      run: 'python -m tools.run_grid_handoff_probe
+
+        if($LASTEXITCODE -ne 0){throw ''MAINTENANCE_HANDOFF_PROBE_BLOCKED''}'
+    - name: Read-only public Bybit diagnostic from hosted runner; BLOCKED stays BLOCKED
+      run: 'python -m tools.probe_s0_public_ci
+
+        if($LASTEXITCODE -ne 0){throw ''S0_PUBLIC_DIAGNOSTIC_COLLECTION_FAILED''}
+
+        '
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: physical-smoke-s0-${{ matrix.shell }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha
+          }}
+        path: 's0-package/
+
+          s0-results/
+
+          '
+        if-no-files-found: error
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: maintenance-native-${{ matrix.shell }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha
+          }}
+        path: maintenance-results/
+        if-no-files-found: error
+  required-maintenance:
+    if: ${{ always() }}
+    needs:
+    - s0-offline
+    - s0-windows
+    runs-on: ubuntu-latest
+    steps:
+    - name: No skipped or failed required preparation jobs
+      env:
+        OFFLINE: ${{ needs.s0-offline.result }}
+        WINDOWS: ${{ needs.s0-windows.result }}
+      run: 'test "$OFFLINE" = success
+
+        test "$WINDOWS" = success
+
+        '
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        persist-credentials: false
+        fetch-depth: 0
+      if: ${{ always() }}
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      with:
+        python-version: '3.12'
+      if: ${{ always() }}
+    - run: python -m pip install -r integration/requirements-first-boot.txt
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        pattern: '*s0-*-${{ github.event.pull_request.head.sha || github.sha }}'
+        path: s0-downloaded
+    - name: Independently check downloaded exact-run receipts and package hashes
+      env:
+        EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: python -m tools.verify_s0_artifacts_ci s0-downloaded
+    - name: Independently verify original maintenance ZIPs, API digests and all eight exact-run receipts
+      if: ${{ always() }}
+      env:
+        EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        GH_TOKEN: ${{ github.token }}
+      run: python -m tools.grid_maintenance_ci verify-matrix --head "$EXACT_HEAD_SHA"
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: ${{ always() }}
+      with:
+        name: maintenance-independent-${{ github.event.pull_request.head.sha || github.sha }}
+        path: maintenance-results/independent-matrix.json
+        if-no-files-found: error
+    permissions:
+      contents: read
+      actions: read

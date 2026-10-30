@@ -63,3 +63,8 @@ installer/native-g1-controller-fixture/obj/
 /s0-downloaded/
 
 /s0-native-build/
+
+/maintenance-results/
+/.maintenance-*/
+
+/maintenance-inventory-local.xml
