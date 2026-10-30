@@ -57,7 +57,7 @@ def export_records(records, request, trust):
         raise ValueError('HISTORY_UNAVAILABLE') from exc
 
 
-def _read_records_postgres(conn, request):
+def _read_records_postgres(conn, request, *, revisions=None):
     """Caller supplies a fresh dedicated read-only connection; owns rollback/close.
 
     Transaction setting fails if caller already issued a query. Oversize records
@@ -69,6 +69,14 @@ def _read_records_postgres(conn, request):
     for k in ('start_ms','end_ms'):
         if type(q.get(k)) is not int or q[k]<0 or q[k]%60000:raise ValueError('BOUNDS')
     if not 1<=(q['end_ms']-q['start_ms'])//60000<=MAX_ROWS:raise ValueError('BOUNDS')
+    if revisions is not None and (type(revisions) is not list or
+        not 1<=len(revisions)<=MAX_ROWS or any(type(v) is not str or len(v)!=64 or
+        any(c not in '0123456789abcdef' for c in v) for v in revisions)):
+        raise ValueError('REVISION_PINS')
+    revision_sql = '' if revisions is None else ' AND fingerprint = ANY(%s)'
+    params = [q['symbol'],q['start_ms'],q['end_ms']]
+    if revisions is not None:params.append(revisions)
+    params.append(MAX_ROWS+1)
     with conn.cursor() as cur:
         cur.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
         cur.execute("SET LOCAL statement_timeout = '3000ms'")
@@ -76,9 +84,9 @@ def _read_records_postgres(conn, request):
         cur.execute("""SELECT CASE WHEN sum(octet_length(record::text)) OVER() <= 8388608
             AND max(octet_length(record::text)) OVER() <= 1048576 THEN record ELSE NULL END
             FROM (SELECT record,start_ms,fingerprint FROM provenance_minutes
-            WHERE symbol=%s AND start_ms>=%s AND start_ms<%s
+            WHERE symbol=%s AND start_ms>=%s AND start_ms<%s""" + revision_sql + """
             ORDER BY start_ms,fingerprint LIMIT %s) bounded ORDER BY start_ms,fingerprint""",
-            (q['symbol'],q['start_ms'],q['end_ms'],MAX_ROWS+1))
+            tuple(params))
         rows=cur.fetchall()
         if any(r[0] is None for r in rows):raise ValueError('BYTE_LIMIT')
         return [r[0] for r in rows]
