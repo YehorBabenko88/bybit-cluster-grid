@@ -9,3 +9,5 @@ secrets/
 .pytest_cache/
 .idea/
 .vscode/
+
+.history-evidence/
