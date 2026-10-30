@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Grid maintenance observation, never authorization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "head",
+    "tree",
+    "run_id",
+    "node",
+    "scope",
+    "observed_utc",
+    "checks",
+    "execute",
+    "cleanup",
+    "deployment"
+  ],
+  "properties": {
+    "schema": {
+      "const": "grid-maintenance-1"
+    },
+    "head": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "tree": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "node": {
+      "enum": [
+        "LS5",
+        "PC4"
+      ]
+    },
+    "scope": {
+      "enum": [
+        "SYNTHETIC_OFFLINE",
+        "UNATTESTED_READ_ONLY"
+      ]
+    },
+    "observed_utc": {
+      "type": "string",
+      "maxLength": 40,
+      "pattern": "Z$"
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directories",
+        "firewall",
+        "host",
+        "package",
+        "postgres",
+        "python",
+        "resources",
+        "services",
+        "source",
+        "ssh",
+        "tailscale",
+        "tasks",
+        "token"
+      ],
+      "properties": {
+        "directories": {
+          "$ref": "#/$defs/gate"
+        },
+        "firewall": {
+          "$ref": "#/$defs/gate"
+        },
+        "host": {
+          "$ref": "#/$defs/gate"
+        },
+        "package": {
+          "$ref": "#/$defs/gate"
+        },
+        "postgres": {
+          "$ref": "#/$defs/gate"
+        },
+        "python": {
+          "$ref": "#/$defs/gate"
+        },
+        "resources": {
+          "$ref": "#/$defs/gate"
+        },
+        "services": {
+          "$ref": "#/$defs/gate"
+        },
+        "source": {
+          "$ref": "#/$defs/gate"
+        },
+        "ssh": {
+          "$ref": "#/$defs/gate"
+        },
+        "tailscale": {
+          "$ref": "#/$defs/gate"
+        },
+        "tasks": {
+          "$ref": "#/$defs/gate"
+        },
+        "token": {
+          "$ref": "#/$defs/gate"
+        }
+      }
+    },
+    "execute": {
+      "const": false
+    },
+    "cleanup": {
+      "const": false
+    },
+    "deployment": {
+      "const": "NO-GO"
+    }
+  },
+  "$defs": {
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason",
+        "data"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "BLOCKED"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]{1,100}$"
+        },
+        "data": {
+          "type": "array",
+          "maxItems": 2000,
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}
