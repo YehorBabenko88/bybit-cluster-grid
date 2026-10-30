@@ -1,6 +1,6 @@
 import argparse,asyncio,json,os,sys,traceback
 from .config import settings
-from .db import Database
+from .service import prepare_database
 from .ml_artifact_store import LocalArtifactStore
 from .ml_boost_backend import TabularBoostBackend
 from .ml_training_worker import TrainingWorker
@@ -18,7 +18,7 @@ async def train_job(job):
     hp=dict(payload.get("hyperparameters") or {})
     # Resource controls are not model hyperparameters and cannot inject commands.
     threads=max(1,min(int(payload.get("threads",1)),int(os.cpu_count() or 1)))
-    db=Database();await db.connect()
+    db=await prepare_database()
     try:
         worker=TrainingWorker(
             db.pool,TabularBoostBackend(backend_name,threads=threads,

@@ -32,7 +32,6 @@ async def set_runtime_state(pool,state,requested_by,reason=None):
     state=str(state).upper()
     if state not in VALID_STATES:
         raise ValueError("invalid runtime state")
-    await ensure_runtime_gate(pool)
     await pool.execute("""UPDATE grid_runtime_state
       SET state=$1,requested_by=$2,reason=$3,updated_at=now()
       WHERE singleton=true""",state,str(requested_by),reason)

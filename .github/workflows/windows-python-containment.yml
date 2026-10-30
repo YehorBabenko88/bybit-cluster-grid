@@ -1,0 +1,257 @@
+name: windows-python-native-containment
+on:
+  pull_request:
+    paths: ['installer/native-python-containment/**', 'installer/native-g1-controller-fixture/**', 'integration/windows_python_probe.py', 'integration/python_containment_evidence.py', 'integration/transport_provenance.py', 'integration/wfp_events.py', 'tests/test_transport_provenance.py', 'tests/test_wfp_events.py', 'tests/test_wfp_collection_receipt.py', 'integration/windows_transport_probe.py', 'integration/windows_pipe_probe.py', 'integration/pipe_probe_protocol.py', 'integration/isolated_transport_evidence.py', 'integration/pipe_dacl_evidence.py', 'tests/test_pipe_dacl_evidence.py', 'tests/test_isolated_transport_witnesses.py', 'tests/test_windows_transport_probe.py', 'tests/test_pipe_probe_protocol.py', 'tests/test_isolated_transport_evidence.py', 'tests/test_transport_reproducer_bundle.py', 'tests/test_connect_observation_preservation.py', 'tools/transport_reproducer_bundle.py', 'tools/python_containment_bundle.py', 'tests/test_python_containment_*.py', '.github/workflows/windows-python-containment.yml']
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  python-containment:
+    if: ${{ (github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021') && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022' }}
+    runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+        python: ['3.11', '3.12']
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    env:
+      EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -r integration/requirements-first-boot.txt
+      - name: Build measured CPython/dependencies/source closure; never execute here
+        run: |
+          $ErrorActionPreference='Stop'
+          if((& git rev-parse HEAD) -ne $env:EXACT_HEAD_SHA){throw 'CHECKOUT_HEAD_MISMATCH'}
+          python -m tools.python_containment_bundle
+          if($LASTEXITCODE -ne 0){throw 'PYTHON_INPUT_FAILED'}
+          New-Item -ItemType Directory python-containment-evidence | Out-Null
+          Copy-Item -LiteralPath python-input/manifest.json -Destination python-containment-evidence/input.json
+          python -m pip freeze > python-containment-evidence/dependencies.txt
+      - name: Compile native boundary with closed source list and checkout checks
+        id: native_build
+        run: |
+          python -c "import os;from tools.check_ddl_free_ci import verify_checkout,ROOT;verify_checkout(ROOT,os.environ['EXACT_HEAD_SHA'])"
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_SOURCE_PRECHECK_FAILED'}
+          dotnet build installer/native-python-containment/NativePythonContainment.csproj -c Release --no-incremental --nologo -p:ImportDirectoryBuildProps=false -p:ImportDirectoryBuildTargets=false
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_COMPILE_FAILED'}
+          python -c "import os;from tools.check_ddl_free_ci import verify_checkout,ROOT;verify_checkout(ROOT,os.environ['EXACT_HEAD_SHA'])"
+          if($LASTEXITCODE -ne 0){throw 'NATIVE_SOURCE_POSTCHECK_FAILED'}
+      - name: Read-only hosted WFP and loopback diagnostics; never policy changes
+        if: always()
+        run: |
+          $ErrorActionPreference='Stop'
+          if(!(Test-Path -LiteralPath python-containment-evidence)){New-Item -ItemType Directory python-containment-evidence|Out-Null}
+          $facts=[ordered]@{assurance='DIAGNOSTIC_ONLY_NOT_EFFECTIVE_WFP_PROOF';head=$env:EXACT_HEAD_SHA;run_id=$env:GITHUB_RUN_ID;attempt=$env:GITHUB_RUN_ATTEMPT;status='BLOCKED';services=@();profiles=@();loopback_output=@();loopback_exit=$null}
+          try{
+            $facts.services=@(Get-Service BFE,MpsSvc|ForEach-Object{@{name=$_.Name;status=[string]$_.Status}})
+            $facts.profiles=@(Get-NetFirewallProfile|ForEach-Object{@{name=$_.Name;enabled=[string]$_.Enabled;inbound=[string]$_.DefaultInboundAction;outbound=[string]$_.DefaultOutboundAction}})
+            $facts.loopback_output=@(& "$env:SystemRoot/System32/CheckNetIsolation.exe" LoopbackExempt -s)
+            $facts.loopback_exit=$LASTEXITCODE
+            if($LASTEXITCODE -eq 0){$facts.status='OBSERVED_NOT_ATTESTED'}
+          }catch{$facts.status='BLOCKED'}
+          [IO.File]::WriteAllText((Join-Path $PWD 'python-containment-evidence/network-host.json'),($facts|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
+      - name: Hosted WFP logging model checks
+        run: |
+          & ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-wfp-model-tests | Set-Content -Encoding UTF8 python-containment-evidence/wfp-model.json
+          if($LASTEXITCODE -ne 0){throw 'WFP_COLLECTION_MODEL_FAILED'}
+      - name: Enable only diagnostic collection on this disposable hosted VM
+        id: wfp_enable
+        run: |
+          & ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-wfp-collection-enable | Set-Content -Encoding UTF8 python-containment-evidence/wfp-enable.json
+          if($LASTEXITCODE -ne 0){throw 'WFP_COLLECTION_ENABLE_BLOCKED'}
+      - name: Real CPython and Grid negative lifecycle in own AppContainer only
+        run: |
+          $ErrorActionPreference='Stop'
+          $rows=@(& ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-python-tests)
+          $result=$LASTEXITCODE
+          if($rows.Count -eq 1){[IO.File]::WriteAllText((Join-Path $PWD 'python-containment-evidence/native.json'),($rows -join "`n"),[Text.UTF8Encoding]::new($false))}
+          if($rows.Count -ne 1 -or $result -ne 0){$rows|Write-Output;throw 'PYTHON_BOUNDARY_FAILED'}
+      - name: Same OS boundary without debugger; diagnostic comparison is not substitute acceptance
+        if: ${{ always() && steps.native_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory python-undebugged-evidence | Out-Null
+          Copy-Item -LiteralPath python-containment-evidence/input.json -Destination python-undebugged-evidence/input.json
+          Copy-Item -LiteralPath python-containment-evidence/network-host.json -Destination python-undebugged-evidence/network-host.json
+          $rows=@(& ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-python-undebugged-tests)
+          $result=$LASTEXITCODE
+          if($rows.Count -eq 1){[IO.File]::WriteAllText((Join-Path $PWD 'python-undebugged-evidence/native.json'),($rows -join "`n"),[Text.UTF8Encoding]::new($false))}
+          if($rows.Count -ne 1 -or $result -ne 0){throw 'UNDEBUGGED_BOUNDARY_BLOCKED'}
+      - name: Export existing WFP events read-only; never enable collection or modify filters
+        if: ${{ always() && steps.native_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $raw=Join-Path $env:RUNNER_TEMP ('wfp-'+[guid]::NewGuid().ToString('D')+'.xml')
+          $exportResult=$null
+          try{$ignored=@(& "$env:SystemRoot/System32/netsh.exe" wfp show netevents ("file="+$raw) 2>&1);$exportResult=$LASTEXITCODE}catch{}
+          $env:WFP_EXPORT_EXIT=[string]$exportResult
+          python -m integration.wfp_events python-containment-evidence $raw
+          if($LASTEXITCODE -ne 0){throw 'WFP_DIAGNOSTIC_FAILED'}
+      - name: Restore observed logging state only after complete owned enable record
+        if: ${{ always() && steps.wfp_enable.outcome == 'success' }}
+        run: |
+          & ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-wfp-collection-restore | Set-Content -Encoding UTF8 python-containment-evidence/wfp-restore.json
+          if($LASTEXITCODE -ne 0){throw 'WFP_RESTORE_UNCERTAIN_VM_TEARDOWN_REQUIRED'}
+      - name: Build stock-only independent payloads without Grid or site-packages
+        id: minimal_build
+        if: ${{ always() && steps.native_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          python -m tools.transport_reproducer_bundle
+          if($LASTEXITCODE -ne 0){throw 'STOCK_TRANSPORT_INPUT_FAILED'}
+          python -m tools.transport_reproducer_bundle --pipe-prototype
+          if($LASTEXITCODE -ne 0){throw 'STOCK_PIPE_INPUT_FAILED'}
+      - name: Prepare distinct diagnostic directories and measured native binaries
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($folder in @('transport-debugged-evidence','transport-undebugged-evidence','pipe-debugged-evidence','pipe-undebugged-evidence')){
+            New-Item -ItemType Directory $folder | Out-Null
+            $inputName=if($folder.StartsWith('pipe-')){'pipe-input'}else{'transport-input'}
+            Copy-Item -LiteralPath (Join-Path $inputName 'manifest.json') -Destination (Join-Path $folder 'input.json')
+            foreach($suffix in @('.exe','.dll','.deps.json','.runtimeconfig.json')){
+              Copy-Item -LiteralPath ("installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment"+$suffix) -Destination (Join-Path $folder ("NativePythonContainment"+$suffix))
+            }
+          }
+      - name: Read-only ETW provider metadata inventory; no trace session or packet capture
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $rows=@()
+          foreach($name in @('Microsoft-Windows-WFP','Microsoft-Windows-TCPIP','Microsoft-Windows-Winsock-AFD')){
+            try{
+              $p=Get-WinEvent -ListProvider $name -ErrorAction Stop
+              $events=@($p.Events)
+              $rows+=@{name=$name;id=$p.Id.ToString('D');status='METADATA_ONLY_NOT_CAUSAL_PROOF';event_count=$events.Count;event_ids=@($events|Select-Object -First 128|ForEach-Object{@{id=$_.Id;version=$_.Version}});truncated=($events.Count -gt 128)}
+            }catch{$rows+=@{name=$name;status='BLOCKED';reason=$_.Exception.GetType().Name}}
+          }
+          $facts=[ordered]@{schema=1;head=$env:EXACT_HEAD_SHA;run_id=$env:GITHUB_RUN_ID;attempt=$env:GITHUB_RUN_ATTEMPT;status='BLOCKED';policy_cause='UNKNOWN';etw_session_started=$false;causal_events_collected=$false;host_verified=$false;execute_authorized=$false;cleanup_authorized=$false;providers=$rows}
+          $raw=$facts|ConvertTo-Json -Depth 8
+          foreach($folder in @('transport-debugged-evidence','transport-undebugged-evidence','pipe-debugged-evidence','pipe-undebugged-evidence')){
+            [IO.File]::WriteAllText((Join-Path $PWD "$folder/transport-host.json"),$raw,[Text.UTF8Encoding]::new($false))
+          }
+      - name: Grid-free TCP reproducer debugged; UNKNOWN is still BLOCKED
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $folder='transport-debugged-evidence'
+          $rows=@(& ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-transport-debugged)
+          $code=$LASTEXITCODE
+          if($rows.Count -ne 1){throw 'MINIMAL_NATIVE_OUTPUT_SHAPE'}
+          [IO.File]::WriteAllText((Join-Path $PWD "$folder/native.json"),($rows -join "`n"),[Text.UTF8Encoding]::new($false))
+          if($code -ne 1){throw 'MINIMAL_UNEXPECTED_AUTHORITY_OR_EXIT'}
+          python -m integration.isolated_transport_evidence $folder
+          if($LASTEXITCODE -ne 0){throw 'MINIMAL_OBSERVATION_INCOMPLETE'}
+      - name: Grid-free TCP reproducer undebugged; no loader proof substitution
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $folder='transport-undebugged-evidence'
+          $rows=@(& ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-transport-undebugged)
+          $code=$LASTEXITCODE
+          if($rows.Count -ne 1){throw 'MINIMAL_NATIVE_OUTPUT_SHAPE'}
+          [IO.File]::WriteAllText((Join-Path $PWD "$folder/native.json"),($rows -join "`n"),[Text.UTF8Encoding]::new($false))
+          if($code -ne 1){throw 'MINIMAL_UNEXPECTED_AUTHORITY_OR_EXIT'}
+          python -m integration.isolated_transport_evidence $folder
+          if($LASTEXITCODE -ne 0){throw 'MINIMAL_OBSERVATION_INCOMPLETE'}
+      - name: Explicit one-way FIXED_PING pipe prototype debugged; not Grid transport approval
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $folder='pipe-debugged-evidence'
+          $rows=@(& ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-pipe-debugged)
+          $code=$LASTEXITCODE
+          if($rows.Count -ne 1){throw 'PIPE_NATIVE_OUTPUT_SHAPE'}
+          [IO.File]::WriteAllText((Join-Path $PWD "$folder/native.json"),($rows -join "`n"),[Text.UTF8Encoding]::new($false))
+          if($code -ne 1){throw 'PIPE_UNEXPECTED_AUTHORITY_OR_EXIT'}
+          python -m integration.isolated_transport_evidence $folder
+          if($LASTEXITCODE -ne 0){throw 'PIPE_OBSERVATION_INCOMPLETE'}
+      - name: Explicit one-way FIXED_PING pipe prototype undebugged; not fallback
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $folder='pipe-undebugged-evidence'
+          $rows=@(& ./installer/native-python-containment/bin/Release/net8.0-windows/NativePythonContainment.exe --hosted-pipe-undebugged)
+          $code=$LASTEXITCODE
+          if($rows.Count -ne 1){throw 'PIPE_NATIVE_OUTPUT_SHAPE'}
+          [IO.File]::WriteAllText((Join-Path $PWD "$folder/native.json"),($rows -join "`n"),[Text.UTF8Encoding]::new($false))
+          if($code -ne 1){throw 'PIPE_UNEXPECTED_AUTHORITY_OR_EXIT'}
+          python -m integration.isolated_transport_evidence $folder
+          if($LASTEXITCODE -ne 0){throw 'PIPE_OBSERVATION_INCOMPLETE'}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() && steps.minimal_build.outcome == 'success' }}
+        with:
+          name: isolated-transport-${{ matrix.shell }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            transport-debugged-evidence/
+            transport-undebugged-evidence/
+            pipe-debugged-evidence/
+            pipe-undebugged-evidence/
+          if-no-files-found: error
+      - name: Create strict primary receipt only after all mandatory steps succeed
+        run: |
+          python -m integration.python_containment_evidence create python-containment-evidence $env:EXACT_HEAD_SHA $env:GITHUB_RUN_ID $env:GITHUB_RUN_ATTEMPT
+          if($LASTEXITCODE -ne 0){throw 'PYTHON_BOUNDARY_RECEIPT_FAILED'}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: python-undebugged-${{ matrix.shell }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: python-undebugged-evidence/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: python-boundary-${{ matrix.shell }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: python-containment-evidence/
+          if-no-files-found: error
+  required-python-containment:
+    if: ${{ always() && !cancelled() && (github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021') && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022' }}
+    needs: [python-containment]
+    runs-on: ubuntu-latest
+    env:
+      EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - env:
+          RESULT: ${{ needs.python-containment.result }}
+        run: test "$RESULT" = success
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: python-boundary-*-${{ github.event.pull_request.head.sha || github.sha }}
+          path: downloaded-python-boundary
+      - name: Reinspect all four complete original receipts
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from integration.python_containment_evidence import receipt
+          folders=list(Path('downloaded-python-boundary').glob('*'))
+          if len(folders)!=4:raise RuntimeError('MISSING_PYTHON_MATRIX_ARTIFACT')
+          for folder in folders:
+              result=receipt(folder,os.environ['EXACT_HEAD_SHA'],os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'])
+              if result['tests']!=17:raise RuntimeError('PYTHON_BOUNDARY_CASES_MISSING')
+          PY

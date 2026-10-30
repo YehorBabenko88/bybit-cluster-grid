@@ -1,0 +1,96 @@
+{
+  "schema": "grid-physical-plan-1",
+  "candidate_head": "0000000000000000000000000000000000000000",
+  "run_id": "00000000000000000000000000000000",
+  "permissions": {
+    "cleanup": false,
+    "deployment": false,
+    "execute": false,
+    "production_database": false,
+    "schema2": false
+  },
+  "nodes": {
+    "LS5": {
+      "role": "CONTROL",
+      "address": null,
+      "root": "C:\\GridLab\\FirstBoot\\00000000000000000000000000000000\\LS5"
+    },
+    "PC4": {
+      "role": "WORKER",
+      "address": null,
+      "root": "C:\\GridLab\\FirstBoot\\00000000000000000000000000000000\\PC4"
+    }
+  },
+  "ports": {
+    "api": 29441,
+    "postgres": 29442,
+    "synthetic": 29443,
+    "worker_tunnel": 29444
+  },
+  "isolation": {
+    "api_bind": "127.0.0.1",
+    "postgres_bind": "127.0.0.1",
+    "postgres_instance": "new_disposable",
+    "network_isolation": "INDEPENDENT_OS_POLICY_REQUIRED",
+    "remote_transport": "EXISTING_APPROVED_SSH_TUNNEL"
+  },
+  "market": "SYNTHETIC_LOOPBACK_ONLY",
+  "postgres_version_num": 180004,
+  "migrations": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48
+  ],
+  "roles": {
+    "owner": "grid_lab_00000000000000000000000000000000_owner",
+    "app": "grid_lab_00000000000000000000000000000000_app",
+    "readonly": "grid_lab_00000000000000000000000000000000_readonly"
+  },
+  "executor": null,
+  "cleanup": "RETAIN_UNLESS_SEPARATELY_AUTHORIZED_AND_HANDLE_VERIFIED"
+}

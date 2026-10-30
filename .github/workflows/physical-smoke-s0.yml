@@ -1,0 +1,163 @@
+name: physical-smoke-s0-preparation
+on:
+  pull_request:
+    paths: ['s0_smoke/**', 'tests/test_s0_*.py', 'tools/*s0*.py', 'installer/physical-smoke-s0.ps1', 'installer/physical-smoke-s0-bootstrap.ps1', 'installer/physical-smoke-s0/**', 'installer/physical-smoke-s0-tests/**', 'docs/PHYSICAL_SMOKE_S0_USERPROFILE_V1.md', 'docs/LS5_S0_CAPABILITY_SID_REVIEW.md', 'docs/PHYSICAL_SMOKE_S0.md', 'docs/PHYSICAL_SMOKE_S0_BOOTSTRAP_COMMANDS.md', 'docs/PHYSICAL_SMOKE_S0_INDEPENDENT_ACCEPTANCE.md', 'integration/s0_inventory.json', '.github/workflows/physical-smoke-s0.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: s0-preparation-${{ github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+jobs:
+  s0-offline:
+    if: ${{ (true) && github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021' && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12']
+    env:
+      EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -r integration/requirements-first-boot.txt
+      - run: python -m tools.check_s0_ci offline
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: s0-offline-${{ matrix.os }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: s0-results/
+          if-no-files-found: error
+  s0-windows:
+    if: ${{ (true) && github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021' && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022' }}
+    runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+        python: ['3.11', '3.12']
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    env:
+      EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      S0_HOSTED_TESTS: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -r integration/requirements-first-boot.txt
+      - name: Bind exact tree, parse dispatcher, and collect dependency inventory
+        run: |
+          $ErrorActionPreference='Stop'
+          if((& git rev-parse HEAD) -cne $env:EXACT_HEAD_SHA){throw 'S0_HEAD_MISMATCH'}
+          "EXACT_TREE_SHA=$(& git rev-parse 'HEAD^{tree}')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $testShell=[Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+          $testMajor=[int]$PSVersionTable.PSVersion.Major
+          if($testMajor -notin @(5,7)){throw 'S0_TEST_SHELL_VERSION'}
+          "S0_TEST_SHELL_PATH=$testShell" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "S0_TEST_SHELL_MAJOR=$testMajor" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "S0_TEST_SHELL_SHA=$((Get-FileHash -LiteralPath $testShell -Algorithm SHA256).Hash.ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $tokens=$null;$errors=$null
+          [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'installer/physical-smoke-s0.ps1'),[ref]$tokens,[ref]$errors)
+          if($errors.Count){throw 'S0_POWERSHELL_SYNTAX'}
+          [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'installer/physical-smoke-s0-bootstrap.ps1'),[ref]$tokens,[ref]$errors)
+          if($errors.Count){throw 'S0_BOOTSTRAP_POWERSHELL_SYNTAX'}
+          & installer/physical-smoke-s0-tests/test-timeout-policy.ps1
+          $localAppData=[Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+          if([string]::IsNullOrWhiteSpace($localAppData) -or [IO.Path]::GetPathRoot($localAppData) -ine 'C:\'){throw 'S0_LOCAL_APP_DATA_C_REQUIRED'}
+          $nativeBuildRoot=Join-Path $localAppData ('s0-native-build-'+[Guid]::NewGuid().ToString('D'))
+          "S0_LOCAL_APP_DATA_ROOT=$localAppData" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "S0_NATIVE_BUILD_ROOT=$nativeBuildRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          New-Item -ItemType Directory s0-results | Out-Null
+          python -m pip freeze | Out-File -Encoding utf8 s0-results/dependencies.txt
+      - name: Actual loopback mTLS and synthetic market components; own Windows fixture only
+        run: |
+          python -m tools.check_s0_ci hosted
+          if($LASTEXITCODE -ne 0){throw 'S0_HOSTED_FIXTURE_FAILED'}
+      - name: Record control interpreter; canonical portable remains Python3.12
+        run: python -c "import sys;print(sys.version)"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r integration/requirements-first-boot.txt
+      - name: Compile reviewed S0 host and disposable-only fixture without physical compiler
+        run: |
+          $ErrorActionPreference='Stop'
+          python -c "import os,socket;from tools.build_s0_package import require_hosted,hosted_native_build_root,create_hosted_root;require_hosted(os.environ,socket.gethostname());from s0_smoke.windows import current_identity;create_hosted_root(hosted_native_build_root(),current_identity().sid)"
+          if($LASTEXITCODE -ne 0){throw 'S0_NATIVE_FRESH_ROOT_FAILED'}
+          $compiler = @'
+          $ErrorActionPreference='Stop'
+          $nativeDll=Join-Path $env:S0_NATIVE_BUILD_ROOT 'S0Launcher.dll'
+          Add-Type -Path @('installer/physical-smoke-s0/S0Launcher.cs','installer/physical-smoke-s0/S0Bootstrap.cs','installer/physical-smoke-s0/TokenObserver.cs','installer/physical-smoke-s0/S0Inputs.cs','installer/physical-smoke-s0/S0Transfer.cs','installer/physical-smoke-s0/S0TransferExport.cs','installer/physical-smoke-s0/S0TransferTransport.cs','installer/physical-smoke-s0/S0UserProfile.cs') -ReferencedAssemblies @('System.dll','System.Core.dll','System.Security.dll','System.IO.Compression.dll') -OutputAssembly $nativeDll -OutputType Library
+          Add-Type -Path @('installer/physical-smoke-s0-tests/Fixture.cs','installer/physical-smoke-s0-tests/BootstrapTests.cs','installer/physical-smoke-s0-tests/InputTests.cs','installer/physical-smoke-s0-tests/TransferTests.cs','installer/physical-smoke-s0-tests/TransferExportTests.cs','installer/physical-smoke-s0-tests/TransferTransportTests.cs','installer/physical-smoke-s0-tests/UserProfileTests.cs') -ReferencedAssemblies ($nativeDll,'System.dll','System.Core.dll','System.Security.dll','System.IO.Compression.dll') -OutputAssembly (Join-Path $env:S0_NATIVE_BUILD_ROOT 'Fixture.exe') -OutputType ConsoleApplication
+          Add-Type -Path @('installer/physical-smoke-s0-tests/TokenObserverFixture.cs','installer/physical-smoke-s0-tests/TokenObserverTests.cs') -ReferencedAssemblies ($nativeDll,'System.dll','System.Core.dll','System.Security.dll') -OutputAssembly (Join-Path $env:S0_NATIVE_BUILD_ROOT 'TokenObserverFixture.exe') -OutputType ConsoleApplication
+          '@
+          $compiler | & "$env:SystemRoot/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -NonInteractive -Command -
+          if($LASTEXITCODE -ne 0){throw 'S0_NATIVE_COMPILER_FAILED'}
+      - name: Build inert public package without keys or physical host pins
+        run: |
+          python -m tools.build_s0_package
+          if($LASTEXITCODE -ne 0){throw 'S0_PACKAGE_BUILD_FAILED'}
+      - name: Verify portable runtime and PlanOnly; no physical Execute
+        run: |
+          python -m tools.verify_s0_portable_ci
+          if($LASTEXITCODE -ne 0){throw 'S0_PORTABLE_PLAN_FAILED'}
+      - name: Read-only public Bybit diagnostic from hosted runner; BLOCKED stays BLOCKED
+        run: |
+          python -m tools.probe_s0_public_ci
+          if($LASTEXITCODE -ne 0){throw 'S0_PUBLIC_DIAGNOSTIC_COLLECTION_FAILED'}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: physical-smoke-s0-${{ matrix.shell }}-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            s0-package/
+            s0-results/
+          if-no-files-found: error
+  required-s0-preparation:
+    if: ${{ always() && ((true) && github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021' && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022') }}
+    needs: [s0-offline, s0-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: No skipped or failed required preparation jobs
+        env:
+          OFFLINE: ${{ needs.s0-offline.result }}
+          WINDOWS: ${{ needs.s0-windows.result }}
+        run: |
+          test "$OFFLINE" = success
+          test "$WINDOWS" = success
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r integration/requirements-first-boot.txt
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: '*s0-*-${{ github.event.pull_request.head.sha || github.sha }}'
+          path: s0-downloaded
+      - name: Independently check downloaded exact-run receipts and package hashes
+        env:
+          EXACT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python -m tools.verify_s0_artifacts_ci s0-downloaded

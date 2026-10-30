@@ -1,0 +1,472 @@
+{
+  "schema": 1,
+  "base": "7df22d1c5cdc60bcf4e3414dacd35d23fdec7149",
+  "prs": [
+    {
+      "pr": 227,
+      "head": "da69209af86567232fb3038a899580fe2e061a0b",
+      "branch": "audit/ddl-free-runtime-pg18-20261022"
+    },
+    {
+      "pr": 229,
+      "head": "62e3e180da35fc8d6eb6c11ec1f0bf2d04f93cd7",
+      "branch": "audit/ddl-free-ci-coverage-20261023"
+    },
+    {
+      "pr": 230,
+      "head": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "branch": "audit/pr227-adversarial-20261023"
+    },
+    {
+      "pr": 237,
+      "head": "e25197b169ef0e5f37b5bd0030ee4a97b13965e2",
+      "branch": "audit/ls5-acl-remediation-20261023"
+    },
+    {
+      "pr": 238,
+      "head": "7df22d1c5cdc60bcf4e3414dacd35d23fdec7149",
+      "branch": "design/ls5-native-custody-20261024"
+    },
+    {
+      "pr": 239,
+      "head": "ec2f635f1802ed4d0f3bbb6341d5f2d570a4cf25",
+      "branch": "parallel/ls5-trusted-bootstrap-20261024",
+      "previous_frozen_head": "fd48312b80cfa81e966ab40705b8c8d613d15bea"
+    },
+    {
+      "pr": 240,
+      "head": "3bb49c2c99dc461aec52f014432511e1fd694a28",
+      "branch": "parallel/ls5-postgres-readiness-20261024",
+      "previous_frozen_head": "da9ebeaded04319e030462219887e879ab32674b"
+    },
+    {
+      "pr": 241,
+      "head": "28ac9672d39ec644278feb4a0cbd2edec56876f8",
+      "branch": "parallel/ls5-network-preflight-20261024",
+      "previous_frozen_head": "cd51db5bf837890a79d60ea089ec5bd9bc332600"
+    },
+    {
+      "pr": 242,
+      "head": "9bb27867aa33fdddadc24aa3f3f4ea4a67218a7c",
+      "branch": "parallel/ls5-physical-acceptance-20261024",
+      "previous_frozen_head": "8f52cf50bbfeda82aa99cb9f00956c6c2e7df8ba"
+    }
+  ],
+  "composition": [
+    {
+      "path": "docs/PC4_DDL_FREE_INTEGRATION_RUNBOOK.md",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "docs/PR227_ADVERSARIAL_ACCEPTANCE.md",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/bootstrap_runtime.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/coordinator.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/db.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/fleet_control.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/legacy_bootstrap_import.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/ml_compute_entry.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/rollout.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/runtime_gate.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/schema_contract.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/schema_preparation.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/service.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/storage.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "grid/strategy_runtime.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "planning/pc4-pg18/00_readonly.sql",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "planning/pc4-pg18/10_bootstrap.sql",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "planning/pc4-pg18/20_privileges.sql",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "planning/pc4-pg18/30_rollback.sql",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "planning/pc4-pg18/_context.sql",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "planning/pc4-pg18/_owned.sql",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "planning/pc4-pg18/migrations.json",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/_pg18_database.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/fixtures/ddl_offline_inventory.json",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/fixtures/ddl_pg18_inventory.json",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/fixtures/pc4_pg18_plan_inventory.json",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/fixtures/pr227_adversarial_inventory.json",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/test_auxiliary_writer_lifecycle.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/test_ddl_acceptance.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/test_ddl_free_pg18.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/test_ddl_free_startup.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/test_pc4_pg18_plan.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/test_pg18_ci_isolation.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/test_pr227_adversarial_pg18.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/test_pr227_authorization_boundary.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/test_pr227_checkout.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tests/test_retention_bootstrap_regression.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tools/check_ddl_acceptance.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tools/check_ddl_free_ci.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tools/check_pr227_adversarial_ci.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tools/ci_pg18.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": "tools/verify_pr227_original_evidence.py",
+      "source": "bb224dc73bcac71aba2807b4ca85a9adca314b3d",
+      "conflict": false,
+      "decision": "selected profile source"
+    },
+    {
+      "path": ".github/workflows/ls5-trusted-bootstrap-offline.yml",
+      "source": "fd48312b80cfa81e966ab40705b8c8d613d15bea",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "docs/LS5_TRUSTED_BOOTSTRAP.md",
+      "source": "fd48312b80cfa81e966ab40705b8c8d613d15bea",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "docs/LS5_TRUSTED_SOURCE_HANDOFF.md",
+      "source": "fd48312b80cfa81e966ab40705b8c8d613d15bea",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "installer/ls5_bootstrap_ci_evidence.py",
+      "source": "fd48312b80cfa81e966ab40705b8c8d613d15bea",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "installer/trusted_bootstrap.py",
+      "source": "fd48312b80cfa81e966ab40705b8c8d613d15bea",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "tests/test_ls5_bootstrap_ci_evidence.py",
+      "source": "fd48312b80cfa81e966ab40705b8c8d613d15bea",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "tests/test_ls5_trusted_bootstrap.py",
+      "source": "fd48312b80cfa81e966ab40705b8c8d613d15bea",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": ".github/workflows/ls5-postgres-readiness-offline.yml",
+      "source": "da9ebeaded04319e030462219887e879ab32674b",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": ".github/workflows/ls5-postgres18-disposable.yml",
+      "source": "da9ebeaded04319e030462219887e879ab32674b",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "docs/LS5_POSTGRES_18_READINESS.md",
+      "source": "da9ebeaded04319e030462219887e879ab32674b",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "installer/ls5_pg_readiness.py",
+      "source": "da9ebeaded04319e030462219887e879ab32674b",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "tests/test_ls5_pg18_disposable.py",
+      "source": "da9ebeaded04319e030462219887e879ab32674b",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "tests/test_ls5_pg18_restore.py",
+      "source": "da9ebeaded04319e030462219887e879ab32674b",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "tests/test_ls5_pg_evidence_integrity.py",
+      "source": "da9ebeaded04319e030462219887e879ab32674b",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "tests/test_ls5_pg_readiness.py",
+      "source": "da9ebeaded04319e030462219887e879ab32674b",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": ".github/workflows/ls5-network-offline.yml",
+      "source": "cd51db5bf837890a79d60ea089ec5bd9bc332600",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "docs/LS5_NETWORK_READINESS.md",
+      "source": "cd51db5bf837890a79d60ea089ec5bd9bc332600",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "installer/ls5_network_offline.py",
+      "source": "cd51db5bf837890a79d60ea089ec5bd9bc332600",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "tests/test_ls5_network_offline.py",
+      "source": "cd51db5bf837890a79d60ea089ec5bd9bc332600",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "tools/collect_ls5_network_readonly.ps1",
+      "source": "cd51db5bf837890a79d60ea089ec5bd9bc332600",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": ".github/workflows/ls5-physical-acceptance-offline.yml",
+      "source": "8f52cf50bbfeda82aa99cb9f00956c6c2e7df8ba",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "docs/LS5_PHYSICAL_ACCEPTANCE_MATRIX.md",
+      "source": "8f52cf50bbfeda82aa99cb9f00956c6c2e7df8ba",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "installer/ls5_physical_acceptance.py",
+      "source": "8f52cf50bbfeda82aa99cb9f00956c6c2e7df8ba",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    },
+    {
+      "path": "tests/test_ls5_physical_acceptance.py",
+      "source": "8f52cf50bbfeda82aa99cb9f00956c6c2e7df8ba",
+      "conflict": false,
+      "decision": "disjoint reviewed profile file"
+    }
+  ],
+  "physical": "0/10 NOT_RUN",
+  "execute": "NOT_AUTHORIZED",
+  "cleanup": "NOT_AUTHORIZED",
+  "deployment": "NO-GO",
+  "integration_notes": [
+    "PR230 DDL workflow imported; PR229 narrower workflow superseded",
+    "Only selected runtime and disjoint profile paths; no complete-tree overlay",
+    "Integration-owned fixes recorded in docs/FULL_SYSTEM_FIRST_BOOT.md",
+    "Refreshed .github/workflows/ls5-trusted-bootstrap-offline.yml from ec2f635f1802ed4d0f3bbb6341d5f2d570a4cf25",
+    "Refreshed docs/LS5_CODEX_ISOLATED_WINDOWS_BOOTSTRAP.md from ec2f635f1802ed4d0f3bbb6341d5f2d570a4cf25",
+    "Refreshed installer/ls5_disposable_release_model.py from ec2f635f1802ed4d0f3bbb6341d5f2d570a4cf25",
+    "Refreshed tests/test_ls5_disposable_release_model.py from ec2f635f1802ed4d0f3bbb6341d5f2d570a4cf25",
+    "Refreshed docs/LS5_PG18_CODEX_DISPOSABLE_CONTRACT.md from 3bb49c2c99dc461aec52f014432511e1fd694a28",
+    "Refreshed docs/ISOLATED_AGENT_NETWORK_CONTRACT.md from 28ac9672d39ec644278feb4a0cbd2edec56876f8",
+    "Refreshed .github/workflows/ls5-physical-acceptance-offline.yml from 9bb27867aa33fdddadc24aa3f3f4ea4a67218a7c",
+    "Refreshed docs/LS5_E2E_INDEPENDENT_ACCEPTANCE.md from 9bb27867aa33fdddadc24aa3f3f4ea4a67218a7c",
+    "Refreshed installer/ls5_e2e_acceptance.py from 9bb27867aa33fdddadc24aa3f3f4ea4a67218a7c",
+    "Refreshed tests/test_ls5_e2e_acceptance.py from 9bb27867aa33fdddadc24aa3f3f4ea4a67218a7c"
+  ]
+}

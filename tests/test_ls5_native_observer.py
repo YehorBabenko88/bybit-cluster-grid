@@ -174,7 +174,7 @@ def tx_snapshot():
         target_observed=binding['Target'],current_descriptor=binding['New'],journal_base64=base64.b64encode(('\n'.join(lines)+'\n').encode()).decode())
 
 
-@pytest.mark.parametrize('fault',['none','journal-torn','journal-digest','identity','descriptor','replay','unexplained-rollback'])
+@pytest.mark.parametrize('fault',['none','journal-torn','journal-digest','identity','descriptor','replay','unexplained-rollback','auto-inherited-control-drift'])
 def test_transaction_snapshot_bytes_are_independently_checked(fault):
     import base64
     from installer.native_observer_ci import verify_snapshot
@@ -183,6 +183,9 @@ def test_transaction_snapshot_bytes_are_independently_checked(fault):
     if fault=='journal-digest':s['journal_base64']=base64.b64encode(base64.b64decode(s['journal_base64']).replace(b'PREPARED',b'VERIFIED')).decode()
     if fault=='identity':s['target_observed']={**s['target_observed'],'Volume':2}
     if fault=='descriptor':s['current_descriptor']='AAAA'
+    if fault=='auto-inherited-control-drift':
+        raw=bytearray(base64.b64decode(s['binding']['New']));raw[3]^=4
+        s['current_descriptor']=base64.b64encode(raw).decode()
     if fault=='replay':s['binding']={**s['binding'],'Attempt':'2'}
     if fault=='unexplained-rollback':s['current_descriptor']=s['binding']['Old']
     if fault=='none':verify_snapshot(s,'a'*40,'1','1')
@@ -270,3 +273,21 @@ def test_managed_receipt_rejects_extra_attestation():
     p=dict(schema=1,status='OFFLINE_TEST_PASS',cases=[],custody_authenticated=True,
            **{k:False for k in ['physical_attestation','host_verified','apply_authorized','execute_authorized','cleanup_authorized']})
     with pytest.raises(ValueError):verify_pure(p,[])
+
+
+def test_native_python_receipt_registers_with_real_pytest_hookspec():
+    from _pytest.config import PytestPluginManager
+    from installer.native_observer_ci import PythonReceipt
+    manager=PytestPluginManager()
+    receipt=PythonReceipt();manager.register(receipt)
+    from types import SimpleNamespace
+    manager.hook.pytest_runtest_logreport(report=SimpleNamespace(nodeid='fixture::ok',when='call',outcome='passed'))
+    assert receipt.calls==['fixture::ok'] and receipt.bad==[]
+
+def test_native_python_receipt_never_turns_skip_or_xfail_into_pass():
+    from installer.native_observer_ci import PythonReceipt
+    from types import SimpleNamespace
+    receipt=PythonReceipt()
+    receipt.pytest_runtest_logreport(SimpleNamespace(nodeid='skip',when='call',outcome='skipped'))
+    receipt.pytest_runtest_logreport(SimpleNamespace(nodeid='xfail',when='call',outcome='passed',wasxfail=True))
+    assert len(receipt.bad)==2 and receipt.calls==[]

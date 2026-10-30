@@ -1,0 +1,45 @@
+"""Pure builder policy tests: no native code, process/token or infrastructure effects."""
+import pytest
+from tools.python_containment_bundle import relative, hosted
+
+@pytest.mark.parametrize("name", ["../a", "a/../b", "/a", "C:/a", "a\\b", "A:ads", "a//b", "a/", "CON", "x/NUL.py", "x. ", "x\x00.py"])
+def test_alias_or_traversal_refused(name):
+    with pytest.raises(ValueError): relative(name)
+
+@pytest.mark.parametrize("name", ["python.exe", "DLLs/_socket.pyd", "Site/pkg/__init__.py", "Source/grid/coordinator.py"])
+def test_canonical_relative_path(name): assert relative(name)==name
+
+@pytest.mark.parametrize("changed", ["GITHUB_ACTIONS", "RUNNER_ENVIRONMENT", "GITHUB_REPOSITORY", "GITHUB_JOB", "EXACT_HEAD_SHA", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"])
+def test_hosted_context_missing_refused(monkeypatch,changed):
+    context=dict(GITHUB_ACTIONS="true",RUNNER_ENVIRONMENT="github-hosted",GITHUB_REPOSITORY="YehorBabenko88/bybit-cluster-grid",GITHUB_JOB="python-containment",EXACT_HEAD_SHA="a"*40,GITHUB_RUN_ID="12",GITHUB_RUN_ATTEMPT="1")
+    for k,v in context.items():monkeypatch.setenv(k,v)
+    monkeypatch.delenv(changed,raising=False)
+    with pytest.raises(ValueError):hosted()
+
+
+def test_windows_interior_space_is_not_an_alias():
+    name='Site/setuptools/_vendor/jaraco/text/Lorem ipsum.txt'
+    assert relative(name)==name
+
+@pytest.mark.parametrize('name',['CONIN$','x/CONOUT$','%TEMP%/x','x~1/a','x*/a','x/ads:name','x./a','x /a'])
+def test_win32_device_and_expansion_aliases_blocked(name):
+    with pytest.raises(ValueError):relative(name)
+
+
+def test_measured_setuptools_template_name_from_windows_ci():
+    name='Site/setuptools/script (dev).tmpl'
+    assert relative(name)==name
+
+
+def pe_image(subsystem):
+    b=bytearray(512);b[:2]=b'MZ';b[0x3c:0x40]=(64).to_bytes(4,'little');b[64:68]=b'PE\0\0';b[68:70]=(0x8664).to_bytes(2,'little');b[84:86]=(240).to_bytes(2,'little');b[88:90]=(0x20b).to_bytes(2,'little');b[156:158]=subsystem.to_bytes(2,'little');return bytes(b)
+
+@pytest.mark.parametrize('kind',[2,3])
+def test_pe_subsystem_is_measured_not_rewritten(kind):
+    from tools.python_containment_bundle import pe_subsystem
+    image=pe_image(kind);assert pe_subsystem(image)==kind
+
+@pytest.mark.parametrize('image',[b'',b'MZ',b'X'*512],ids=['empty','truncated','missing-signature'])
+def test_malformed_pe_refuses(image):
+    from tools.python_containment_bundle import pe_subsystem
+    with pytest.raises(ValueError):pe_subsystem(image)

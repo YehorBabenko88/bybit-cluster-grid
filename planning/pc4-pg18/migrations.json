@@ -1,0 +1,245 @@
+{
+  "source_base": "217904071394ab8a84e5a180822081ff8e25e1e9",
+  "catalogue": [
+    {
+      "version": 1,
+      "name": "baseline_jsonb_extensible",
+      "sql_sha256": "a723219a77cd88687fa246cae55c6fa6e8fd25b9184bf13cce72c776c6f1d5bc"
+    },
+    {
+      "version": 2,
+      "name": "market_microstructure_tables",
+      "sql_sha256": "9b7c2a2cf6a0a2c1677b2151927089319685b22833aea7244ac6ef7352251272"
+    },
+    {
+      "version": 3,
+      "name": "minute_data_quality",
+      "sql_sha256": "2ee0ed994b2e40b0423644e8884255a8a83c9b1904055bc316492eda4ec866ae"
+    },
+    {
+      "version": 4,
+      "name": "market_features_1m",
+      "sql_sha256": "1dfc9166b066e5d3b91c687dc9cd408cc4f97e066230c32e46954671c238d812"
+    },
+    {
+      "version": 5,
+      "name": "volatility_regime_columns",
+      "sql_sha256": "a4fdaaac8c06c30725a06f8c55e358cef4cc1cd804ea3ddd8de143dc370bfd5a"
+    },
+    {
+      "version": 6,
+      "name": "poc_lifecycle",
+      "sql_sha256": "7e474457f3b1cf55292dba51a0a40e117c897cb03a1300981a4c0c577ad30760"
+    },
+    {
+      "version": 7,
+      "name": "historical_level_events",
+      "sql_sha256": "4c51faa9ab48b452533f8c90cd248f09b56c76471664f1357eac68c3c8a6bb5d"
+    },
+    {
+      "version": 8,
+      "name": "historical_level_availability",
+      "sql_sha256": "f25ef1e416d49ba6f91aa2f807345203d607ba5e3daac2adb5ccbcb7da220d4b"
+    },
+    {
+      "version": 9,
+      "name": "level_event_idempotency",
+      "sql_sha256": "1a40b1751fa3440aa9037532e099de67a14fd24f6d31750e943e09335bfbdb76"
+    },
+    {
+      "version": 10,
+      "name": "observer_recovery_state",
+      "sql_sha256": "9989a40459da09aa5783c5879ed8cb02a267b63f04b1565ca0f2439690250206"
+    },
+    {
+      "version": 11,
+      "name": "ml_event_samples",
+      "sql_sha256": "417cf082f31febd93e29ba9b0d97f993c271bc744af2054e511aead7318979d6"
+    },
+    {
+      "version": 12,
+      "name": "ml_orchestrator_concurrency",
+      "sql_sha256": "db0a8d41df5efa8074fce013fd69bbfe0d155948075a7bcb0a08ea5c58052ddb"
+    },
+    {
+      "version": 13,
+      "name": "ml_artifact_lifecycle",
+      "sql_sha256": "add5feedc56cb42f82098f7dafac7a5542e96c0b9a29ad82de2920709e67535a"
+    },
+    {
+      "version": 14,
+      "name": "ml_lifecycle_registry",
+      "sql_sha256": "857fa2c7ed1c2bbbf59ee463f185142af73c39ab66d96ee2e706c19fdb7f8611"
+    },
+    {
+      "version": 15,
+      "name": "immutable_dataset_membership",
+      "sql_sha256": "bbac7d8d600dd9d80e474a6efe79c5833b459828a7bd420952247b442e08f4b7"
+    },
+    {
+      "version": 16,
+      "name": "consumer_safe_retention_and_control_state",
+      "sql_sha256": "c0c2beac2e8e837e3a3212c49630b6b622a18648f61549e6347e42be9db0b6c1"
+    },
+    {
+      "version": 17,
+      "name": "integrity_repair_state",
+      "sql_sha256": "0af9cb8dfcbe88934f09608d2de2d97d02770d3be7660dbab0b475e0bac9b3fa"
+    },
+    {
+      "version": 18,
+      "name": "ml_fencing_immutable_payloads_and_label_horizon",
+      "sql_sha256": "52679443f8a2c6fb78f783401a28c8dcee7589bbb8aafca582065ef2ee677bd9"
+    },
+    {
+      "version": 19,
+      "name": "ml_job_deduplication",
+      "sql_sha256": "56b0f8712b5bd2c03dd85351d0f202f7397b4c1aac55925b96f918084ff557b7"
+    },
+    {
+      "version": 20,
+      "name": "ml_resource_reservations",
+      "sql_sha256": "12adc9b1bc160455e2e74ab94339813634982703eee80b49a21ef22b7a29714f"
+    },
+    {
+      "version": 21,
+      "name": "markov_transition_edge_results",
+      "sql_sha256": "1bf77b264fef8c0dc16d1d05d28e9cc93272108f2431cc2a8277765714283a50"
+    },
+    {
+      "version": 22,
+      "name": "strategy_comparison_results",
+      "sql_sha256": "cd7d9a1d6e87ccfbe2d9f89cf634362e2e01def8c4379d76fdb7f81506f211db"
+    },
+    {
+      "version": 23,
+      "name": "historical_experiment_runs",
+      "sql_sha256": "cfa611052c2ddec9c6f61f77d06c1bceec8d1c4b69dc959190707630c576d678"
+    },
+    {
+      "version": 24,
+      "name": "cold_start_backfill",
+      "sql_sha256": "80715401393278c80cb2891e06e827de8175ac9739be1a18d2f9c25ae68c849c"
+    },
+    {
+      "version": 25,
+      "name": "market_data_capabilities",
+      "sql_sha256": "f82802e6bca0b26b43174d879684a1aaeb8b649214c8cdb083f406bfc771e34c"
+    },
+    {
+      "version": 26,
+      "name": "archive_compaction_manifests",
+      "sql_sha256": "328bb681e1d0b6e9e0a651ad97b430da8c063eca8ad2ff697987a2db53d07d1d"
+    },
+    {
+      "version": 27,
+      "name": "trade_archive_discovery",
+      "sql_sha256": "efae7e264e4b509ba12cd9fd5a5075d6f38a97b99fa8cc3c6d7d6903aa7b811f"
+    },
+    {
+      "version": 28,
+      "name": "legacy_bootstrap_import",
+      "sql_sha256": "15dd66bee5c3ad703fbea9f62753e80c44b454a762e518f0357c4cd48366aea7"
+    },
+    {
+      "version": 29,
+      "name": "legacy_symbol_import_state",
+      "sql_sha256": "497aa7b26d5c55b067dfb1215dc171d4397ee6a20cc99b659b038d30cd61ac3d"
+    },
+    {
+      "version": 30,
+      "name": "required_retention_consumer_registry",
+      "sql_sha256": "8d036b5951687d12bd29f02b30c6166650edb97b91f6e7e0db42c715959d93f2"
+    },
+    {
+      "version": 31,
+      "name": "derived_minute_completion",
+      "sql_sha256": "90c2a3e58d619fb683a909c49d09765744a20f48fb0fa6ad10299f2238970e42"
+    },
+    {
+      "version": 32,
+      "name": "pilot_bootstrap_state",
+      "sql_sha256": "44f8824c97052e6e41a1f9af19f1ddf65d265ed367094bb6c88fc4671c0af656"
+    },
+    {
+      "version": 33,
+      "name": "telegram_update_idempotency",
+      "sql_sha256": "5bb26542ae9d50dcc9fd40567c766d98237828489ba52e875fd505887c9f72db"
+    },
+    {
+      "version": 34,
+      "name": "microstructure_research_capture",
+      "sql_sha256": "ece35118b0bfb178d5b11cd7ad80a3f9d32d90236b65cc58957df396b5d554e2"
+    },
+    {
+      "version": 35,
+      "name": "hot_table_autovacuum_policy",
+      "sql_sha256": "9ae3b8e4a209af812abd3b52950e23612e09f4e35ca5bcf5211e45d0999f8076"
+    },
+    {
+      "version": 36,
+      "name": "micro_agent_research",
+      "sql_sha256": "bb5cb83d55480b9130f054d1f1570341b9b0c36961dd43cba4671d68a6687e8f"
+    },
+    {
+      "version": 37,
+      "name": "scientific_hypothesis_memory",
+      "sql_sha256": "f5bfef4052b3c6ab658d9525b5001806ef27f20c55fbc154e724e11ed00d1ebb"
+    },
+    {
+      "version": 38,
+      "name": "durable_scientific_outcomes",
+      "sql_sha256": "44de7d5c71bcbbefdc1bb53feb0ed791009c678c86e03d3ef58f2e427812caf5"
+    },
+    {
+      "version": 39,
+      "name": "scientific_source_event_fencing",
+      "sql_sha256": "1c885fbdcab99505241f05b88edfceb18051b766543baef297df3de69098c22f"
+    },
+    {
+      "version": 40,
+      "name": "scientific_pattern_mining",
+      "sql_sha256": "bf24f3f9b78a7822e9d5731c32d113c05e47c244170975b00ebee734269826ca"
+    },
+    {
+      "version": 41,
+      "name": "scientific_simulation_promotion_gate",
+      "sql_sha256": "8ce199f5674b75ea0244d0c9f0edfa0b753a1b238172c48c32ca21276bf67dd4"
+    },
+    {
+      "version": 42,
+      "name": "historical_scientific_bootstrap",
+      "sql_sha256": "389d2b3fb1f807a59846fbfb5612db60d5bcf17aa8261c35f74c739b78fb7d93"
+    },
+    {
+      "version": 43,
+      "name": "system_lifecycle_orchestration",
+      "sql_sha256": "521006dae116b1c66d305e0c83104e113ee8821aea8ade2143a03e6366d766f2"
+    },
+    {
+      "version": 44,
+      "name": "scientific_method_plugins",
+      "sql_sha256": "e4f0911c8ffb2533282691916e7223d796b84b82d67346647dc5ea3ff09de6d7"
+    },
+    {
+      "version": 45,
+      "name": "scientific_simulation_attempt_fencing",
+      "sql_sha256": "6bed47b963e45edbf35efee66580fdef2af7299888759998c50e0c19d8d54294"
+    },
+    {
+      "version": 46,
+      "name": "scientific_method_event_idempotency",
+      "sql_sha256": "1a886149e2e75ee1bb60c4279444faceaffe1fe7314763b0cad44a3030e45afe"
+    },
+    {
+      "version": 47,
+      "name": "collection_ownership_fencing",
+      "sql_sha256": "1e16594c0ef0cf99431e4cdcd853729e952f05d27006ff83ac665e7e2ed837d7"
+    },
+    {
+      "version": 48,
+      "name": "model_registry_dataset_lookup_index",
+      "sql_sha256": "1cf7812645b8ea101cfdd54eb6b0a08210f649f25f2a56bde6cf6e64efd2c579"
+    }
+  ]
+}

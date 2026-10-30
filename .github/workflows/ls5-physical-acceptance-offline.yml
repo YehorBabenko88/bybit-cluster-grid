@@ -1,0 +1,42 @@
+name: ls5-physical-acceptance-offline
+on:
+  pull_request:
+    paths:
+      - 'installer/ls5_physical_acceptance.py'
+      - 'installer/ls5_e2e_acceptance.py'
+      - 'tests/test_ls5_physical_acceptance.py'
+      - 'tests/test_ls5_e2e_acceptance.py'
+      - 'docs/LS5_PHYSICAL_ACCEPTANCE_MATRIX.md'
+      - '.github/workflows/ls5-physical-acceptance-offline.yml'
+  push:
+    branches:
+      - parallel/ls5-physical-acceptance-20261024
+permissions:
+  contents: read
+jobs:
+  adversarial-offline:
+    if: ${{ (true) && github.head_ref != 'review/offline-rc-20261020' && github.ref_name != 'review/offline-rc-20261020' && github.head_ref != 'planning/windows-lab-l0-20261020' && github.ref_name != 'planning/windows-lab-l0-20261020' && github.head_ref != 'planning/lab-witness-l1-20261020' && github.ref_name != 'planning/lab-witness-l1-20261020' && github.head_ref != 'planning/lab-airgap-a-20261021' && github.ref_name != 'planning/lab-airgap-a-20261021' && github.head_ref != 'planning/pgdata-intent-v1-20261021' && github.ref_name != 'planning/pgdata-intent-v1-20261021' && github.head_ref != 'audit/codex-pc4-sid-acl-20261021' && github.ref_name != 'audit/codex-pc4-sid-acl-20261021' && github.head_ref != 'audit/lsa-failclosed-20261021' && github.ref_name != 'audit/lsa-failclosed-20261021' && github.head_ref != 'audit/lsa-json-contract-20261021' && github.ref_name != 'audit/lsa-json-contract-20261021' && github.head_ref != 'audit/protected-staging-offline-20261022' && github.ref_name != 'audit/protected-staging-offline-20261022' && github.head_ref != 'planning/pc4-pg18-bootstrap-20261022' && github.ref_name != 'planning/pc4-pg18-bootstrap-20261022' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact HEAD
+        shell: bash
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Offline-only adversarial tests
+        run: |
+          python -m unittest discover -s tests -p test_ls5_physical_acceptance.py -v
+          python -m unittest discover -s tests -p test_ls5_e2e_acceptance.py -v

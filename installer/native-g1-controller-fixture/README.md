@@ -1,0 +1,40 @@
+# Hosted-only controller prototype
+
+This executable has no physical execution or cleanup entry point. Both unknown modes and `--execute`/`--cleanup` refuse. Fixture RSA keys are generated for each managed test/run; the independently supplied public-key fingerprint is outside the signed payload. They are not an owner trust store. Replay tracking is an in-memory fixture set, not a durable anti-rollback service.
+
+`--model-tests` uses only managed parsing/crypto/state functions. `--hosted-fixture-tests` requires exact GitHub hosted Windows source/run/job context before any fixture resources or native process/profile APIs. Never run the latter on LS5, PC4, or other physical hosts. Compilation and all native cases require hosted CI verification; no local native execution was performed.
+
+The child is the fixed reviewed `FixtureChild.c`, compiled by installed MSVC with /APPCONTAINER and no CRT or arbitrary arguments. Its only operation is ExitProcess(0). A create-only copy is placed in this fresh GUID package profile, checked for protected exact DACL, identity and SHA256, and pinned share-read/no-reparse after the write/reopen barrier. It is retained with the profile. Only the held process/thread handles are used. It starts suspended, is placed in an unnamed kill-on-close, active-process-limit-one job without breakaway, and has its AppContainer SID, empty capabilities, non-elevation, job membership, creation time and image checked before resume. The fixed command has no network behavior. Capability-free AppContainer cannot provide the required G1 loopback transport without additional policy; no exemptions, firewall or WFP changes are made. G1 remains BLOCKED.
+
+Held fixture root, marker and journal identities bind permits and flushed journal rows. The guardian retains the handles plus external-in-relation-to-journal checkpoint. Recovery rechecks those same handles at a cooperative barrier; it is not OS crash/reboot evidence or protection against privileged administrators or rollback of all state. Failed flush never advances the guardian or permits resume. Marker disposition is set only on the original owned file handle after confirmed child exit. Journal/root and AppContainer profile are retained for disposable runner teardown; no name-based cleanup, recursive deletion, or profile deletion occurs. Existing system-image hardlinks are not cleanup targets.
+
+All physical phases remain BLOCKED; execute_authorized, cleanup_authorized and host_verified remain false.
+
+The child receives an explicit Unicode environment containing only LOCALAPPDATA, SystemRoot and WINDIR; CI credentials, PATH and arbitrary parent configuration are not inherited.
+
+The hosted launcher now derives a LUA/DISABLE_MAX_PRIVILEGE restricted primary token and checks user, non-elevation, disabled administrator group and low integrity before CreateProcessAsUser. The AppContainer child must additionally have low integrity before resume. No logon credentials, policy changes or privilege-escalation fallback are accepted. These paths require actual hosted verification.
+
+Hosted failure 830b3ac reported integrity 12288 on the newly restricted launcher token: LUA filtering alone did not lower its label. The fixture now lowers ONLY that fresh token to S-1-16-4096 and reads it back before creating a child. The caller token, accounts, policies and ACLs are unchanged. A separate real native case closes the sole held Job handle while its owned child is suspended and requires confirmed child exit. These changes remain pending exact-head native verification.
+
+The fixed child failed initialization with 0xC0000142 after valid low AppContainer token checks. The next hosted fixture gives it a separate CREATE_ONLY GUID window station and private desktop, with explicit low label and user/package rights. Bootstrap station custody excludes unprivileged users until desktop creation; final user/package rights exclude WRITE_DAC/WRITE_OWNER/DELETE. Only newly created station access is published; winsta0/default ACLs are never changed or adopted. Held object names, owner, group, DACL and label are rechecked before effects. The caller process station is restored before child launch. This path needs exact-head native evidence and is not physical authorization.
+
+System cmd.exe consistently exited 0xC0000142 even with a verified private low desktop. That binary is no longer used as a cooperative probe, and its failure is preserved in the audit trail; this does not claim real Grid/Python compatibility. The purpose-built child measures native containment primitives only. MSVC/compiler/linker/source/helper hashes and the raw probe binary accompany receipts for independent inspection. Build mode cannot run on physical/self-hosted environments and never executes the child itself.
+
+The minimal child exited 0 on 691807b, then the terminated-image query refused. Post-exit validation now uses the same retained process handle plus matching creation time and the retained executable file; a pre-resume successful image query is mandatory. Missing live image query, missing preverification or any successful mismatching image query refuses. This does not attest process memory or survive handle loss/reboot. Four pure lifecycle cases accompany the real native regression.
+
+P0 source-audit correction: create-suspended then AssignProcessToJobObject had a controller-death gap. The fixture now supplies PROC_THREAD_ATTRIBUTE_JOB_LIST at process creation (Windows 10+/Server 2016+), checks membership immediately and provides no post-create-assignment fallback. The sole unnamed Job handle is not inherited; existing native membership and close-last-handle termination cases must pass. This closes that API ordering gap, but no OS reboot/durable authorization claim follows.
+
+Terminal marker scheduling requires an exact original held identity with one link, the same ID/volume/attributes with zero accessible links, and FILE_STANDARD_INFO DeletePending=true/non-directory. Normal custody still rejects the changed identity. The terminal journal is MARKER_DELETE_PENDING; actual deletion after last close is not observed. Failed terminal flush is not retention/completion evidence. Physical Cleanup remains NOT_AUTHORIZED.
+
+Cross-fixture cleanup regression: the guardian must refer to the exact retained
+OwnedFixture instance passed to Cleanup before journal or disposition effects.
+Two fresh hosted fixtures exercise a swapped guardian and require unchanged
+journals and unchanged marker custody. This does not bind a future arbitrary
+Grid process tree to external authorization and does not enable physical cleanup.
+
+The guardian also owns one verified child instance, created only in PREPARED
+with an image hash matching its permit. Cleanup rejects an unrelated exited
+child even when the original child is live and a journal claims EXITED. The
+hosted negative checks no journal/marker changes after this refusal. These
+in-process bindings do not survive handle loss or reboot and grant no physical
+execution, cleanup or deployment authority.
