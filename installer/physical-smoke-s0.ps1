@@ -162,7 +162,8 @@ $seconds = if ($Action -eq 'Execute') { 300 } else { 60 }
 $closedEnvironment = @{}
 foreach ($key in $start.EnvironmentVariables.Keys) { $closedEnvironment[$key] = $start.EnvironmentVariables[$key] }
 Write-S0RuntimeStage 'NATIVE_RUN'
-if ($ParentScope -eq 'UserProfileV1') { $result = [GridS0.ProcessHost]::RunAtUserProfileV1($PackageRoot, $start.Arguments, $closedEnvironment, $operatorSid, $exePin.sha256, $ExpectedHead, $seconds, $ExpectedPackageSha) }
+if ($ParentScope -eq 'UserProfileV1' -and $DiagnosticStages) { $result = [GridS0.ProcessHost]::RunDiagnosticAtUserProfileV1($PackageRoot, $start.Arguments, $closedEnvironment, $operatorSid, $exePin.sha256, $ExpectedHead, $seconds, $ExpectedPackageSha) }
+elseif ($ParentScope -eq 'UserProfileV1') { $result = [GridS0.ProcessHost]::RunAtUserProfileV1($PackageRoot, $start.Arguments, $closedEnvironment, $operatorSid, $exePin.sha256, $ExpectedHead, $seconds, $ExpectedPackageSha) }
 else { $result = [GridS0.ProcessHost]::Run($PackageRoot, $start.Arguments, $closedEnvironment, $operatorSid, $exePin.sha256, $ExpectedHead, $seconds) }
 [ordered]@{schema=1; scope=$result.Scope; pid=$result.Pid; creation_filetime=$result.CreationFileTime; exit_code=$result.ExitCode; timed_out=$result.TimedOut; budget_seconds=$seconds; observed_user_sid=$result.ObservedUserSid; observed_elevated=$result.ObservedElevated; observed_integrity=$result.ObservedIntegrity; observed_admin_enabled=$result.ObservedAdminEnabled; job_member=$result.JobMember; job_flags=$result.JobFlags; active_limit=$result.ActiveLimit; g1_execute=$false; cleanup=$false} | ConvertTo-Json
 if ($result.TimedOut) { throw 'S0_NATIVE_TIMEOUT_OWN_JOB_CLOSED' }

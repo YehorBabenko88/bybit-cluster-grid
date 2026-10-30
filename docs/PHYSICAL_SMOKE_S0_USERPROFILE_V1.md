@@ -218,3 +218,39 @@ Acceptance needs paired counters and hashes, exact original package/head, own PI
 and creation times, bounded exit, fresh BTCUSDT orderbook/trades, no secret-bearing
 files in evidence, and independent review. Hosted tests/technical AI review do
 not supply physical authorization or Physical SID/ACL PASS.
+
+
+### PS5 Prepare handoff investigation (original run 41093922888)
+
+Both mandatory PS5 cells failed at the unchanged individual 30-second Prepare
+watchdog; PS7 cells succeeded. Verified original PS5 artifact 13000365659 has
+outer SHA256 `a9f96340d78350a6f00d7fedafaa235ed35ee8622201a073e467c996ec8b02cf`;
+artifact 13000163031 has SHA256
+`456b8acfaf5a2bcaf388719160745235baa3f62b864b3ca757d11c29bd9937cf`.
+Both separate, non-acceptance diagnostic Prepare captures reached
+`S0_RUNTIME_NATIVE_RUN`. This excludes a stall before that boundary in those
+**diagnostic** executions; it does not prove the mandatory execution reached it.
+It does not establish a source-custody, assembly, OS or WFP root cause.
+
+The failure-only hosted entry `RunDiagnosticAtUserProfileV1` now emits fixed,
+flushed stage codes around profile/source custody, process token/image pins,
+CreateProcess, ResumeThread and process wait. It invokes the same guarded native
+path, uses thread-local tracing restored in finally, and is unavailable outside
+the exact-head hosted Windows job. No paths, credentials or arguments are logged.
+Ordinary mandatory Prepare has no tracing and remains cold-first. Diagnostic
+success cannot produce the required runtime phase receipt or grant acceptance.
+
+| Last durable native boundary | Next causal hypothesis to isolate |
+| --- | --- |
+| PROFILE_ENTER | Known Folder / token / ancestor custody |
+| SOURCE_HOLD | source file lease, inventory and hashing |
+| PROCESS_ENTER / PROCESS_TOKEN | image pin and closed environment |
+| PROCESS_CREATE | native process creation / atomic Job handoff |
+| PROCESS_CREATED | child identity and token verification |
+| PROCESS_RESUMED | child initialization, application IO or inherited OS handles |
+| PROCESS_WAIT_RETURN | post-exit custody revalidation / serialization |
+
+These are investigation branches, not findings. First use original hosted stage
+evidence to choose one minimal standalone reproducer; do not change several
+variables, add warmup before mandatory Prepare or inflate either watchdog.
+Physical S0 remains NO-GO; no host staging or execution is authorized here.

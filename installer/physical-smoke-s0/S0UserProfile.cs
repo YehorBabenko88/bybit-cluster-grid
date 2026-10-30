@@ -164,10 +164,24 @@ namespace GridS0 {
   public static BootstrapReceipt StagePackageAtUserProfileV1(byte[] zip,string sha,string head,string target,string sid,bool approved) { Need(approved); return RunPackage(zip,sha,head,target,sid,true,ParentKind.UserProfileV1); }
  }
  public static partial class ProcessHost {
+  [ThreadStatic] static bool traceRuntime;
+  static void TraceRuntime(string stage) { if(traceRuntime) { Console.Out.WriteLine("S0_NATIVE_"+stage); Console.Out.Flush(); } }
+  // Only post-failure hosted diagnostics; no change to the mandatory cold-first entry.
+  public static Result RunDiagnosticAtUserProfileV1(string root,string arguments,IDictionary environment,string sid,string sha,string head,int seconds,string packageSha) {
+   if(traceRuntime || Environment.GetEnvironmentVariable("GITHUB_ACTIONS")!="true" || Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT")!="github-hosted" || Environment.GetEnvironmentVariable("GITHUB_JOB")!="s0-windows" || Environment.GetEnvironmentVariable("GITHUB_REPOSITORY")!="YehorBabenko88/bybit-cluster-grid" || Environment.GetEnvironmentVariable("EXACT_HEAD_SHA")!=head || String.Equals(Environment.MachineName,"LS5",StringComparison.OrdinalIgnoreCase) || String.Equals(Environment.MachineName,"PC4",StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("S0_HOSTED_DIAGNOSTIC_ONLY");
+   traceRuntime=true;try { return RunAtUserProfileV1(root,arguments,environment,sid,sha,head,seconds,packageSha); } finally { traceRuntime=false; }
+  }
   public static Result RunAtUserProfileV1(string root,string arguments,IDictionary environment,string sid,string sha,string head,int seconds,string packageSha) {
+   TraceRuntime("PROFILE_ENTER");
    using(var parent=Bootstrap.HoldUserProfileV1(sid)) {
+    TraceRuntime("PROFILE_HELD");
     if(root==null || !String.Equals(Path.GetDirectoryName(Path.GetFullPath(root)),parent.ParentPath,StringComparison.OrdinalIgnoreCase) || !System.Text.RegularExpressions.Regex.IsMatch(Path.GetFileName(root),"\\AGridS0Package-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\z")) throw new InvalidOperationException("S0_USER_PROFILE_PACKAGE_NAMESPACE");
-    using(var source=Bootstrap.HoldUserProfileSourceV1(root,sid,packageSha,head)) { parent.Check(); Result result=Run(root,arguments,environment,sid,sha,head,seconds); source.Check(); parent.Check(); return result; }
+    TraceRuntime("SOURCE_HOLD");
+    using(var source=Bootstrap.HoldUserProfileSourceV1(root,sid,packageSha,head)) {
+     TraceRuntime("SOURCE_HELD");parent.Check();TraceRuntime("PARENT_RECHECKED");
+     Result result=Run(root,arguments,environment,sid,sha,head,seconds);
+     TraceRuntime("PROCESS_RETURN");source.Check();TraceRuntime("SOURCE_RECHECKED");parent.Check();return result;
+    }
    }
   }
  }

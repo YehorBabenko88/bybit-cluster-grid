@@ -200,6 +200,7 @@ namespace GridS0
 
         public static Result Run(string packageRoot, string arguments, IDictionary environment, string operatorSid, string expectedExeSha, string head, int seconds)
         {
+            TraceRuntime("PROCESS_ENTER");
             IntPtr job=IntPtr.Zero, attributes=IntPtr.Zero, jobList=IntPtr.Zero, environmentBlock=IntPtr.Zero;
             ProcessInformation process=new ProcessInformation(); bool initialized=false;
             FileStream source=null;
@@ -212,7 +213,7 @@ namespace GridS0
                 Need(head!=null && Regex.IsMatch(head, @"\A[0-9a-fA-F]{40}\z"), "S0_HEAD");
                 Need(expectedExeSha!=null && Regex.IsMatch(expectedExeSha, @"\A[0-9a-fA-F]{64}\z"), "S0_IMAGE_HASH_FORMAT");
                 Need(arguments!=null && arguments.Length<=8192 && arguments.IndexOf('\0')<0 && arguments.IndexOf('\r')<0 && arguments.IndexOf('\n')<0, "S0_ARGUMENTS");
-                ValidateOwnedProcessToken(GetCurrentProcess(),operatorSid);
+                ValidateOwnedProcessToken(GetCurrentProcess(),operatorSid); TraceRuntime("PROCESS_TOKEN");
                 Need(packageRoot!=null && Path.IsPathRooted(packageRoot) && !packageRoot.StartsWith(@"\\", StringComparison.Ordinal), "S0_PACKAGE_ROOT");
                 string root=Path.GetFullPath(packageRoot);
                 Need(root.Length>=3 && root[1]==':' && root[2]=='\\' && root.IndexOf('"')<0, "S0_PACKAGE_ROOT_FORMAT");
@@ -224,6 +225,7 @@ namespace GridS0
                     string observed=BitConverter.ToString(hash.ComputeHash(source)).Replace("-", "");
                     Need(String.Equals(observed, expectedExeSha, StringComparison.OrdinalIgnoreCase), "S0_IMAGE_HASH");
                 }
+                TraceRuntime("PROCESS_IMAGE_PIN");
                 string closedEnvironment=ClosedEnvironment(environment);
                 job=CreateJobObjectW(IntPtr.Zero, IntPtr.Zero);
                 Need(job!=IntPtr.Zero, "S0_JOB_CREATE");
@@ -244,7 +246,8 @@ namespace GridS0
                 environmentBlock=Marshal.StringToHGlobalUni(closedEnvironment);
                 StartupInfoEx startup=new StartupInfoEx(); startup.startup.cb=(uint)Marshal.SizeOf(typeof(StartupInfoEx)); startup.attributes=attributes;
                 StringBuilder command=new StringBuilder("\""+executable+"\" "+arguments);
-                Need(CreateProcessW(executable,command,IntPtr.Zero,IntPtr.Zero,false,0x80404,environmentBlock,root,ref startup,out process), "S0_CREATE_SUSPENDED");
+                TraceRuntime("PROCESS_CREATE");
+                Need(CreateProcessW(executable,command,IntPtr.Zero,IntPtr.Zero,false,0x80404,environmentBlock,root,ref startup,out process), "S0_CREATE_SUSPENDED"); TraceRuntime("PROCESS_CREATED");
                 bool member;
                 Need(IsProcessInJob(process.hProcess,job,out member) && member, "S0_JOB_MEMBERSHIP");
                 uint pid=GetProcessId(process.hProcess);
@@ -254,8 +257,9 @@ namespace GridS0
                 uint imageLength=32768; StringBuilder image=new StringBuilder((int)imageLength);
                 Need(QueryFullProcessImageNameW(process.hProcess,0,image,ref imageLength) && String.Equals(image.ToString(),executable,StringComparison.OrdinalIgnoreCase), "S0_PROCESS_IMAGE");
                 TokenFacts childToken=ValidateOwnedProcessToken(process.hProcess,operatorSid);
-                Need(ResumeThread(process.hThread)==1, "S0_RESUME");
+                Need(ResumeThread(process.hThread)==1, "S0_RESUME"); TraceRuntime("PROCESS_RESUMED");
                 uint wait=WaitForSingleObject(process.hProcess,checked((uint)seconds*1000));
+                TraceRuntime("PROCESS_WAIT_RETURN");
                 bool timedOut=wait==258;
                 Need(wait==0 || timedOut, "S0_WAIT_BLOCKED");
                 if (timedOut)

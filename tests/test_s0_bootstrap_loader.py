@@ -112,6 +112,14 @@ def test_postfailure_probe_success_never_becomes_acceptance(tmp_path,monkeypatch
 
 def test_runtime_postfailure_probe_success_never_becomes_acceptance(tmp_path,monkeypatch):
     _check_postfailure_probe(tmp_path,monkeypatch,True)
+    native=(ROOT/'installer/physical-smoke-s0/S0UserProfile.cs').read_text()
+    launcher=(ROOT/'installer/physical-smoke-s0/S0Launcher.cs').read_text()
+    dispatcher=(ROOT/'installer/physical-smoke-s0.ps1').read_text()
+    assert 'RunDiagnosticAtUserProfileV1' in native and 'S0_HOSTED_DIAGNOSTIC_ONLY' in native
+    assert 'finally { traceRuntime=false; }' in native
+    for stage in ('PROFILE_ENTER','PROFILE_HELD','SOURCE_HOLD','SOURCE_HELD','PROCESS_ENTER','PROCESS_CREATED','PROCESS_RESUMED','PROCESS_WAIT_RETURN','SOURCE_RECHECKED'):
+        assert 'TraceRuntime("'+stage+'")' in native+launcher
+    assert '$DiagnosticStages) { $result = [GridS0.ProcessHost]::RunDiagnosticAtUserProfileV1' in dispatcher
 
 
 def test_postfailure_probe_cannot_launch_outside_hosted_gate(monkeypatch):
