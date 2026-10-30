@@ -145,6 +145,37 @@ class Fake:
     def close(self, handle): self.closed.append(handle)
 
 
+def test_native_tcp_estimated_capacity_is_not_the_table_payload(monkeypatch):
+    # Exact hosted reproducer: AF_INET, capacity540, 22 rows =>532 used bytes.
+    import ctypes,pytest
+    from types import SimpleNamespace
+    for family,count,spare in ((2,22,8),(23,3,8),(2,0,8)):
+        stride,state_offset,port_offset=(24,0,8) if family==2 else (56,48,20)
+        used=4+count*stride;raw=bytearray(used+spare);struct.pack_into('<I',raw,0,count)
+        for row in range(count):
+            struct.pack_into('<I',raw,4+row*stride+state_offset,2)
+            raw[4+row*stride+port_offset:6+row*stride+port_offset]=b'\x1f\x90'
+        read_status=0
+        def table(buffer,size,order,af,kind,reserved):
+            assert af==family and kind==3 and reserved==0
+            if buffer is None:
+                ctypes.cast(size,ctypes.POINTER(ctypes.c_uint32)).contents.value=len(raw);return 122
+            ctypes.memmove(buffer,bytes(raw),len(raw));return read_status
+        monkeypatch.setattr(ctypes,'WinDLL',lambda *a,**k:SimpleNamespace(GetExtendedTcpTable=table),raising=False)
+        api=object.__new__(w.Win32)
+        api.t=SimpleNamespace(LPVOID=ctypes.c_void_p,BOOL=ctypes.c_int,ULONG=ctypes.c_uint32,DWORD=ctypes.c_uint32)
+        observed=api.tcp_table(family)
+        assert observed==bytes(raw[:used])
+        assert w.decode_tcp_listeners(observed,family,8080) is (count==0)
+        with pytest.raises(w.WindowsBlocked):w.decode_tcp_listeners(bytes(raw),family,8080)
+        struct.pack_into('<I',raw,0,4097)
+        with pytest.raises(w.WindowsBlocked):api.tcp_table(family)
+        struct.pack_into('<I',raw,0,count+2)
+        with pytest.raises(w.WindowsBlocked):api.tcp_table(family)
+        struct.pack_into('<I',raw,0,count);read_status=5
+        with pytest.raises(w.WindowsBlocked,match='S0_TCP_READ_AF'+str(family)+'_STATUS5'):api.tcp_table(family)
+
+
 class CustodyTests(unittest.TestCase):
     def test_nonlocal_or_unknown_volume_blocks_before_open(self):
         for result in (False,None,1):

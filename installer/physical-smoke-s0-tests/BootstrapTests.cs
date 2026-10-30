@@ -147,7 +147,7 @@ public static class BootstrapTests {
   Phase="FIXTURE_LOADER_TARGET_ABSENT"; Need(!File.Exists(target) && !Directory.Exists(target));
   // No timeout kill by PID: failure unwinds to the fixture parent's owned Job.
  }
- public static byte[] HostedRuntimeAction(string package,string head,string sha,string action,string root,string config,bool approved,out byte[] errors,out int exit) {
+ public static byte[] HostedRuntimeAction(string package,string head,string sha,string action,string root,string config,string fixture,bool approved,out byte[] errors,out int exit) {
   Need(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true" && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT")=="github-hosted" && Environment.GetEnvironmentVariable("GITHUB_JOB")=="s0-windows");
   string shell=Environment.GetEnvironmentVariable("S0_TEST_SHELL_PATH"),pin=Environment.GetEnvironmentVariable("S0_TEST_SHELL_SHA");
   using(var binary=new FileStream(shell,FileMode.Open,FileAccess.Read,FileShare.Read)) Need(Hash(TransferTestsBytes(binary))==pin);
@@ -158,8 +158,19 @@ public static class BootstrapTests {
    var capturedOut=new LoaderCapture();var capturedErr=new LoaderCapture();
    Task<byte[]> output=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardOutput.BaseStream,capturedOut); });
    Task<byte[]> error=Task.Factory.StartNew(delegate { return ReadLoaderOutput(child.StandardError.BaseStream,capturedErr); });
-   Need(child.WaitForExit(30000));Need(Task.WaitAll(new Task[]{output,error},5000));
-   errors=error.Result;exit=child.ExitCode;return output.Result;
+   try {
+    if(!child.WaitForExit(30000)) throw new InvalidOperationException("FIXTURE_RUNTIME_PROCESS_DEADLINE");
+    if(!Task.WaitAll(new Task[]{output,error},5000)) throw new InvalidOperationException("FIXTURE_RUNTIME_OUTPUT_DEADLINE");
+    errors=error.Result;exit=child.ExitCode;return output.Result;
+   } catch(Exception failure) {
+    // Preserve only the same bounded fixture streams, including timeout/reader faults.
+    // No deadline increase, PID kill or successful receipt on an incomplete child.
+    foreach(var item in new[]{new KeyValuePair<string,byte[]>("json",capturedOut.Snapshot()),new KeyValuePair<string,byte[]>("stderr",capturedErr.Snapshot())}) {
+     using(var saved=new FileStream(Path.Combine(fixture,"temp","profile-cli-"+action+"."+item.Key),FileMode.CreateNew,FileAccess.Write,FileShare.None)) saved.Write(item.Value,0,item.Value.Length);
+    }
+    if(failure is AggregateException) throw new InvalidOperationException("FIXTURE_RUNTIME_OUTPUT_FAULT");
+    throw;
+   }
   }
  }
  static byte[] TransferTestsBytes(Stream stream) { using(var memory=new MemoryStream()) { byte[] bytes=new byte[8192];int count;while((count=stream.Read(bytes,0,bytes.Length))>0) { Need(memory.Length+count<=67108864);memory.Write(bytes,0,count); }return memory.ToArray(); } }

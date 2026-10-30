@@ -66,7 +66,7 @@ public static class UserProfileTests {
   foreach(string action in new[]{"prepare","preflight","status","stop","execute","evidence"}) {
    Phase="FIXTURE_PROFILE_RUNTIME_"+action.ToUpperInvariant();string dataRoot=action=="prepare"?pair:role;
    string config=action=="prepare"?Path.Combine(input,"s0-plan.json"):Path.Combine(role,"config.json");
-   byte[] errors;int exit;byte[] raw=BootstrapTests.HostedRuntimeAction(package,head,packageSha,action,dataRoot,config,action=="prepare" || action=="stop" || action=="evidence",out errors,out exit);
+   byte[] errors;int exit;byte[] raw=BootstrapTests.HostedRuntimeAction(package,head,packageSha,action,dataRoot,config,sourceRoot,action=="prepare" || action=="stop" || action=="evidence",out errors,out exit);
    Need(raw.Length<=65536 && errors.Length<=65536);
    using(var saved=new FileStream(Path.Combine(sourceRoot,"temp","profile-cli-"+action+".json"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) saved.Write(raw,0,raw.Length);
    using(var saved=new FileStream(Path.Combine(sourceRoot,"temp","profile-cli-"+action+".stderr"),FileMode.CreateNew,FileAccess.Write,FileShare.None)) saved.Write(errors,0,errors.Length);

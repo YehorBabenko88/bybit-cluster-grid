@@ -402,7 +402,12 @@ class Win32:
         status=get_table(buffer,ctypes.byref(size),False,family,3,0)
         if status!=0:raise WindowsBlocked('S0_TCP_READ_AF'+str(family)+'_STATUS'+str(status))
         if not 4<=size.value<=len(buffer):raise WindowsBlocked('S0_TCP_READ_AF'+str(family)+'_SIZE'+str(size.value))
-        return buffer.raw[:size.value]
+        # pdwSize is an estimated buffer capacity, not a serialization length.
+        # Only the kernel-declared, bounded ABI array is input to the strict decoder.
+        raw=buffer.raw[:size.value];count=struct.unpack_from('<I',raw)[0]
+        used=4+(24 if family==2 else 56)*count
+        if count>4096 or used>len(raw):raise WindowsBlocked('S0_TCP_SHAPE_AF'+str(family)+'_SIZE'+str(len(raw))+'_COUNT'+str(count))
+        return raw[:used]
 
     def open_mutable(self,path):
         handle=self._open(path,0x80020000,3,None,3,0x00200000,None)

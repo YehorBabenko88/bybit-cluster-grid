@@ -476,6 +476,7 @@
     "tests/test_s0_windows.py::SecurityTests::test_untrusted_delete_child_is_blocked",
     "tests/test_s0_windows.py::test_hosted_networkservice_volume_owner_remains_blocked",
     "tests/test_s0_windows.py::test_native_diagnostics_are_json_serializable_and_preserve_acl",
+    "tests/test_s0_windows.py::test_native_tcp_estimated_capacity_is_not_the_table_payload",
     "tests/test_s0_windows.py::test_trustedinstaller_owner_is_narrowly_os_volume_anchor_only",
     "tests/test_s0_wire.py::test_changed_or_stale_reply",
     "tests/test_s0_wire.py::test_no_counter_regression_or_gap",
@@ -2311,6 +2312,10 @@
     [
       "tests.test_s0_windows",
       "test_native_diagnostics_are_json_serializable_and_preserve_acl"
+    ],
+    [
+      "tests.test_s0_windows",
+      "test_native_tcp_estimated_capacity_is_not_the_table_payload"
     ],
     [
       "tests.test_s0_windows",
