@@ -23,6 +23,21 @@ class DisposablePostgres(unittest.TestCase):
                 self.assertEqual(timed['schema'],'grid.history.v1.1')
                 self.assertEqual(timed['rows'][0]['watermark_ms'],60000)
                 self.assertEqual(setup.execute('SHOW transaction_read_only').fetchone()[0],'on')
+            # A later stored revision must not displace the selected snapshot.
+            from grid.history_snapshot import select_snapshot
+            from test_history_snapshot import snapshot_fixture
+            from grid.provenance import digest
+            import copy
+            _,selection,catalog,expected=snapshot_fixture()
+            later=copy.deepcopy(r[0]);later['candle']['close']+=0.25
+            later['dataset_fingerprint']=digest({k:v for k,v in later.items() if k!='dataset_fingerprint'})
+            setup.execute('INSERT INTO provenance_minutes VALUES(%s,%s,%s,%s)',
+                          (Jsonb(later),later['symbol'],later['start_ms'],later['dataset_fingerprint']))
+            with setup.transaction():
+                chosen=select_snapshot(setup,selection,catalog)
+                self.assertEqual(chosen,expected)
+                self.assertEqual(setup.execute('SHOW transaction_read_only').fetchone()[0],'on')
+            setup.execute('DELETE FROM provenance_minutes WHERE fingerprint=%s',(later['dataset_fingerprint'],))
             with setup.transaction():
                 exported=read_postgres(setup,q,t)
                 self.assertEqual(len(exported['rows']),len(r))
