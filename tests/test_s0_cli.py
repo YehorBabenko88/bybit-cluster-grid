@@ -2,6 +2,18 @@ import json,pytest
 from s0_smoke import cli
 from s0_smoke.lifecycle import deadline_wait
 
+@pytest.mark.parametrize('error,expected',[
+ ('S0_WIN32_OPEN_READ_32','S0_WIN32_OPEN_READ_32'),
+ ('WINDOWS_CUSTODY_BLOCKED','WINDOWS_CUSTODY_BLOCKED'),
+ ('POSTGRES_DSN=secret','UNCLASSIFIED'),
+ ('S0_WIN32_OPEN_READ_32\nsecret','UNCLASSIFIED')])
+def test_failure_diagnostics_are_bounded_codes_and_never_exception_messages(error,expected):
+ from s0_smoke.windows import WindowsBlocked
+ with pytest.raises(WindowsBlocked) as caught:
+  with cli.failure_phase('ROLE_CUSTODY'):
+   raise WindowsBlocked(error)
+ assert cli.failure_diagnostic(caught.value)==dict(phase='ROLE_CUSTODY',code=expected)
+
 def test_plan_has_no_host_calls(capsys,monkeypatch):
  monkeypatch.setattr(cli,'dispatch',lambda *_: (_ for _ in ()).throw(AssertionError('dispatch called')))
  assert cli.main([])==0

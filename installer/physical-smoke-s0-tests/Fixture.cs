@@ -250,7 +250,7 @@ public static class Fixture
         string temporary=Environment.GetEnvironmentVariable("RUNNER_TEMP"); Need(!String.IsNullOrEmpty(temporary),"FIXTURE_ENVIRONMENT");
         env["TEMP"]=temporary; env["TMP"]=temporary; env["PATH"]=Path.Combine((string)env["SystemRoot"],"System32");
         stage="FIXTURE_BOOTSTRAP";
-        try { if(profileOnly) { BootstrapTests.Phase="FIXTURE_USER_PROFILE"; UserProfileTests.Hosted(root,head,sid); } else BootstrapTests.Hosted(root,sha,head); } catch { stage=BootstrapTests.Phase=="FIXTURE_USER_PROFILE"?UserProfileTests.Phase:BootstrapTests.Phase=="FIXTURE_INPUTS"?InputTests.Phase:BootstrapTests.Phase=="FIXTURE_TRANSFERS"?TransferTests.Phase:BootstrapTests.Phase=="FIXTURE_EXPORTS"?TransferExportTests.Phase:BootstrapTests.Phase=="FIXTURE_TRANSPORT"?TransferTransportTests.Phase:BootstrapTests.Phase; throw; }
+        try { if(profileOnly) { BootstrapTests.Phase="FIXTURE_USER_PROFILE"; UserProfileTests.Hosted(root,head,sid); } else BootstrapTests.Hosted(root,sha,head); } catch { stage=profileOnly?UserProfileTests.Phase:BootstrapTests.Phase=="FIXTURE_INPUTS"?InputTests.Phase:BootstrapTests.Phase=="FIXTURE_TRANSFERS"?TransferTests.Phase:BootstrapTests.Phase=="FIXTURE_EXPORTS"?TransferExportTests.Phase:BootstrapTests.Phase=="FIXTURE_TRANSPORT"?TransferTransportTests.Phase:BootstrapTests.Phase; throw; }
         stage="FIXTURE_TOKEN_PROBE_POLICY";
         bool[] probeCases={
             ProcessHost.TokenProbeValid(20,false,122,4),ProcessHost.TokenProbeValid(20,false,24,4),

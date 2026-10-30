@@ -97,6 +97,7 @@ function Get-S0BytesSha([byte[]]$Bytes) {
     finally { $sha.Dispose() }
 }
 if ([System.IO.Path]::GetFullPath($PackageZip) -cne [System.IO.Path]::GetFullPath((Join-Path $PackageRoot 'source.zip'))) { throw 'S0_SOURCE_ZIP_LOCATION_REQUIRED' }
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $source = [IO.File]::Open($PackageZip,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
 try {

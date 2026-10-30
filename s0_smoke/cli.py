@@ -1,12 +1,27 @@
 """Explicit operator actions. Plan is pure; no physical authorization is inferred."""
 import argparse,asyncio,hashlib,importlib.abc,json,os,re,shutil,socket,sys,time,zipfile
-from contextlib import ExitStack
+from contextlib import ExitStack,contextmanager
 from pathlib import Path
 from .policy import need,load_json,canonical,validate_plan,forbidden_environment,import_allowed
 from .storage import Journal,write_new,read_small,request_stop,stop_requested
 
 class Parser(argparse.ArgumentParser):
  def error(self,message):raise ValueError('S0_ARGUMENTS_BLOCKED')
+
+FAILURE_PHASES={'ROLE_CUSTODY','PREPARED_RECEIPT','ROLE_GUARD','PORT_CHECK'}
+@contextmanager
+def failure_phase(name):
+ need(name in FAILURE_PHASES,'S0_DIAGNOSTIC_PHASE')
+ try:yield
+ except Exception as exc:
+  if not hasattr(exc,'s0_phase'):exc.s0_phase=name
+  raise
+
+def failure_diagnostic(exc):
+ from .windows import WindowsBlocked
+ phase=getattr(exc,'s0_phase',None);code=getattr(exc,'code',None)
+ safe=isinstance(exc,WindowsBlocked) and type(code) is str and (code=='WINDOWS_CUSTODY_BLOCKED' or re.fullmatch(r'S0_WIN32_OPEN_(?:READ|MUTABLE|EXCLUSIVE)_[0-9]{1,10}',code) is not None)
+ return dict(phase=phase if phase in FAILURE_PHASES else 'UNCLASSIFIED',code=code if safe else 'UNCLASSIFIED')
 
 class PublicOnlyImports(importlib.abc.MetaPathFinder):
  def find_spec(self,fullname,path=None,target=None):
@@ -124,13 +139,14 @@ def dispatch(args):
    root=Path(args.root).absolute();need(Path(args.config).absolute()==root/'config.json','S0_CONFIG_MUST_BE_OWN_ROLE_CONFIG')
    c=validate_config(read_small(root,'config.json'),args.expected_head,args.expected_package_sha);role=c['role'];need(host()==c['plan']['hostnames'][role] and identity.sid==c['plan']['operator_sids'][role],'S0_HOST_SID_MISMATCH')
    need(root.parent.parent==local and root.name==role and root.parent.name=='GridS0-'+c['plan']['run_id'],'S0_ROLE_ROOT_NAME_BLOCKED')
-   with Custody(root,identity.sid,[root/'config.json',root/'prepared.json',*[root/n for n in TLS_FILES]]) as data,MutableFile(root/'tls-key.pem',identity.sid) as key_custody,Custody(root/'temp',identity.sid) as temp_custody:
-    prepared(root,c,identity.sid,args.expected_package_sha,parent)
+   with failure_phase('ROLE_CUSTODY'),Custody(root,identity.sid,[root/'config.json',root/'prepared.json',*[root/n for n in TLS_FILES]]) as data,MutableFile(root/'tls-key.pem',identity.sid) as key_custody,Custody(root/'temp',identity.sid) as temp_custody:
+    with failure_phase('PREPARED_RECEIPT'):prepared(root,c,identity.sid,args.expected_package_sha,parent)
     def guard():parent.guard();source.guard();data.guard();key_custody.guard();temp_custody.guard()
-    guard()
+    with failure_phase('ROLE_GUARD'):guard()
     if args.action=='preflight':
      need(not (root/'claim.json').exists(),'S0_ALREADY_STARTED')
-     if role=='LS5':need(port_available(c['plan']['port']),'S0_PORT_OCCUPIED')
+     if role=='LS5':
+      with failure_phase('PORT_CHECK'):need(port_available(c['plan']['port']),'S0_PORT_OCCUPIED')
      return dict(status='APPLICATION_PREFLIGHT_PASS_NOT_AUTHORIZATION',**local_context(c),token=dict(elevated=identity.elevated,admin_enabled=identity.admin_enabled,integrity=identity.integrity,enabled_privileges=list(identity.enabled_privileges)),s0_execute=False,g1_execute=False)
     if args.action=='execute':
      if role=='LS5':need(port_available(c['plan']['port']),'S0_PORT_OCCUPIED')
@@ -165,4 +181,4 @@ def main(argv=None):
   install_guard();result=dispatch(args);print(json.dumps(result,sort_keys=True))
   return 0 if result.get('status') not in ('BLOCKED_OR_PARTIAL','RUNNING_OR_UNKNOWN') else 2
  except Exception as exc:
-  print(json.dumps(dict(status='BLOCKED',reason=type(exc).__name__,scope='S0_ONLY',g1_execute=False,cleanup=False)));return 1
+  print(json.dumps(dict(status='BLOCKED',reason=type(exc).__name__,diagnostic=failure_diagnostic(exc),scope='S0_ONLY',g1_execute=False,cleanup=False)));return 1

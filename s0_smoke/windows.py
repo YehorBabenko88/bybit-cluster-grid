@@ -359,7 +359,7 @@ class Win32:
 
     def open(self, path, directory):
         h = self._open(path, 0x20000 | 0x80000000, 3 if directory else 1, None, 3, 0x00200000 | (0x02000000 if directory else 0), None)
-        if h in (None, ctypes.c_void_p(-1).value): raise WindowsBlocked()
+        if h in (None, ctypes.c_void_p(-1).value): raise WindowsBlocked('S0_WIN32_OPEN_READ_'+str(ctypes.get_last_error()))
         return h
 
     def close(self, handle):
@@ -403,12 +403,12 @@ class Win32:
 
     def open_mutable(self,path):
         handle=self._open(path,0x80020000,3,None,3,0x00200000,None)
-        if handle in (None,ctypes.c_void_p(-1).value): raise WindowsBlocked()
+        if handle in (None,ctypes.c_void_p(-1).value): raise WindowsBlocked('S0_WIN32_OPEN_MUTABLE_'+str(ctypes.get_last_error()))
         return handle
 
     def open_exclusive(self,path):
         handle=self._open(path,0x80020000,0,None,3,0x00200000,None)
-        if handle in (None,ctypes.c_void_p(-1).value): raise WindowsBlocked()
+        if handle in (None,ctypes.c_void_p(-1).value): raise WindowsBlocked('S0_WIN32_OPEN_EXCLUSIVE_'+str(ctypes.get_last_error()))
         return handle
 
     def create_file(self,path,sddl):
