@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: YehorBabenko88/unified-system
-          ref: 4534b3e044775dbd8c805d5aeaf147820c5afdf8
+          ref: 043d6b85aa57624abd8e9e0df48521ab2d335aac
           path: upstream/unified-system
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -53,7 +53,7 @@ jobs:
           import os,subprocess,asyncio,asyncpg
           def git(root,arg):return subprocess.check_output(['git','-C',root,'rev-parse',arg],text=True).strip()
           assert git('.','HEAD')==os.environ['EXPECTED_GRID_SHA']
-          assert git(os.environ['UNIFIED_SOURCE_ROOT'],'HEAD')=='4534b3e044775dbd8c805d5aeaf147820c5afdf8'
+          assert git(os.environ['UNIFIED_SOURCE_ROOT'],'HEAD')=='043d6b85aa57624abd8e9e0df48521ab2d335aac'
           async def verify():
               con=await asyncpg.connect(os.environ['POSTGRES_DSN'])
               try:assert 180000<=int(await con.fetchval('SHOW server_version_num'))<190000
@@ -74,7 +74,7 @@ jobs:
           def source(root):return dict(head=git(root,'HEAD'),tree=git(root,'HEAD^{tree}'),tracked_clean=not bool(subprocess.check_output(['git','-C',root,'status','--porcelain','--untracked-files=no'])))
           p=pathlib.Path('mission3-tests.xml')
           if p.exists():subprocess.run([sys.executable,'scripts/annotate_test_failures.py',str(p)],check=False)
-          report=dict(schema='grid.mission3.qualification.v1',grid=source('.'),unified=source(os.environ['UNIFIED_SOURCE_ROOT']),expected_grid_sha=os.environ['EXPECTED_GRID_SHA'],baseline_unified_sha='4534b3e044775dbd8c805d5aeaf147820c5afdf8',run=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],job=os.environ['GITHUB_JOB'],tests=os.environ['TEST_OUTCOME'],junit_sha256=hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None,scope='DISPOSABLE_CLOUD_POSTGRES18',physical='NOT_RUN',external_host_execution=False,service_installation='NOT_RUN',multi_node_ha='NOT_QUALIFIED')
+          report=dict(schema='grid.mission3.qualification.v1',grid=source('.'),unified=source(os.environ['UNIFIED_SOURCE_ROOT']),expected_grid_sha=os.environ['EXPECTED_GRID_SHA'],baseline_unified_sha='043d6b85aa57624abd8e9e0df48521ab2d335aac',run=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],job=os.environ['GITHUB_JOB'],tests=os.environ['TEST_OUTCOME'],junit_sha256=hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None,scope='DISPOSABLE_CLOUD_POSTGRES18',physical='NOT_RUN',external_host_execution=False,service_installation='NOT_RUN',multi_node_ha='NOT_QUALIFIED')
           pathlib.Path('mission3-source.json').write_text(json.dumps(report,sort_keys=True)+'\n')
           assert report['grid']['head']==report['expected_grid_sha'] and report['unified']['head']==report['baseline_unified_sha']
           assert report['grid']['tracked_clean'] and report['unified']['tracked_clean']
@@ -104,7 +104,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: YehorBabenko88/unified-system
-          ref: 4534b3e044775dbd8c805d5aeaf147820c5afdf8
+          ref: 043d6b85aa57624abd8e9e0df48521ab2d335aac
           path: upstream/unified-system
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -117,7 +117,7 @@ jobs:
           import os,subprocess
           def git(root):return subprocess.check_output(['git','-C',root,'rev-parse','HEAD'],text=True).strip()
           assert git('.')==os.environ['EXPECTED_GRID_SHA']
-          assert git(os.environ['UNIFIED_SOURCE_ROOT'])=='4534b3e044775dbd8c805d5aeaf147820c5afdf8'
+          assert git(os.environ['UNIFIED_SOURCE_ROOT'])=='043d6b85aa57624abd8e9e0df48521ab2d335aac'
       - name: Disposable deployment-agent source tests (powershell)
         id: tests_powershell
         if: matrix.shell == 'powershell'
@@ -163,7 +163,7 @@ jobs:
           def source(root):return dict(head=git(root,'HEAD'),tree=git(root,'HEAD^{tree}'),tracked_clean=not bool(subprocess.check_output(['git','-C',root,'status','--porcelain','--untracked-files=no'])))
           p=pathlib.Path('mission3-tests.xml')
           if p.exists():subprocess.run([sys.executable,'scripts/annotate_test_failures.py',str(p)],check=False)
-          report=dict(schema='grid.mission3.qualification.v1',grid=source('.'),unified=source(os.environ['UNIFIED_SOURCE_ROOT']),expected_grid_sha=os.environ['EXPECTED_GRID_SHA'],baseline_unified_sha='4534b3e044775dbd8c805d5aeaf147820c5afdf8',run=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],job=os.environ['GITHUB_JOB'],shell=os.environ['TEST_SHELL'],tests=os.environ['TEST_OUTCOME'],native_parser_cms=os.environ['NATIVE_OUTCOME'],junit_sha256=hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None,scope='GITHUB_HOSTED_WINDOWS_CONTRACTS',physical='NOT_RUN',external_host_execution=False,service_installation='NOT_RUN',multi_node_ha='NOT_QUALIFIED')
+          report=dict(schema='grid.mission3.qualification.v1',grid=source('.'),unified=source(os.environ['UNIFIED_SOURCE_ROOT']),expected_grid_sha=os.environ['EXPECTED_GRID_SHA'],baseline_unified_sha='043d6b85aa57624abd8e9e0df48521ab2d335aac',run=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],job=os.environ['GITHUB_JOB'],shell=os.environ['TEST_SHELL'],tests=os.environ['TEST_OUTCOME'],native_parser_cms=os.environ['NATIVE_OUTCOME'],junit_sha256=hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None,scope='GITHUB_HOSTED_WINDOWS_CONTRACTS',physical='NOT_RUN',external_host_execution=False,service_installation='NOT_RUN',multi_node_ha='NOT_QUALIFIED')
           pathlib.Path('mission3-source.json').write_text(json.dumps(report,sort_keys=True)+'\n')
           assert report['grid']['head']==report['expected_grid_sha'] and report['unified']['head']==report['baseline_unified_sha']
           assert report['grid']['tracked_clean'] and report['unified']['tracked_clean']

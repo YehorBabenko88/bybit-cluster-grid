@@ -4,7 +4,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 if ($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_OS -cne 'Windows' -or $env:RUNNER_ENVIRONMENT -cne 'github-hosted') {throw 'Actual disposable Windows CI required'}
 # Actual parser and CMS tests, no mock Windows success, no installed services.
-foreach($file in @('mission3-install.ps1','mission3-service.ps1','mission3-verify-release.ps1','mission3-path-security.tests.ps1')) {
+foreach($file in @('mission3-install.ps1','mission3-service.ps1','mission3-verify-release.ps1','mission3-path-security.tests.ps1','mission3-preflight.tests.ps1')) {
  $tokens=$null;$errors=$null
  [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $file),[ref]$tokens,[ref]$errors) | Out-Null
  if ($errors.Count -ne 0) {throw 'PowerShell contract syntax rejected'}
@@ -20,4 +20,8 @@ foreach($required in @('Prepare','RUNNER_TEMP','github-hosted','LocalService','S
 }
 & (Join-Path $PSScriptRoot 'mission3-path-security.tests.ps1')
 if (-not $?) {throw 'Ancestor-first local path tests failed'}
+$python=Join-Path $env:pythonLocation 'python.exe'
+$git=Join-Path $env:ProgramFiles 'Git\cmd\git.exe'
+& (Join-Path $PSScriptRoot 'mission3-preflight.tests.ps1') -UnifiedRoot $UnifiedRoot -Python $python -GitExecutable $git
+if (-not $?) {throw 'Pinned isolated installer preflight tests failed'}
 Write-Output "PASS MISSION3_SOURCE_CMS_CONTRACT ($($PSVersionTable.PSVersion)); service_execution=NOT_RUN; physical=NOT_AUTHORIZED"
