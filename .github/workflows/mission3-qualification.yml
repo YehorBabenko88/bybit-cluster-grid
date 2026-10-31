@@ -137,17 +137,19 @@ jobs:
         if: matrix.shell == 'powershell'
         shell: powershell
         run: |
+          $ErrorActionPreference = 'Stop'
           Write-Output "PowerShell $($PSVersionTable.PSVersion) $($PSVersionTable.PSEdition)" | Tee-Object -FilePath mission3-native.txt
           & ./installer/mission3-contract.tests.ps1 -UnifiedRoot $env:UNIFIED_SOURCE_ROOT | Tee-Object -FilePath mission3-native.txt -Append
-          if ($LASTEXITCODE -ne 0) { throw 'Native parser/CMS contracts failed' }
+          if (-not $?) { throw 'Native parser/CMS contracts failed' }
       - name: Actual PowerShell parser and CMS contracts only (pwsh)
         id: native_pwsh
         if: matrix.shell == 'pwsh'
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           Write-Output "PowerShell $($PSVersionTable.PSVersion) $($PSVersionTable.PSEdition)" | Tee-Object -FilePath mission3-native.txt
           & ./installer/mission3-contract.tests.ps1 -UnifiedRoot $env:UNIFIED_SOURCE_ROOT | Tee-Object -FilePath mission3-native.txt -Append
-          if ($LASTEXITCODE -ne 0) { throw 'Native parser/CMS contracts failed' }
+          if (-not $?) { throw 'Native parser/CMS contracts failed' }
       - name: Record exact source evidence
         if: always()
         shell: python

@@ -10,7 +10,9 @@ foreach($file in @('mission3-install.ps1','mission3-service.ps1','mission3-verif
  if ($errors.Count -ne 0) {throw 'PowerShell contract syntax rejected'}
 }
 & (Join-Path $UnifiedRoot 'tests/windows/Test-SecurityPackage.ps1')
-if ($LASTEXITCODE -ne 0) {throw 'Existing real CMS negative/positive tests failed'}
+# Pure PowerShell script status: no native exit code is produced. Under
+# StrictMode, reading an unset LASTEXITCODE is itself a terminating failure.
+if (-not $?) {throw 'Existing real CMS negative/positive tests failed'}
 # Guard must deny a physical/external service root before any NSSM call.
 $serviceText=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'mission3-service.ps1'))
 foreach($required in @('Prepare','RUNNER_TEMP','github-hosted','LocalService','SERVICE_DEMAND_START','admin_stopped')) {
