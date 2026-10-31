@@ -69,10 +69,11 @@ jobs:
         env:
           TEST_OUTCOME: ${{ steps.tests.outcome }}
         run: |
-          import json,os,pathlib,subprocess,hashlib
+          import json,os,pathlib,subprocess,hashlib,sys
           def git(root,arg):return subprocess.check_output(['git','-C',root,'rev-parse',arg],text=True).strip()
           def source(root):return dict(head=git(root,'HEAD'),tree=git(root,'HEAD^{tree}'),tracked_clean=not bool(subprocess.check_output(['git','-C',root,'status','--porcelain','--untracked-files=no'])))
           p=pathlib.Path('mission3-tests.xml')
+          if p.exists():subprocess.run([sys.executable,'scripts/annotate_test_failures.py',str(p)],check=False)
           report=dict(schema='grid.mission3.qualification.v1',grid=source('.'),unified=source(os.environ['UNIFIED_SOURCE_ROOT']),expected_grid_sha=os.environ['EXPECTED_GRID_SHA'],baseline_unified_sha='4534b3e044775dbd8c805d5aeaf147820c5afdf8',run=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],job=os.environ['GITHUB_JOB'],tests=os.environ['TEST_OUTCOME'],junit_sha256=hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None,scope='DISPOSABLE_CLOUD_POSTGRES18',physical='NOT_RUN',external_host_execution=False,service_installation='NOT_RUN',multi_node_ha='NOT_QUALIFIED')
           pathlib.Path('mission3-source.json').write_text(json.dumps(report,sort_keys=True)+'\n')
           assert report['grid']['head']==report['expected_grid_sha'] and report['unified']['head']==report['baseline_unified_sha']
@@ -155,10 +156,11 @@ jobs:
           NATIVE_OUTCOME: ${{ matrix.shell == 'powershell' && steps.native_powershell.outcome || steps.native_pwsh.outcome }}
           TEST_SHELL: ${{ matrix.shell }}
         run: |
-          import json,os,pathlib,subprocess,hashlib
+          import json,os,pathlib,subprocess,hashlib,sys
           def git(root,arg):return subprocess.check_output(['git','-C',root,'rev-parse',arg],text=True).strip()
           def source(root):return dict(head=git(root,'HEAD'),tree=git(root,'HEAD^{tree}'),tracked_clean=not bool(subprocess.check_output(['git','-C',root,'status','--porcelain','--untracked-files=no'])))
           p=pathlib.Path('mission3-tests.xml')
+          if p.exists():subprocess.run([sys.executable,'scripts/annotate_test_failures.py',str(p)],check=False)
           report=dict(schema='grid.mission3.qualification.v1',grid=source('.'),unified=source(os.environ['UNIFIED_SOURCE_ROOT']),expected_grid_sha=os.environ['EXPECTED_GRID_SHA'],baseline_unified_sha='4534b3e044775dbd8c805d5aeaf147820c5afdf8',run=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],job=os.environ['GITHUB_JOB'],shell=os.environ['TEST_SHELL'],tests=os.environ['TEST_OUTCOME'],native_parser_cms=os.environ['NATIVE_OUTCOME'],junit_sha256=hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None,scope='GITHUB_HOSTED_WINDOWS_CONTRACTS',physical='NOT_RUN',external_host_execution=False,service_installation='NOT_RUN',multi_node_ha='NOT_QUALIFIED')
           pathlib.Path('mission3-source.json').write_text(json.dumps(report,sort_keys=True)+'\n')
           assert report['grid']['head']==report['expected_grid_sha'] and report['unified']['head']==report['baseline_unified_sha']
