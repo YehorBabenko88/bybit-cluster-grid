@@ -14,14 +14,26 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 function Assert-Mission3LocalPath([string]$Path) {
  if ($Path -notmatch '^[A-Za-z]:\\' -or $Path.Substring(2).Contains(':') -or $Path.Contains('/') -or $Path.Contains('..')) { throw 'Absolute local drive namespace required' }
- $cursor=[IO.Path]::GetFullPath($Path)
+ $full=[IO.Path]::GetFullPath($Path)
+ $driveRoot=[IO.Path]::GetPathRoot($full)
+ $volume=[IO.DriveInfo]::new($driveRoot)
+ if ($volume.DriveType -ne [IO.DriveType]::Fixed) {throw 'Fixed local drive required'}
+ $drive=Get-PSDrive -Name ($driveRoot.Substring(0,1)) -ErrorAction Stop
+ if ($drive.Provider.Name -cne 'FileSystem' -or $drive.Root.TrimEnd('\') -ine $driveRoot.TrimEnd('\')) {throw 'Drive provider namespace mismatch'}
+ $ancestors=New-Object 'System.Collections.Generic.List[string]'
+ $cursor=$full
  while ($cursor) {
-  if (Test-Path -LiteralPath $cursor) {
-   $item=Get-Item -LiteralPath $cursor -Force
-   if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {throw 'Reparse namespace forbidden'}
-  }
+  $ancestors.Add($cursor)
   $parent=[IO.Path]::GetDirectoryName($cursor.TrimEnd('\'))
   if ($parent -eq $cursor) {break};$cursor=$parent
+ }
+ for ($i=$ancestors.Count-1;$i -ge 0;$i--) {
+  $current=$ancestors[$i]
+  try {$item=Get-Item -LiteralPath $current -Force -ErrorAction Stop}
+  catch [Management.Automation.ItemNotFoundException] {return}
+  catch {throw 'Local namespace unavailable'}
+  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {throw 'Reparse namespace forbidden'}
+  if ($current -ine $full -and !$item.PSIsContainer) {throw 'Non-directory ancestor forbidden'}
  }
 }
 foreach($path in @($InstallRoot,$Python,$Nssm,$TrustedLauncher)){Assert-Mission3LocalPath $path}
