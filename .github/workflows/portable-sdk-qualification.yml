@@ -20,6 +20,7 @@ jobs:
     env:
       EXPECTED_GRID_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       UNIFIED_SHA: 5d82f0fa62cffd0987e5497c5a17010f4d2f9127
+      UNIFIED_TREE: 8c9cb1066e89829892620d98fdf482ea4ed47b90
       CATALOG_SHA256: 8f03e40a411033532a9a349025db9c6299a2cb52da16b8a839e7d4912bc5041b
       PREFLIGHT_SHA256: 25052e5f5a4d5097f72123c5a1fdbfceffe85ac6cae586133f0a594b4232dff7
       GUARD_SHA256: 01166814651689d6df832efa974e69e745fe218f4d6c2bc805224cce7312af5a
@@ -155,7 +156,7 @@ jobs:
           $request=[ordered]@{
             ArtifactRoot=$artifactRoot;StageRoot=(Join-Path $env:RUNNER_TEMP ('portable-sdk-stage-'+[Guid]::NewGuid().ToString('N')))
             UnifiedRoot=(Join-Path $env:GITHUB_WORKSPACE '.source/unified-system');UnifiedSourceHead=$env:UNIFIED_SHA
-            UnifiedSourceTree=8c9cb1066e89829892620d98fdf482ea4ed47b90
+            UnifiedSourceTree=$env:UNIFIED_TREE
             CatalogSha256=$env:CATALOG_SHA256;PreflightSha256=$env:PREFLIGHT_SHA256;SourceGuardSha256=$env:GUARD_SHA256
             LibrarySha256=$env:LIBRARY_SHA256;NativeJobSha256=$env:NATIVE_JOB_SHA256
           }
@@ -210,6 +211,7 @@ jobs:
               grid_tracked_clean=!(git status --porcelain --untracked-files=no)
               unified_tracked_clean=!(git -C $up status --porcelain --untracked-files=no)
               expected_unified_sha=$env:UNIFIED_SHA;expected_grid_sha=$env:EXPECTED_GRID_SHA
+              expected_unified_tree=$env:UNIFIED_TREE;expected_grid_tree=(git rev-parse "$($env:EXPECTED_GRID_SHA)^{tree}").Trim()
               pins=@{catalog=$env:CATALOG_SHA256;preflight=$env:PREFLIGHT_SHA256;guard=$env:GUARD_SHA256;library=$env:LIBRARY_SHA256;native_job=$env:NATIVE_JOB_SHA256}
               native_security=$env:NATIVE_OUTCOME;vendor_download=$env:DOWNLOAD_OUTCOME;sdk_smoke=$env:SMOKE_OUTCOME
               scope='EPHEMERAL_COMPONENT_ONLY';installation_closure=$false;global_status='NO_GO';services='NOT_INSTALLED';physical='NOT_RUN';multi_node_ha='NOT_QUALIFIED'
@@ -217,11 +219,20 @@ jobs:
             }
             foreach($name in @('zip.json','job.json','sdk.json')){$file=Join-Path $evidence $name;if([IO.File]::Exists($file)){$report.evidence+=@{name=$name;sha256=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()}}}
             $report | ConvertTo-Json -Depth 8 -Compress | Set-Content -LiteralPath (Join-Path $evidence 'source.json') -Encoding UTF8
-            if($report.grid_head -cne $env:EXPECTED_GRID_SHA -or $report.unified_head -cne $env:UNIFIED_SHA -or !$report.grid_tracked_clean -or !$report.unified_tracked_clean){throw 'EXACT_EVIDENCE_SOURCE_REQUIRED'}
+            if($report.grid_head -cne $env:EXPECTED_GRID_SHA){throw 'GRID_HEAD_MISMATCH'}
+            if($report.unified_head -cne $env:UNIFIED_SHA){throw 'UNIFIED_HEAD_MISMATCH'}
+            if($report.grid_tree -cne $report.expected_grid_tree){throw 'GRID_TREE_MISMATCH'}
+            if($report.unified_tree -cne $env:UNIFIED_TREE){throw 'UNIFIED_TREE_MISMATCH'}
+            if(!$report.grid_tracked_clean){throw 'GRID_TRACKED_DIRTY'}
+            if(!$report.unified_tracked_clean){throw 'UNIFIED_TRACKED_DIRTY'}
           } catch {
             $classification='UNKNOWN';$detail=$_.Exception.ToString()
-            foreach($code in @('EXACT_EVIDENCE_SOURCE_REQUIRED')){if($detail.Contains($code)){$classification=$code;break}}
+            foreach($code in @('GRID_HEAD_MISMATCH','UNIFIED_HEAD_MISMATCH','GRID_TREE_MISMATCH','UNIFIED_TREE_MISMATCH','GRID_TRACKED_DIRTY','UNIFIED_TRACKED_DIRTY')){if($detail.Contains($code)){$classification=$code;break}}
             $id=[string]$_.FullyQualifiedErrorId;if($id.Length -gt 96 -or $id -cnotmatch '^[A-Za-z0-9_.:,-]+$'){$id='REDACTED'}
+            foreach($key in @('grid_head','grid_tree','unified_head','unified_tree','expected_grid_sha','expected_grid_tree','expected_unified_sha','expected_unified_tree')){
+              $value='';if($null -ne $report){$value=[string]$report[$key]};if($value -cnotmatch '^[a-f0-9]{40}$'){$value='REDACTED'}
+              Write-Output "::error title=Public source identity::field=$key value=$value"
+            }
             Write-Output "::error title=SDK source boundary::phase=SOURCE_EVIDENCE code=$classification id=$id line=$([int]$_.InvocationInfo.ScriptLineNumber)"
             throw
           }

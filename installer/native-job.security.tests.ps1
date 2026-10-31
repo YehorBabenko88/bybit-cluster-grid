@@ -12,7 +12,9 @@ $lease=$null;$phase='INITIALIZE'
 try {
  Initialize-PortableJob (Join-Path $PSScriptRoot 'NativeJobProcess.cs') $NativeJobSha256
  # This is a real minimal executable compiled only in the hosted test namespace.
- # The parent explicitly inherits its actual stdout/stderr into the child.
+ # The orphan case explicitly inherits actual stdout/stderr. The retained
+ # case deliberately has no inherited handles, no STARTF_USESTDHANDLES and
+ # DETACHED_PROCESS; Job membership is independent of handle inheritance.
  $phase='COMPILE_FIXTURE'
  $source=@'
 using System;
@@ -32,10 +34,12 @@ class HeartbeatFixture {
    if(args[0]=="closed-child"){CloseHandle(GetStdHandle(-11));CloseHandle(GetStdHandle(-12));}
    for(int i=0;i<600;i++){File.AppendAllText(args[1],"x");Thread.Sleep(25);}return 0;
   }
-  SI si=new SI();si.cb=Marshal.SizeOf(typeof(SI));si.flags=0x100;si.input=GetStdHandle(-10);si.output=GetStdHandle(-11);si.error=GetStdHandle(-12);PI pi;
+  SI si=new SI();si.cb=Marshal.SizeOf(typeof(SI));PI pi;
+  bool retained=args[0]=="retained";
+  if(!retained){si.flags=0x100;si.input=GetStdHandle(-10);si.output=GetStdHandle(-11);si.error=GetStdHandle(-12);}
   string exe=System.Reflection.Assembly.GetExecutingAssembly().Location;
   string child=args[0]=="retained"?"closed-child":"child";
-  if(!CreateProcess(exe,new StringBuilder("\""+exe+"\" "+child+" \""+args[1]+"\""),IntPtr.Zero,IntPtr.Zero,true,0,IntPtr.Zero,Environment.CurrentDirectory,ref si,out pi))return 7;
+  if(!CreateProcess(exe,new StringBuilder("\""+exe+"\" "+child+" \""+args[1]+"\""),IntPtr.Zero,IntPtr.Zero,!retained,retained?8u:0u,IntPtr.Zero,Environment.CurrentDirectory,ref si,out pi))return 7;
   CloseHandle(pi.thread);CloseHandle(pi.process);return 0;
  }
 }
@@ -58,7 +62,7 @@ class HeartbeatFixture {
  if(!$deadlineDenied -or ![IO.File]::Exists($heartbeat)){throw 'REAL_CHILD_DEADLINE_NOT_EXERCISED'}
  $before=([IO.FileInfo]$heartbeat).Length;Start-Sleep -Milliseconds 700
  if(([IO.FileInfo]$heartbeat).Length -ne $before){throw 'ORPHAN_SURVIVED_JOB_CLOSE'}
- # A successful root with a deliberately closed-output child may retain its Job
+ # A successful root with a detached child and NO inherited handles may retain its Job
  # for PG-style lifetime; disposal must still own and kill that living child.
  $phase='RETAINED_LIFETIME'
  $retained=Join-Path $fixtureRoot 'retained-heartbeat'
