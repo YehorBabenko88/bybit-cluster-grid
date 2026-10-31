@@ -198,6 +198,15 @@ try {
  $failure=$_.Exception;$report.result='BLOCKED';$classification='UNKNOWN';$detail=$_.Exception.ToString()
  foreach($code in @('JOB_DEADLINE','JOB_OUTPUT_LIMIT','JOB_ASSIGN','JOB_PROCESS_FAILED','PROCESS_CREATE_SUSPENDED','PROCESS_RESUME','JOB_CREATE','JOB_LIMIT','ATTRIBUTE_INIT','ATTRIBUTE_HANDLES','PIPE_CREATE','PIPE_FLAGS','PORTABLE_EXPECTED_EXECUTABLE_MISSING','PORTABLE_EXECUTABLE_PIN_MISMATCH','PORTABLE_DERIVED_EXECUTABLE_PIN_MISMATCH','PORTABLE_ARCHIVE_HASH','PORTABLE_ARCHIVE_SIZE','PORTABLE_ZIP_PATH','PORTABLE_ZIP_ALIAS','PORTABLE_ZIP_LINK_OR_TYPE','PORTABLE_ZIP_DIRECTORY_BUDGET','PORTABLE_ZIP_ENTRY_BUDGET','PORTABLE_ZIP_STREAM_BUDGET','PORTABLE_ZIP_STREAM_LENGTH','PORTABLE_PE_REQUIRED','PORTABLE_X64_PE_REQUIRED','PORTABLE_VERSION_MISMATCH','PORTABLE_ROOT_PREFLIGHT_CONTRACT','PORTABLE_ROOT_GLOBAL_CLOSURE_MUST_REMAIN_BLOCKED','PORTABLE_CATALOG_OR_CACHE_CHANGED','PORTABLE_VENV_GLOBAL_SITE_FORBIDDEN','PORTABLE_VENV_PTH_FORBIDDEN','PORTABLE_VENV_EXECUTABLE_ORIGIN','PORTABLE_VENV_VERSION','PORTABLE_ISOLATED_POSTGRES_IDENTITY','PORTABLE_POSTGRES_STOP_UNVERIFIED')){if($detail.Contains($code)){$classification=$code;break}}
  if($phase -ceq 'ROOT_PREFLIGHT'){Write-PrivatePreflightDiagnostic $failure}
+ $deadlineNode=$failure
+ for($depth=0;$null -ne $deadlineNode -and $depth -lt 8;$depth++){
+  if($deadlineNode.Data.Contains('GridPortable.DeadlineState')){
+   $state=$deadlineNode.Data['GridPortable.DeadlineState']
+   if($state -is [bool[]] -and $state.Length -eq 3){Write-Host "::error title=Owned process deadline state::root_exited=$($state[0]) stdout_done=$($state[1]) stderr_done=$($state[2])"}
+   break
+  }
+  $deadlineNode=$deadlineNode.InnerException
+ }
  $kind='UNKNOWN';$node=$failure
  for($depth=0;$null -ne $node -and $depth -lt 8;$depth++){
   $name=$node.GetType().Name

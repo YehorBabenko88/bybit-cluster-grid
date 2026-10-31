@@ -73,7 +73,7 @@ namespace GridPortable {
      if(stdout.Overflow||stderr.Overflow)throw new InvalidOperationException("JOB_OUTPUT_LIMIT");
      bool exited=Native.WaitForSingleObject(pi.hProcess,0)==0;
      if(exited&&stdout.Task.IsCompleted&&stderr.Task.IsCompleted)break;
-     if(watch.Elapsed.TotalSeconds>seconds)throw new TimeoutException("JOB_DEADLINE");Thread.Sleep(10);
+     if(watch.Elapsed.TotalSeconds>seconds){TimeoutException failure=new TimeoutException("JOB_DEADLINE");failure.Data["GridPortable.DeadlineState"]=new bool[]{exited,stdout.Task.IsCompleted,stderr.Task.IsCompleted};throw failure;}Thread.Sleep(10);
     }
     uint code;if(!Native.GetExitCodeProcess(pi.hProcess,out code))throw Native.Error("PROCESS_EXIT_CODE");
     JobResult result=new JobResult();result.ExitCode=unchecked((int)code);result.Stdout=Encoding.UTF8.GetString(stdout.Data.ToArray());result.Stderr=Encoding.UTF8.GetString(stderr.Data.ToArray());

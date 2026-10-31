@@ -59,8 +59,13 @@ class HeartbeatFixture {
  $environment.Add('TEMP',$fixtureRoot);$environment.Add('TMP',$fixtureRoot)
  $phase='ORPHAN_DEADLINE'
  $heartbeat=Join-Path $fixtureRoot 'orphan-heartbeat'
- $deadlineDenied=$false
- try{$unexpected=[GridPortable.JobProcess]::Run($exe,('parent "'+$heartbeat+'"'),$fixtureRoot,$environment,2,$false);$unexpected.Dispose()}catch{if($_.Exception.ToString() -notmatch 'JOB_DEADLINE'){throw};$deadlineDenied=$true}
+ $deadlineDenied=$false;$deadlineState=$null
+ try{$unexpected=[GridPortable.JobProcess]::Run($exe,('parent "'+$heartbeat+'"'),$fixtureRoot,$environment,2,$false);$unexpected.Dispose()}catch{
+  if($_.Exception.ToString() -notmatch 'JOB_DEADLINE'){throw};$deadlineDenied=$true
+  $node=$_.Exception
+  for($depth=0;$null -ne $node -and $depth -lt 8;$depth++){if($node.Data.Contains('GridPortable.DeadlineState')){$deadlineState=$node.Data['GridPortable.DeadlineState'];break};$node=$node.InnerException}
+ }
+ if($deadlineState -isnot [bool[]] -or $deadlineState.Length -ne 3 -or !$deadlineState[0] -or ($deadlineState[1] -and $deadlineState[2])){throw 'ORPHAN_DEADLINE_STATE_INVALID'}
  if(!$deadlineDenied -or ![IO.File]::Exists($heartbeat)){throw 'REAL_CHILD_DEADLINE_NOT_EXERCISED'}
  $before=([IO.FileInfo]$heartbeat).Length;Start-Sleep -Milliseconds 700
  if(([IO.FileInfo]$heartbeat).Length -ne $before){throw 'ORPHAN_SURVIVED_JOB_CLOSE'}
@@ -101,7 +106,7 @@ class HeartbeatFixture {
 }catch{
  $classification='UNKNOWN'
  $detail=$_.Exception.ToString()
- foreach($code in @('JOB_DEADLINE','JOB_OUTPUT_LIMIT','JOB_ASSIGN','PROCESS_CREATE_SUSPENDED','PROCESS_RESUME','JOB_CREATE','JOB_LIMIT','ATTRIBUTE_INIT','ATTRIBUTE_HANDLES','PIPE_CREATE','PIPE_FLAGS','JOB_PROCESS_FAILED','HARMLESS_FIXTURE_COMPILE_FAILED','REAL_CHILD_DEADLINE_NOT_EXERCISED','ORPHAN_SURVIVED_JOB_CLOSE','RETAINED_CHILD_NOT_STARTED','RETAINED_JOB_CLOSED_EARLY','RETAINED_CHILD_SURVIVED_CLOSE','UNOWNED_PROCESS_RESUMED','NONZERO_PRIVATE_RESULT_INVALID','NONZERO_CHILD_SURVIVED_CLOSE')){if($detail.Contains($code)){$classification=$code;break}}
+ foreach($code in @('JOB_DEADLINE','JOB_OUTPUT_LIMIT','JOB_ASSIGN','PROCESS_CREATE_SUSPENDED','PROCESS_RESUME','JOB_CREATE','JOB_LIMIT','ATTRIBUTE_INIT','ATTRIBUTE_HANDLES','PIPE_CREATE','PIPE_FLAGS','JOB_PROCESS_FAILED','HARMLESS_FIXTURE_COMPILE_FAILED','REAL_CHILD_DEADLINE_NOT_EXERCISED','ORPHAN_SURVIVED_JOB_CLOSE','RETAINED_CHILD_NOT_STARTED','RETAINED_JOB_CLOSED_EARLY','RETAINED_CHILD_SURVIVED_CLOSE','UNOWNED_PROCESS_RESUMED','NONZERO_PRIVATE_RESULT_INVALID','NONZERO_CHILD_SURVIVED_CLOSE','ORPHAN_DEADLINE_STATE_INVALID')){if($detail.Contains($code)){$classification=$code;break}}
  Write-Output "::error title=Native Job subcase::phase=$phase code=$classification line=$([int]$_.InvocationInfo.ScriptLineNumber)"
  throw
 }finally{
