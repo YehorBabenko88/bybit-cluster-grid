@@ -69,7 +69,7 @@ if($volume.AvailableFreeSpace -lt $totalExpanded+1073741824){throw 'PORTABLE_FRE
 [IO.Directory]::CreateDirectory($target) | Out-Null
 Initialize-PortableJob $nativeJob $NativeJobSha256
 $pgJob=$null
-$inventory=@{};$pgStarted=$false;$pgData=$null;$pgCtl=$null;$pgCtlPin=$null;$working=$null;$failure=$null
+$inventory=@{};$pgStarted=$false;$pgData=$null;$pgCtl=$null;$pgCtlPin=$null;$working=$null;$failure=$null;$phase='INITIALIZE_STAGE'
 function Extract-Component([string]$Name) {
  $opened=Open-PortableArchive (Join-Path $ArtifactRoot $metadata[$Name].filename) $metadata[$Name]
  try {foreach($file in (Expand-PortableArchive $opened (Join-Path $target $Name))){$inventory[$file.path]=$file}} finally {Close-PortableArchive $opened}
@@ -100,22 +100,31 @@ try {
  $working=Join-Path $target '_smoke';[IO.Directory]::CreateDirectory($working) | Out-Null
  # Both bootstrap executables derive ONLY from the same already verified archive
  # streams. Their byte hashes are not the catalog's compressed archive hashes.
+ $phase='EXTRACT_BOOTSTRAP'
  Extract-Component 'python';Extract-Component 'git'
  $python=Executable 'python/tools/python.exe';$git=Executable 'git/cmd/git.exe'
  $cache=Join-Path $working 'preflight-cache';[IO.Directory]::CreateDirectory($cache) | Out-Null
  $arguments=@('-I','-S','-B',$preflight,'--operation','toolchain','--source-root',$UnifiedRoot,'--source-head',$UnifiedSourceHead,'--source-tree',$UnifiedSourceTree,'--source-guard-sha256',$SourceGuardSha256,'--git-executable',$git,'--git-sha256',$inventory['git/cmd/git.exe'].sha256,'--artifact-dir',$ArtifactRoot,'--cache-root',$cache)
+ $phase='ROOT_PREFLIGHT'
  $checked=Invoke-PortableProcess $python $inventory['python/tools/python.exe'].sha256 $arguments $working 180
  $proof=$checked.stdout | ConvertFrom-Json
  if($proof.schema -cne 'unified.toolchain-preflight.v1' -or $proof.scope -cne 'COMPONENT_BYTES_ONLY' -or $proof.status -cne 'COMPONENT_BYTES_VERIFIED_ONLY' -or $proof.source_head -cne $UnifiedSourceHead -or $proof.source_tree -cne $UnifiedSourceTree -or $proof.installation_closure -isnot [bool] -or $proof.installation_closure -or $proof.execution_authority -isnot [bool] -or $proof.execution_authority -or $proof.trading_authorized -isnot [bool] -or $proof.trading_authorized -or $proof.physical_deployment_allowed -isnot [bool] -or $proof.physical_deployment_allowed -or $proof.services -cne 'NOT_INSTALLED' -or $proof.physical -cne 'NOT_AUTHORIZED' -or $proof.native_execution -cne 'NOT_RUN'){throw 'PORTABLE_ROOT_PREFLIGHT_CONTRACT'}
  if(@($proof.integrity.artifacts).Count -ne 5 -or @($proof.integrity.artifacts | Where-Object {$_.status -cne 'BYTES_MATCH'}).Count -ne 0 -or $proof.integrity.installation_closure -isnot [bool] -or $proof.integrity.installation_closure -or @($proof.integrity.required_unlocked).Count -ne 2){throw 'PORTABLE_ROOT_GLOBAL_CLOSURE_MUST_REMAIN_BLOCKED'}
  if((Get-PortableHash $catalogPath 65536) -cne $CatalogSha256 -or @(Get-ChildItem -LiteralPath $cache -Force).Count -ne 0){throw 'PORTABLE_CATALOG_OR_CACHE_CHANGED'}
+ $phase='EXTRACT_REMAINING'
  foreach($component in @('node','postgresql','nssm')){Extract-Component $component}
  $versions=[ordered]@{}
+ $phase='VERSION_PYTHON'
  $versions.python=Version-Tool 'python/tools/python.exe' '^Python 3\.12\.10$' @('-I','-S','-B','--version')
+ $phase='VERSION_NODE'
  $versions.node=Version-Tool 'node/node-v22.23.4-win-x64/node.exe' '^v22\.23\.4$' @('--version')
+ $phase='VERSION_GIT'
  $versions.git=Version-Tool 'git/cmd/git.exe' '^git version 2\.56\.0\.windows\.4$' @('--version')
+ $phase='VERSION_POSTGRESQL'
  $versions.postgresql=Version-Tool 'postgresql/pgsql/bin/postgres.exe' '^postgres \(PostgreSQL\) 18\.6' @('--version')
+ $phase='VERSION_NSSM'
  $versions.nssm=Version-Tool 'nssm/nssm-2.24-101-g897c7ad/win64/nssm.exe' '2\.24[.-]101-g897c7ad' @('version')
+ $phase='VENV_CREATE_VERIFY'
  $venv=Join-Path $working 'venv'
  $null=Run-Tool 'python/tools/python.exe' @('-I','-S','-B','-m','venv','--copies','--without-pip',$venv) 120
  $venvConfig=Join-Path $venv 'pyvenv.cfg';Assert-PortableLocalPath $venvConfig -MustExist
@@ -127,21 +136,31 @@ try {
  $venvResult=Invoke-PortableProcess $venvPython $venvHash @('-I','-S','-B','--version') $working 20
  if(($venvResult.stdout+' '+$venvResult.stderr).Trim() -cne 'Python 3.12.10'){throw 'PORTABLE_VENV_VERSION'}
  $pgData=Join-Path $working 'pg-data';$pgCtl=Executable 'postgresql/pgsql/bin/pg_ctl.exe';$pgCtlPin=$inventory['postgresql/pgsql/bin/pg_ctl.exe'].sha256
+ $phase='POSTGRES_INIT'
  $null=Run-Tool 'postgresql/pgsql/bin/initdb.exe' @('-D',$pgData,'--auth=trust','--username=toolchain_smoke','--no-locale','--encoding=UTF8') 180
  $listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0);$listener.Start();$port=$listener.LocalEndpoint.Port;$listener.Stop()
  $log=Join-Path $working 'postgres.log';$pgStarted=$true
+ $phase='POSTGRES_START'
  $pgLaunch=Invoke-PortableProcess $pgCtl $pgCtlPin @('-D',$pgData,'-w','-t','45','-l',$log,'-o',(' -c listen_addresses=127.0.0.1 -p '+$port),'start') $working 60 -RetainJob
  $pgJob=$pgLaunch.lease
+ $phase='POSTGRES_QUERY'
  $query=Run-Tool 'postgresql/pgsql/bin/psql.exe' @('-h','127.0.0.1','-p',[string]$port,'-U','toolchain_smoke','-d','postgres','-v','ON_ERROR_STOP=1','-At','-c',"SELECT current_setting('data_directory'),current_setting('port'),current_setting('server_version_num')") 20
  $fields=$query.stdout.Trim().Split('|')
  if($fields.Count -ne 3 -or [IO.Path]::GetFullPath($fields[0]) -ine [IO.Path]::GetFullPath($pgData) -or $fields[1] -cne [string]$port -or [int]$fields[2] -lt 180000 -or [int]$fields[2] -ge 190000){throw 'PORTABLE_ISOLATED_POSTGRES_IDENTITY'}
+ $phase='POSTGRES_STOP'
  $null=Invoke-PortableProcess $pgCtl $pgCtlPin @('-D',$pgData,'-w','-t','45','stop','-m','fast') $working 60;$pgStarted=$false
  if($null -ne $pgJob){$pgJob.Dispose();$pgJob=$null}
  if([IO.File]::Exists((Join-Path $pgData 'postmaster.pid'))){throw 'PORTABLE_POSTGRES_STOP_UNVERIFIED'}
  $report.result='PASS_COMPONENT_SDK_SMOKE_ONLY';$report.native_execution='EPHEMERAL_COMPONENT_SMOKE_ONLY';$report.versions=$versions
  $report.venv=@{created=$true;system_site_packages=$false;pth_files=0};$report.postgresql=@{isolated_data_verified=$true;loopback_only=$true;stopped=$true;ha='NOT_QUALIFIED'}
  $report.inventory=@($inventory.Values | Sort-Object path)
-} catch {$failure=$_.Exception;$report.result='BLOCKED'}
+} catch {
+ $failure=$_.Exception;$report.result='BLOCKED';$classification='UNKNOWN';$detail=$_.Exception.ToString()
+ foreach($code in @('JOB_DEADLINE','JOB_OUTPUT_LIMIT','JOB_ASSIGN','JOB_PROCESS_FAILED','PROCESS_CREATE_SUSPENDED','PROCESS_RESUME','JOB_CREATE','JOB_LIMIT','ATTRIBUTE_INIT','ATTRIBUTE_HANDLES','PIPE_CREATE','PIPE_FLAGS','PORTABLE_EXPECTED_EXECUTABLE_MISSING','PORTABLE_EXECUTABLE_PIN_MISMATCH','PORTABLE_DERIVED_EXECUTABLE_PIN_MISMATCH','PORTABLE_ARCHIVE_HASH','PORTABLE_ARCHIVE_SIZE','PORTABLE_ZIP_PATH','PORTABLE_ZIP_ALIAS','PORTABLE_ZIP_LINK_OR_TYPE','PORTABLE_ZIP_DIRECTORY_BUDGET','PORTABLE_ZIP_ENTRY_BUDGET','PORTABLE_ZIP_STREAM_BUDGET','PORTABLE_ZIP_STREAM_LENGTH','PORTABLE_PE_REQUIRED','PORTABLE_X64_PE_REQUIRED','PORTABLE_VERSION_MISMATCH','PORTABLE_ROOT_PREFLIGHT_CONTRACT','PORTABLE_ROOT_GLOBAL_CLOSURE_MUST_REMAIN_BLOCKED','PORTABLE_CATALOG_OR_CACHE_CHANGED','PORTABLE_VENV_GLOBAL_SITE_FORBIDDEN','PORTABLE_VENV_PTH_FORBIDDEN','PORTABLE_VENV_EXECUTABLE_ORIGIN','PORTABLE_VENV_VERSION','PORTABLE_ISOLATED_POSTGRES_IDENTITY','PORTABLE_POSTGRES_STOP_UNVERIFIED')){if($detail.Contains($code)){$classification=$code;break}}
+ $report.failure_phase=$phase;$report.failure_code=$classification
+ # Host stream keeps this fixed annotation out of the JSON result pipeline.
+ Write-Host "::error title=Component SDK phase::phase=$phase code=$classification"
+}
 finally {
  if($pgStarted -and $pgCtl -and $pgData){
   try {$null=Invoke-PortableProcess $pgCtl $pgCtlPin @('-D',$pgData,'-w','-t','45','stop','-m','fast') $working 60;$report.postgresql_cleanup='OWNED_STOP_COMPLETED'}

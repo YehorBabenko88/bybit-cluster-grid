@@ -130,7 +130,7 @@ jobs:
                     if($redirect -eq 5 -or !$response.Headers.Location){throw 'VENDOR_REDIRECT_LIMIT'}
                     $uri=[Uri]::new($uri,$response.Headers.Location);$response.Dispose();$response=$null;continue
                   }
-                  if([int]$response.StatusCode -ne 200){throw 'VENDOR_HTTP_FAILURE'}
+                  if([int]$response.StatusCode -ne 200){Write-Output "::error title=Mandatory vendor HTTP status::component=$($artifact.component) status=$([int]$response.StatusCode)";throw 'VENDOR_HTTP_FAILURE'}
                   break
                 }
                 if($response.Content.Headers.ContentLength -gt [long]$artifact.max_bytes){throw 'VENDOR_COMPRESSED_BUDGET'}
@@ -223,7 +223,31 @@ jobs:
             if($report.unified_head -cne $env:UNIFIED_SHA){throw 'UNIFIED_HEAD_MISMATCH'}
             if($report.grid_tree -cne $report.expected_grid_tree){throw 'GRID_TREE_MISMATCH'}
             if($report.unified_tree -cne $env:UNIFIED_TREE){throw 'UNIFIED_TREE_MISMATCH'}
-            if(!$report.grid_tracked_clean){throw 'GRID_TRACKED_DIRTY'}
+            if(!$report.grid_tracked_clean){
+              # Public filenames come from the pinned HEAD tree; never emit
+              # contents, raw status, untracked paths or global configuration.
+              $public=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+              foreach($name in (git ls-tree -r --name-only HEAD)){[void]$public.Add([string]$name)}
+              $count=0
+              foreach($name in (git diff --name-only --no-ext-diff --no-textconv HEAD --)){
+                $name=[string]$name
+                if($count -ge 8){break}
+                if(!$public.Contains($name) -or $name.Length -gt 200 -or $name -cnotmatch '^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$' -or @($name.Split('/') | Where-Object {$_ -in @('.','..')}).Count -ne 0){continue}
+                $count++;$path=$env:GITHUB_WORKSPACE;$safe=$true
+                foreach($part in $name.Split('/')){
+                  $path=Join-Path $path $part
+                  try{$item=Get-Item -LiteralPath $path -Force -ErrorAction Stop;if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){$safe=$false;break}}catch{$safe=$false;break}
+                }
+                $headBlob=[string](git rev-parse ("HEAD:"+$name));if($headBlob -cnotmatch '^[a-f0-9]{40}$'){$headBlob='REDACTED'}
+                $rawBlob='BLOCKED';$rawSha='BLOCKED'
+                if($safe -and !$item.PSIsContainer -and $item.Length -le 33554432){
+                  $rawBlob=[string](git hash-object --no-filters -- $path);if($rawBlob -cnotmatch '^[a-f0-9]{40}$'){$rawBlob='REDACTED'}
+                  $rawSha=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+                }
+                Write-Output "::error title=Public tracked source difference::file=$name head_blob=$headBlob raw_blob=$rawBlob raw_sha256=$rawSha"
+              }
+              throw 'GRID_TRACKED_DIRTY'
+            }
             if(!$report.unified_tracked_clean){throw 'UNIFIED_TRACKED_DIRTY'}
           } catch {
             $classification='UNKNOWN';$detail=$_.Exception.ToString()
