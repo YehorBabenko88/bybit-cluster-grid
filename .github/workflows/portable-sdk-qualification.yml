@@ -25,7 +25,7 @@ jobs:
       PREFLIGHT_SHA256: 25052e5f5a4d5097f72123c5a1fdbfceffe85ac6cae586133f0a594b4232dff7
       GUARD_SHA256: 01166814651689d6df832efa974e69e745fe218f4d6c2bc805224cce7312af5a
       LIBRARY_SHA256: 206c80da775aaacd01c40f175f29e2df20813df5f6e57e77fc061fa77a8c3b92
-      NATIVE_JOB_SHA256: c8732a0a7fbafda01966f5419e1b71b9a9d48d806dacfe580f45143b70b07a91
+      NATIVE_JOB_SHA256: cf5ff3561f31d59ad09359015133b9264f3c8faf1e0d45ded0d7b0bc80478cac
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -235,7 +235,7 @@ jobs:
               $public=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
               foreach($name in (git ls-tree -r --name-only HEAD)){[void]$public.Add([string]$name)}
               $statusKinds=@{' M'='WORKTREE_MODIFIED';'M '='INDEX_MODIFIED';'MM'='INDEX_AND_WORKTREE_MODIFIED';' D'='WORKTREE_DELETED';'D '='INDEX_DELETED';'A '='INDEX_ADDED';'AM'='INDEX_ADDED_WORKTREE_MODIFIED';' T'='WORKTREE_TYPE_CHANGED';'T '='INDEX_TYPE_CHANGED';'R '='INDEX_RENAMED';'C '='INDEX_COPIED';'UU'='UNMERGED';'??'='UNTRACKED';'!!'='IGNORED'}
-              $statusCount=0
+              $statusCount=0;$publicStatusPaths=[Collections.Generic.List[string]]::new()
               foreach($entry in $gridStatus){
                 if($statusCount -ge 8){break};$entry=[string]$entry
                 if($entry.Length -lt 3){continue};$prefix=$entry.Substring(0,2);$kind='OTHER'
@@ -243,10 +243,10 @@ jobs:
                 # Prefixes are fixed classifications; never print arbitrary
                 # porcelain output or names outside the trusted HEAD tree.
                 $name=$entry.Substring(3);$statusCount++
-                if($public.Contains($name) -and $name.Length -le 200 -and $name -cmatch '^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$' -and @($name.Split('/') | Where-Object {$_ -in @('.','..')}).Count -eq 0){Write-Output "::error title=Public tracked status::file=$name status=$kind"}else{Write-Output "::error title=Source status classification::status=$kind path=NOT_PUBLIC_TRACKED"}
+                if($public.Contains($name) -and $name.Length -le 200 -and $name -cmatch '^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$' -and @($name.Split('/') | Where-Object {$_ -in @('.','..')}).Count -eq 0){$publicStatusPaths.Add($name);Write-Output "::error title=Public tracked status::file=$name status=$kind"}else{Write-Output "::error title=Source status classification::status=$kind path=NOT_PUBLIC_TRACKED"}
               }
               $count=0
-              foreach($name in (git diff --name-only --no-ext-diff --no-textconv HEAD --)){
+              foreach($name in $publicStatusPaths){
                 $name=[string]$name
                 if($count -ge 8){break}
                 if(!$public.Contains($name) -or $name.Length -gt 200 -or $name -cnotmatch '^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$' -or @($name.Split('/') | Where-Object {$_ -in @('.','..')}).Count -ne 0){continue}

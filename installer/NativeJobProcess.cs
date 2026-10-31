@@ -22,8 +22,9 @@ namespace GridPortable {
   }
   public void Dispose(){IntPtr h=Interlocked.Exchange(ref Handle,IntPtr.Zero);if(h!=IntPtr.Zero)Native.CloseHandle(h);}
  }
+ [Serializable]
  public sealed class JobResult : IDisposable {
-  public string Stdout;public string Stderr;public int ExitCode;public OwnedJob Job;
+  public string Stdout;public string Stderr;public int ExitCode;[NonSerialized] public OwnedJob Job;
   public void Dispose(){if(Job!=null){Job.Dispose();Job=null;}}
  }
  public static class JobProcess {
