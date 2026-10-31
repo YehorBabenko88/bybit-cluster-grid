@@ -1,2 +1,5 @@
 # SQL qualification compares committed raw bytes on every platform.
 *.sql -text
+
+# Preserve exact PostgreSQL configuration example bytes on Windows.
+*.conf.example -text
