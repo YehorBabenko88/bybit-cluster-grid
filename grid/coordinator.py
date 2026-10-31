@@ -1,5 +1,8 @@
 import asyncio,time,logging,secrets,hashlib,tempfile,os,pathlib,subprocess,json
 from fastapi import FastAPI,Header,HTTPException,Request
+from fastapi.responses import JSONResponse
+from .coordination import coordinator_authority, floating_leader_guard
+from .floating_leader import FloatingLeader
 from .config import settings
 from .bybit import linear_symbols
 from .resources import capacity_score,node_accepts_work
@@ -23,7 +26,7 @@ from .live_assignment_policy import guarded_live_symbols,pilot_universe
 from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
-from .retention import retention_scheduler
+from .retention import retention_scheduler, ensure_retention_schema
 from .maintenance import maintenance_scheduler
 from .ml_artifact_store import LocalArtifactStore
 from .ml_transport import claim as ml_claim,renew as ml_renew,dataset_bundle as ml_dataset_bundle,dataset_page as ml_dataset_page,publish_artifact as ml_publish_artifact,register_saved_artifact as ml_register_saved_artifact,finalize_model as ml_finalize_model
@@ -46,7 +49,37 @@ background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
 ml_orchestrator=None
 scientific_service=None
+coordination_authority=None
+control_leader=None
+control_task=None
 
+
+
+@app.middleware('http')
+async def coordinated_request_guard(request, call_next):
+    if (getattr(settings, 'grid_coordination_mode', 'legacy') == 'consul'
+            and request.url.path not in ('/health', '/ready')):
+        if control_leader is None or not control_leader.ready or control_leader.requires_fencing:
+            return JSONResponse({'reason': 'COORDINATION_NOT_READY'}, status_code=503)
+        try:
+            await floating_leader_guard(control_leader)()
+        except Exception:
+            return JSONResponse({'reason': 'COORDINATION_NOT_READY'}, status_code=503)
+    return await call_next(request)
+
+
+@app.get('/ready')
+async def control_readiness():
+    if db is None or getattr(db, 'pool', None) is None:
+        raise HTTPException(503, 'database not ready')
+    mode = getattr(settings, 'grid_coordination_mode', 'legacy')
+    if mode == 'consul':
+        if control_leader is None or not control_leader.ready or control_leader.requires_fencing:
+            raise HTTPException(503, 'DCS-backed control is not ready')
+        try:await floating_leader_guard(control_leader)()
+        except Exception:raise HTTPException(503, 'DCS-backed control is not ready')
+    return {'ready': True, 'coordination_mode': mode,
+            'physical_ha_qualified': False, 'legacy_single_primary': mode == 'legacy'}
 
 
 def control_disk_state():
@@ -621,44 +654,7 @@ async def rebalance():
 
 @app.on_event("startup")
 async def startup():
-    global db, ingest_storage, background_tasks, ml_orchestrator, scientific_service
-    bootstrap_logging()
-    install_asyncio_exception_filter(asyncio.get_running_loop())
-    log.info(
-        "coordinator startup",
-        extra={"event": "coordinator_startup", "component": "coordinator"},
-    )
-    db=await prepare_database()
-    await ensure_instrument_schema(db.pool)
-    await ensure_strategy_schema(db.pool)
-    await ensure_plugin_schema(db.pool)
-    await ensure_control_schema(db.pool)
-    await ensure_update_schema(db.pool)
-    await ensure_enrollment_schema(db.pool)
-    await ensure_runtime_gate(db.pool)
-    ingest_storage=Storage()
-    ingest_storage.pool=db.pool
-    await ingest_storage.feature_builder.start(db.pool)
-    scientific_service=ScientificResearchService(db.pool)
-    await scientific_service.start()
-    ingest_storage.scientific=scientific_service
-    ingest_storage.derived=__import__('grid.derived_pipeline',fromlist=['DerivedPipeline']).DerivedPipeline(db.pool)
-    await ingest_storage.derived.start()
-    async def ml_nodes():
-        cutoff=time.time()-settings.heartbeat_seconds*3
-        return {nid:dict(v) for nid,v in nodes.items() if float(v.get("last_seen",0))>=cutoff}
-    async def ml_health():
-        snap=resource_snapshot()
-        try:
-            active=await db.pool.fetchval("""SELECT count(*) FROM pg_stat_activity
-              WHERE datname=current_database() AND state='active'""")
-        except Exception:
-            active=settings.strategy_db_active_limit
-        return {"cpu_pct":snap["cpu_pct"],"ram_pct":snap["ram_pct"],
-                "disk_free_gb":snap["disk_free"]/(1024**3),
-                "db_latency_ms":0 if int(active or 0)<settings.strategy_db_active_limit else 9999,
-                "db_queue_ratio":min(1.0,int(active or 0)/max(1,settings.strategy_db_active_limit))}
-    ml_orchestrator=MLOrchestratorService(db.pool,MLDispatcher(db.pool,ml_nodes),ml_health)
+    global db, ingest_storage, background_tasks, coordination_authority, control_leader, control_task
     async def loop():
         global instruments,assignments
         while True:
@@ -698,19 +694,91 @@ async def startup():
             except Exception:
                 log.exception("coordinator refresh failed",extra={"event":"universe_refresh_failed"})
             await asyncio.sleep(settings.rebalance_seconds)
-    background_tasks = [
-        asyncio.create_task(loop()),
-        asyncio.create_task(telegram_loop(db,nodes)),
-        asyncio.create_task(retention_scheduler(db.pool,settings)),
-        asyncio.create_task(maintenance_scheduler(db.pool,settings)),
-        asyncio.create_task(ml_orchestrator.run()),
-        asyncio.create_task(scientific_service.run()),
-    ]
+
+    async def start_services(epoch=None):
+        global background_tasks
+        await _prepare_control_services(epoch)
+        background_tasks = [
+            asyncio.create_task(loop()),
+            asyncio.create_task(telegram_loop(db,nodes)),
+            asyncio.create_task(retention_scheduler(db.pool,settings)),
+            asyncio.create_task(maintenance_scheduler(db.pool,settings)),
+            asyncio.create_task(ml_orchestrator.run()),
+            asyncio.create_task(scientific_service.run()),
+        ]
+
+    # Configuration and independent-fence readiness precede all DB/writer startup.
+    coordination_authority = await coordinator_authority(settings,
+        external_fence_verifier=getattr(app.state, 'external_fence_verifier', None))
+    bootstrap_logging()
+    install_asyncio_exception_filter(asyncio.get_running_loop())
+    try:
+        db=await prepare_database()
+    except BaseException:
+        if coordination_authority is not None:
+            await coordination_authority.close()
+            coordination_authority=None
+        raise
+    if coordination_authority is None:
+        await start_services()
+        return
+    control_leader=FloatingLeader(db.pool, settings.grid_control_node_id,
+        settings.grid_leader_lease_seconds, settings.grid_leader_renew_seconds,
+        coordination=coordination_authority,
+        cleanup_timeout_seconds=settings.grid_leader_cleanup_timeout_seconds)
+    app.state.grid_lease_guard=floating_leader_guard(control_leader)
+    control_task=asyncio.create_task(control_leader.run(start_services, _stop_control_services))
+
+
+async def _prepare_control_services(epoch=None):
+    global ingest_storage, background_tasks, ml_orchestrator, scientific_service
+    await ensure_instrument_schema(db.pool)
+    await ensure_strategy_schema(db.pool)
+    await ensure_plugin_schema(db.pool)
+    await ensure_control_schema(db.pool)
+    await ensure_update_schema(db.pool)
+    await ensure_enrollment_schema(db.pool)
+    await ensure_runtime_gate(db.pool)
+    await ensure_retention_schema(db.pool)
+    ingest_storage=Storage()
+    ingest_storage.pool=db.pool
+    await ingest_storage.feature_builder.start(db.pool)
+    scientific_service=ScientificResearchService(db.pool)
+    await scientific_service.start()
+    ingest_storage.scientific=scientific_service
+    ingest_storage.derived=__import__('grid.derived_pipeline',fromlist=['DerivedPipeline']).DerivedPipeline(db.pool)
+    await ingest_storage.derived.start()
+    async def ml_nodes():
+        cutoff=time.time()-settings.heartbeat_seconds*3
+        return {nid:dict(v) for nid,v in nodes.items() if float(v.get("last_seen",0))>=cutoff}
+    async def ml_health():
+        snap=resource_snapshot()
+        try:
+            active=await db.pool.fetchval("""SELECT count(*) FROM pg_stat_activity
+              WHERE datname=current_database() AND state='active'""")
+        except Exception:
+            active=settings.strategy_db_active_limit
+        return {"cpu_pct":snap["cpu_pct"],"ram_pct":snap["ram_pct"],
+                "disk_free_gb":snap["disk_free"]/(1024**3),
+                "db_latency_ms":0 if int(active or 0)<settings.strategy_db_active_limit else 9999,
+                "db_queue_ratio":min(1.0,int(active or 0)/max(1,settings.strategy_db_active_limit))}
+    ml_orchestrator=MLOrchestratorService(db.pool,MLDispatcher(db.pool,ml_nodes),ml_health)
+
+
+async def _stop_control_services():
+    await shutdown(close_database=False)
+
 
 @app.on_event("shutdown")
-async def shutdown():
+async def shutdown(close_database=True):
     global ingest_storage, background_tasks, ml_orchestrator, scientific_service
-
+    global control_leader, control_task, coordination_authority
+    if close_database and control_leader is not None:
+        control_leader.stop()
+        if control_task is not None:
+            await control_task
+        control_task=None
+        control_leader=None
     if ml_orchestrator is not None:
         ml_orchestrator.stop()
     if scientific_service is not None:
@@ -735,6 +803,13 @@ async def shutdown():
                 await close()
         ingest_storage = None
 
-    if db is not None and db.pool is not None:
-        await db.pool.close()
-        db.pool=None
+    ml_orchestrator=None
+    scientific_service=None
+
+    if close_database:
+        if coordination_authority is not None:
+            await coordination_authority.close()
+            coordination_authority=None
+        if db is not None and db.pool is not None:
+            await db.pool.close()
+            db.pool=None

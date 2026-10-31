@@ -1,0 +1,15 @@
+# REVIEW TEMPLATE ONLY. No deploy/install action is performed by this file.
+# Five database roles: primary + s1,s2,s3,s4 on independent failure domains.
+wal_level = replica
+max_wal_senders = 12
+max_replication_slots = 12
+synchronous_commit = remote_apply
+synchronous_standby_names = 'ANY 2 (s1,s2,s3,s4)'
+archive_mode = on
+# Replace with an owner-controlled durable, authenticated archive transport.
+# Must never overwrite different existing WAL bytes; archive failures must alert.
+archive_command = 'OWNER_VERIFIED_ARCHIVE_COMMAND_REQUIRED %p %f'
+archive_timeout = 60
+# Standbys: primary_conninfo must use authenticated replication role + verify-full
+# TLS, a unique application_name and an explicitly managed credential selector.
+# Never copy the isolated lab trust authentication into a real deployment.

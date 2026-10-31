@@ -1,4 +1,4 @@
-import math
+import math,json
 from .control_plane import enqueue_command
 from .update_protocol import release_health_ok
 
@@ -19,6 +19,7 @@ def build_waves(node_ids,canary_node):
 async def begin_stable_rollout(pool,version,node_ids,canary_node):
     waves=build_waves(node_ids,canary_node)
     async with pool.acquire() as c:
+        await _reject_unified_v3(c,version)
         await c.execute("""
         CREATE TABLE IF NOT EXISTS rollout_nodes(
           version text NOT NULL,node_id text NOT NULL,wave integer NOT NULL,
@@ -36,6 +37,7 @@ async def begin_stable_rollout(pool,version,node_ids,canary_node):
 
 async def launch_next_wave(pool,version):
     async with pool.acquire() as c:
+        await _reject_unified_v3(c,version)
         failed=await c.fetchval("""SELECT count(*) FROM rollout_nodes
           WHERE version=$1 AND status IN ('failed','rollback_pending')""",version)
         if failed:
@@ -68,6 +70,7 @@ async def note_rollout_heartbeat(pool,node_id,version,required_acks=3,heartbeat=
     if not ok:
         return "unhealthy:"+str(reason)
     async with pool.acquire() as c:
+        await _reject_unified_v3(c,version)
         row=await c.fetchrow("""SELECT status,health_acks FROM rollout_nodes
           WHERE version=$1 AND node_id=$2""",version,node_id)
         if not row or row["status"] not in ("queued","verifying"): return None
@@ -84,9 +87,20 @@ async def expire_rollout_nodes(pool):
         rows=await c.fetch("""UPDATE rollout_nodes SET status='rollback_pending',
           last_error='health timeout',updated_at=now()
           WHERE status IN ('queued','verifying') AND deadline<now()
+          AND version NOT IN (SELECT version FROM agent_releases WHERE metadata->>'schema'='grid.unified.release.v3')
           RETURNING version,node_id""")
         versions={r["version"] for r in rows}
         for version in versions:
             await c.execute("""UPDATE rollout_state SET status='failed',
               last_error='stable rollout health timeout' WHERE version=$1""",version)
         return [dict(r) for r in rows]
+
+
+async def _reject_unified_v3(c,version):
+    """Legacy wave control must not bypass the fenced protocol3 actuator.
+
+    Registered release metadata exists in v1; no protocol column required.
+    """
+    metadata=await c.fetchval('SELECT metadata FROM agent_releases WHERE version=$1',version)
+    if isinstance(metadata,str):metadata=json.loads(metadata)
+    if isinstance(metadata,dict) and metadata.get('schema')=='grid.unified.release.v3':raise ValueError('unified release requires fenced v3 rollout')
