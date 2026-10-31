@@ -139,8 +139,20 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           Write-Output "PowerShell $($PSVersionTable.PSVersion) $($PSVersionTable.PSEdition)" | Tee-Object -FilePath mission3-native.txt
-          & ./installer/mission3-contract.tests.ps1 -UnifiedRoot $env:UNIFIED_SOURCE_ROOT | Tee-Object -FilePath mission3-native.txt -Append
-          if (-not $?) { throw 'Native parser/CMS contracts failed' }
+          try {
+            & ./installer/mission3-contract.tests.ps1 -UnifiedRoot $env:UNIFIED_SOURCE_ROOT | Tee-Object -FilePath mission3-native.txt -Append
+            if (-not $?) { throw 'Native parser/CMS contracts failed' }
+          } catch {
+            # Fixed public source locations and error IDs only; no exception
+            # message, arguments, inventory, environment or private file paths.
+            $file=[IO.Path]::GetFileName($_.InvocationInfo.ScriptName)
+            if ($file -notin @('mission3-contract.tests.ps1','mission3-preflight.tests.ps1','mission3-path-security.tests.ps1','mission3-install.ps1','SecurityPackage.psm1','Test-SecurityPackage.ps1')) {$file='UNKNOWN'}
+            $line=[int]$_.InvocationInfo.ScriptLineNumber
+            $errorId=[string]$_.FullyQualifiedErrorId
+            if ($errorId.Length -gt 96 -or $errorId -cnotmatch '^[A-Za-z0-9_.:,-]+$') {$errorId='REDACTED'}
+            Write-Output "::error title=Native contract boundary::file=$file line=$line id=$errorId"
+            throw
+          }
       - name: Actual PowerShell parser and CMS contracts only (pwsh)
         id: native_pwsh
         if: matrix.shell == 'pwsh'
@@ -148,8 +160,20 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           Write-Output "PowerShell $($PSVersionTable.PSVersion) $($PSVersionTable.PSEdition)" | Tee-Object -FilePath mission3-native.txt
-          & ./installer/mission3-contract.tests.ps1 -UnifiedRoot $env:UNIFIED_SOURCE_ROOT | Tee-Object -FilePath mission3-native.txt -Append
-          if (-not $?) { throw 'Native parser/CMS contracts failed' }
+          try {
+            & ./installer/mission3-contract.tests.ps1 -UnifiedRoot $env:UNIFIED_SOURCE_ROOT | Tee-Object -FilePath mission3-native.txt -Append
+            if (-not $?) { throw 'Native parser/CMS contracts failed' }
+          } catch {
+            # Fixed public source locations and error IDs only; no exception
+            # message, arguments, inventory, environment or private file paths.
+            $file=[IO.Path]::GetFileName($_.InvocationInfo.ScriptName)
+            if ($file -notin @('mission3-contract.tests.ps1','mission3-preflight.tests.ps1','mission3-path-security.tests.ps1','mission3-install.ps1','SecurityPackage.psm1','Test-SecurityPackage.ps1')) {$file='UNKNOWN'}
+            $line=[int]$_.InvocationInfo.ScriptLineNumber
+            $errorId=[string]$_.FullyQualifiedErrorId
+            if ($errorId.Length -gt 96 -or $errorId -cnotmatch '^[A-Za-z0-9_.:,-]+$') {$errorId='REDACTED'}
+            Write-Output "::error title=Native contract boundary::file=$file line=$line id=$errorId"
+            throw
+          }
       - name: Record exact source evidence
         if: always()
         shell: python
