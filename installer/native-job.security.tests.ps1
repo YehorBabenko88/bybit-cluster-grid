@@ -8,11 +8,12 @@ Import-Module (Join-Path $PSScriptRoot 'PortableRuntime.psm1') -Force
 Assert-PortableLocalPath $env:RUNNER_TEMP -MustExist
 $fixtureRoot=Join-Path $env:RUNNER_TEMP ('native-job-tests-'+[Guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($fixtureRoot) | Out-Null
-$lease=$null
+$lease=$null;$phase='INITIALIZE'
 try {
  Initialize-PortableJob (Join-Path $PSScriptRoot 'NativeJobProcess.cs') $NativeJobSha256
  # This is a real minimal executable compiled only in the hosted test namespace.
  # The parent explicitly inherits its actual stdout/stderr into the child.
+ $phase='COMPILE_FIXTURE'
  $source=@'
 using System;
 using System.IO;
@@ -50,6 +51,7 @@ class HeartbeatFixture {
  $environment=[Collections.Generic.Dictionary[string,string]]::new([StringComparer]::OrdinalIgnoreCase)
  $environment.Add('SystemRoot',[Environment]::GetFolderPath([Environment+SpecialFolder]::Windows))
  $environment.Add('TEMP',$fixtureRoot);$environment.Add('TMP',$fixtureRoot)
+ $phase='ORPHAN_DEADLINE'
  $heartbeat=Join-Path $fixtureRoot 'orphan-heartbeat'
  $deadlineDenied=$false
  try{$unexpected=[GridPortable.JobProcess]::Run($exe,('parent "'+$heartbeat+'"'),$fixtureRoot,$environment,2,$false);$unexpected.Dispose()}catch{if($_.Exception.ToString() -notmatch 'JOB_DEADLINE'){throw};$deadlineDenied=$true}
@@ -58,6 +60,7 @@ class HeartbeatFixture {
  if(([IO.FileInfo]$heartbeat).Length -ne $before){throw 'ORPHAN_SURVIVED_JOB_CLOSE'}
  # A successful root with a deliberately closed-output child may retain its Job
  # for PG-style lifetime; disposal must still own and kill that living child.
+ $phase='RETAINED_LIFETIME'
  $retained=Join-Path $fixtureRoot 'retained-heartbeat'
  $lease=[GridPortable.JobProcess]::Run($exe,('retained "'+$retained+'"'),$fixtureRoot,$environment,5,$true)
  Start-Sleep -Milliseconds 300
@@ -69,12 +72,19 @@ class HeartbeatFixture {
  if(([IO.FileInfo]$retained).Length -ne $before){throw 'RETAINED_CHILD_SURVIVED_CLOSE'}
  # Actual AssignProcessToJobObject failure, not a callback or mocked result.
  # The new root exists suspended; a disposed Job's invalid handle cannot own it.
+ $phase='ASSIGNMENT_DENY'
  $marker=Join-Path $fixtureRoot 'must-never-resume'
  $closed=[GridPortable.OwnedJob]::new();$closed.Dispose();$assignmentDenied=$false
  try{$unexpected=[GridPortable.JobProcess]::RunInJob($exe,('marker "'+$marker+'"'),$fixtureRoot,$environment,5,$false,$closed);$unexpected.Dispose()}catch{if($_.Exception.ToString() -notmatch 'JOB_ASSIGN'){throw};$assignmentDenied=$true}
  Start-Sleep -Milliseconds 300
  if(!$assignmentDenied -or [IO.File]::Exists($marker)){throw 'UNOWNED_PROCESS_RESUMED'}
  [pscustomobject]@{schema='grid.native-job-tests.v1';scope='HARMLESS_PROCESS_CONTAINMENT_ONLY';passed=3;sdk_qualification='NOT_RUN';physical='NOT_RUN'} | ConvertTo-Json -Compress
+}catch{
+ $classification='UNKNOWN'
+ $detail=$_.Exception.ToString()
+ foreach($code in @('JOB_DEADLINE','JOB_OUTPUT_LIMIT','JOB_ASSIGN','PROCESS_CREATE_SUSPENDED','PROCESS_RESUME','JOB_CREATE','JOB_LIMIT','ATTRIBUTE_INIT','ATTRIBUTE_HANDLES','PIPE_CREATE','PIPE_FLAGS','JOB_PROCESS_FAILED','HARMLESS_FIXTURE_COMPILE_FAILED','REAL_CHILD_DEADLINE_NOT_EXERCISED','ORPHAN_SURVIVED_JOB_CLOSE','RETAINED_CHILD_NOT_STARTED','RETAINED_JOB_CLOSED_EARLY','RETAINED_CHILD_SURVIVED_CLOSE','UNOWNED_PROCESS_RESUMED')){if($detail.Contains($code)){$classification=$code;break}}
+ Write-Output "::error title=Native Job subcase::phase=$phase code=$classification line=$([int]$_.InvocationInfo.ScriptLineNumber)"
+ throw
 }finally{
  if($null -ne $lease){$lease.Dispose()}
  if([IO.Directory]::Exists($fixtureRoot)){Assert-PortableLocalPath $fixtureRoot -MustExist;Remove-Item -LiteralPath $fixtureRoot -Recurse -Force}

@@ -39,32 +39,40 @@ jobs:
       - name: Materialize canonical raw tracked source and verify fixed pins
         shell: pwsh
         run: |
-          $ErrorActionPreference='Stop'
-          $up=Join-Path $env:GITHUB_WORKSPACE '.source/unified-system'
-          foreach($repo in @($env:GITHUB_WORKSPACE,$up)) {
-            # Repository-local settings only, no global Git configuration.
-            git -C $repo config core.autocrlf false
-            if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
-            git -C $repo config core.hooksPath nul
-            if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
-            git -C $repo config core.attributesFile nul
-            if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
-            git -C $repo config core.fsmonitor false
-            if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
-            git -C $repo checkout-index --all --force
-            if($LASTEXITCODE -ne 0){throw 'RAW_MATERIALIZATION_FAILED'}
+          try {
+            $ErrorActionPreference='Stop'
+            $up=Join-Path $env:GITHUB_WORKSPACE '.source/unified-system'
+            foreach($repo in @($env:GITHUB_WORKSPACE,$up)) {
+              # Repository-local settings only, no global Git configuration.
+              git -C $repo config core.autocrlf false
+              if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
+              git -C $repo config core.hooksPath nul
+              if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
+              git -C $repo config core.attributesFile nul
+              if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
+              git -C $repo config core.fsmonitor false
+              if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
+              git -C $repo checkout-index --all --force
+              if($LASTEXITCODE -ne 0){throw 'RAW_MATERIALIZATION_FAILED'}
+            }
+            Add-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE '.git/info/exclude') -Value '/.source/'
+            if((git rev-parse HEAD).Trim() -cne $env:EXPECTED_GRID_SHA -or (git -C $up rev-parse HEAD).Trim() -cne $env:UNIFIED_SHA){throw 'EXACT_SOURCE_REQUIRED'}
+            $pins=@{
+              (Join-Path $up 'unified_system/windows-toolchain.catalog.json')=$env:CATALOG_SHA256
+              (Join-Path $up 'unified_system/package_preflight.py')=$env:PREFLIGHT_SHA256
+              (Join-Path $up 'integration/source_guard.py')=$env:GUARD_SHA256
+              (Join-Path $env:GITHUB_WORKSPACE 'installer/PortableRuntime.psm1')=$env:LIBRARY_SHA256
+              (Join-Path $env:GITHUB_WORKSPACE 'installer/NativeJobProcess.cs')=$env:NATIVE_JOB_SHA256
+            }
+            foreach($file in $pins.Keys){if((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $pins[$file]){throw 'FIXED_SOURCE_HASH_MISMATCH'}}
+            $evidence=Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence';New-Item -ItemType Directory -Path $evidence -ErrorAction Stop | Out-Null
+          } catch {
+            $classification='UNKNOWN';$detail=$_.Exception.ToString()
+            foreach($code in @('LOCAL_CONFIG_FAILED','RAW_MATERIALIZATION_FAILED','EXACT_SOURCE_REQUIRED','FIXED_SOURCE_HASH_MISMATCH')){if($detail.Contains($code)){$classification=$code;break}}
+            $id=[string]$_.FullyQualifiedErrorId;if($id.Length -gt 96 -or $id -cnotmatch '^[A-Za-z0-9_.:,-]+$'){$id='REDACTED'}
+            Write-Output "::error title=SDK source boundary::phase=SOURCE_SETUP code=$classification id=$id line=$([int]$_.InvocationInfo.ScriptLineNumber)"
+            throw
           }
-          Add-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE '.git/info/exclude') -Value '/.source/'
-          if((git rev-parse HEAD).Trim() -cne $env:EXPECTED_GRID_SHA -or (git -C $up rev-parse HEAD).Trim() -cne $env:UNIFIED_SHA){throw 'EXACT_SOURCE_REQUIRED'}
-          $pins=@{
-            (Join-Path $up 'unified_system/windows-toolchain.catalog.json')=$env:CATALOG_SHA256
-            (Join-Path $up 'unified_system/package_preflight.py')=$env:PREFLIGHT_SHA256
-            (Join-Path $up 'integration/source_guard.py')=$env:GUARD_SHA256
-            (Join-Path $env:GITHUB_WORKSPACE 'installer/PortableRuntime.psm1')=$env:LIBRARY_SHA256
-            (Join-Path $env:GITHUB_WORKSPACE 'installer/NativeJobProcess.cs')=$env:NATIVE_JOB_SHA256
-          }
-          foreach($file in $pins.Keys){if((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $pins[$file]){throw 'FIXED_SOURCE_HASH_MISMATCH'}}
-          $evidence=Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence';New-Item -ItemType Directory -Path $evidence -ErrorAction Stop | Out-Null
       - name: Mandatory ZIP and real Job security regressions (powershell)
         id: native_powershell
         if: matrix.engine == 'powershell'
@@ -191,24 +199,32 @@ jobs:
           DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
           TEST_ENGINE: ${{ matrix.engine }}
         run: |
-          $ErrorActionPreference='Stop'
-          $up=Join-Path $env:GITHUB_WORKSPACE '.source/unified-system'
-          $evidence=Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence';[IO.Directory]::CreateDirectory($evidence) | Out-Null
-          $report=[ordered]@{
-            schema='grid.portable-sdk-ci.v1';run=$env:GITHUB_RUN_ID;attempt=$env:GITHUB_RUN_ATTEMPT;engine=$env:TEST_ENGINE
-            grid_head=(git rev-parse HEAD).Trim();grid_tree=(git rev-parse 'HEAD^{tree}').Trim()
-            unified_head=(git -C $up rev-parse HEAD).Trim();unified_tree=(git -C $up rev-parse 'HEAD^{tree}').Trim()
-            grid_tracked_clean=!(git status --porcelain --untracked-files=no)
-            unified_tracked_clean=!(git -C $up status --porcelain --untracked-files=no)
-            expected_unified_sha=$env:UNIFIED_SHA;expected_grid_sha=$env:EXPECTED_GRID_SHA
-            pins=@{catalog=$env:CATALOG_SHA256;preflight=$env:PREFLIGHT_SHA256;guard=$env:GUARD_SHA256;library=$env:LIBRARY_SHA256;native_job=$env:NATIVE_JOB_SHA256}
-            native_security=$env:NATIVE_OUTCOME;vendor_download=$env:DOWNLOAD_OUTCOME;sdk_smoke=$env:SMOKE_OUTCOME
-            scope='EPHEMERAL_COMPONENT_ONLY';installation_closure=$false;global_status='NO_GO';services='NOT_INSTALLED';physical='NOT_RUN';multi_node_ha='NOT_QUALIFIED'
-            evidence=@()
+          try {
+            $ErrorActionPreference='Stop'
+            $up=Join-Path $env:GITHUB_WORKSPACE '.source/unified-system'
+            $evidence=Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence';[IO.Directory]::CreateDirectory($evidence) | Out-Null
+            $report=[ordered]@{
+              schema='grid.portable-sdk-ci.v1';run=$env:GITHUB_RUN_ID;attempt=$env:GITHUB_RUN_ATTEMPT;engine=$env:TEST_ENGINE
+              grid_head=(git rev-parse HEAD).Trim();grid_tree=(git rev-parse 'HEAD^{tree}').Trim()
+              unified_head=(git -C $up rev-parse HEAD).Trim();unified_tree=(git -C $up rev-parse 'HEAD^{tree}').Trim()
+              grid_tracked_clean=!(git status --porcelain --untracked-files=no)
+              unified_tracked_clean=!(git -C $up status --porcelain --untracked-files=no)
+              expected_unified_sha=$env:UNIFIED_SHA;expected_grid_sha=$env:EXPECTED_GRID_SHA
+              pins=@{catalog=$env:CATALOG_SHA256;preflight=$env:PREFLIGHT_SHA256;guard=$env:GUARD_SHA256;library=$env:LIBRARY_SHA256;native_job=$env:NATIVE_JOB_SHA256}
+              native_security=$env:NATIVE_OUTCOME;vendor_download=$env:DOWNLOAD_OUTCOME;sdk_smoke=$env:SMOKE_OUTCOME
+              scope='EPHEMERAL_COMPONENT_ONLY';installation_closure=$false;global_status='NO_GO';services='NOT_INSTALLED';physical='NOT_RUN';multi_node_ha='NOT_QUALIFIED'
+              evidence=@()
+            }
+            foreach($name in @('zip.json','job.json','sdk.json')){$file=Join-Path $evidence $name;if([IO.File]::Exists($file)){$report.evidence+=@{name=$name;sha256=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()}}}
+            $report | ConvertTo-Json -Depth 8 -Compress | Set-Content -LiteralPath (Join-Path $evidence 'source.json') -Encoding UTF8
+            if($report.grid_head -cne $env:EXPECTED_GRID_SHA -or $report.unified_head -cne $env:UNIFIED_SHA -or !$report.grid_tracked_clean -or !$report.unified_tracked_clean){throw 'EXACT_EVIDENCE_SOURCE_REQUIRED'}
+          } catch {
+            $classification='UNKNOWN';$detail=$_.Exception.ToString()
+            foreach($code in @('EXACT_EVIDENCE_SOURCE_REQUIRED')){if($detail.Contains($code)){$classification=$code;break}}
+            $id=[string]$_.FullyQualifiedErrorId;if($id.Length -gt 96 -or $id -cnotmatch '^[A-Za-z0-9_.:,-]+$'){$id='REDACTED'}
+            Write-Output "::error title=SDK source boundary::phase=SOURCE_EVIDENCE code=$classification id=$id line=$([int]$_.InvocationInfo.ScriptLineNumber)"
+            throw
           }
-          foreach($name in @('zip.json','job.json','sdk.json')){$file=Join-Path $evidence $name;if([IO.File]::Exists($file)){$report.evidence+=@{name=$name;sha256=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()}}}
-          $report | ConvertTo-Json -Depth 8 -Compress | Set-Content -LiteralPath (Join-Path $evidence 'source.json') -Encoding UTF8
-          if($report.grid_head -cne $env:EXPECTED_GRID_SHA -or $report.unified_head -cne $env:UNIFIED_SHA -or !$report.grid_tracked_clean -or !$report.unified_tracked_clean){throw 'EXACT_EVIDENCE_SOURCE_REQUIRED'}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
