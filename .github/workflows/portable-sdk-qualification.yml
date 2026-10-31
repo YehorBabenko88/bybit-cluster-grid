@@ -1,0 +1,217 @@
+name: Portable Windows SDK qualification
+on:
+  push:
+    branches: ['mission3/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: portable-sdk-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  component-sdk:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [powershell, pwsh]
+    env:
+      EXPECTED_GRID_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      UNIFIED_SHA: 5d82f0fa62cffd0987e5497c5a17010f4d2f9127
+      CATALOG_SHA256: 8f03e40a411033532a9a349025db9c6299a2cb52da16b8a839e7d4912bc5041b
+      PREFLIGHT_SHA256: 25052e5f5a4d5097f72123c5a1fdbfceffe85ac6cae586133f0a594b4232dff7
+      GUARD_SHA256: 01166814651689d6df832efa974e69e745fe218f4d6c2bc805224cce7312af5a
+      LIBRARY_SHA256: 206c80da775aaacd01c40f175f29e2df20813df5f6e57e77fc061fa77a8c3b92
+      NATIVE_JOB_SHA256: 2193dfbe56b9793347b3eda310fc8a1c0cfae6937ade4c665ce1e19c65882f4c
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/unified-system
+          ref: 5d82f0fa62cffd0987e5497c5a17010f4d2f9127
+          path: .source/unified-system
+          persist-credentials: false
+      - name: Materialize canonical raw tracked source and verify fixed pins
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $up=Join-Path $env:GITHUB_WORKSPACE '.source/unified-system'
+          foreach($repo in @($env:GITHUB_WORKSPACE,$up)) {
+            # Repository-local settings only, no global Git configuration.
+            git -C $repo config core.autocrlf false
+            if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
+            git -C $repo config core.hooksPath nul
+            if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
+            git -C $repo config core.attributesFile nul
+            if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
+            git -C $repo config core.fsmonitor false
+            if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
+            git -C $repo checkout-index --all --force
+            if($LASTEXITCODE -ne 0){throw 'RAW_MATERIALIZATION_FAILED'}
+          }
+          Add-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE '.git/info/exclude') -Value '/.source/'
+          if((git rev-parse HEAD).Trim() -cne $env:EXPECTED_GRID_SHA -or (git -C $up rev-parse HEAD).Trim() -cne $env:UNIFIED_SHA){throw 'EXACT_SOURCE_REQUIRED'}
+          $pins=@{
+            (Join-Path $up 'unified_system/windows-toolchain.catalog.json')=$env:CATALOG_SHA256
+            (Join-Path $up 'unified_system/package_preflight.py')=$env:PREFLIGHT_SHA256
+            (Join-Path $up 'integration/source_guard.py')=$env:GUARD_SHA256
+            (Join-Path $env:GITHUB_WORKSPACE 'installer/PortableRuntime.psm1')=$env:LIBRARY_SHA256
+            (Join-Path $env:GITHUB_WORKSPACE 'installer/NativeJobProcess.cs')=$env:NATIVE_JOB_SHA256
+          }
+          foreach($file in $pins.Keys){if((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $pins[$file]){throw 'FIXED_SOURCE_HASH_MISMATCH'}}
+          $evidence=Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence';New-Item -ItemType Directory -Path $evidence -ErrorAction Stop | Out-Null
+      - name: Mandatory ZIP and real Job security regressions (powershell)
+        id: native_powershell
+        if: matrix.engine == 'powershell'
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          try {
+            & ./installer/portable-runtime.security.tests.ps1 | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence/zip.json')
+            & ./installer/native-job.security.tests.ps1 -NativeJobSha256 $env:NATIVE_JOB_SHA256 | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence/job.json')
+          } catch {
+            $file=[IO.Path]::GetFileName($_.InvocationInfo.ScriptName)
+            if($file -notin @('portable-runtime.security.tests.ps1','native-job.security.tests.ps1','PortableRuntime.psm1')){$file='UNKNOWN'}
+            $id=[string]$_.FullyQualifiedErrorId;if($id.Length -gt 96 -or $id -cnotmatch '^[A-Za-z0-9_.:,-]+$'){$id='REDACTED'}
+            Write-Output "::error title=Native process boundary::file=$file line=$([int]$_.InvocationInfo.ScriptLineNumber) id=$id"
+            throw
+          }
+      - name: Mandatory ZIP and real Job security regressions (pwsh)
+        id: native_pwsh
+        if: matrix.engine == 'pwsh'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          try {
+            & ./installer/portable-runtime.security.tests.ps1 | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence/zip.json')
+            & ./installer/native-job.security.tests.ps1 -NativeJobSha256 $env:NATIVE_JOB_SHA256 | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence/job.json')
+          } catch {
+            $file=[IO.Path]::GetFileName($_.InvocationInfo.ScriptName)
+            if($file -notin @('portable-runtime.security.tests.ps1','native-job.security.tests.ps1','PortableRuntime.psm1')){$file='UNKNOWN'}
+            $id=[string]$_.FullyQualifiedErrorId;if($id.Length -gt 96 -or $id -cnotmatch '^[A-Za-z0-9_.:,-]+$'){$id='REDACTED'}
+            Write-Output "::error title=Native process boundary::file=$file line=$([int]$_.InvocationInfo.ScriptLineNumber) id=$id"
+            throw
+          }
+      - name: Download all five exact official catalog artifacts
+        id: download
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $catalogPath=Join-Path $env:GITHUB_WORKSPACE '.source/unified-system/unified_system/windows-toolchain.catalog.json'
+          if((Get-FileHash -LiteralPath $catalogPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $env:CATALOG_SHA256){throw 'CATALOG_PIN_CHANGED'}
+          $catalog=Get-Content -LiteralPath $catalogPath -Raw | ConvertFrom-Json
+          $artifactRoot=Join-Path $env:RUNNER_TEMP 'portable-sdk-artifacts';New-Item -ItemType Directory -Path $artifactRoot -ErrorAction Stop | Out-Null
+          $handler=[Net.Http.HttpClientHandler]::new();$handler.AllowAutoRedirect=$false
+          $client=[Net.Http.HttpClient]::new($handler);$client.Timeout=[Threading.Timeout]::InfiniteTimeSpan
+          try {
+            foreach($artifact in $catalog.artifacts){
+              $cancel=[Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds(240));$response=$null;$inputStream=$null;$outputStream=$null;$digest=$null
+              $path=Join-Path $artifactRoot $artifact.filename
+              try {
+                $uri=[Uri]$artifact.url
+                for($redirect=0;$redirect -le 5;$redirect++){
+                  if($uri.Scheme -cne 'https' -or $uri.UserInfo -or $uri.Fragment){throw 'OFFICIAL_HTTPS_REQUIRED'}
+                  $response=$client.GetAsync($uri,[Net.Http.HttpCompletionOption]::ResponseHeadersRead,$cancel.Token).GetAwaiter().GetResult()
+                  if([int]$response.StatusCode -in @(301,302,303,307,308)){
+                    if($redirect -eq 5 -or !$response.Headers.Location){throw 'VENDOR_REDIRECT_LIMIT'}
+                    $uri=[Uri]::new($uri,$response.Headers.Location);$response.Dispose();$response=$null;continue
+                  }
+                  if([int]$response.StatusCode -ne 200){throw 'VENDOR_HTTP_FAILURE'}
+                  break
+                }
+                if($response.Content.Headers.ContentLength -gt [long]$artifact.max_bytes){throw 'VENDOR_COMPRESSED_BUDGET'}
+                $inputStream=$response.Content.ReadAsStreamAsync($cancel.Token).GetAwaiter().GetResult()
+                $outputStream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+                $digest=[Security.Cryptography.SHA256]::Create();$buffer=New-Object byte[] 1048576;[long]$total=0
+                while(($n=$inputStream.ReadAsync($buffer,0,$buffer.Length,$cancel.Token).GetAwaiter().GetResult()) -gt 0){
+                  $total+=$n;if($total -gt [long]$artifact.max_bytes){throw 'VENDOR_COMPRESSED_BUDGET'}
+                  $outputStream.Write($buffer,0,$n);$null=$digest.TransformBlock($buffer,0,$n,$buffer,0)
+                }
+                $null=$digest.TransformFinalBlock([byte[]]@(),0,0)
+                $actual=([BitConverter]::ToString($digest.Hash)).Replace('-','').ToLowerInvariant()
+                if($total -lt 1 -or ($null -ne $artifact.expected_bytes -and $total -ne [long]$artifact.expected_bytes) -or $actual -cne $artifact.sha256){throw 'VENDOR_EXACT_BYTES_MISMATCH'}
+              } catch {
+                $id=[string]$_.FullyQualifiedErrorId;if($id.Length -gt 96 -or $id -cnotmatch '^[A-Za-z0-9_.:,-]+$'){$id='REDACTED'}
+                Write-Output "::error title=Mandatory vendor artifact::component=$($artifact.component) id=$id"
+                throw
+              } finally {
+                if($null -ne $outputStream){$outputStream.Dispose()};if($null -ne $inputStream){$inputStream.Dispose()};if($null -ne $digest){$digest.Dispose()};if($null -ne $response){$response.Dispose()};$cancel.Dispose()
+              }
+            }
+          } finally {$client.Dispose();$handler.Dispose()}
+          $request=[ordered]@{
+            ArtifactRoot=$artifactRoot;StageRoot=(Join-Path $env:RUNNER_TEMP ('portable-sdk-stage-'+[Guid]::NewGuid().ToString('N')))
+            UnifiedRoot=(Join-Path $env:GITHUB_WORKSPACE '.source/unified-system');UnifiedSourceHead=$env:UNIFIED_SHA
+            UnifiedSourceTree=8c9cb1066e89829892620d98fdf482ea4ed47b90
+            CatalogSha256=$env:CATALOG_SHA256;PreflightSha256=$env:PREFLIGHT_SHA256;SourceGuardSha256=$env:GUARD_SHA256
+            LibrarySha256=$env:LIBRARY_SHA256;NativeJobSha256=$env:NATIVE_JOB_SHA256
+          }
+          $request | ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'portable-sdk-request.json') -Encoding UTF8
+      - name: Actual five vendor SDK smoke (powershell)
+        id: smoke_powershell
+        if: matrix.engine == 'powershell'
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          try {
+            & ./installer/portable-runtime.smoke.tests.ps1 -RequestFile (Join-Path $env:RUNNER_TEMP 'portable-sdk-request.json') | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence/sdk.json')
+          } catch {
+            $file=[IO.Path]::GetFileName($_.InvocationInfo.ScriptName)
+            if($file -notin @('portable-runtime.smoke.tests.ps1','Stage-PortableWindowsRuntime.ps1','PortableRuntime.psm1')){$file='UNKNOWN'}
+            $id=[string]$_.FullyQualifiedErrorId;if($id.Length -gt 96 -or $id -cnotmatch '^[A-Za-z0-9_.:,-]+$'){$id='REDACTED'}
+            Write-Output "::error title=Component SDK smoke::file=$file line=$([int]$_.InvocationInfo.ScriptLineNumber) id=$id"
+            throw
+          }
+      - name: Actual five vendor SDK smoke (pwsh)
+        id: smoke_pwsh
+        if: matrix.engine == 'pwsh'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          try {
+            & ./installer/portable-runtime.smoke.tests.ps1 -RequestFile (Join-Path $env:RUNNER_TEMP 'portable-sdk-request.json') | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence/sdk.json')
+          } catch {
+            $file=[IO.Path]::GetFileName($_.InvocationInfo.ScriptName)
+            if($file -notin @('portable-runtime.smoke.tests.ps1','Stage-PortableWindowsRuntime.ps1','PortableRuntime.psm1')){$file='UNKNOWN'}
+            $id=[string]$_.FullyQualifiedErrorId;if($id.Length -gt 96 -or $id -cnotmatch '^[A-Za-z0-9_.:,-]+$'){$id='REDACTED'}
+            Write-Output "::error title=Component SDK smoke::file=$file line=$([int]$_.InvocationInfo.ScriptLineNumber) id=$id"
+            throw
+          }
+      - name: Record exact source and actual outcomes
+        if: always()
+        shell: pwsh
+        env:
+          NATIVE_OUTCOME: ${{ matrix.engine == 'powershell' && steps.native_powershell.outcome || steps.native_pwsh.outcome }}
+          SMOKE_OUTCOME: ${{ matrix.engine == 'powershell' && steps.smoke_powershell.outcome || steps.smoke_pwsh.outcome }}
+          DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
+          TEST_ENGINE: ${{ matrix.engine }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $up=Join-Path $env:GITHUB_WORKSPACE '.source/unified-system'
+          $evidence=Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence';[IO.Directory]::CreateDirectory($evidence) | Out-Null
+          $report=[ordered]@{
+            schema='grid.portable-sdk-ci.v1';run=$env:GITHUB_RUN_ID;attempt=$env:GITHUB_RUN_ATTEMPT;engine=$env:TEST_ENGINE
+            grid_head=(git rev-parse HEAD).Trim();grid_tree=(git rev-parse 'HEAD^{tree}').Trim()
+            unified_head=(git -C $up rev-parse HEAD).Trim();unified_tree=(git -C $up rev-parse 'HEAD^{tree}').Trim()
+            grid_tracked_clean=!(git status --porcelain --untracked-files=no)
+            unified_tracked_clean=!(git -C $up status --porcelain --untracked-files=no)
+            expected_unified_sha=$env:UNIFIED_SHA;expected_grid_sha=$env:EXPECTED_GRID_SHA
+            pins=@{catalog=$env:CATALOG_SHA256;preflight=$env:PREFLIGHT_SHA256;guard=$env:GUARD_SHA256;library=$env:LIBRARY_SHA256;native_job=$env:NATIVE_JOB_SHA256}
+            native_security=$env:NATIVE_OUTCOME;vendor_download=$env:DOWNLOAD_OUTCOME;sdk_smoke=$env:SMOKE_OUTCOME
+            scope='EPHEMERAL_COMPONENT_ONLY';installation_closure=$false;global_status='NO_GO';services='NOT_INSTALLED';physical='NOT_RUN';multi_node_ha='NOT_QUALIFIED'
+            evidence=@()
+          }
+          foreach($name in @('zip.json','job.json','sdk.json')){$file=Join-Path $evidence $name;if([IO.File]::Exists($file)){$report.evidence+=@{name=$name;sha256=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()}}}
+          $report | ConvertTo-Json -Depth 8 -Compress | Set-Content -LiteralPath (Join-Path $evidence 'source.json') -Encoding UTF8
+          if($report.grid_head -cne $env:EXPECTED_GRID_SHA -or $report.unified_head -cne $env:UNIFIED_SHA -or !$report.grid_tracked_clean -or !$report.unified_tracked_clean){throw 'EXACT_EVIDENCE_SOURCE_REQUIRED'}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: portable-sdk-${{ matrix.engine }}-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/portable-sdk-evidence/*.json
+          if-no-files-found: error
