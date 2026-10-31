@@ -27,12 +27,53 @@ function Reject([string]$Path,[string]$Reason) {
  $script:passed++
 }
 try {
- $good=Fixture @('folder/readme.txt','other.txt');$opened=Open-PortableArchive $good (Descriptor $good)
+ $good=Fixture @('folder/readme.txt','other.txt','[Content_Types].xml');$opened=Open-PortableArchive $good (Descriptor $good)
  try {
   $destination=Join-Path $fixtureRoot 'expanded';$inventory=Expand-PortableArchive $opened $destination
-  if($inventory.Count -ne 2 -or [IO.File]::ReadAllText((Join-Path $destination 'folder\readme.txt')) -cne 'A'){throw 'HONEST_EXTRACTION_FAILED'}
+  if($inventory.Count -ne 3 -or [IO.File]::ReadAllText((Join-Path $destination 'folder\readme.txt')) -cne 'A'){throw 'HONEST_EXTRACTION_FAILED'}
   foreach($file in $inventory){$relative=$file.path.Substring('fixture/'.Length).Replace('/','\');if((Get-PortableHash (Join-Path $destination $relative)) -cne $file.sha256){throw 'DERIVED_HASH_MISMATCH'}}
  }finally{Close-PortableArchive $opened}
+ $passed++
+ $missingBracket=Join-Path $fixtureRoot '[missing].xml';$missingDenied=$false
+ Assert-PortableLocalPath $missingBracket
+ try{Assert-PortableLocalPath $missingBracket -MustExist}catch{if($_.Exception.Message -notmatch 'PORTABLE_PATH_MISSING'){throw};$missingDenied=$true}
+ if(!$missingDenied -or [IO.File]::Exists($missingBracket)){throw 'MISSING_REQUIRED_PATH_ACCEPTED'};$passed++
+ # Actual harmless local junction; observe that no descendant is probed.
+ $linkTarget=Join-Path $fixtureRoot 'junction-target';[IO.Directory]::CreateDirectory($linkTarget) | Out-Null
+ $sentinel=Join-Path $linkTarget 'sentinel.txt';[IO.File]::WriteAllText($sentinel,'SENTINEL');$sentinelHash=Get-PortableHash $sentinel
+ $junction=Join-Path $fixtureRoot 'junction';New-Item -ItemType Junction -Path $junction -Target $linkTarget -ErrorAction Stop | Out-Null
+ try {
+  $module=Get-Module PortableRuntime
+  & $module {
+   param([string]$Forbidden)
+   $script:PortableTestDescendantProbes=0;$script:PortableTestJunctionProbeSeen=$false
+   function Get-Item {
+    [CmdletBinding()]param([string]$LiteralPath,[switch]$Force)
+    if($LiteralPath -ieq $Forbidden){$script:PortableTestJunctionProbeSeen=$true}
+    if($LiteralPath.StartsWith($Forbidden+'\',[StringComparison]::OrdinalIgnoreCase)){$script:PortableTestDescendantProbes++;throw 'DESCENDANT_PROBE_FORBIDDEN'}
+    Microsoft.PowerShell.Management\Get-Item -LiteralPath $LiteralPath -Force:$Force -ErrorAction Stop
+   }
+   try {
+    $denied=$false
+    try{Assert-PortableLocalPath (Join-Path $Forbidden 'never-created.txt')}catch{if($_.Exception.Message -notmatch 'PORTABLE_REPARSE_FORBIDDEN'){throw};$denied=$true}
+    if(!$denied -or !$script:PortableTestJunctionProbeSeen -or $script:PortableTestDescendantProbes -ne 0){throw 'JUNCTION_DESCENDANT_ACCESSED'}
+   }finally{Remove-Item -LiteralPath Function:\Get-Item;Remove-Variable PortableTestDescendantProbes,PortableTestJunctionProbeSeen -Scope Script}
+  } $junction
+  if((Get-PortableHash $sentinel) -cne $sentinelHash){throw 'JUNCTION_TARGET_CHANGED'};$passed++
+ }finally{[IO.Directory]::Delete($junction)}
+ # A real private Git repository: initial canonical materialization may update
+ # index stat metadata; a subsequent real edit MUST remain dirty/rejected.
+ $gitFixture=Join-Path $fixtureRoot 'git-fixture';[IO.Directory]::CreateDirectory($gitFixture) | Out-Null
+ function Fixture-Git([string[]]$Arguments){$output=@(& git -C $gitFixture @Arguments);if($LASTEXITCODE -ne 0){throw 'PRIVATE_GIT_COMMAND_FAILED'};return $output}
+ $null=Fixture-Git @('init','--quiet')
+ foreach($setting in @(@('core.autocrlf','false'),@('core.hooksPath','nul'),@('core.attributesFile','nul'),@('core.fsmonitor','false'),@('commit.gpgSign','false'))){$null=Fixture-Git @('config',$setting[0],$setting[1])}
+ $gitFile=Join-Path $gitFixture 'fixture.txt';[IO.File]::WriteAllText($gitFile,"FIXTURE`n",[Text.UTF8Encoding]::new($false))
+ $null=Fixture-Git @('add','--','fixture.txt');$null=Fixture-Git @('-c','user.name=CI Fixture','-c','user.email=fixture@invalid','commit','--quiet','-m','fixture')
+ $fixtureHead=[string](Fixture-Git @('rev-parse','HEAD'));$fixtureTree=[string](Fixture-Git @('rev-parse','HEAD^{tree}'));$fixtureHash=Get-PortableHash $gitFile
+ $null=Fixture-Git @('checkout-index','--all','--force','--index')
+ if(@(Fixture-Git @('status','--porcelain','--untracked-files=no')).Count -ne 0 -or (Get-PortableHash $gitFile) -cne $fixtureHash){throw 'CANONICAL_GIT_FIXTURE_NOT_CLEAN'}
+ [IO.File]::AppendAllText($gitFile,"MUTATION`n",[Text.UTF8Encoding]::new($false))
+ if(@(Fixture-Git @('status','--porcelain','--untracked-files=no')).Count -eq 0 -or @(Fixture-Git @('diff','--cached','--name-only','HEAD')).Count -ne 0 -or (Get-PortableHash $gitFile) -ceq $fixtureHash -or [string](Fixture-Git @('rev-parse','HEAD')) -cne $fixtureHead -or [string](Fixture-Git @('rev-parse','HEAD^{tree}')) -cne $fixtureTree){throw 'REAL_GIT_MUTATION_NOT_REJECTED'}
  $passed++
  foreach($name in @('../escape','/absolute','C:/escape','folder/file:ads','folder/CON.txt','folder/trailing.','folder/trailing ','folder\escape','a//b')){Reject (Fixture @($name)) 'PORTABLE_ZIP_(PATH|ALIAS)'}
  Reject (Fixture @('same.txt','SAME.TXT')) 'PORTABLE_ZIP_PATH'

@@ -19,12 +19,12 @@ jobs:
         engine: [powershell, pwsh]
     env:
       EXPECTED_GRID_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      UNIFIED_SHA: 5d82f0fa62cffd0987e5497c5a17010f4d2f9127
-      UNIFIED_TREE: 8c9cb1066e89829892620d98fdf482ea4ed47b90
+      UNIFIED_SHA: 698502f6405935c0af28009f55b62f7e65e4f68e
+      UNIFIED_TREE: 6813740900a25f5e8c198be71b22a284b1123a2a
       CATALOG_SHA256: 8f03e40a411033532a9a349025db9c6299a2cb52da16b8a839e7d4912bc5041b
       PREFLIGHT_SHA256: 25052e5f5a4d5097f72123c5a1fdbfceffe85ac6cae586133f0a594b4232dff7
       GUARD_SHA256: 01166814651689d6df832efa974e69e745fe218f4d6c2bc805224cce7312af5a
-      LIBRARY_SHA256: ba85fa1c8d68cbabcfda289efe05cdd419c9a6b3e8a8e27e5f4fd2ff918fd79c
+      LIBRARY_SHA256: 528c6b85fe2171bddcf731f8acb0a801738a6cdd3e931aabbbadadba1a63b416
       NATIVE_JOB_SHA256: cf5ff3561f31d59ad09359015133b9264f3c8faf1e0d45ded0d7b0bc80478cac
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: YehorBabenko88/unified-system
-          ref: 5d82f0fa62cffd0987e5497c5a17010f4d2f9127
+          ref: 698502f6405935c0af28009f55b62f7e65e4f68e
           path: .source/unified-system
           persist-credentials: false
       - name: Materialize canonical raw tracked source and verify fixed pins
@@ -53,8 +53,13 @@ jobs:
               if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
               git -C $repo config core.fsmonitor false
               if($LASTEXITCODE -ne 0){throw 'LOCAL_CONFIG_FAILED'}
-              git -C $repo checkout-index --all --force
+              $beforeStatus=@(git -C $repo status --porcelain --untracked-files=no);$beforeExit=$LASTEXITCODE
+              git -C $repo checkout-index --all --force --index
               if($LASTEXITCODE -ne 0){throw 'RAW_MATERIALIZATION_FAILED'}
+              $afterStatus=@(git -C $repo status --porcelain --untracked-files=no);$afterExit=$LASTEXITCODE
+              $label='UNIFIED';if($repo -ceq $env:GITHUB_WORKSPACE){$label='GRID'}
+              Write-Output "::notice title=Initial raw materialization::source=$label before_lines=$($beforeStatus.Count) after_lines=$($afterStatus.Count) before_exit=$beforeExit after_exit=$afterExit"
+              if($beforeExit -ne 0 -or $afterExit -ne 0){throw 'INITIAL_SOURCE_STATUS_FAILED'}
             }
             Add-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE '.git/info/exclude') -Value '/.source/'
             if((git rev-parse HEAD).Trim() -cne $env:EXPECTED_GRID_SHA -or (git -C $up rev-parse HEAD).Trim() -cne $env:UNIFIED_SHA){throw 'EXACT_SOURCE_REQUIRED'}

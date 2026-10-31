@@ -22,6 +22,14 @@ function Assert-PortableLocalPath([string]$Path,[switch]$MustExist,[string]$Publ
   $item=$null
   try {$item=Get-Item -LiteralPath $parts[$i] -Force -ErrorAction Stop}
   catch [Management.Automation.ItemNotFoundException] {if($MustExist){throw 'PORTABLE_PATH_MISSING'};return}
+  if($null -eq $item){
+   # WinPS can return no object for a missing literal bracket filename. Never
+   # treat NULL as valid metadata: confirm absence via the OS after parents
+   # were checked, then apply exactly the existing missing-path policy.
+   try{[void][IO.File]::GetAttributes($parts[$i])}
+   catch [IO.FileNotFoundException]{if($MustExist){throw 'PORTABLE_PATH_MISSING'};return}
+   catch [IO.DirectoryNotFoundException]{if($MustExist){throw 'PORTABLE_PATH_MISSING'};return}
+  }
   if($null -eq $item -or ($item -isnot [IO.FileInfo] -and $item -isnot [IO.DirectoryInfo]) -or $null -eq $item.PSObject.Properties['Attributes']){Write-PortableMetadataDiagnostic $item $PublicComponent $PublicEntry;throw 'PORTABLE_PATH_METADATA_UNAVAILABLE'}
   try{$attributes=$item.Attributes}catch{Write-PortableMetadataDiagnostic $item $PublicComponent $PublicEntry;throw}
   if (($attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {throw 'PORTABLE_REPARSE_FORBIDDEN'}
