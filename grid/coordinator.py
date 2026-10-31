@@ -1,4 +1,4 @@
-import asyncio,time,logging,secrets,hashlib,tempfile,os,pathlib,subprocess,json
+import asyncio,time,logging,secrets,hashlib,tempfile,os,pathlib,subprocess,json,configparser,re,stat,threading
 from fastapi import FastAPI,Header,HTTPException,Request
 from fastapi.responses import JSONResponse
 from .coordination import coordinator_authority, floating_leader_guard
@@ -52,6 +52,11 @@ scientific_service=None
 coordination_authority=None
 control_leader=None
 control_task=None
+_MODULE_SOURCE_ROOT=pathlib.Path(__file__).resolve().parents[1]
+_MODULE_HEALTH_TIMEOUT=1.0
+_owned_module_binding=None
+_OWNED_MODULE_ENV=('UNIFIED_MODULE_ID','UNIFIED_MODULE_VERSION','UNIFIED_RELEASE_ID',
+                   'UNIFIED_INSTANCE_TOKEN','UNIFIED_SOURCE_COMMIT')
 
 
 
@@ -80,6 +85,187 @@ async def control_readiness():
         except Exception:raise HTTPException(503, 'DCS-backed control is not ready')
     return {'ready': True, 'coordination_mode': mode,
             'physical_ha_qualified': False, 'legacy_single_primary': mode == 'legacy'}
+
+
+def _owned_module_identity():
+    values=tuple(os.environ.get(key,'') for key in _OWNED_MODULE_ENV)
+    module,version,release,token,source=values
+    if (module!='grid' or len(version)>128
+            or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]{1,40})?',version)
+            or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,128}',release)
+            or not re.fullmatch(r'[a-f0-9]{64}',token)
+            or not re.fullmatch(r'[a-f0-9]{40}',source)):
+        return None
+    return values
+
+
+def _safe_owned_git_config(root):
+    # Validate local metadata before Git can read include/filter/fsmonitor hooks.
+    metadata=root/'.git'
+    for path in (root,*root.parents):
+        info=path.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:return False
+    for relative in ('objects/info/alternates','objects/info/http-alternates','info/attributes'):
+        if os.path.lexists(metadata/relative):return False
+    for relative in ('objects','objects/info','info'):
+        path=metadata/relative
+        if os.path.lexists(path):
+            info=path.lstat()
+            if not stat.S_ISDIR(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:return False
+    config=metadata/'config'
+    for path in (metadata,config):
+        info=path.lstat()
+        if (stat.S_ISLNK(info.st_mode)
+                or getattr(info,'st_file_attributes',0)&getattr(stat,'FILE_ATTRIBUTE_REPARSE_POINT',0x400)):
+            return False
+    if not metadata.is_dir() or not config.is_file() or (metadata/'commondir').exists():
+        return False
+    examined=0
+    deadline=time.monotonic()+1
+    for directory,dirs,files in os.walk(metadata/'objects',followlinks=False):
+        for name in dirs+files:
+            examined+=1
+            if examined>200000 or time.monotonic()>deadline:return False
+            info=(pathlib.Path(directory)/name).lstat()
+            if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:return False
+    with config.open('rb') as stream:raw=stream.read(65537)
+    if len(raw)>65536:return False
+    parser=configparser.RawConfigParser(strict=False)
+    parser.read_string(raw.decode('utf-8-sig'))
+    if parser.defaults():return False
+    core={'repositoryformatversion','filemode','bare','logallrefupdates','ignorecase',
+          'precomposeunicode','symlinks','protectntfs','protecthfs','longpaths',
+          'hookspath','attributesfile','fsmonitor','untrackedcache','autocrlf'}
+    nulls={os.devnull.casefold(),'/dev/null','nul'}
+    for section in parser.sections():
+        name=section.casefold()
+        if name=='core':allowed=core
+        elif re.fullmatch(r'remote "[^"\r\n]{1,128}"',name):allowed={'url','fetch','tagopt','pushurl'}
+        elif re.fullmatch(r'branch "[^"\r\n]{1,256}"',name):allowed={'remote','merge','rebase'}
+        elif name=='user':allowed={'name','email','signingkey'}
+        else:return False
+        for key,value in parser.items(section):
+            if key not in allowed:return False
+            value=value.strip().strip('"').casefold()
+            if key in ('hookspath','attributesfile') and value not in nulls:return False
+            if key in ('fsmonitor','bare','autocrlf') and value not in ('false','0','off','no'):return False
+            if key=='repositoryformatversion' and value!='0':return False
+    return True
+
+
+def _owned_source_is_clean(expected):
+    root=_MODULE_SOURCE_ROOT.absolute()
+    try:
+        if not _safe_owned_git_config(root):return False
+        # Keep proxy/CA environment intact; Git-specific redirects and injected
+        # configuration cannot choose a different checkout or executable helper.
+        env={key:value for key,value in os.environ.items() if not key.startswith('GIT_')}
+        env.update(GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_SYSTEM=os.devnull,GIT_CONFIG_GLOBAL=os.devnull,
+                   GIT_OPTIONAL_LOCKS='0',GIT_TERMINAL_PROMPT='0',GIT_NO_REPLACE_OBJECTS='1',GIT_NO_LAZY_FETCH='1')
+        command=['git','--no-replace-objects','--no-pager','-c','core.fsmonitor=false',
+                 '-c','core.hooksPath='+os.devnull,'-c','core.attributesFile='+os.devnull,
+                 '-c','core.untrackedCache=false','-c','submodule.recurse=false','-C',str(root)]
+        started=time.monotonic()
+        def git(*args,limit=2*1024*1024):
+            # Timer kills a blocked child on both Windows and Linux; bounded
+            # pipe reads prevent a hostile tree/status from exhausting memory.
+            child=subprocess.Popen(command+list(args),env=env,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+            timer=threading.Timer(1,child.kill)
+            timer.start()
+            try:
+                output=child.stdout.read(limit+1)
+                if len(output)>limit:
+                    child.kill()
+                    raise ValueError('Git output bound exceeded')
+                if child.wait(timeout=1)!=0:raise ValueError('Git command rejected')
+                return output
+            finally:
+                timer.cancel()
+                if child.poll() is None:child.kill()
+                child.wait(timeout=1)
+                child.stdout.close()
+        if pathlib.Path(os.fsdecode(git('rev-parse','--show-toplevel')).strip()).resolve()!=root:return False
+        if git('rev-parse','HEAD').decode('ascii').strip()!=expected:return False
+        tree=git('ls-tree','-r','-z','--full-tree',expected,limit=8*1024*1024)
+        total=0
+        entries=tree.split(b'\0')
+        if len(entries)>20001:return False
+        for entry in entries:
+            if not entry:continue
+            metadata,name=entry.split(b'\t',1)
+            mode,kind,oid=metadata.split(b' ')
+            if mode not in (b'100644',b'100755') or kind!=b'blob' or not re.fullmatch(b'[a-f0-9]{40}',oid):return False
+            relative=pathlib.PurePosixPath(os.fsdecode(name))
+            if relative.is_absolute() or any(part in ('..','.git') or '\\' in part or ':' in part for part in relative.parts):return False
+            path=root.joinpath(*relative.parts)
+            for ancestor in (path,*path.parents):
+                if ancestor==root:break
+                info=ancestor.lstat()
+                if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:return False
+            info=path.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_size>16*1024*1024:return False
+            total+=info.st_size
+            if total>256*1024*1024 or time.monotonic()-started>3:return False
+            # Git blob IDs hash the raw bytes with a length prefix, independently
+            # of index flags, attributes and worktree conversion/filter rules.
+            digest=hashlib.sha1(b'blob '+str(info.st_size).encode('ascii')+b'\0')
+            with path.open('rb') as stream:
+                remaining=info.st_size
+                while remaining:
+                    block=stream.read(min(65536,remaining))
+                    if not block:return False
+                    digest.update(block);remaining-=len(block)
+                if stream.read(1):return False
+            if digest.hexdigest().encode('ascii')!=oid:return False
+        return git('status','--porcelain','--untracked-files=all','--ignore-submodules=all').strip()==b''
+
+    except (OSError,ValueError,UnicodeError,configparser.Error,subprocess.SubprocessError):
+        return False
+
+
+async def _initialize_owned_module_health():
+    global _owned_module_binding
+    _owned_module_binding=None
+    if not any(key in os.environ for key in _OWNED_MODULE_ENV):return
+    identity=_owned_module_identity()
+    if identity is None:raise RuntimeError('Owned module profile unavailable')
+    try:
+        clean=await asyncio.wait_for(asyncio.to_thread(_owned_source_is_clean,identity[4]),timeout=4)
+    except Exception:
+        clean=False
+    if clean is not True:raise RuntimeError('Owned module source binding unavailable')
+    _owned_module_binding=identity
+
+
+@app.get('/internal/v2/module/health')
+async def owned_module_health(request:Request):
+    headers={'Cache-Control':'no-store'}
+    if request.scope.get('query_string'):
+        return JSONResponse({'error':'MODULE_HEALTH_INVALID_REQUEST'},status_code=400,headers=headers)
+    identity=_owned_module_identity()
+    if identity is None:
+        return JSONResponse({'error':'MODULE_HEALTH_UNAVAILABLE'},status_code=503,headers=headers)
+    authorization=request.headers.getlist('authorization')
+    if (len(authorization)!=1 or len(authorization[0])>256
+            or not secrets.compare_digest(authorization[0].encode('utf-8'),('Bearer '+identity[3]).encode('ascii'))):
+        return JSONResponse({'error':'MODULE_HEALTH_FORBIDDEN'},status_code=403,headers=headers)
+    if _owned_module_binding!=identity:
+        return JSONResponse({'error':'MODULE_HEALTH_UNAVAILABLE'},status_code=503,headers=headers)
+    async def probe():
+        if control_leader is not None and getattr(control_leader,'requires_fencing',True):return False
+        if (await control_readiness()).get('ready') is not True:return False
+        pool=db.pool
+        value=await pool.fetchval('SELECT 1')
+        if type(value) is not int or value!=1 or db.pool is not pool:return False
+        if (await control_readiness()).get('ready') is not True:return False
+        return (not (control_leader is not None and getattr(control_leader,'requires_fencing',True))
+                and _owned_module_identity()==identity and _owned_module_binding==identity)
+    try:
+        ready=await asyncio.wait_for(probe(),timeout=min(1.0,_MODULE_HEALTH_TIMEOUT)) is True
+    except Exception:
+        ready=False
+    return JSONResponse({'module_id':'grid','version':identity[1],'release_id':identity[2],
+                         'instance_token':identity[3],'ready':ready},status_code=200 if ready else 503,headers=headers)
 
 
 def control_disk_state():
@@ -655,6 +841,7 @@ async def rebalance():
 @app.on_event("startup")
 async def startup():
     global db, ingest_storage, background_tasks, coordination_authority, control_leader, control_task
+    await _initialize_owned_module_health()
     async def loop():
         global instruments,assignments
         while True:
