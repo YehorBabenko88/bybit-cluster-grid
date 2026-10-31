@@ -23,6 +23,7 @@ def ingest_headers():
 
 
 class Storage:
+    MAX_PENDING_ADMISSIONS=1024
     def __init__(self):
         self.pool=None
         self.http=None
@@ -31,6 +32,9 @@ class Storage:
         self.replay_ids=set()
         # Preserve WAL ID order across concurrent producers until queue admission.
         self._enqueue_lock=asyncio.Lock()
+        self._admissions={}
+        self._closing=False
+        self._admission_fault=False
         self._last_replay_send=0.0
         self.replay_started_at=0.0
         self.replay_sent=0
@@ -80,15 +84,68 @@ class Storage:
         else:
             self.replay_done.set()
 
-    async def save(self,row):
-        await self.replay_done.wait()
-        if self.spool.ratio()>=settings.spool_critical_ratio:
-            raise BufferError("Grid WAL critical threshold reached; load shedding required")
+    async def _admit(self,record):
+        # The retained task, not its cancellable caller, owns append -> put.
         async with self._enqueue_lock:
-            record_id=await self.spool.append(row)
-            await self.write_queue.put(record_id,row)
+            if getattr(self,'_admission_fault',False):raise RuntimeError('WAL admission requires replay')
+            if self.spool.ratio()>=settings.spool_critical_ratio:
+                raise BufferError("Grid WAL critical threshold reached; load shedding required")
+            record['id']=await self.spool.append(record['row'])
+            try:
+                await self.write_queue.put(record['id'],record['row'])
+            except BaseException:
+                # An unexpected queue failure after append must not let newer
+                # IDs overtake the missing handoff. Shutdown/replay repairs it.
+                self._admission_fault=True
+                raise
+
+    async def _save_admission(self,row,retain):
+        if getattr(self,'_closing',False):raise RuntimeError('storage is closing')
+        await self.replay_done.wait()
+        if getattr(self,'_closing',False):raise RuntimeError('storage is closing')
+        if not hasattr(self,'_admissions'):self._admissions={}
+        raw=json.dumps(row,sort_keys=True,separators=(',',':'),allow_nan=False)
+        key=hashlib.sha256(raw.encode('utf-8')).hexdigest()
+        record=self._admissions.get(key)
+        if record is None:
+            if len(self._admissions)>=self.MAX_PENDING_ADMISSIONS:raise BufferError('pending WAL admission limit')
+            record={'row':json.loads(raw),'id':None,'retained':retain}
+            task=asyncio.create_task(self._admit(record));record['task']=task
+            self._admissions[key]=record
+            # Observe exceptions without discarding the result/idempotency key.
+            task.add_done_callback(lambda done:None if done.cancelled() else done.exception())
+        if retain:record['retained']=True
+        try:
+            await asyncio.shield(record['task'])
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            if record['id'] is None and self._admissions.get(key) is record:self._admissions.pop(key)
+            raise
+        if not retain and not record['retained']:self.acknowledge_admission(key)
+        return key
+
+    def acknowledge_admission(self,key):
+        record=self._admissions.get(key)
+        if record is None or not record['task'].done() or record['task'].cancelled() or record['task'].exception() is not None:
+            raise RuntimeError('WAL admission is not complete')
+        self._admissions.pop(key)
+
+    async def save_retained(self,row):
+        """Return a receipt retained until the logical producer acknowledges it."""
+        return await self._save_admission(row,True)
+
+    async def save(self,row):
+        await self._save_admission(row,False)
 
     async def close(self,drain_timeout=5):
+        self._closing=True
+        admissions=list(getattr(self,'_admissions',{}).values())
+        tasks=[record['task'] for record in admissions]
+        if tasks:
+            _,pending=await asyncio.wait(tasks,timeout=max(0.,float(drain_timeout)))
+            for task in pending:task.cancel()
+            await asyncio.gather(*tasks,return_exceptions=True)
         if self.replay_task is not None and not self.replay_task.done():
             self.replay_task.cancel()
             await asyncio.gather(self.replay_task,return_exceptions=True)
