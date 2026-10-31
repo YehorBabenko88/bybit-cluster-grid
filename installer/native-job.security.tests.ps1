@@ -30,15 +30,15 @@ class HeartbeatFixture {
  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern bool CreateProcess(string app,StringBuilder cmd,IntPtr pa,IntPtr ta,bool inherit,uint flags,IntPtr env,string cwd,ref SI startup,out PI process);
  static int Main(string[] args) {
   if(args[0]=="marker"){File.WriteAllText(args[1],"RESUMED");return 0;}
-  if(args[0]=="child"||args[0]=="closed-child"){
+  if(args[0]=="child"||args[0]=="closed-child"||args[0]=="writing-child"){
    if(args[0]=="closed-child"){CloseHandle(GetStdHandle(-11));CloseHandle(GetStdHandle(-12));}
-   for(int i=0;i<600;i++){File.AppendAllText(args[1],"x");Thread.Sleep(25);}return 0;
+   for(int i=0;i<600;i++){if(args[0]=="writing-child"){Console.Out.Write(new string('x',8192));Console.Error.Write(new string('y',8192));Console.Out.Flush();Console.Error.Flush();}File.AppendAllText(args[1],"x");Thread.Sleep(25);}return 0;
   }
   SI si=new SI();si.cb=Marshal.SizeOf(typeof(SI));PI pi;
   bool nonzero=args[0]=="nonzero";bool retained=args[0]=="retained"||nonzero;
   if(!retained){si.flags=0x100;si.input=GetStdHandle(-10);si.output=GetStdHandle(-11);si.error=GetStdHandle(-12);}
   string exe=System.Reflection.Assembly.GetExecutingAssembly().Location;
-  string child=retained?"closed-child":"child";
+  string child=args[0]=="daemon"?"writing-child":(retained?"closed-child":"child");
   if(!CreateProcess(exe,new StringBuilder("\""+exe+"\" "+child+" \""+args[1]+"\""),IntPtr.Zero,IntPtr.Zero,!retained,retained?8u:0u,IntPtr.Zero,Environment.CurrentDirectory,ref si,out pi))return 7;
   CloseHandle(pi.thread);CloseHandle(pi.process);
   if(nonzero){for(int i=0;i<100&&!File.Exists(args[1]);i++)Thread.Sleep(20);if(!File.Exists(args[1]))return 9;Console.WriteLine("BOUNDED_FAILURE_FIXTURE");Console.Error.WriteLine("BOUNDED_FAILURE_STDERR");return 7;}
@@ -102,11 +102,27 @@ class HeartbeatFixture {
  if($privateResult -isnot [GridPortable.JobResult] -or $privateResult.ExitCode -ne 7 -or $privateResult.Stdout.Trim() -cne 'BOUNDED_FAILURE_FIXTURE' -or $privateResult.Stderr.Trim() -cne 'BOUNDED_FAILURE_STDERR' -or $null -ne $privateResult.Job -or ![IO.File]::Exists($failedHeartbeat)){throw 'NONZERO_PRIVATE_RESULT_INVALID'}
  Start-Sleep -Milliseconds 300;$before=([IO.FileInfo]$failedHeartbeat).Length;Start-Sleep -Milliseconds 500
  if(([IO.FileInfo]$failedHeartbeat).Length -ne $before){throw 'NONZERO_CHILD_SURVIVED_CLOSE'}
- [pscustomobject]@{schema='grid.native-job-tests.v1';scope='HARMLESS_PROCESS_CONTAINMENT_ONLY';passed=4;sdk_qualification='NOT_RUN';physical='NOT_RUN'} | ConvertTo-Json -Compress
+ $phase='DAEMON_NUL_LIFETIME'
+ $daemonHeartbeat=Join-Path $fixtureRoot 'daemon-heartbeat'
+ # The daemon fixture intentionally inherits the root's actual stdio handles;
+ # only this explicit API binds them to NUL. It writes beyond capture quota
+ # while heartbeating, so undrained anonymous pipes would block progress.
+ # Capture-mode orphan stays strict.
+ $lease=[GridPortable.JobProcess]::RunDaemon($exe,('daemon "'+$daemonHeartbeat+'"'),$fixtureRoot,$environment,5)
+ if($null -eq $lease.Job -or $lease.Stdout -cne '' -or $lease.Stderr -cne ''){throw 'DAEMON_NUL_RESULT_INVALID'}
+ $childWait=[Diagnostics.Stopwatch]::StartNew()
+ while(![IO.File]::Exists($daemonHeartbeat) -and $childWait.Elapsed.TotalSeconds -lt 2){Start-Sleep -Milliseconds 25}
+ if(![IO.File]::Exists($daemonHeartbeat)){throw 'DAEMON_CHILD_NOT_STARTED'}
+ $before=([IO.FileInfo]$daemonHeartbeat).Length;Start-Sleep -Milliseconds 300
+ if(([IO.FileInfo]$daemonHeartbeat).Length -le $before){throw 'DAEMON_JOB_CLOSED_EARLY'}
+ $lease.Dispose();$lease=$null;Start-Sleep -Milliseconds 300
+ $before=([IO.FileInfo]$daemonHeartbeat).Length;Start-Sleep -Milliseconds 500
+ if(([IO.FileInfo]$daemonHeartbeat).Length -ne $before){throw 'DAEMON_CHILD_SURVIVED_CLOSE'}
+ [pscustomobject]@{schema='grid.native-job-tests.v1';scope='HARMLESS_PROCESS_CONTAINMENT_ONLY';passed=5;sdk_qualification='NOT_RUN';physical='NOT_RUN'} | ConvertTo-Json -Compress
 }catch{
  $classification='UNKNOWN'
  $detail=$_.Exception.ToString()
- foreach($code in @('JOB_DEADLINE','JOB_OUTPUT_LIMIT','JOB_ASSIGN','PROCESS_CREATE_SUSPENDED','PROCESS_RESUME','JOB_CREATE','JOB_LIMIT','ATTRIBUTE_INIT','ATTRIBUTE_HANDLES','PIPE_CREATE','PIPE_FLAGS','JOB_PROCESS_FAILED','HARMLESS_FIXTURE_COMPILE_FAILED','REAL_CHILD_DEADLINE_NOT_EXERCISED','ORPHAN_SURVIVED_JOB_CLOSE','RETAINED_CHILD_NOT_STARTED','RETAINED_JOB_CLOSED_EARLY','RETAINED_CHILD_SURVIVED_CLOSE','UNOWNED_PROCESS_RESUMED','NONZERO_PRIVATE_RESULT_INVALID','NONZERO_CHILD_SURVIVED_CLOSE','ORPHAN_DEADLINE_STATE_INVALID')){if($detail.Contains($code)){$classification=$code;break}}
+ foreach($code in @('JOB_DEADLINE','JOB_OUTPUT_LIMIT','JOB_ASSIGN','PROCESS_CREATE_SUSPENDED','PROCESS_RESUME','JOB_CREATE','JOB_LIMIT','ATTRIBUTE_INIT','ATTRIBUTE_HANDLES','PIPE_CREATE','PIPE_FLAGS','JOB_PROCESS_FAILED','HARMLESS_FIXTURE_COMPILE_FAILED','REAL_CHILD_DEADLINE_NOT_EXERCISED','ORPHAN_SURVIVED_JOB_CLOSE','RETAINED_CHILD_NOT_STARTED','RETAINED_JOB_CLOSED_EARLY','RETAINED_CHILD_SURVIVED_CLOSE','UNOWNED_PROCESS_RESUMED','NONZERO_PRIVATE_RESULT_INVALID','NONZERO_CHILD_SURVIVED_CLOSE','ORPHAN_DEADLINE_STATE_INVALID','DAEMON_NUL_RESULT_INVALID','DAEMON_CHILD_NOT_STARTED','DAEMON_JOB_CLOSED_EARLY','DAEMON_CHILD_SURVIVED_CLOSE','NULL_STDIO_CREATE')){if($detail.Contains($code)){$classification=$code;break}}
  Write-Output "::error title=Native Job subcase::phase=$phase code=$classification line=$([int]$_.InvocationInfo.ScriptLineNumber)"
  throw
 }finally{

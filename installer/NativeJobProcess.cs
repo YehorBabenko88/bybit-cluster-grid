@@ -44,6 +44,12 @@ namespace GridPortable {
   // Caller may supply an owned Job; failure always closes it. A closed Job must
   // fail AssignProcessToJobObject while the new process is still suspended.
   public static JobResult RunInJob(string executable,string arguments,string directory,IDictionary<string,string> environment,int seconds,bool retain,OwnedJob job) {
+   return RunCore(executable,arguments,directory,environment,seconds,retain,job,false);
+  }
+  public static JobResult RunDaemon(string executable,string arguments,string directory,IDictionary<string,string> environment,int seconds) {
+   return RunCore(executable,arguments,directory,environment,seconds,true,new OwnedJob(),true);
+  }
+  static JobResult RunCore(string executable,string arguments,string directory,IDictionary<string,string> environment,int seconds,bool retain,OwnedJob job,bool daemonStdio) {
    if(seconds<1||seconds>180||job==null)throw new ArgumentException("JOB_ARGUMENT");
    IntPtr outRead=IntPtr.Zero,outWrite=IntPtr.Zero,errRead=IntPtr.Zero,errWrite=IntPtr.Zero,inRead=IntPtr.Zero,inWrite=IntPtr.Zero;
    IntPtr attributes=IntPtr.Zero,list=IntPtr.Zero,env=IntPtr.Zero;Native.PROCESS_INFORMATION pi=new Native.PROCESS_INFORMATION();
@@ -51,9 +57,15 @@ namespace GridPortable {
    Stopwatch watch=Stopwatch.StartNew();
    try {
     Native.SECURITY_ATTRIBUTES sa=new Native.SECURITY_ATTRIBUTES();sa.nLength=Marshal.SizeOf(typeof(Native.SECURITY_ATTRIBUTES));sa.bInheritHandle=true;
-    if(!Native.CreatePipe(out outRead,out outWrite,ref sa,0)||!Native.CreatePipe(out errRead,out errWrite,ref sa,0)||!Native.CreatePipe(out inRead,out inWrite,ref sa,0))throw Native.Error("PIPE_CREATE");
-    if(!Native.SetHandleInformation(outRead,1,0)||!Native.SetHandleInformation(errRead,1,0)||!Native.SetHandleInformation(inWrite,1,0))throw Native.Error("PIPE_FLAGS");
-    Native.Close(ref inWrite); // stdin is EOF; never inherit caller input.
+    if(daemonStdio){
+     // Fixed kernel NUL device only, never a caller-selected file. A daemon may
+     // inherit these handles without retaining anonymous capture-pipe writers.
+     inRead=Native.OpenNull(0x80000000,ref sa);outWrite=Native.OpenNull(0x40000000,ref sa);errWrite=Native.OpenNull(0x40000000,ref sa);
+    }else{
+     if(!Native.CreatePipe(out outRead,out outWrite,ref sa,0)||!Native.CreatePipe(out errRead,out errWrite,ref sa,0)||!Native.CreatePipe(out inRead,out inWrite,ref sa,0))throw Native.Error("PIPE_CREATE");
+     if(!Native.SetHandleInformation(outRead,1,0)||!Native.SetHandleInformation(errRead,1,0)||!Native.SetHandleInformation(inWrite,1,0))throw Native.Error("PIPE_FLAGS");
+     Native.Close(ref inWrite); // stdin is EOF; never inherit caller input.
+    }
     IntPtr bytes=IntPtr.Zero;Native.InitializeProcThreadAttributeList(IntPtr.Zero,1,0,ref bytes);
     list=Marshal.AllocHGlobal(bytes);if(!Native.InitializeProcThreadAttributeList(list,1,0,ref bytes))throw Native.Error("ATTRIBUTE_INIT");attributeReady=true;
     attributes=Marshal.AllocHGlobal(IntPtr.Size*3);Marshal.WriteIntPtr(attributes,0,inRead);Marshal.WriteIntPtr(attributes,IntPtr.Size,outWrite);Marshal.WriteIntPtr(attributes,IntPtr.Size*2,errWrite);
@@ -67,16 +79,17 @@ namespace GridPortable {
     // No application instruction has run. Never resume before ownership.
     if(!Native.AssignProcessToJobObject(job.Handle,pi.hProcess))throw Native.Error("JOB_ASSIGN");
     Native.Close(ref outWrite);Native.Close(ref errWrite);Native.Close(ref inRead);
-    stdout=new Drain(outRead);outRead=IntPtr.Zero;stderr=new Drain(errRead);errRead=IntPtr.Zero;
+    if(!daemonStdio){stdout=new Drain(outRead);outRead=IntPtr.Zero;stderr=new Drain(errRead);errRead=IntPtr.Zero;}
     if(Native.ResumeThread(pi.hThread)==0xffffffff)throw Native.Error("PROCESS_RESUME");Native.Close(ref pi.hThread);
     while(true){
-     if(stdout.Overflow||stderr.Overflow)throw new InvalidOperationException("JOB_OUTPUT_LIMIT");
+     if(!daemonStdio&&(stdout.Overflow||stderr.Overflow))throw new InvalidOperationException("JOB_OUTPUT_LIMIT");
      bool exited=Native.WaitForSingleObject(pi.hProcess,0)==0;
-     if(exited&&stdout.Task.IsCompleted&&stderr.Task.IsCompleted)break;
-     if(watch.Elapsed.TotalSeconds>seconds){TimeoutException failure=new TimeoutException("JOB_DEADLINE");failure.Data["GridPortable.DeadlineState"]=new bool[]{exited,stdout.Task.IsCompleted,stderr.Task.IsCompleted};throw failure;}Thread.Sleep(10);
+     bool stdoutDone=daemonStdio||stdout.Task.IsCompleted,stderrDone=daemonStdio||stderr.Task.IsCompleted;
+     if(exited&&stdoutDone&&stderrDone)break;
+     if(watch.Elapsed.TotalSeconds>seconds){TimeoutException failure=new TimeoutException("JOB_DEADLINE");failure.Data["GridPortable.DeadlineState"]=new bool[]{exited,stdoutDone,stderrDone};throw failure;}Thread.Sleep(10);
     }
     uint code;if(!Native.GetExitCodeProcess(pi.hProcess,out code))throw Native.Error("PROCESS_EXIT_CODE");
-    JobResult result=new JobResult();result.ExitCode=unchecked((int)code);result.Stdout=Encoding.UTF8.GetString(stdout.Data.ToArray());result.Stderr=Encoding.UTF8.GetString(stderr.Data.ToArray());
+    JobResult result=new JobResult();result.ExitCode=unchecked((int)code);result.Stdout=daemonStdio?String.Empty:Encoding.UTF8.GetString(stdout.Data.ToArray());result.Stderr=daemonStdio?String.Empty:Encoding.UTF8.GetString(stderr.Data.ToArray());
     if(code!=0){InvalidOperationException failure=new InvalidOperationException("JOB_PROCESS_FAILED");failure.Data["GridPortable.BoundedResult"]=result;throw failure;}
     if(retain)result.Job=job;else job.Dispose();success=true;return result;
    } finally {
@@ -94,6 +107,10 @@ namespace GridPortable {
   }
  }
  internal static class Native {
+  internal static IntPtr OpenNull(uint access,ref SECURITY_ATTRIBUTES attributes){
+   IntPtr handle=CreateFile(@"\\.\NUL",access,3,ref attributes,3,0x80,IntPtr.Zero);
+   if(handle==new IntPtr(-1))throw Error("NULL_STDIO_CREATE");return handle;
+  }
   internal static Exception Error(string label){return new InvalidOperationException(label+":"+Marshal.GetLastWin32Error());}
   internal static void Close(ref IntPtr h){if(h!=IntPtr.Zero){CloseHandle(h);h=IntPtr.Zero;}}
   [StructLayout(LayoutKind.Sequential)] internal struct SECURITY_ATTRIBUTES{internal int nLength;internal IntPtr lpSecurityDescriptor;[MarshalAs(UnmanagedType.Bool)]internal bool bInheritHandle;}
@@ -106,6 +123,7 @@ namespace GridPortable {
   [DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode)]internal static extern IntPtr CreateJobObject(IntPtr attributes,string name);
   [DllImport("kernel32.dll",SetLastError=true)]internal static extern bool SetInformationJobObject(IntPtr job,int type,IntPtr info,uint size);
   [DllImport("kernel32.dll",SetLastError=true)]internal static extern bool AssignProcessToJobObject(IntPtr job,IntPtr process);
+  [DllImport("kernel32.dll",EntryPoint="CreateFileW",SetLastError=true,CharSet=CharSet.Unicode)]internal static extern IntPtr CreateFile(string name,uint access,uint share,ref SECURITY_ATTRIBUTES attributes,uint creation,uint flags,IntPtr template);
   [DllImport("kernel32.dll",SetLastError=true)]internal static extern bool CreatePipe(out IntPtr read,out IntPtr write,ref SECURITY_ATTRIBUTES attributes,uint size);
   [DllImport("kernel32.dll",SetLastError=true)]internal static extern bool SetHandleInformation(IntPtr handle,uint mask,uint flags);
   [DllImport("kernel32.dll",SetLastError=true)]internal static extern bool InitializeProcThreadAttributeList(IntPtr list,int count,int flags,ref IntPtr size);

@@ -24,8 +24,8 @@ jobs:
       CATALOG_SHA256: 8f03e40a411033532a9a349025db9c6299a2cb52da16b8a839e7d4912bc5041b
       PREFLIGHT_SHA256: 25052e5f5a4d5097f72123c5a1fdbfceffe85ac6cae586133f0a594b4232dff7
       GUARD_SHA256: 01166814651689d6df832efa974e69e745fe218f4d6c2bc805224cce7312af5a
-      LIBRARY_SHA256: 528c6b85fe2171bddcf731f8acb0a801738a6cdd3e931aabbbadadba1a63b416
-      NATIVE_JOB_SHA256: 1581cdefd98b37c279535a2a4dda6b5dcb0cb209b40a9ee2082916a70f4296fc
+      LIBRARY_SHA256: 1a0501c729e1eeefb178deaac695600db71b30ca92f22f871904d7a034d6ddca
+      NATIVE_JOB_SHA256: 0ea6437b4835f53c0f4113f014406cbaf190edd5cb71801940698d3a0aa46065
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -70,7 +70,23 @@ jobs:
               (Join-Path $env:GITHUB_WORKSPACE 'installer/PortableRuntime.psm1')=$env:LIBRARY_SHA256
               (Join-Path $env:GITHUB_WORKSPACE 'installer/NativeJobProcess.cs')=$env:NATIVE_JOB_SHA256
             }
-            foreach($file in $pins.Keys){if((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $pins[$file]){throw 'FIXED_SOURCE_HASH_MISMATCH'}}
+            $pinRoles=@{
+              (Join-Path $up 'unified_system/windows-toolchain.catalog.json')='ROOT_CATALOG'
+              (Join-Path $up 'unified_system/package_preflight.py')='ROOT_PREFLIGHT'
+              (Join-Path $up 'integration/source_guard.py')='ROOT_GUARD'
+              (Join-Path $env:GITHUB_WORKSPACE 'installer/PortableRuntime.psm1')='GRID_LIBRARY'
+              (Join-Path $env:GITHUB_WORKSPACE 'installer/NativeJobProcess.cs')='GRID_NATIVE'
+            }
+            foreach($file in $pins.Keys){
+              $observed=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+              if($observed -cne $pins[$file]){
+                $role=$pinRoles[$file];if($role -cnotin @('ROOT_CATALOG','ROOT_PREFLIGHT','ROOT_GUARD','GRID_LIBRARY','GRID_NATIVE')){$role='UNKNOWN'}
+                $expected=[string]$pins[$file];if($expected -cnotmatch '^[a-f0-9]{64}$'){$expected='REDACTED'}
+                if($observed -cnotmatch '^[a-f0-9]{64}$'){$observed='REDACTED'}
+                Write-Output "::error title=Fixed source pin mismatch::role=$role expected=$expected observed=$observed"
+                throw 'FIXED_SOURCE_HASH_MISMATCH'
+              }
+            }
             $evidence=Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence';New-Item -ItemType Directory -Path $evidence -ErrorAction Stop | Out-Null
           } catch {
             $classification='UNKNOWN';$detail=$_.Exception.ToString()

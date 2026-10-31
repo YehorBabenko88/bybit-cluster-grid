@@ -186,7 +186,8 @@ function Initialize-PortableJob([string]$Source,[string]$ExpectedSha256) {
  Add-Type -TypeDefinition ([Text.UTF8Encoding]::new($false,$true).GetString($raw)) -Language CSharp
  $script:PortableJobLoaded=$true
 }
-function Invoke-PortableProcess([string]$Executable,[string]$ExpectedSha256,[string[]]$Arguments,[string]$WorkingDirectory,[int]$TimeoutSeconds=30,[switch]$RetainJob) {
+function Invoke-PortableProcess([string]$Executable,[string]$ExpectedSha256,[string[]]$Arguments,[string]$WorkingDirectory,[int]$TimeoutSeconds=30,[switch]$RetainJob,[switch]$DaemonStdio) {
+ if($DaemonStdio -and !$RetainJob){throw 'PORTABLE_DAEMON_REQUIRES_RETAINED_JOB'}
  if((Get-PortableHash $Executable 134217728) -cne $ExpectedSha256){throw 'PORTABLE_EXECUTABLE_PIN_MISMATCH'}
  Assert-PortableLocalPath $WorkingDirectory -MustExist
  $start=[Diagnostics.ProcessStartInfo]::new();$start.FileName=$Executable;$start.Arguments=($Arguments | ForEach-Object {ConvertTo-PortableArgument $_}) -join ' '
@@ -204,7 +205,8 @@ function Invoke-PortableProcess([string]$Executable,[string]$ExpectedSha256,[str
  if(!$script:PortableJobLoaded){throw 'PORTABLE_JOB_NOT_INITIALIZED'}
  $environment=[Collections.Generic.Dictionary[string,string]]::new([StringComparer]::OrdinalIgnoreCase)
  foreach($key in $start.EnvironmentVariables.Keys){$environment.Add([string]$key,[string]$start.EnvironmentVariables[$key])}
- $result=[GridPortable.JobProcess]::Run($Executable,$start.Arguments,$WorkingDirectory,$environment,$TimeoutSeconds,[bool]$RetainJob)
+ if($DaemonStdio){$result=[GridPortable.JobProcess]::RunDaemon($Executable,$start.Arguments,$WorkingDirectory,$environment,$TimeoutSeconds)}
+ else{$result=[GridPortable.JobProcess]::Run($Executable,$start.Arguments,$WorkingDirectory,$environment,$TimeoutSeconds,[bool]$RetainJob)}
  return [pscustomobject]@{stdout=$result.Stdout;stderr=$result.Stderr;exit_code=$result.ExitCode;lease=$result}
 
 }
