@@ -117,15 +117,32 @@ jobs:
           def git(root):return subprocess.check_output(['git','-C',root,'rev-parse','HEAD'],text=True).strip()
           assert git('.')==os.environ['EXPECTED_GRID_SHA']
           assert git(os.environ['UNIFIED_SOURCE_ROOT'])=='4534b3e044775dbd8c805d5aeaf147820c5afdf8'
-      - name: Disposable deployment-agent source tests
-        id: tests
-        shell: ${{ matrix.shell }}
+      - name: Disposable deployment-agent source tests (powershell)
+        id: tests_powershell
+        if: matrix.shell == 'powershell'
+        shell: powershell
         run: |
           python -m pytest -q tests/test_deployment_agent.py --junitxml=mission3-tests.xml
           if ($LASTEXITCODE -ne 0) { throw 'Deployment agent tests failed' }
-      - name: Actual PowerShell parser and CMS contracts only
-        id: native
-        shell: ${{ matrix.shell }}
+      - name: Disposable deployment-agent source tests (pwsh)
+        id: tests_pwsh
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        run: |
+          python -m pytest -q tests/test_deployment_agent.py --junitxml=mission3-tests.xml
+          if ($LASTEXITCODE -ne 0) { throw 'Deployment agent tests failed' }
+      - name: Actual PowerShell parser and CMS contracts only (powershell)
+        id: native_powershell
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: |
+          Write-Output "PowerShell $($PSVersionTable.PSVersion) $($PSVersionTable.PSEdition)" | Tee-Object -FilePath mission3-native.txt
+          & ./installer/mission3-contract.tests.ps1 -UnifiedRoot $env:UNIFIED_SOURCE_ROOT | Tee-Object -FilePath mission3-native.txt -Append
+          if ($LASTEXITCODE -ne 0) { throw 'Native parser/CMS contracts failed' }
+      - name: Actual PowerShell parser and CMS contracts only (pwsh)
+        id: native_pwsh
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
         run: |
           Write-Output "PowerShell $($PSVersionTable.PSVersion) $($PSVersionTable.PSEdition)" | Tee-Object -FilePath mission3-native.txt
           & ./installer/mission3-contract.tests.ps1 -UnifiedRoot $env:UNIFIED_SOURCE_ROOT | Tee-Object -FilePath mission3-native.txt -Append
@@ -134,8 +151,8 @@ jobs:
         if: always()
         shell: python
         env:
-          TEST_OUTCOME: ${{ steps.tests.outcome }}
-          NATIVE_OUTCOME: ${{ steps.native.outcome }}
+          TEST_OUTCOME: ${{ matrix.shell == 'powershell' && steps.tests_powershell.outcome || steps.tests_pwsh.outcome }}
+          NATIVE_OUTCOME: ${{ matrix.shell == 'powershell' && steps.native_powershell.outcome || steps.native_pwsh.outcome }}
           TEST_SHELL: ${{ matrix.shell }}
         run: |
           import json,os,pathlib,subprocess,hashlib
