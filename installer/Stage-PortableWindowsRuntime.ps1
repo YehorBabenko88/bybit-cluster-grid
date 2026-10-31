@@ -96,6 +96,46 @@ function Version-Tool([string]$Relative,[string]$Pattern,[string[]]$Arguments) {
  if($text -notmatch $Pattern){throw 'PORTABLE_VERSION_MISMATCH'}
  return ($text -replace '\s+',' ').Substring(0,[Math]::Min(160,($text -replace '\s+',' ').Length))
 }
+function Write-PrivatePreflightDiagnostic([Exception]$Failure) {
+ # Inspect already bounded private data only for the raw preflight invocation.
+ # This is a failure diagnostic, never an alternate success/admission path.
+ try {
+  $node=$Failure;$private=$null
+  for($depth=0;$null -ne $node -and $depth -lt 8;$depth++){
+   if($node.Data.Contains('GridPortable.BoundedResult')){$private=$node.Data['GridPortable.BoundedResult'];break}
+   $node=$node.InnerException
+  }
+  if($private -isnot [GridPortable.JobResult] -or $private.ExitCode -eq 0){return}
+  if($private.Stdout.Length -gt 65536 -or $private.Stderr.Length -gt 65536){return}
+  if($private.Stderr.Trim() -ceq 'PACKAGE_PREFLIGHT_REJECTED'){
+   Write-Host '::error title=Raw preflight rejection::status=PACKAGE_PREFLIGHT_REJECTED';return
+  }
+  $payload=$private.Stdout | ConvertFrom-Json
+  $keys=@('schema','scope','status','source_head','source_tree','integrity','installation_closure','services','native_execution','physical','execution_authority','trading_authorized','physical_deployment_allowed')
+  if(@($payload.PSObject.Properties).Count -ne $keys.Count -or @($payload.PSObject.Properties.Name | Where-Object {$_ -cnotin $keys}).Count -ne 0){return}
+  if($payload.schema -cne 'unified.toolchain-preflight.v1' -or $payload.scope -cne 'COMPONENT_BYTES_ONLY' -or $payload.status -cnotin @('BLOCKED','COMPONENT_BYTES_VERIFIED_ONLY') -or $payload.source_head -cne $UnifiedSourceHead -or $payload.source_tree -cne $UnifiedSourceTree -or $payload.services -cne 'NOT_INSTALLED' -or $payload.native_execution -cne 'NOT_RUN' -or $payload.physical -cne 'NOT_AUTHORIZED'){return}
+  foreach($flag in @('installation_closure','execution_authority','trading_authorized','physical_deployment_allowed')){if($payload.$flag -isnot [bool] -or $payload.$flag){return}}
+  if($null -eq $payload.integrity){Write-Host '::error title=Raw preflight integrity::status=BLOCKED integrity=UNAVAILABLE';return}
+  $integrity=$payload.integrity
+  $innerKeys=@('schema','scope','result','artifacts','required_unlocked','all_locked_artifacts_match','installation_closure','publisher_authenticated','execution_authority','native_execution','physical')
+  if(@($integrity.PSObject.Properties).Count -ne $innerKeys.Count -or @($integrity.PSObject.Properties.Name | Where-Object {$_ -cnotin $innerKeys}).Count -ne 0 -or $integrity.schema -cne 'unified.windows.toolchain.integrity.v1' -or $integrity.scope -cne 'OFFLINE_BYTE_INTEGRITY_ONLY' -or $integrity.result -cne 'INCOMPLETE' -or $integrity.native_execution -cne 'NOT_RUN' -or $integrity.physical -cne 'NOT_RUN'){return}
+  foreach($flag in @('installation_closure','publisher_authenticated','execution_authority')){if($integrity.$flag -isnot [bool] -or $integrity.$flag){return}}
+  if($integrity.all_locked_artifacts_match -isnot [bool] -or @($integrity.artifacts).Count -ne 5 -or @($integrity.required_unlocked).Count -ne 2){return}
+  $remaining=@{'python-wheels'='NO_REVIEWED_WINDOWS_WHEEL_CLOSURE';'consul'='NO_REVIEWED_OFFICIAL_BINARY_PIN'}
+  foreach($item in $integrity.required_unlocked){if(@($item.PSObject.Properties).Count -ne 2 -or $item.component -cnotin @('python-wheels','consul') -or !$remaining.ContainsKey($item.component) -or $item.reason -cne $remaining[$item.component]){return};$remaining.Remove($item.component)}
+  $states=@{};$artifactKeys=@('component','version','filename','checksum_basis','status')
+  foreach($artifact in $integrity.artifacts){
+   if(@($artifact.PSObject.Properties).Count -ne 5 -or @($artifact.PSObject.Properties.Name | Where-Object {$_ -cnotin $artifactKeys}).Count -ne 0 -or $artifact.component -cnotin @('python','node','git','postgresql','nssm') -or $states.ContainsKey($artifact.component) -or $artifact.status -cnotin @('BYTES_MATCH','SIZE_MISMATCH','DIGEST_MISMATCH','MISSING','UNVERIFIED')){return}
+   $expected=$metadata[$artifact.component]
+   if($artifact.version -cne $expected.version -or $artifact.filename -cne $expected.filename -or $artifact.checksum_basis -cne $expected.provenance.checksum_basis){return}
+   $states[$artifact.component]=$artifact.status
+  }
+  Write-Host ("::error title=Raw preflight integrity::status="+$payload.status)
+  foreach($component in @('python','node','git','postgresql','nssm')){Write-Host ("::error title=Raw preflight component::component="+$component+" status="+$states[$component])}
+ } catch {
+  # An unrecognized/invalid diagnostic never masks the original denial.
+ }
+}
 try {
  $working=Join-Path $target '_smoke';[IO.Directory]::CreateDirectory($working) | Out-Null
  # Both bootstrap executables derive ONLY from the same already verified archive
@@ -157,9 +197,19 @@ try {
 } catch {
  $failure=$_.Exception;$report.result='BLOCKED';$classification='UNKNOWN';$detail=$_.Exception.ToString()
  foreach($code in @('JOB_DEADLINE','JOB_OUTPUT_LIMIT','JOB_ASSIGN','JOB_PROCESS_FAILED','PROCESS_CREATE_SUSPENDED','PROCESS_RESUME','JOB_CREATE','JOB_LIMIT','ATTRIBUTE_INIT','ATTRIBUTE_HANDLES','PIPE_CREATE','PIPE_FLAGS','PORTABLE_EXPECTED_EXECUTABLE_MISSING','PORTABLE_EXECUTABLE_PIN_MISMATCH','PORTABLE_DERIVED_EXECUTABLE_PIN_MISMATCH','PORTABLE_ARCHIVE_HASH','PORTABLE_ARCHIVE_SIZE','PORTABLE_ZIP_PATH','PORTABLE_ZIP_ALIAS','PORTABLE_ZIP_LINK_OR_TYPE','PORTABLE_ZIP_DIRECTORY_BUDGET','PORTABLE_ZIP_ENTRY_BUDGET','PORTABLE_ZIP_STREAM_BUDGET','PORTABLE_ZIP_STREAM_LENGTH','PORTABLE_PE_REQUIRED','PORTABLE_X64_PE_REQUIRED','PORTABLE_VERSION_MISMATCH','PORTABLE_ROOT_PREFLIGHT_CONTRACT','PORTABLE_ROOT_GLOBAL_CLOSURE_MUST_REMAIN_BLOCKED','PORTABLE_CATALOG_OR_CACHE_CHANGED','PORTABLE_VENV_GLOBAL_SITE_FORBIDDEN','PORTABLE_VENV_PTH_FORBIDDEN','PORTABLE_VENV_EXECUTABLE_ORIGIN','PORTABLE_VENV_VERSION','PORTABLE_ISOLATED_POSTGRES_IDENTITY','PORTABLE_POSTGRES_STOP_UNVERIFIED')){if($detail.Contains($code)){$classification=$code;break}}
+ if($phase -ceq 'ROOT_PREFLIGHT'){Write-PrivatePreflightDiagnostic $failure}
+ $kind='UNKNOWN';$node=$failure
+ for($depth=0;$null -ne $node -and $depth -lt 8;$depth++){
+  $name=$node.GetType().Name
+  if($name -cin @('IOException','UnauthorizedAccessException','PathTooLongException','DirectoryNotFoundException','FileNotFoundException','InvalidDataException','ArgumentException','ArgumentNullException','NotSupportedException','OverflowException','MethodException','MethodInvocationException','SetValueInvocationException','GetValueInvocationException','PropertyNotFoundException','PSInvalidCastException','PSArgumentException','InvalidOperationException','RuntimeException')){$kind=$name}
+  $node=$node.InnerException
+ }
+ $file=[IO.Path]::GetFileName($_.InvocationInfo.ScriptName)
+ if($file -cnotin @('Stage-PortableWindowsRuntime.ps1','PortableRuntime.psm1')){$file='UNKNOWN'}
+ $line=[int]$_.InvocationInfo.ScriptLineNumber
  $report.failure_phase=$phase;$report.failure_code=$classification
  # Host stream keeps this fixed annotation out of the JSON result pipeline.
- Write-Host "::error title=Component SDK phase::phase=$phase code=$classification"
+ Write-Host "::error title=Component SDK phase::phase=$phase code=$classification kind=$kind file=$file line=$line"
 }
 finally {
  if($pgStarted -and $pgCtl -and $pgData){

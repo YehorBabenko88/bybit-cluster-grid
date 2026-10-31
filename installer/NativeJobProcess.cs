@@ -76,7 +76,7 @@ namespace GridPortable {
     }
     uint code;if(!Native.GetExitCodeProcess(pi.hProcess,out code))throw Native.Error("PROCESS_EXIT_CODE");
     JobResult result=new JobResult();result.ExitCode=unchecked((int)code);result.Stdout=Encoding.UTF8.GetString(stdout.Data.ToArray());result.Stderr=Encoding.UTF8.GetString(stderr.Data.ToArray());
-    if(code!=0)throw new InvalidOperationException("JOB_PROCESS_FAILED");
+    if(code!=0){InvalidOperationException failure=new InvalidOperationException("JOB_PROCESS_FAILED");failure.Data["GridPortable.BoundedResult"]=result;throw failure;}
     if(retain)result.Job=job;else job.Dispose();success=true;return result;
    } finally {
     if(!success){
