@@ -161,3 +161,43 @@ class AgentTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.apply(raw)
         self.assertEqual(self.runtime.events,[])
         self.assertTrue((target/'capsules/grid/artifact.zip').exists())
+
+    def test_cached_zero_direntry_link_count_uses_fresh_filesystem_metadata(self):
+        import contextlib
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from grid.deployment_agent import _safe_deployment_tree
+        tree=self.root/'tree';tree.mkdir();(tree/'regular').write_text('owned regular file')
+        original=os.scandir
+        class CachedEntry:
+            def __init__(self,entry):self.path=entry.path;self.entry=entry
+            def stat(self,*,follow_symlinks=True):
+                actual=self.entry.stat(follow_symlinks=follow_symlinks)
+                return SimpleNamespace(st_mode=actual.st_mode,st_nlink=0,st_ino=0,st_dev=0,
+                    st_file_attributes=getattr(actual,'st_file_attributes',0))
+        @contextlib.contextmanager
+        def cached(directory):
+            with original(directory) as entries:yield (CachedEntry(entry) for entry in entries)
+        with patch('grid.deployment_agent.os.scandir',side_effect=cached):
+            _safe_deployment_tree(tree)
+    def test_actual_hardlinked_deployment_file_is_still_rejected(self):
+        from grid.deployment_agent import _safe_deployment_tree
+        tree=self.root/'tree';tree.mkdir();source=tree/'regular';source.write_text('owned file')
+        os.link(source,tree/'alias')
+        self.assertGreater(os.lstat(source).st_nlink,1)
+        with self.assertRaisesRegex(ValueError,'ambiguous deployment file'):_safe_deployment_tree(tree)
+
+    def test_fresh_unknown_zero_link_count_is_not_accepted(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from grid.deployment_agent import _safe_deployment_tree
+        tree=self.root/'tree';tree.mkdir();source=tree/'regular';source.write_text('owned file')
+        original=os.lstat
+        def unknown(path,*args,**kwargs):
+            actual=original(path,*args,**kwargs)
+            if pathlib.Path(path)==source:
+                return SimpleNamespace(st_mode=actual.st_mode,st_nlink=0,
+                    st_file_attributes=getattr(actual,'st_file_attributes',0))
+            return actual
+        with patch('grid.deployment_agent.os.lstat',side_effect=unknown):
+            with self.assertRaisesRegex(ValueError,'ambiguous deployment file'):_safe_deployment_tree(tree)

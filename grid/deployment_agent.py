@@ -49,7 +49,10 @@ def _safe_deployment_tree(root):
             for entry in entries:
                 count+=1
                 if count>100000:raise ValueError('deployment namespace limit')
-                info=entry.stat(follow_symlinks=False)
+                # Windows DirEntry.stat caches st_nlink/st_ino/st_dev as zero.
+                # Fresh lstat preserves the real hardlink count and reparse facts;
+                # never reinterpret an unknown/zero count as a regular unique file.
+                info=os.lstat(entry.path)
                 if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&1024:raise ValueError('linked deployment child')
                 if stat.S_ISDIR(info.st_mode):pending.append(Path(entry.path))
                 elif not stat.S_ISREG(info.st_mode) or info.st_nlink!=1:raise ValueError('ambiguous deployment file')
