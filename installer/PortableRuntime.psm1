@@ -1,7 +1,16 @@
 # Offline SDK primitives. Only the staging entrypoint may authorize SDK execution.
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
-function Assert-PortableLocalPath([string]$Path,[switch]$MustExist) {
+function Write-PortableMetadataDiagnostic([object]$Item,[string]$Component,[string]$Entry) {
+ $kind='OTHER';$count=0
+ if($null -eq $Item){$kind='NULL'}elseif($Item -is [array]){$kind='ARRAY';$count=$Item.Count}elseif($Item -is [IO.FileInfo]){$kind='FILE_INFO';$count=1}elseif($Item -is [IO.DirectoryInfo]){$kind='DIR_INFO';$count=1}else{$count=1}
+ if($Component -cnotin @('python','node','git','postgresql','nssm')){$Component='UNKNOWN'}
+ if(!$Entry -or $Entry.Length -gt 512 -or $Entry -match '[^ -~]' -or $Entry.StartsWith('/') -or $Entry.Contains('\') -or $Entry.Contains(':') -or @($Entry.Split('/') | Where-Object {$_ -in @('.','..')}).Count -ne 0){$Entry='UNKNOWN'}
+ $commandKind='OTHER'
+ try{$command=Get-Command Get-Item -CommandType Cmdlet,Function,Alias -ErrorAction Stop | Select-Object -First 1;if([string]$command.CommandType -cin @('Cmdlet','Function','Alias')){$commandKind=[string]$command.CommandType}}catch{}
+ Write-Host ("::error title=Local metadata boundary::component="+$Component+" entry="+$Entry.Replace('%','%25')+" type="+$kind+" count="+$count+" command="+$commandKind)
+}
+function Assert-PortableLocalPath([string]$Path,[switch]$MustExist,[string]$PublicComponent='UNKNOWN',[string]$PublicEntry='UNKNOWN') {
  if ($Path -notmatch '^[A-Za-z]:\\' -or $Path.Contains('/') -or $Path.Substring(2).Contains(':') -or $Path.Contains('..')) {throw 'PORTABLE_LOCAL_NAMESPACE_REQUIRED'}
  $full=[IO.Path]::GetFullPath($Path);$anchor=[IO.Path]::GetPathRoot($full)
  if ([IO.DriveInfo]::new($anchor).DriveType -ne [IO.DriveType]::Fixed) {throw 'PORTABLE_FIXED_DRIVE_REQUIRED'}
@@ -10,9 +19,12 @@ function Assert-PortableLocalPath([string]$Path,[switch]$MustExist) {
  $parts=New-Object 'System.Collections.Generic.List[string]';$cursor=$full
  while($cursor){$parts.Add($cursor);$next=[IO.Path]::GetDirectoryName($cursor.TrimEnd('\'));if($next -eq $cursor){break};$cursor=$next}
  for($i=$parts.Count-1;$i -ge 0;$i--){
+  $item=$null
   try {$item=Get-Item -LiteralPath $parts[$i] -Force -ErrorAction Stop}
   catch [Management.Automation.ItemNotFoundException] {if($MustExist){throw 'PORTABLE_PATH_MISSING'};return}
-  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {throw 'PORTABLE_REPARSE_FORBIDDEN'}
+  if($null -eq $item -or ($item -isnot [IO.FileInfo] -and $item -isnot [IO.DirectoryInfo]) -or $null -eq $item.PSObject.Properties['Attributes']){Write-PortableMetadataDiagnostic $item $PublicComponent $PublicEntry;throw 'PORTABLE_PATH_METADATA_UNAVAILABLE'}
+  try{$attributes=$item.Attributes}catch{Write-PortableMetadataDiagnostic $item $PublicComponent $PublicEntry;throw}
+  if (($attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {throw 'PORTABLE_REPARSE_FORBIDDEN'}
   if($i -ne 0 -and !$item.PSIsContainer){throw 'PORTABLE_ANCESTOR_NOT_DIRECTORY'}
  }
 }
@@ -129,7 +141,7 @@ function Expand-PortableArchive([object]$Archive,[string]$Destination) {
  $inventory=New-Object 'System.Collections.Generic.List[object]';$buffer=New-Object byte[] 1048576
  for($i=0;$i -lt $Archive.metadata.records.Count;$i++){
   $record=$Archive.metadata.records[$i];$entry=$Archive.archive.Entries[$i]
-  $path=Join-Path $Destination ($record.relative.Replace('/','\'));Assert-PortableLocalPath $path
+  $path=Join-Path $Destination ($record.relative.Replace('/','\'));Assert-PortableLocalPath $path -PublicComponent $Archive.descriptor.component -PublicEntry $record.relative
   if($record.directory){[IO.Directory]::CreateDirectory($path) | Out-Null;continue}
   [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)) | Out-Null
   $inputStream=$null;$outputStream=$null;$sha=$null;[long]$total=0

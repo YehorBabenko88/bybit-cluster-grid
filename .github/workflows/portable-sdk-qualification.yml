@@ -24,7 +24,7 @@ jobs:
       CATALOG_SHA256: 8f03e40a411033532a9a349025db9c6299a2cb52da16b8a839e7d4912bc5041b
       PREFLIGHT_SHA256: 25052e5f5a4d5097f72123c5a1fdbfceffe85ac6cae586133f0a594b4232dff7
       GUARD_SHA256: 01166814651689d6df832efa974e69e745fe218f4d6c2bc805224cce7312af5a
-      LIBRARY_SHA256: 206c80da775aaacd01c40f175f29e2df20813df5f6e57e77fc061fa77a8c3b92
+      LIBRARY_SHA256: ba85fa1c8d68cbabcfda289efe05cdd419c9a6b3e8a8e27e5f4fd2ff918fd79c
       NATIVE_JOB_SHA256: cf5ff3561f31d59ad09359015133b9264f3c8faf1e0d45ded0d7b0bc80478cac
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -235,7 +235,7 @@ jobs:
               $public=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
               foreach($name in (git ls-tree -r --name-only HEAD)){[void]$public.Add([string]$name)}
               $statusKinds=@{' M'='WORKTREE_MODIFIED';'M '='INDEX_MODIFIED';'MM'='INDEX_AND_WORKTREE_MODIFIED';' D'='WORKTREE_DELETED';'D '='INDEX_DELETED';'A '='INDEX_ADDED';'AM'='INDEX_ADDED_WORKTREE_MODIFIED';' T'='WORKTREE_TYPE_CHANGED';'T '='INDEX_TYPE_CHANGED';'R '='INDEX_RENAMED';'C '='INDEX_COPIED';'UU'='UNMERGED';'??'='UNTRACKED';'!!'='IGNORED'}
-              $statusCount=0;$publicStatusPaths=[Collections.Generic.List[string]]::new()
+              $statusCount=0;$publicStatusPaths=[Collections.Generic.List[string]]::new();$publicStatusKinds=@{};$differenceRecords=[Collections.Generic.List[string]]::new()
               foreach($entry in $gridStatus){
                 if($statusCount -ge 8){break};$entry=[string]$entry
                 if($entry.Length -lt 3){continue};$prefix=$entry.Substring(0,2);$kind='OTHER'
@@ -243,7 +243,7 @@ jobs:
                 # Prefixes are fixed classifications; never print arbitrary
                 # porcelain output or names outside the trusted HEAD tree.
                 $name=$entry.Substring(3);$statusCount++
-                if($public.Contains($name) -and $name.Length -le 200 -and $name -cmatch '^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$' -and @($name.Split('/') | Where-Object {$_ -in @('.','..')}).Count -eq 0){$publicStatusPaths.Add($name);Write-Output "::error title=Public tracked status::file=$name status=$kind"}else{Write-Output "::error title=Source status classification::status=$kind path=NOT_PUBLIC_TRACKED"}
+                if($public.Contains($name) -and $name.Length -le 200 -and $name -cmatch '^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$' -and @($name.Split('/') | Where-Object {$_ -in @('.','..')}).Count -eq 0){$publicStatusPaths.Add($name);$publicStatusKinds[$name]=$kind}else{$differenceRecords.Add("status=$kind,path=NOT_PUBLIC_TRACKED")}
               }
               $count=0
               foreach($name in $publicStatusPaths){
@@ -261,8 +261,21 @@ jobs:
                   $rawBlob=[string](git hash-object --no-filters -- $path);if($rawBlob -cnotmatch '^[a-f0-9]{40}$'){$rawBlob='REDACTED'}
                   $rawSha=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
                 }
-                Write-Output "::error title=Public tracked source difference::file=$name head_blob=$headBlob raw_blob=$rawBlob raw_sha256=$rawSha"
+                $headMode='UNKNOWN';$indexMode='UNKNOWN';$diffKind='NONE';$diffModes='NONE'
+                $headEntry=[string](git ls-tree HEAD -- $name)
+                if($headEntry -cmatch '^([0-7]{6}) blob [a-f0-9]{40}\t'){$headMode=$Matches[1]}
+                $indexEntry=[string](git ls-files --stage -- $name)
+                if($indexEntry -cmatch '^([0-7]{6}) [a-f0-9]{40} [0-3]\t'){$indexMode=$Matches[1]}
+                $rawDiff=@(git diff --raw --abbrev=40 --no-renames --no-ext-diff --no-textconv HEAD -- $name)
+                if($rawDiff.Count -ne 0){
+                  $diffKind='UNCLASSIFIED';$diffModes='UNKNOWN'
+                  if($rawDiff.Count -eq 1 -and ([string]$rawDiff[0]) -cmatch '^:([0-7]{6}) ([0-7]{6}) [a-f0-9]{40} [a-f0-9]{40} ([A-Z])\t'){$diffModes=$Matches[1]+'/'+$Matches[2];if($Matches[3] -cin @('M','A','D','T','U')){$diffKind=$Matches[3]}}
+                }
+                $differenceRecords.Add("file=$name,status=$($publicStatusKinds[$name]),head_blob=$headBlob,raw_blob=$rawBlob,raw_sha256=$rawSha,head_mode=$headMode,index_mode=$indexMode,raw_diff=$diffKind,diff_modes=$diffModes")
               }
+              # One bounded annotation avoids GitHub's per-step annotation cap;
+              # all dynamic fields above are public validated paths/hashes/enums.
+              Write-Output ("::error title=Bounded public source differences::"+($differenceRecords -join ';'))
               throw 'GRID_TRACKED_DIRTY'
             }
             if(!$report.unified_tracked_clean){throw 'UNIFIED_TRACKED_DIRTY'}
@@ -270,10 +283,12 @@ jobs:
             $classification='UNKNOWN';$detail=$_.Exception.ToString()
             foreach($code in @('GRID_HEAD_MISMATCH','UNIFIED_HEAD_MISMATCH','GRID_TREE_MISMATCH','UNIFIED_TREE_MISMATCH','GRID_TRACKED_DIRTY','UNIFIED_TRACKED_DIRTY','SOURCE_STATUS_COMMAND_FAILED')){if($detail.Contains($code)){$classification=$code;break}}
             $id=[string]$_.FullyQualifiedErrorId;if($id.Length -gt 96 -or $id -cnotmatch '^[A-Za-z0-9_.:,-]+$'){$id='REDACTED'}
+            $identityRecords=[Collections.Generic.List[string]]::new()
             foreach($key in @('grid_head','grid_tree','unified_head','unified_tree','expected_grid_sha','expected_grid_tree','expected_unified_sha','expected_unified_tree')){
               $value='';if($null -ne $report){$value=[string]$report[$key]};if($value -cnotmatch '^[a-f0-9]{40}$'){$value='REDACTED'}
-              Write-Output "::error title=Public source identity::field=$key value=$value"
+              $identityRecords.Add("$key=$value")
             }
+            Write-Output ("::error title=Public source identities::"+($identityRecords -join ';'))
             Write-Output "::error title=SDK source boundary::phase=SOURCE_EVIDENCE code=$classification id=$id line=$([int]$_.InvocationInfo.ScriptLineNumber)"
             throw
           }
