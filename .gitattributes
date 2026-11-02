@@ -3,3 +3,8 @@
 
 # Preserve exact PostgreSQL configuration example bytes on Windows.
 *.conf.example -text
+
+# Externally pinned native SDK inputs require exact Git blob bytes.
+.gitattributes -text
+installer/PortableRuntime.psm1 -text
+installer/NativeJobProcess.cs -text
