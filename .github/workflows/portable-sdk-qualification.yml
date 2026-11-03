@@ -25,6 +25,9 @@ jobs:
       PREFLIGHT_SHA256: 25052e5f5a4d5097f72123c5a1fdbfceffe85ac6cae586133f0a594b4232dff7
       GUARD_SHA256: 01166814651689d6df832efa974e69e745fe218f4d6c2bc805224cce7312af5a
       LIBRARY_SHA256: 1a0501c729e1eeefb178deaac695600db71b30ca92f22f871904d7a034d6ddca
+      DOWNLOAD_HELPER_SHA256: aff343006bc0f690756afacfc5ec7915392ef3526c9d2b22f852d290a9a5df12
+      DOWNLOAD_TEST_SHA256: ba15e8c1e8b4d57692c26128f5b3bc654d5152d89f47a517e875d166808c631a
+      NSSM_MIRROR_PACKAGE_SHA256: 6c6b1e287fb2ac6b04cfd32be2b9ed54a283cf0847fab2326e1b3961b512d340
       NATIVE_JOB_SHA256: 0ea6437b4835f53c0f4113f014406cbaf190edd5cb71801940698d3a0aa46065
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -68,6 +71,8 @@ jobs:
               (Join-Path $up 'unified_system/package_preflight.py')=$env:PREFLIGHT_SHA256
               (Join-Path $up 'integration/source_guard.py')=$env:GUARD_SHA256
               (Join-Path $env:GITHUB_WORKSPACE 'installer/PortableRuntime.psm1')=$env:LIBRARY_SHA256
+              (Join-Path $env:GITHUB_WORKSPACE 'installer/PinnedVendorDownload.psm1')=$env:DOWNLOAD_HELPER_SHA256
+              (Join-Path $env:GITHUB_WORKSPACE 'installer/pinned-vendor-download.tests.ps1')=$env:DOWNLOAD_TEST_SHA256
               (Join-Path $env:GITHUB_WORKSPACE 'installer/NativeJobProcess.cs')=$env:NATIVE_JOB_SHA256
             }
             $pinRoles=@{
@@ -75,12 +80,14 @@ jobs:
               (Join-Path $up 'unified_system/package_preflight.py')='ROOT_PREFLIGHT'
               (Join-Path $up 'integration/source_guard.py')='ROOT_GUARD'
               (Join-Path $env:GITHUB_WORKSPACE 'installer/PortableRuntime.psm1')='GRID_LIBRARY'
+              (Join-Path $env:GITHUB_WORKSPACE 'installer/PinnedVendorDownload.psm1')='DOWNLOAD_HELPER'
+              (Join-Path $env:GITHUB_WORKSPACE 'installer/pinned-vendor-download.tests.ps1')='DOWNLOAD_TESTS'
               (Join-Path $env:GITHUB_WORKSPACE 'installer/NativeJobProcess.cs')='GRID_NATIVE'
             }
             foreach($file in $pins.Keys){
               $observed=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
               if($observed -cne $pins[$file]){
-                $role=$pinRoles[$file];if($role -cnotin @('ROOT_CATALOG','ROOT_PREFLIGHT','ROOT_GUARD','GRID_LIBRARY','GRID_NATIVE')){$role='UNKNOWN'}
+                $role=$pinRoles[$file];if($role -cnotin @('ROOT_CATALOG','ROOT_PREFLIGHT','ROOT_GUARD','GRID_LIBRARY','GRID_NATIVE','DOWNLOAD_HELPER','DOWNLOAD_TESTS')){$role='UNKNOWN'}
                 $expected=[string]$pins[$file];if($expected -cnotmatch '^[a-f0-9]{64}$'){$expected='REDACTED'}
                 if($observed -cnotmatch '^[a-f0-9]{64}$'){$observed='REDACTED'}
                 Write-Output "::error title=Fixed source pin mismatch::role=$role expected=$expected observed=$observed"
@@ -127,6 +134,19 @@ jobs:
             Write-Output "::error title=Native process boundary::file=$file line=$([int]$_.InvocationInfo.ScriptLineNumber) id=$id"
             throw
           }
+      - name: Pinned mirror transport tests (actual package, no package scripts)
+        id: transport_tests
+        shell: ${{ matrix.engine }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $helper=Join-Path $env:GITHUB_WORKSPACE 'installer/PinnedVendorDownload.psm1'
+          $tests=Join-Path $env:GITHUB_WORKSPACE 'installer/pinned-vendor-download.tests.ps1'
+          if((Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant() -cne $env:DOWNLOAD_HELPER_SHA256){throw 'DOWNLOAD_HELPER_PIN_CHANGED'}
+          if((Get-FileHash -LiteralPath $tests -Algorithm SHA256).Hash.ToLowerInvariant() -cne $env:DOWNLOAD_TEST_SHA256){throw 'DOWNLOAD_TEST_PIN_CHANGED'}
+          Import-Module $helper -Force
+          $fixture=Join-Path $env:RUNNER_TEMP ('nssm-mirror-tests-'+[Guid]::NewGuid().ToString('N')+'.nupkg')
+          Save-PinnedNssmMirrorPackage -Destination $fixture -MirrorOuterSha256 $env:NSSM_MIRROR_PACKAGE_SHA256
+          & $tests -PackageFile $fixture | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence/transport-tests.txt') -Encoding UTF8
       - name: Download all five exact official catalog artifacts
         id: download
         shell: pwsh
@@ -136,44 +156,15 @@ jobs:
           if((Get-FileHash -LiteralPath $catalogPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $env:CATALOG_SHA256){throw 'CATALOG_PIN_CHANGED'}
           $catalog=Get-Content -LiteralPath $catalogPath -Raw | ConvertFrom-Json
           $artifactRoot=Join-Path $env:RUNNER_TEMP 'portable-sdk-artifacts';New-Item -ItemType Directory -Path $artifactRoot -ErrorAction Stop | Out-Null
-          $handler=[Net.Http.HttpClientHandler]::new();$handler.AllowAutoRedirect=$false
-          $client=[Net.Http.HttpClient]::new($handler);$client.Timeout=[Threading.Timeout]::InfiniteTimeSpan
-          try {
-            foreach($artifact in $catalog.artifacts){
-              $cancel=[Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds(240));$response=$null;$inputStream=$null;$outputStream=$null;$digest=$null
-              $path=Join-Path $artifactRoot $artifact.filename
-              try {
-                $uri=[Uri]$artifact.url
-                for($redirect=0;$redirect -le 5;$redirect++){
-                  if($uri.Scheme -cne 'https' -or $uri.UserInfo -or $uri.Fragment){throw 'OFFICIAL_HTTPS_REQUIRED'}
-                  $response=$client.GetAsync($uri,[Net.Http.HttpCompletionOption]::ResponseHeadersRead,$cancel.Token).GetAwaiter().GetResult()
-                  if([int]$response.StatusCode -in @(301,302,303,307,308)){
-                    if($redirect -eq 5 -or !$response.Headers.Location){throw 'VENDOR_REDIRECT_LIMIT'}
-                    $uri=[Uri]::new($uri,$response.Headers.Location);$response.Dispose();$response=$null;continue
-                  }
-                  if([int]$response.StatusCode -ne 200){Write-Output "::error title=Mandatory vendor HTTP status::component=$($artifact.component) status=$([int]$response.StatusCode)";throw 'VENDOR_HTTP_FAILURE'}
-                  break
-                }
-                if($response.Content.Headers.ContentLength -gt [long]$artifact.max_bytes){throw 'VENDOR_COMPRESSED_BUDGET'}
-                $inputStream=$response.Content.ReadAsStreamAsync($cancel.Token).GetAwaiter().GetResult()
-                $outputStream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
-                $digest=[Security.Cryptography.SHA256]::Create();$buffer=New-Object byte[] 1048576;[long]$total=0
-                while(($n=$inputStream.ReadAsync($buffer,0,$buffer.Length,$cancel.Token).GetAwaiter().GetResult()) -gt 0){
-                  $total+=$n;if($total -gt [long]$artifact.max_bytes){throw 'VENDOR_COMPRESSED_BUDGET'}
-                  $outputStream.Write($buffer,0,$n);$null=$digest.TransformBlock($buffer,0,$n,$buffer,0)
-                }
-                $null=$digest.TransformFinalBlock([byte[]]@(),0,0)
-                $actual=([BitConverter]::ToString($digest.Hash)).Replace('-','').ToLowerInvariant()
-                if($total -lt 1 -or ($null -ne $artifact.expected_bytes -and $total -ne [long]$artifact.expected_bytes) -or $actual -cne $artifact.sha256){throw 'VENDOR_EXACT_BYTES_MISMATCH'}
-              } catch {
-                $id=[string]$_.FullyQualifiedErrorId;if($id.Length -gt 96 -or $id -cnotmatch '^[A-Za-z0-9_.:,-]+$'){$id='REDACTED'}
-                Write-Output "::error title=Mandatory vendor artifact::component=$($artifact.component) id=$id"
-                throw
-              } finally {
-                if($null -ne $outputStream){$outputStream.Dispose()};if($null -ne $inputStream){$inputStream.Dispose()};if($null -ne $digest){$digest.Dispose()};if($null -ne $response){$response.Dispose()};$cancel.Dispose()
-              }
-            }
-          } finally {$client.Dispose();$handler.Dispose()}
+          $helperPath=Join-Path $env:GITHUB_WORKSPACE 'installer/PinnedVendorDownload.psm1'
+          if((Get-FileHash -LiteralPath $helperPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $env:DOWNLOAD_HELPER_SHA256){throw 'DOWNLOAD_HELPER_PIN_CHANGED'}
+          Import-Module $helperPath -Force
+          $receipts=@()
+          foreach($artifact in $catalog.artifacts){
+            $path=Join-Path $artifactRoot $artifact.filename
+            $receipts+=Save-PinnedVendorArtifact -Artifact $artifact -Destination $path -MirrorOuterSha256 $env:NSSM_MIRROR_PACKAGE_SHA256
+            $receipts | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence/vendor-transports.json') -Encoding UTF8
+          }
           $request=[ordered]@{
             ArtifactRoot=$artifactRoot;StageRoot=(Join-Path $env:RUNNER_TEMP ('portable-sdk-stage-'+[Guid]::NewGuid().ToString('N')))
             UnifiedRoot=(Join-Path $env:GITHUB_WORKSPACE '.source/unified-system');UnifiedSourceHead=$env:UNIFIED_SHA
@@ -219,6 +210,7 @@ jobs:
           NATIVE_OUTCOME: ${{ matrix.engine == 'powershell' && steps.native_powershell.outcome || steps.native_pwsh.outcome }}
           SMOKE_OUTCOME: ${{ matrix.engine == 'powershell' && steps.smoke_powershell.outcome || steps.smoke_pwsh.outcome }}
           DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
+          TRANSPORT_TEST_OUTCOME: ${{ steps.transport_tests.outcome }}
           TEST_ENGINE: ${{ matrix.engine }}
         run: |
           try {
@@ -235,12 +227,12 @@ jobs:
               unified_tracked_clean=!(git -C $up status --porcelain --untracked-files=no)
               expected_unified_sha=$env:UNIFIED_SHA;expected_grid_sha=$env:EXPECTED_GRID_SHA
               expected_unified_tree=$env:UNIFIED_TREE;expected_grid_tree=(git rev-parse "$($env:EXPECTED_GRID_SHA)^{tree}").Trim()
-              pins=@{catalog=$env:CATALOG_SHA256;preflight=$env:PREFLIGHT_SHA256;guard=$env:GUARD_SHA256;library=$env:LIBRARY_SHA256;native_job=$env:NATIVE_JOB_SHA256}
-              native_security=$env:NATIVE_OUTCOME;vendor_download=$env:DOWNLOAD_OUTCOME;sdk_smoke=$env:SMOKE_OUTCOME
+              pins=@{catalog=$env:CATALOG_SHA256;preflight=$env:PREFLIGHT_SHA256;guard=$env:GUARD_SHA256;library=$env:LIBRARY_SHA256;native_job=$env:NATIVE_JOB_SHA256;download_helper=$env:DOWNLOAD_HELPER_SHA256;download_tests=$env:DOWNLOAD_TEST_SHA256;nssm_mirror=$env:NSSM_MIRROR_PACKAGE_SHA256}
+              transport_tests=$env:TRANSPORT_TEST_OUTCOME;native_security=$env:NATIVE_OUTCOME;vendor_download=$env:DOWNLOAD_OUTCOME;sdk_smoke=$env:SMOKE_OUTCOME
               scope='EPHEMERAL_COMPONENT_ONLY';installation_closure=$false;global_status='NO_GO';services='NOT_INSTALLED';physical='NOT_RUN';multi_node_ha='NOT_QUALIFIED'
               evidence=@()
             }
-            foreach($name in @('zip.json','job.json','sdk.json')){$file=Join-Path $evidence $name;if([IO.File]::Exists($file)){$report.evidence+=@{name=$name;sha256=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()}}}
+            foreach($name in @('zip.json','job.json','sdk.json','vendor-transports.json','transport-tests.txt')){$file=Join-Path $evidence $name;if([IO.File]::Exists($file)){$report.evidence+=@{name=$name;sha256=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()}}}
             $report | ConvertTo-Json -Depth 8 -Compress | Set-Content -LiteralPath (Join-Path $evidence 'source.json') -Encoding UTF8
             if($report.grid_head -cne $env:EXPECTED_GRID_SHA){throw 'GRID_HEAD_MISMATCH'}
             if($report.unified_head -cne $env:UNIFIED_SHA){throw 'UNIFIED_HEAD_MISMATCH'}
