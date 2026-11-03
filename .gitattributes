@@ -8,3 +8,5 @@
 .gitattributes -text
 installer/PortableRuntime.psm1 -text
 installer/NativeJobProcess.cs -text
+installer/PinnedVendorDownload.psm1 -text
+installer/pinned-vendor-download.tests.ps1 -text

@@ -19,11 +19,11 @@ jobs:
         engine: [powershell, pwsh]
     env:
       EXPECTED_GRID_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      UNIFIED_SHA: 698502f6405935c0af28009f55b62f7e65e4f68e
-      UNIFIED_TREE: 6813740900a25f5e8c198be71b22a284b1123a2a
+      UNIFIED_SHA: 21b8861e93f3bbe93480aec8011758ae66b40d7d
+      UNIFIED_TREE: dce0f1f998b23cd3011d1f363d8b5f73bca3dfc4
       CATALOG_SHA256: 8f03e40a411033532a9a349025db9c6299a2cb52da16b8a839e7d4912bc5041b
-      PREFLIGHT_SHA256: 25052e5f5a4d5097f72123c5a1fdbfceffe85ac6cae586133f0a594b4232dff7
-      GUARD_SHA256: 01166814651689d6df832efa974e69e745fe218f4d6c2bc805224cce7312af5a
+      PREFLIGHT_SHA256: b4273a187653c7447f66a60fb9898dadab0a752a1745b0f771dcb1e5aad8a221
+      GUARD_SHA256: 8236203c76f8b28a4b426ca9ece4a2bb56bd0dd1a02375e02418d859e3f82a37
       LIBRARY_SHA256: 1a0501c729e1eeefb178deaac695600db71b30ca92f22f871904d7a034d6ddca
       DOWNLOAD_HELPER_SHA256: fdd893be67bf2d50a995b39d0628fbc21dae1eaae7b426c5664e52ecb1578c85
       DOWNLOAD_TEST_SHA256: ad22870cfcafe3fb6059e07063b9fae173a20af3e081d324733b7e87b0a6eb34
@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: YehorBabenko88/unified-system
-          ref: 698502f6405935c0af28009f55b62f7e65e4f68e
+          ref: 21b8861e93f3bbe93480aec8011758ae66b40d7d
           path: .source/unified-system
           persist-credentials: false
       - name: Materialize canonical raw tracked source and verify fixed pins
