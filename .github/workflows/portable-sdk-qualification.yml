@@ -134,9 +134,24 @@ jobs:
             Write-Output "::error title=Native process boundary::file=$file line=$([int]$_.InvocationInfo.ScriptLineNumber) id=$id"
             throw
           }
-      - name: Pinned mirror transport tests (actual package, no package scripts)
-        id: transport_tests
-        shell: ${{ matrix.engine }}
+      - name: Pinned mirror transport tests (powershell, actual package, no package scripts)
+        id: transport_tests_powershell
+        if: matrix.engine == 'powershell'
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $helper=Join-Path $env:GITHUB_WORKSPACE 'installer/PinnedVendorDownload.psm1'
+          $tests=Join-Path $env:GITHUB_WORKSPACE 'installer/pinned-vendor-download.tests.ps1'
+          if((Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant() -cne $env:DOWNLOAD_HELPER_SHA256){throw 'DOWNLOAD_HELPER_PIN_CHANGED'}
+          if((Get-FileHash -LiteralPath $tests -Algorithm SHA256).Hash.ToLowerInvariant() -cne $env:DOWNLOAD_TEST_SHA256){throw 'DOWNLOAD_TEST_PIN_CHANGED'}
+          Import-Module $helper -Force
+          $fixture=Join-Path $env:RUNNER_TEMP ('nssm-mirror-tests-'+[Guid]::NewGuid().ToString('N')+'.nupkg')
+          Save-PinnedNssmMirrorPackage -Destination $fixture -MirrorOuterSha256 $env:NSSM_MIRROR_PACKAGE_SHA256
+          & $tests -PackageFile $fixture | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'portable-sdk-evidence/transport-tests.txt') -Encoding UTF8
+      - name: Pinned mirror transport tests (pwsh, actual package, no package scripts)
+        id: transport_tests_pwsh
+        if: matrix.engine == 'pwsh'
+        shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
           $helper=Join-Path $env:GITHUB_WORKSPACE 'installer/PinnedVendorDownload.psm1'
@@ -210,7 +225,7 @@ jobs:
           NATIVE_OUTCOME: ${{ matrix.engine == 'powershell' && steps.native_powershell.outcome || steps.native_pwsh.outcome }}
           SMOKE_OUTCOME: ${{ matrix.engine == 'powershell' && steps.smoke_powershell.outcome || steps.smoke_pwsh.outcome }}
           DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
-          TRANSPORT_TEST_OUTCOME: ${{ steps.transport_tests.outcome }}
+          TRANSPORT_TEST_OUTCOME: ${{ matrix.engine == 'powershell' && steps.transport_tests_powershell.outcome || steps.transport_tests_pwsh.outcome }}
           TEST_ENGINE: ${{ matrix.engine }}
         run: |
           try {
