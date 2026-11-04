@@ -20,12 +20,22 @@ from .worker import Worker
 
 
 class OwnedWorkerService:
-    def __init__(self):
+    def __init__(self,*,data_first_admission=None):
+        self.data_first_admission=data_first_admission
         self.identity = None
         self.worker = None
         self.task = None
         self.runner = None
         self.port = None
+
+    def _owner_admitted_source_root(self,expected_commit):
+        # No environment flag or duck-typed object grants foreign-owner scope.
+        from .data_first_runtime import ProtectedDataFirstAdmission
+        if type(self.data_first_admission) is not ProtectedDataFirstAdmission:return None
+        root=self.data_first_admission.owner_admitted_grid_root(expected_commit)
+        if str(root)!=str(binding._MODULE_SOURCE_ROOT):
+            raise RuntimeError('Owned worker source binding unavailable')
+        return root
 
     async def start(self, port):
         if self.task is not None or self.runner is not None:
@@ -45,7 +55,9 @@ class OwnedWorkerService:
                 return False
             if not secrets.compare_digest(hashlib.sha256(executable.read_bytes()).hexdigest(), digest):
                 return False
-            return binding._owned_source_is_clean(identity[4])
+            owner_root=self._owner_admitted_source_root(identity[4])
+            if owner_root is None:return binding._owned_source_is_clean(identity[4])
+            return binding._owned_source_is_clean(identity[4],owner_admitted_root=owner_root)
         try:
             clean = await asyncio.wait_for(asyncio.to_thread(verify), 4)
         except Exception:
@@ -53,7 +65,7 @@ class OwnedWorkerService:
         if clean is not True or binding._owned_module_identity() != identity:
             raise RuntimeError('Owned worker source binding unavailable')
         self.identity = identity
-        self.worker = Worker()
+        self.worker = Worker(data_first_admission=self.data_first_admission)
         self.task = asyncio.create_task(self.worker.run(), name='owned-grid-worker')
         app = web.Application(client_max_size=1024)
         app.router.add_route('*', '/{path:.*}', self.health)
@@ -104,8 +116,8 @@ class OwnedWorkerService:
             await asyncio.gather(self.task, return_exceptions=True)
 
 
-async def serve(port):
-    service = OwnedWorkerService()
+async def serve(port,*,data_first_admission=None):
+    service = OwnedWorkerService(data_first_admission=data_first_admission)
     try:
         await service.start(port)
         await service.task

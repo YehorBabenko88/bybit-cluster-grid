@@ -99,7 +99,7 @@ def test_fixed_launch_uses_only_admitted_paths_environment_and_server_receipt(tm
   result=await DataFirstProcess(admission).run_supervised(job,Client())
   assert result['state']=='YIELDED' and result['deployment']=='NOT_QUALIFIED'
   spawn=next(event for event in events if event[0]=='spawn');argv,options=spawn[1:]
-  assert argv[-2:]==('--module','strattester.engine.grid_data_first_worker') and argv[1:4]==('-I','-S','-B')
+  assert argv[-1:]==('--data-first',) and len(argv)==6 and argv[1:4]==('-I','-S','-B')
   assert 'SECRET_CREDENTIAL' not in options['env'] and 'PYTHONPATH' not in options['env']
   assert options['env']['UNIFIED_ORDER_MODE']=='PAPER_ONLY'
   assert not list(workspace.iterdir()) and not proc.descendant_alive
@@ -205,7 +205,7 @@ def test_actual_owned_windows_child_tree_is_joined_on_cancellation(tmp_path,monk
   admission,workspace=admitted_fixture(tmp_path);base=admission.process_spec;spec=base();source=Path(spec['source_root'])
   worker=source/'strattester/engine/grid_data_first_worker.py'
   worker.write_text("import json,os,pathlib,subprocess,sys,time\nmsg=json.loads(sys.stdin.buffer.readline())\nchild=subprocess.Popen([sys.executable,'-I','-S','-B','-c','import time;time.sleep(60)'])\npathlib.Path('owned-child.json').write_text(json.dumps({'pid':child.pid,'parent':os.getpid()}))\ntime.sleep(60)\n")
-  bootstrap=Path(spec['bootstrap']);bootstrap.write_text("import pathlib,runpy,sys\nroot=pathlib.Path(sys.argv[sys.argv.index('--source-root')+1])\nrunpy.run_path(str(root/'strattester/engine/grid_data_first_worker.py'),run_name='__main__')\n")
+  bootstrap=Path(spec['bootstrap']);bootstrap.write_text("import pathlib,runpy,sys\nroot=pathlib.Path(__file__).parent/'source'\nrunpy.run_path(str(root/'strattester/engine/grid_data_first_worker.py'),run_name='__main__')\n")
   python=Path(sys.executable).resolve();spec.update(python=str(python),python_sha256=hashlib.sha256(python.read_bytes()).hexdigest(),bootstrap_sha256=hashlib.sha256(bootstrap.read_bytes()).hexdigest(),worker_sha256=hashlib.sha256(worker.read_bytes()).hexdigest(),system_root=str(Path(os.environ['SystemRoot']).resolve()),timeout_seconds=10,ram_limit_mb=256)
   admission.process_spec=lambda:dict(spec)
   actual=module.asyncio.create_subprocess_exec;spawned=[]

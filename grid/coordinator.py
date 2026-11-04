@@ -155,9 +155,18 @@ def _safe_owned_git_config(root):
     return True
 
 
-def _owned_source_is_clean(expected):
+def _owned_source_is_clean(expected,*,owner_admitted_root=None):
     root=_MODULE_SOURCE_ROOT.absolute()
     try:
+        if owner_admitted_root is not None:
+            # Only an explicitly admitted exact canonical checkout; no parent,
+            # wildcard, alias or environment-derived trust exception.
+            if not isinstance(owner_admitted_root,(str,pathlib.Path)):return False
+            admitted=str(owner_admitted_root)
+            if any(c in admitted for c in ('*','?','[',']','\n','\r','\0')):return False
+            candidate=pathlib.Path(admitted)
+            if (not candidate.is_absolute() or '..' in candidate.parts or admitted!=str(root)
+                    or str(root.resolve(strict=True))!=str(root)):return False
         if not _safe_owned_git_config(root):return False
         # Keep proxy/CA environment intact; Git-specific redirects and injected
         # configuration cannot choose a different checkout or executable helper.
@@ -167,6 +176,7 @@ def _owned_source_is_clean(expected):
         command=['git','--no-replace-objects','--no-pager','-c','core.fsmonitor=false',
                  '-c','core.hooksPath='+os.devnull,'-c','core.attributesFile='+os.devnull,
                  '-c','core.untrackedCache=false','-c','submodule.recurse=false','-C',str(root)]
+        if owner_admitted_root is not None:command[3:3]=['-c','safe.directory='+str(root)]
         started=time.monotonic()
         def git(*args,limit=2*1024*1024):
             # Timer kills a blocked child on both Windows and Linux; bounded

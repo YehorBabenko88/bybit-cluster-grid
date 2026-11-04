@@ -269,3 +269,38 @@ def test_object_store_cannot_contain_external_symlink(module, tmp_path):
     try: link.symlink_to(external)
     except OSError: pytest.skip('symlink creation unavailable')
     assert coordinator._owned_source_is_clean(head) is False
+
+
+def test_exact_owner_exception_is_command_local_and_default_still_rejects_foreign_owner(module,monkeypatch):
+ coordinator,root,head=module;original=coordinator.subprocess.Popen;calls=[]
+ # Normalize only this disposable fixture to its actual committed raw blob;
+ # user Git autocrlf may differ from hosted defaults. Production raw check stays.
+ (root/'owner.py').write_bytes(subprocess.check_output(['git','-C',str(root),'show','HEAD:owner.py']))
+ clean={k:v for k,v in os.environ.items() if not k.startswith('GIT_')}
+ clean.update(GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_SYSTEM=os.devnull,GIT_CONFIG_GLOBAL=os.devnull)
+ subprocess.check_call(['git','-c','core.autocrlf=false','-C',str(root),'add','owner.py'],env=clean)
+ config=(root/'.git/config').read_bytes()
+ def foreign_child(command,**kwargs):
+  env=dict(kwargs['env']);env['GIT_TEST_ASSUME_DIFFERENT_OWNER']='1';kwargs['env']=env
+  calls.append((list(command),dict(env)));return original(command,**kwargs)
+ monkeypatch.setattr(coordinator.subprocess,'Popen',foreign_child)
+ # Caller Git injection and an environment owner opt-in never authorize scope.
+ monkeypatch.setenv('GIT_CONFIG_COUNT','1');monkeypatch.setenv('GIT_CONFIG_KEY_0','safe.directory');monkeypatch.setenv('GIT_CONFIG_VALUE_0','*')
+ monkeypatch.setenv('UNIFIED_OWNER_ADMITTED_ROOT',str(root))
+ assert coordinator._owned_source_is_clean(head) is False
+ assert coordinator._owned_source_is_clean(head,owner_admitted_root=root) is True
+ assert (root/'.git/config').read_bytes()==config
+ assert not any('GIT_CONFIG_COUNT' in env for _,env in calls)
+ admitted=[cmd for cmd,_ in calls if 'safe.directory='+str(root) in cmd]
+ assert admitted and all(cmd[cmd.index('safe.directory='+str(root))-1]=='-c' for cmd in admitted)
+ assert all('config' not in cmd for cmd,_ in calls)
+ (root/'owner.py').write_bytes(b'tampered')
+ assert coordinator._owned_source_is_clean(head,owner_admitted_root=root) is False
+
+
+def test_owner_exception_rejects_parent_wildcard_and_noncanonical_scope_before_git(module,monkeypatch):
+ coordinator,root,head=module
+ def forbidden(*a,**kw):raise AssertionError('Git called for invalid owner scope')
+ monkeypatch.setattr(coordinator.subprocess,'Popen',forbidden)
+ for value in (root.parent,str(root)+'/*',str(root)+'/../source'):
+  assert coordinator._owned_source_is_clean(head,owner_admitted_root=value) is False

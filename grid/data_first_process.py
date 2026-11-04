@@ -130,9 +130,8 @@ class DataFirstProcess:
   try:
    env={'TEMP':str(workspace),'TMP':str(workspace),'UNIFIED_MODULE_ID':'strattester','UNIFIED_MODULE_VERSION':spec['module_version'],'UNIFIED_RELEASE_ID':spec['release_id'],'UNIFIED_INSTANCE_TOKEN':secrets.token_hex(32),'UNIFIED_PRIVATE_CACHE_ROOT':str(workspace/'cache'),'UNIFIED_ORDER_MODE':'PAPER_ONLY','UNIFIED_DEPLOYMENT_MODE':'LAB_SIMULATION'}
    if spec['system_root'] is not None:env.update(SystemRoot=spec['system_root'],WINDIR=spec['system_root'])
-   argv=[spec['python'],'-I','-S','-B',spec['bootstrap'],'--source-root',spec['source_root']]
-   for value in spec['dependency_roots']:argv+=['--dependency-root',value]
-   argv+=['--module','strattester.engine.grid_data_first_worker']
+   # Central raw entry re-reads protected kernel grant before app imports.
+   argv=[spec['python'],'-I','-S','-B',spec['bootstrap'],'--data-first']
    self._current()
    options={'creationflags':4} if os.name=='nt' else {'start_new_session':True}
    proc=await asyncio.create_subprocess_exec(*argv,stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE,env=env,cwd=str(workspace),limit=MAX_FRAME+1,**options)

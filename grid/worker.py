@@ -35,7 +35,7 @@ from .ml_agent_worker import ml_agent_loop
 log=logging.getLogger("worker")
 
 class Worker:
-    def __init__(self):
+    def __init__(self,*,data_first_admission=None):
         self.wanted=set()
         self.trade_tasks={}
         self.micro_tasks=[]
@@ -56,6 +56,12 @@ class Worker:
         self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json'))
         self.control_ring=ControlSnapshotRing(os.getenv('GRID_CONTROL_SNAPSHOTS','control-snapshots'))
         self.command_receipts=CommandReceiptStore()
+        self.data_first_admission=data_first_admission
+        self.data_first_launcher=None
+        self.data_first_task=None
+        if data_first_admission is not None:
+            from .data_first_process import DataFirstProcess
+            self.data_first_launcher=DataFirstProcess(data_first_admission)
         self.ml_task=None
         self.ml_stop=asyncio.Event()
         self.restart_requested=False
@@ -67,6 +73,41 @@ class Worker:
         self._pending_trade_locks={}
         self._pending_trade_reservations={}
         self._pending_trade_quality={}
+
+    def data_first_capability(self):
+        if self.data_first_launcher is None or self.data_first_task is None or self.data_first_task.done():return None
+        try:
+            if self.data_first_launcher.require_admitted() is not True:return None
+            return self.data_first_admission.runtime_capability()
+        except Exception:return None
+
+    def _start_data_first_consumer(self):
+        # A transient first admission failure must not leave an advertised runtime
+        # without a consumer. The waiting loop gates every actual claim.
+        if self.data_first_launcher is not None and self.data_first_task is None:
+            self.data_first_task=asyncio.create_task(self._data_first_loop())
+
+    def _data_first_can_claim(self):
+        try:
+            return (self.enabled and not self.operator_stopped and not self.bootstrap_paused
+                    and self.runtime_state=="ACTIVE" and snapshot().get("disk_pressure_state")=="NORMAL"
+                    and self.data_first_capability() is not None)
+        except Exception:return False
+
+    async def _data_first_loop(self):
+        from .ml_transport_client import DataFirstTransportClient
+        from .data_first_agent_worker import run_once
+        client=DataFirstTransportClient(NODE_ID)
+        while not self.ml_stop.is_set():
+            if self._data_first_can_claim():
+                try:await run_once(client,process_launcher=self.data_first_launcher)
+                except asyncio.CancelledError:raise
+                except Exception:
+                    # Closed diagnostic only; no transport/credential exception text.
+                    log.warning("DataFirst invocation stopped",extra={"event":"data_first_stopped"})
+                    return
+            try:await asyncio.wait_for(self.ml_stop.wait(),timeout=5)
+            except asyncio.TimeoutError:pass
 
     async def expire_stale_assignments(self, now=None):
         """Revoke collectors when CONTROL stops renewing the assignment lease."""
@@ -164,6 +205,8 @@ class Worker:
                 snap['operator_stopped']=self.operator_stopped
                 snap['bootstrap_phase']=self.bootstrap_phase
                 snap['runtime_state']=self.runtime_state
+                capability=self.data_first_capability()
+                if capability is not None:snap['data_first_runtime']=capability
                 snap['wanted_symbols']=len(self.wanted)
                 snap['active_trade_streams']=sum(1 for t in self.trade_tasks.values() if not t.done())
                 snap['pressure_drained']=len(self.pressure_drained)
@@ -545,6 +588,7 @@ class Worker:
                     return False
             self.ml_task=asyncio.create_task(
                 ml_agent_loop(client,self.ml_stop,poll_seconds=5,can_claim=ml_can_claim))
+        self._start_data_first_consumer()
         # Retention, strategy orchestration and Telegram are CONTROL-owned.
         try:
             await self.heartbeat()
@@ -561,6 +605,9 @@ class Worker:
             if self.ml_task is not None:
                 self.ml_task.cancel()
                 await asyncio.gather(self.ml_task,return_exceptions=True)
+            if self.data_first_task is not None:
+                self.data_first_task.cancel()
+                await asyncio.gather(self.data_first_task,return_exceptions=True)
             await self._flush_trade_rows()
             await self.micro_storage.close()
             await self.storage.close()
