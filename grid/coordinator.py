@@ -31,6 +31,8 @@ from .maintenance import maintenance_scheduler
 from .ml_artifact_store import LocalArtifactStore
 from .ml_transport import claim as ml_claim,renew as ml_renew,dataset_bundle as ml_dataset_bundle,dataset_page as ml_dataset_page,publish_artifact as ml_publish_artifact,register_saved_artifact as ml_register_saved_artifact,finalize_model as ml_finalize_model
 from .ml_dispatcher import MLDispatcher
+from .data_first_jobs import enqueue as enqueue_data_first,publish as publish_data_first
+from .ml_transport import claim_data_first,train_lease_valid as ml_train_lease_valid
 from .ml_orchestrator_service import MLOrchestratorService
 from .resources import snapshot as resource_snapshot
 from .asyncio_guard import install_asyncio_exception_filter
@@ -619,6 +621,30 @@ async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_c
     return {"ok":True}
 
 
+@app.post("/data-first/requests")
+async def submit_data_first(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    try:ident=await enqueue_data_first(db.pool,payload,getattr(app.state,'data_first_policy',None))
+    except ValueError:raise HTTPException(409,"DataFirst input/source admission blocked")
+    return {'job_id':ident}
+
+@app.post("/data-first/claim")
+async def claim_data_first_job(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    if set(payload)!={'node_id'} or type(payload['node_id']) is not str:raise HTTPException(400,"closed node identity required")
+    node_id=payload['node_id'];await node_auth(node_id,x_node_credential,x_grid_token)
+    runtime=nodes.get(node_id,{})
+    if time.time()-float(runtime.get('last_seen',0))>settings.heartbeat_seconds*3:return {'job':None}
+    return {'job':await claim_data_first(db.pool,node_id,getattr(app.state,'data_first_policy',None),runtime)}
+
+@app.post("/data-first/jobs/{job_id}/checkpoint")
+async def checkpoint_data_first(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    if set(payload)!={'node_id','lease_generation','sequence','state','checkpoint','request_sha256'}:raise HTTPException(400,"closed checkpoint required")
+    node_id=payload['node_id'];await node_auth(node_id,x_node_credential,x_grid_token)
+    try:result=await publish_data_first(db.pool,job_id,node_id,payload['lease_generation'],payload['sequence'],payload['state'],payload['checkpoint'],getattr(app.state,'data_first_policy',None),request_pin=payload['request_sha256'])
+    except (ValueError,TypeError):raise HTTPException(409,"DataFirst checkpoint rejected")
+    if result is None:raise HTTPException(409,"DataFirst lease fenced")
+    return result
+
 @app.post("/ml/claim")
 async def claim_ml_job(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
     node_id=str(payload.get("node_id",""))
@@ -645,6 +671,8 @@ async def get_ml_dataset(job_id:str,node_id:str,lease_generation:int,offset:int=
 async def upload_ml_artifact(job_id:str,request:Request,node_id:str,lease_generation:int,sha256:str,
                              x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
     await node_auth(node_id,x_node_credential,x_grid_token)
+    if not await ml_train_lease_valid(db.pool,job_id,node_id,lease_generation):
+        raise HTTPException(409,"stale or non-training ML lease")
     max_bytes=256*1024*1024
     declared=int(request.headers.get("content-length","0") or 0)
     if declared>max_bytes:raise HTTPException(413,"artifact too large")
@@ -949,7 +977,7 @@ async def _prepare_control_services(epoch=None):
                 "disk_free_gb":snap["disk_free"]/(1024**3),
                 "db_latency_ms":0 if int(active or 0)<settings.strategy_db_active_limit else 9999,
                 "db_queue_ratio":min(1.0,int(active or 0)/max(1,settings.strategy_db_active_limit))}
-    ml_orchestrator=MLOrchestratorService(db.pool,MLDispatcher(db.pool,ml_nodes),ml_health)
+    ml_orchestrator=MLOrchestratorService(db.pool,MLDispatcher(db.pool,ml_nodes,data_first_policy=getattr(app.state,"data_first_policy",None)),ml_health)
 
 
 async def _stop_control_services():

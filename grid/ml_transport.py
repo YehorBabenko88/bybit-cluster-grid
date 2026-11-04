@@ -23,9 +23,16 @@ async def renew(pool,job_id,node_id,generation):
     return await renew_running_job(pool,job_id,node_id,int(generation))
 
 
+async def train_lease_valid(pool,job_id,node_id,generation):
+    """Read admission before a streamed upload creates any local file."""
+    return bool(await pool.fetchval("""SELECT 1 FROM ml_jobs WHERE id=$1 AND lease_owner=$2
+      AND lease_generation=$3 AND status='running' AND job_type='train' AND lease_until>=now()""",
+      job_id,node_id,int(generation)))
+
+
 async def dataset_page(pool,job_id,node_id,generation,offset=0,limit=500):
     job=await pool.fetchrow("""SELECT payload FROM ml_jobs WHERE id=$1 AND lease_owner=$2
-      AND lease_generation=$3 AND status='running' AND lease_until>=now()""",
+      AND lease_generation=$3 AND status='running' AND job_type='train' AND lease_until>=now()""",
       job_id,node_id,int(generation))
     if not job:return None
     payload=dict(job["payload"] or {})
@@ -66,7 +73,7 @@ async def dataset_bundle(pool,job_id,node_id,generation):
 
 async def register_saved_artifact(pool,job_id,node_id,generation,saved,metadata=None):
     row=await pool.fetchrow("""SELECT payload FROM ml_jobs WHERE id=$1 AND lease_owner=$2
-      AND lease_generation=$3 AND status='running' AND lease_until>=now() FOR UPDATE""",
+      AND lease_generation=$3 AND status='running' AND job_type='train' AND lease_until>=now() FOR UPDATE""",
       job_id,node_id,int(generation))
     if not row:return None
     artifact_id=saved["id"]
@@ -80,7 +87,7 @@ async def register_saved_artifact(pool,job_id,node_id,generation,saved,metadata=
 
 async def publish_artifact(pool,store,job_id,node_id,generation,data,sha256,metadata=None):
     row=await pool.fetchrow("""SELECT payload FROM ml_jobs WHERE id=$1 AND lease_owner=$2
-      AND lease_generation=$3 AND status='running' AND lease_until>=now() FOR UPDATE""",
+      AND lease_generation=$3 AND status='running' AND job_type='train' AND lease_until>=now() FOR UPDATE""",
       job_id,node_id,int(generation))
     if not row:return None
     actual=hashlib.sha256(data).hexdigest()
@@ -91,7 +98,7 @@ async def publish_artifact(pool,store,job_id,node_id,generation,data,sha256,meta
 
 async def finalize_model(pool,job_id,node_id,generation,artifact_id,metrics=None):
     row=await pool.fetchrow("""SELECT payload FROM ml_jobs WHERE id=$1 AND lease_owner=$2
-      AND lease_generation=$3 AND status='running' AND lease_until>=now() FOR UPDATE""",
+      AND lease_generation=$3 AND status='running' AND job_type='train' AND lease_until>=now() FOR UPDATE""",
       job_id,node_id,int(generation))
     if not row:return False
     p=dict(row["payload"] or {})
@@ -102,7 +109,7 @@ async def finalize_model(pool,job_id,node_id,generation,artifact_id,metrics=None
     async with pool.acquire() as c:
         async with c.transaction():
             locked=await c.fetchrow("""SELECT 1 FROM ml_jobs WHERE id=$1 AND lease_owner=$2
-              AND lease_generation=$3 AND status='running' AND lease_until>=now() FOR UPDATE""",
+              AND lease_generation=$3 AND status='running' AND job_type='train' AND lease_until>=now() FOR UPDATE""",
               job_id,node_id,int(generation))
             if not locked:return False
             art=await c.fetchrow("""SELECT id FROM ml_artifacts WHERE id=$1 AND owner_job=$2
@@ -120,8 +127,18 @@ async def finalize_model(pool,job_id,node_id,generation,artifact_id,metrics=None
             await c.execute("""UPDATE ml_artifacts SET reusable=true,expires_at=NULL,last_used_at=now()
               WHERE id=$1""",artifact_id)
             ok=await c.execute("""UPDATE ml_jobs SET status='done',finished_at=now(),lease_until=NULL
-              WHERE id=$1 AND lease_owner=$2 AND lease_generation=$3 AND status='running'""",
+              WHERE id=$1 AND lease_owner=$2 AND lease_generation=$3 AND status='running' AND job_type='train'""",
               job_id,node_id,int(generation))
             if not ok.endswith(" 1"):raise RuntimeError("lease lost during model commit")
             await c.execute("DELETE FROM ml_resource_reservations WHERE job_id=$1",job_id)
     return {"model_id":str(model_id)}
+
+
+async def claim_data_first(pool,node_id,policy,runtime):
+    from .data_first_jobs import KIND,capable,decoded
+    def admission(row):
+        try:return capable(runtime,decoded(row['payload']),policy)
+        except (ValueError,TypeError,KeyError):return False
+    row=await accept_assigned_job(pool,node_id,job_types=(KIND,),admission=admission)
+    if row is None:return None
+    out=_public_job(row);out['payload']=decoded(row['payload']);out['domain_state']=decoded(row.get('domain_state'));return out

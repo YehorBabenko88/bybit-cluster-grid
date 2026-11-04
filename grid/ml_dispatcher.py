@@ -2,6 +2,7 @@ import json
 import asyncio
 from .ml_resource_scheduler import Workload,choose_node
 from .ml_reservations import reserved_by_node
+from .data_first_jobs import KIND as DATA_FIRST_KIND, capable, validate_request
 
 WORKLOAD_DEFAULTS={
  "dataset":{"cpu":1.0,"ram_gb":4,"scratch_gb":10},
@@ -40,8 +41,8 @@ def _adjust_nodes(nodes,reservations):
     return adjusted
 
 class MLDispatcher:
-    def __init__(self,pool,node_provider):
-        self.pool=pool; self.node_provider=node_provider
+    def __init__(self,pool,node_provider,*,data_first_policy=None):
+        self.pool=pool; self.node_provider=node_provider;self.data_first_policy=data_first_policy
 
     async def __call__(self,slots,health=None,leader_owner=None):
         # Collect telemetry outside the transaction. Leadership and current
@@ -94,6 +95,17 @@ class MLDispatcher:
                             payload=_job_payload(candidate["payload"])
                             d=WORKLOAD_DEFAULTS.get(candidate["job_type"],WORKLOAD_DEFAULTS["evaluate"])
                             candidate_nodes=nodes
+                            if candidate['job_type']==DATA_FIRST_KIND:
+                                request=validate_request(payload)
+                                candidate_nodes={k:v for k,v in nodes.items() if capable(v,request,self.data_first_policy)}
+                                if not candidate_nodes:continue
+                                domain=request['domain'];instrument=domain['instrument']
+                                busy=await c.fetchval("""SELECT EXISTS(SELECT 1 FROM ml_jobs WHERE job_type=$1
+                                  AND status IN ('assigned','running') AND lease_until>clock_timestamp()
+                                  AND payload->'domain'->'instrument'->>'category'=$2
+                                  AND payload->'domain'->'instrument'->>'symbol'=$3)""",DATA_FIRST_KIND,instrument['category'],instrument['symbol'])
+                                if busy:continue
+                                payload=request['resources']
                             if candidate["job_type"] in ("train","evaluate"):
                                 candidate_nodes={k:v for k,v in nodes.items() if v.get("ml_runtime_ready") is True}
                                 if not candidate_nodes:continue

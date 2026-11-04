@@ -36,7 +36,7 @@ def test_ml_reservations_renew_finish_and_recovery_postgres():
               f'SELECT expires_at FROM "{schema}".ml_resource_reservations WHERE job_id=$1',job_id)
         try:
             await admin.execute(f"""CREATE TABLE "{schema}".ml_jobs (
-              id uuid PRIMARY KEY,status text NOT NULL,lease_owner text,
+              id uuid PRIMARY KEY,status text NOT NULL,job_type text NOT NULL DEFAULT 'train',lease_owner text,
               lease_generation integer NOT NULL DEFAULT 1,lease_until timestamptz,
               attempts integer NOT NULL DEFAULT 1,max_attempts integer NOT NULL DEFAULT 3,
               not_before timestamptz,finished_at timestamptz,error text,

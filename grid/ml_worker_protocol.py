@@ -2,13 +2,15 @@ import asyncio
 from .ml_retry import fail_or_retry,classify_failure
 from .ml_concurrency import renew_ml_job,finish_ml_job
 
-async def accept_assigned_job(pool,node_id,lease_seconds=120):
+async def accept_assigned_job(pool,node_id,lease_seconds=120,*,job_types=('train',),admission=None):
+    if type(job_types) is not tuple or not job_types or len(set(job_types))!=len(job_types) or any(k not in ('train','stratt_data_first_v1') for k in job_types):raise ValueError('unsupported worker kinds')
     async with pool.acquire() as c:
         async with c.transaction():
             row=await c.fetchrow("""SELECT * FROM ml_jobs
-              WHERE status='assigned' AND lease_owner=$1 AND lease_until>=clock_timestamp()
-              ORDER BY priority,created_at FOR UPDATE SKIP LOCKED LIMIT 1""",node_id)
+              WHERE status='assigned' AND lease_owner=$1 AND lease_until>=clock_timestamp() AND job_type=ANY($2::text[])
+              ORDER BY priority,created_at FOR UPDATE SKIP LOCKED LIMIT 1""",node_id,list(job_types))
             if not row:return None
+            if admission is not None and admission(dict(row)) is not True:return None
             job=dict(await c.fetchrow("""UPDATE ml_jobs SET status='running',
               started_at=COALESCE(started_at,now()),lease_until=clock_timestamp()+($3*interval '1 second'),
               attempts=attempts+1,lease_generation=lease_generation+1 WHERE id=$1 AND lease_owner=$2 RETURNING *""",
