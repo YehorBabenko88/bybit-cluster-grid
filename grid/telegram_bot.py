@@ -37,9 +37,32 @@ def _decode_command_result(value):
         return decoded if isinstance(decoded,dict) else {"message":value}
     return {"message":str(value)}
 
-def allowed(chat_id):
+# Explicit bounded read-only surface until authenticated ControlAPI integration.
+# Raw logs and enrollment tokens are intentionally excluded.
+_READ_ONLY_OPERATIONS=frozenset({
+    "/menu", "/ops", "/sim", "/science", "/phase", "/simstatus",
+    "/simruns", "/simpassed", "/simwaiting", "/sciencestatus",
+    "/discoveries", "/sciencehistory", "/sciencemining", "/sciencerejected",
+    "/system", "/pilot", "/health", "/nodes", "/node", "/status",
+    "/cleanupplan", "/controlupdatestatus", "/db", "/dbsize", "/storage",
+})
+
+
+def allowed(chat_id,user_id=None,operation=None):
     raw={x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()}
-    return bool(raw) and str(chat_id) in raw
+    if str(chat_id) not in raw or type(user_id) is not int or user_id<=0:
+        return False
+    if operation not in _READ_ONLY_OPERATIONS:
+        return False
+    try:
+        policy=json.loads(os.environ.get("TELEGRAM_OPERATION_USER_IDS", "{}"))
+    except (TypeError,ValueError):
+        return False
+    if not isinstance(policy,dict) or "*" in policy:
+        return False
+    users=policy.get(operation)
+    return (isinstance(users,list) and all(type(uid) is int and uid>0 for uid in users)
+            and user_id in users)
 
 def _node_keyboard(nid):
     return {"inline_keyboard":[
@@ -134,7 +157,10 @@ def _healthy_canary(nodes):
 
 async def handle_command(db,session,chat_id,text,nodes):
     parts=text.strip().split()
-    cmd=parts[0].lower()
+    cmd=parts[0].lower() if parts else ""
+    if cmd not in _READ_ONLY_OPERATIONS:
+        await tg_send(session,chat_id,"NOT_IMPLEMENTED: authenticated ControlAPI command routing is required.")
+        return
     now=time.time()
     if cmd=="/menu" or (cmd=="/start" and len(parts)==1):
         phase=await get_phase(db.pool)
@@ -577,13 +603,6 @@ async def telegram_loop(db,nodes):
         while True:
             try:
                 data=await _tg_api(session,"getUpdates",params={"timeout":30,"offset":offset})
-                op_result=await reconcile_fleet_operation(db.pool)
-                if op_result and op_result.get("status")=="DONE":
-                    for notify_chat in [x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()]:
-                        try: await tg_send(session,notify_chat,f"SYSTEM: {op_result['state']}. Global {op_result['action']} acknowledged by all required agents.",_main_keyboard())
-                        except Exception: pass
-                await _notify_expansion_ready(db,session)
-                await _maybe_finalize_fleet_delete(db,session)
                 for upd in data.get("result",[]):
                     next_offset=max(offset,upd["update_id"]+1)
                     cb=upd.get("callback_query") or {}
@@ -614,7 +633,10 @@ async def telegram_loop(db,nodes):
                         except Exception: pass
                     if not chat or not txt.startswith("/"):
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
-                    if not allowed(chat):
+                    sender=cb.get("from") if cb else msg.get("from")
+                    sender=sender if isinstance(sender,dict) else {}
+                    operation=txt.split()[0].lower()
+                    if sender.get("is_bot") is not False or not allowed(chat,sender.get("id"),operation):
                         log.warning("telegram unauthorized",extra={"event":"telegram_denied"})
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     claimed=await claim_update(db.pool,upd["update_id"],chat,txt,node_id)
@@ -637,7 +659,6 @@ async def telegram_loop(db,nodes):
                     except Exception as e:
                         await complete_update(db.pool,upd["update_id"],str(e)[:500])
                         raise
-                    await _notify_expansion_ready(db,session)
                     offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
             except asyncio.CancelledError:
                 raise
