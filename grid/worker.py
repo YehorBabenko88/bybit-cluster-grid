@@ -440,8 +440,9 @@ class Worker:
             try:
                 await self._persist_trade_rows(symbol)
                 await wait_for_internet()
+                actual_endpoint=settings.bybit_ws_url
                 async with websockets.connect(
-                    settings.bybit_ws_url,
+                    actual_endpoint,
                     ping_interval=20,ping_timeout=20,max_queue=50000,close_timeout=5,
                     max_size=MAX_FRAME_BYTES
                 ) as ws:
@@ -475,6 +476,18 @@ class Worker:
                             if len(pending_frames)>=MAX_ACK_FRAMES or pending_bytes+size>MAX_ACK_BYTES:
                                 raise RuntimeError("public trade subscription buffer limit")
                             pending_frames.append((trades,size));pending_bytes+=size
+                    from .microstructure import public_market_connection
+                    connection_context=public_market_connection(actual_endpoint)
+                    tape=getattr(self,'micro_tape',None)
+                    # An unmarked pre-existing RAM seed is not assigned a new
+                    # connection identity. Existing arithmetic admission remains.
+                    context_ready=tape is None or (symbol not in tape.state and symbol not in tape.cvd)
+                    if connected_once and tape is not None:
+                        preflight_tape([],tape,symbol)
+                        # Discard only this symbol's admitted unclosed RAM state;
+                        # never flush a partial bucket or touch persisted events.
+                        tape.state.pop(symbol,None);tape.cvd.pop(symbol,None)
+                        context_ready=True
                     if connected_once:
                         continuity.reconnect()
                         fp.mark_open_degraded(symbol,"ws_reconnect")
@@ -528,6 +541,7 @@ class Worker:
                                 if symbol in self.micro_wanted:
                                     tape_row=self.micro_tape.add(trade)
                                     if tape_row is not None:
+                                        if connection_context is not None and context_ready:tape_row['_producer_connection']=dict(connection_context)
                                         await self.micro_storage.insert_event(symbol,tape_row["start_ms"],"trade_tape_250ms",tape_row)
                                 if suspect_gap:fp.mark_degraded(symbol,trade.ts_ms,"trade_time_gap")
                             if accepted:pending_quality.clear()
