@@ -1,4 +1,5 @@
 import logging
+from .telegram_ingress_migration import MIGRATION49SQL
 log=logging.getLogger("migrations")
 
 MIGRATIONS=[
@@ -497,7 +498,8 @@ FOR EACH ROW EXECUTE FUNCTION reject_provenance_mutation()"""
 "ALTER TABLE ml_jobs ADD COLUMN IF NOT EXISTS domain_result jsonb",
 "ALTER TABLE ml_jobs ADD COLUMN IF NOT EXISTS domain_result_sha256 text",
 "CREATE UNIQUE INDEX IF NOT EXISTS ml_data_first_permanent_dedupe ON ml_jobs(dedupe_key) WHERE job_type='stratt_data_first_v1'"
-])
+]),
+(49,"telegram_durable_actor_admission",MIGRATION49SQL)
 ]
 
 async def apply_migrations(pool):
