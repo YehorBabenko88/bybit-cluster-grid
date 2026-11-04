@@ -12,7 +12,7 @@ from .fleet_health import fleet_health
 from .pilot_state import pilot_state,expansion_ready,mark_expansion_notified
 from .retention_plan import cleanup_plan
 from .retention import RETENTION_DEFAULTS
-from .telegram_idempotency import claim_update,complete_update
+from .telegram_idempotency import admit_update,finish_update,PUBLIC_OPERATIONS
 from .ha_status import ha_status
 from .runtime_gate import runtime_state,set_runtime_state
 from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_delete_status,latest_operation,reconcile_fleet_operation
@@ -39,29 +39,26 @@ def _decode_command_result(value):
 
 # Explicit bounded read-only surface until authenticated ControlAPI integration.
 # Raw logs and enrollment tokens are intentionally excluded.
-_READ_ONLY_OPERATIONS=frozenset({
-    "/menu", "/ops", "/sim", "/science", "/phase", "/simstatus",
-    "/simruns", "/simpassed", "/simwaiting", "/sciencestatus",
-    "/discoveries", "/sciencehistory", "/sciencemining", "/sciencerejected",
-    "/system", "/pilot", "/health", "/nodes", "/node", "/status",
-    "/cleanupplan", "/controlupdatestatus", "/db", "/dbsize", "/storage",
-})
+_READ_ONLY_OPERATIONS=PUBLIC_OPERATIONS
 
 
 def allowed(chat_id,user_id=None,operation=None):
     raw={x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()}
-    if str(chat_id) not in raw or type(user_id) is not int or user_id<=0:
+    if str(chat_id) not in raw or type(user_id) is not int or not 0<user_id<2**63:
         return False
     if operation not in _READ_ONLY_OPERATIONS:
         return False
     try:
-        policy=json.loads(os.environ.get("TELEGRAM_OPERATION_USER_IDS", "{}"))
+        encoded=os.environ.get("TELEGRAM_OPERATION_USER_IDS", "{}")
+        if len(encoded)>16384:
+            return False
+        policy=json.loads(encoded)
     except (TypeError,ValueError):
         return False
-    if not isinstance(policy,dict) or "*" in policy:
+    if not isinstance(policy,dict) or len(policy)>len(PUBLIC_OPERATIONS) or any(key not in PUBLIC_OPERATIONS for key in policy):
         return False
     users=policy.get(operation)
-    return (isinstance(users,list) and all(type(uid) is int and uid>0 for uid in users)
+    return (isinstance(users,list) and len(users)<=1000 and all(type(uid) is int and 0<uid<2**63 for uid in users)
             and user_id in users)
 
 def _node_keyboard(nid):
@@ -598,7 +595,7 @@ async def telegram_loop(db,nodes):
             log.info("telegram authenticated",extra={"event":"telegram_authenticated",
                      "component":str((me.get("result") or {}).get("username") or "bot")})
         except Exception:
-            log.exception("telegram disabled: bot authentication failed",extra={"event":"telegram_auth_failed"})
+            log.error("telegram disabled: bot authentication failed",extra={"event":"telegram_auth_failed"})
             return
         while True:
             try:
@@ -631,34 +628,29 @@ async def telegram_loop(db,nodes):
                         try:
                             await session.post(f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery",json={"callback_query_id":cb.get("id")})
                         except Exception: pass
-                    if not chat or not txt.startswith("/"):
+                    if not cb and not txt.startswith("/"):
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     sender=cb.get("from") if cb else msg.get("from")
                     sender=sender if isinstance(sender,dict) else {}
-                    operation=txt.split()[0].lower()
-                    if sender.get("is_bot") is not False or not allowed(chat,sender.get("id"),operation):
-                        log.warning("telegram unauthorized",extra={"event":"telegram_denied"})
-                        offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
-                    claimed=await claim_update(db.pool,upd["update_id"],chat,txt,node_id)
-                    if not claimed:
-                        # Another leader may have claimed the update but crashed
-                        # before completing its side effects. Do not acknowledge
-                        # and skip an unfinished command as if it succeeded.
-                        status=await db.pool.fetchval(
-                            "SELECT status FROM telegram_updates WHERE update_id=$1",
-                            int(upd["update_id"]))
-                        if status!="DONE":
-                            log.error("telegram update is unfinished; manual reconciliation required",
-                                      extra={"event":"telegram_update_stuck",
-                                             "component":str(upd["update_id"])})
-                            raise RuntimeError("Telegram update not completed; cursor held")
+                    operation=txt.split()[0].lower() if txt else "UNKNOWN"
+                    callback_id=cb.get("id") if cb else None
+                    authorized=(sender.get("is_bot") is False and allowed(chat,sender.get("id"),operation)
+                                and (not cb or isinstance(callback_id,str) and 1<=len(callback_id)<=256))
+                    admission=await admit_update(db.pool,upd["update_id"],chat,sender.get("id"),operation,
+                                                 node_id,callback_id=callback_id,authorized=authorized)
+                    if admission.decision in ("STUCK","CAPACITY"):
+                        log.error("telegram admission blocked; cursor held",
+                                  extra={"event":"telegram_admission_blocked","component":admission.decision})
+                        raise RuntimeError("Telegram admission blocked; cursor held")
+                    if admission.decision!="ACCEPTED":
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     try:
                         await handle_command(db,session,chat,txt,nodes)
-                        await complete_update(db.pool,upd["update_id"])
-                    except Exception as e:
-                        await complete_update(db.pool,upd["update_id"],str(e)[:500])
-                        raise
+                    except Exception:
+                        await finish_update(db.pool,upd["update_id"],admission.receipt,failed=True)
+                        raise RuntimeError("Telegram command failed") from None
+                    if not await finish_update(db.pool,upd["update_id"],admission.receipt):
+                        raise RuntimeError("Telegram completion rejected; cursor held")
                     offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
             except asyncio.CancelledError:
                 raise
@@ -672,5 +664,5 @@ async def telegram_loop(db,nodes):
                 })
                 await asyncio.sleep(2)
             except Exception:
-                log.exception("telegram loop failed",extra={"event":"telegram_error"})
+                log.error("telegram loop failed",extra={"event":"telegram_error"})
                 await asyncio.sleep(5)

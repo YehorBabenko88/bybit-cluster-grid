@@ -56,8 +56,10 @@ def test_ingress_uses_callback_sender_and_denies_missing_or_bot_identity(monkeyp
         received.append(args[3])
     async def cursor(*args): return 0
     async def commit(*args): return args[-1]
-    async def claim(*args): return True
-    async def complete(*args): pass
+    async def claim(*args, **kwargs):
+        from grid.telegram_idempotency import Admission
+        return Admission("ACCEPTED", "synthetic-receipt") if kwargs["authorized"] else Admission("DENIED")
+    async def complete(*args, **kwargs): return True
     class Session:
         async def __aenter__(self): return self
         async def __aexit__(self, *args): pass
@@ -66,8 +68,8 @@ def test_ingress_uses_callback_sender_and_denies_missing_or_bot_identity(monkeyp
     monkeypatch.setattr(bot, 'handle_command', handle)
     monkeypatch.setattr(bot, 'telegram_cursor', cursor)
     monkeypatch.setattr(bot, 'commit_telegram_cursor', commit)
-    monkeypatch.setattr(bot, 'claim_update', claim)
-    monkeypatch.setattr(bot, 'complete_update', complete)
+    monkeypatch.setattr(bot, 'admit_update', claim)
+    monkeypatch.setattr(bot, 'finish_update', complete)
     for sender in (None, {'id': 43, 'is_bot': False}, {'id': 42, 'is_bot': True}, {'id': 42, 'is_bot': False}):
         calls = 0
         async def api(session, method, **kwargs):
