@@ -200,17 +200,23 @@ def test_real_row_and_raw_json_budget_fail_closed_without_mutation(database):
     # Caller owns this private fixture, not exporter. Unknown fields still count
     # toward raw bytes even though they would be omitted from safe projection.
     writer.execute('DELETE FROM market_events')
-    _insert(writer, payload={'last_price':'1','unknown':'x' * 1048577})
-    before = _snapshot(writer)
-    with pytest.raises(ExportBlocked, match='BLOCKED_BYTE_LIMIT'):
-        read_postgres(reader, _request())
-    assert _snapshot(writer) == before and reader.info.transaction_status == 0
+    # The production UNIQUE(...,payload) index rejects this oversized value
+    # before it can become a persisted observation. Keep that real DDL guard;
+    # never drop the index merely to manufacture an exporter-positive fixture.
+    import psycopg
+    with pytest.raises(psycopg.errors.ProgramLimitExceeded):
+        _insert(writer, payload={'last_price':'1','unknown':'x' * 1048577})
+    assert _snapshot(writer) == []
+    assert read_postgres(reader, _request())['row_count'] == 0
+    assert reader.info.transaction_status == 0
 
 
 def test_real_aggregate_raw_budget_and_invalid_source_roll_back_cleanly(database):
     writer, connect = database
-    for index in range(9):
-        _insert(writer, micros=index, payload={'last_price':'1','unknown':'x' * 960000})
+    # Individually indexable rows, cumulatively above the8MiB raw SQL budget.
+    # Production per-row1MiB safety remains separately tested by unit controls.
+    for index in range(80):
+        _insert(writer, micros=index, payload={'last_price':'1','unknown':'x' * 120000})
     before = _snapshot(writer)
     reader = connect()
     with pytest.raises(ExportBlocked, match='BLOCKED_BYTE_LIMIT'):
