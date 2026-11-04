@@ -42,7 +42,7 @@ def test_real_authority_permanent_dedupe_typed_claim_and_fenced_publication(tmp_
     async with pool.acquire() as connection:assert await connection.fetchval('SELECT current_schema()')==schema
    from grid.migrations import MIGRATIONS
    for version,name,sqls in MIGRATIONS:
-    if version in (12,13,14,47):
+    if version in (12,13,14,48):
      for sql in sqls:await pool.execute(sql)
    a=request();policy={'a'*40:['b'*64]};ident=await enqueue(pool,a,policy)
    async def publish(*args):return await server_publish(*args,request_pin=request_sha(a))
@@ -165,7 +165,7 @@ def test_real_yield_releases_capacity_restores_checkpoint_and_refunds_slice_atte
    for _ in range(3):
     async with pool.acquire() as connection:assert await connection.fetchval('SELECT current_schema()')==schema
    from grid.migrations import MIGRATIONS
-   for sql in next(row[2] for row in MIGRATIONS if row[0]==47):await pool.execute(sql)
+   for sql in next(row[2] for row in MIGRATIONS if row[0]==48):await pool.execute(sql)
    a=request();policy={'a'*40:['b'*64]};ident=await enqueue(pool,a,policy)
    other=copy.deepcopy(a);other['domain']['end_ms']=240000;other_id=await enqueue(pool,other,policy)
    runtime={'data_first_runtime':{'protocol':SCHEMA,'source_commit':'a'*40}}

@@ -492,7 +492,7 @@ BEGIN RAISE EXCEPTION 'immutable provenance record'; END $$""",
 """CREATE TRIGGER provenance_minutes_immutable BEFORE UPDATE OR DELETE ON provenance_minutes
 FOR EACH ROW EXECUTE FUNCTION reject_provenance_mutation()"""
 ]),
-(47,"grid_data_first_domain_publication",[
+(48,"grid_data_first_domain_publication",[
 "ALTER TABLE ml_jobs ADD COLUMN IF NOT EXISTS domain_state jsonb",
 "ALTER TABLE ml_jobs ADD COLUMN IF NOT EXISTS domain_result jsonb",
 "ALTER TABLE ml_jobs ADD COLUMN IF NOT EXISTS domain_result_sha256 text",
@@ -501,6 +501,9 @@ FOR EACH ROW EXECUTE FUNCTION reject_provenance_mutation()"""
 ]
 
 async def apply_migrations(pool):
+    versions = [version for version, _, _ in MIGRATIONS]
+    if any(type(version) is not int or version < 1 for version in versions) or versions != sorted(set(versions)):
+        raise RuntimeError("invalid migration registry")
     async with pool.acquire() as c:
         # Coordinator and ArchivePipeline can cold-start together. Serialize
         # schema upgrades at PostgreSQL itself so both processes never race the
