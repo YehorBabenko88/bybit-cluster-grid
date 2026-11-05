@@ -8,6 +8,7 @@ class SegmentWAL:
         self.checkpoint=self.root/"checkpoint"
         self.checkpoint_backup=self.root/"checkpoint.bak"
         self._lock=asyncio.Lock()
+        self._append_faulted=False
         self._repair_trailing_partial()
         self._cleanup_staging_files()
         self._next_id=self._discover_next_id()
@@ -121,16 +122,28 @@ class SegmentWAL:
         return self.root/f"wal-{time.time_ns():020d}.seg"
 
     async def append(self,payload):
-        body=json.dumps(payload,separators=(",",":"),ensure_ascii=False).encode("utf-8")
         async with self._lock:
+            if self._append_faulted:
+                raise RuntimeError("WAL append outcome uncertain; fresh owner recovery required")
+            body=json.dumps(payload,separators=(",",":"),ensure_ascii=False).encode("utf-8")
             rid=self._next_id
             record=json.dumps({"id":rid,"crc32":zlib.crc32(body)&0xffffffff,"payload":payload},
                               separators=(",",":"),ensure_ascii=False).encode("utf-8")+b"\n"
             if self.bytes_used()+len(record)>self.max_bytes:
                 raise BufferError("Grid WAL capacity exceeded")
             p=self._active()
-            with open(p,"ab") as f:
-                f.write(record); f.flush(); os.fsync(f.fileno())
+            try:
+                with open(p,"ab") as f:
+                    written=f.write(record)
+                    if type(written) is not int or written!=len(record):
+                        raise OSError("short WAL append")
+                    f.flush(); os.fsync(f.fileno())
+            except BaseException:
+                # Bytes may already exist even when write/flush/fsync/close
+                # reports failure. Never reuse this ID in the same owner.
+                # Only fresh recovery may inspect/repair the uncertain tail.
+                self._append_faulted=True
+                raise
             self._next_id+=1
             return rid
 
@@ -204,7 +217,9 @@ class SegmentWAL:
                     try: backup_tmp.unlink()
                     except OSError: pass
             os.replace(tmp,self.checkpoint)
-            self._compact(record_id)
+            # Durable complete-prefix ACKs remain safe, but do not inspect or
+            # compact an uncertain append tail until a fresh owner recovers it.
+            if not self._append_faulted:self._compact(record_id)
 
     def _compact(self,checkpoint):
         segs=self._segments()

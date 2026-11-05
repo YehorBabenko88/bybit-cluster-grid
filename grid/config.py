@@ -1,6 +1,23 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import SecretStr
 
 class Settings(BaseSettings):
+    grid_coordination_mode: str = 'legacy'
+    grid_ha_required: bool = False
+    grid_coordination_isolated_lab: bool = False
+    grid_control_node_id: str = ''
+    grid_leader_lease_seconds: int = 20
+    grid_leader_renew_seconds: float = 5
+    grid_leader_cleanup_timeout_seconds: float = 5
+    consul_endpoints: tuple[str, ...] = ()
+    consul_namespace: str = ''
+    consul_acl_token: SecretStr = SecretStr('')
+    consul_ca_bundle: str | None = None
+    consul_client_certificate: str | None = None
+    consul_client_key: str | None = None
+    consul_ttl_seconds: int = 15
+    consul_request_timeout: float = 2
+
     role: str = "worker"
     node_role: str = "WORKER"
     coordinator_url: str = "http://127.0.0.1:8765"

@@ -4,7 +4,7 @@ async def claim_ml_job(pool,owner,lease_seconds=120):
     async with pool.acquire() as c:
         async with c.transaction():
             row=await c.fetchrow("""SELECT * FROM ml_jobs
-              WHERE (status='queued' OR (status='running' AND lease_until<clock_timestamp()))
+              WHERE job_type<>'stratt_data_first_v1' AND (status='queued' OR (status='running' AND lease_until<clock_timestamp()))
                 AND attempts<max_attempts AND (not_before IS NULL OR not_before<=clock_timestamp())
               ORDER BY priority,created_at FOR UPDATE SKIP LOCKED LIMIT 1""")
             if not row: return None
@@ -41,7 +41,7 @@ async def finish_ml_job(pool,job_id,owner,lease_generation,error=None):
             r=await c.execute("""UPDATE ml_jobs SET status=$3,finished_at=clock_timestamp(),
               lease_until=NULL,error=$4
               WHERE id=$1 AND lease_owner=$2 AND lease_generation=$5
-                AND status='running' AND lease_until>=clock_timestamp()""",
+                AND status='running' AND job_type<>'stratt_data_first_v1' AND lease_until>=clock_timestamp()""",
               job_id,owner,"failed" if error else "done",error,int(lease_generation))
             if not r.endswith(" 1"):
                 return False

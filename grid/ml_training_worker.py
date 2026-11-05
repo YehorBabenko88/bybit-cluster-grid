@@ -50,7 +50,7 @@ class TrainingWorker:
         async with self.pool.acquire() as c:
             async with c.transaction():
                 current=await c.fetchrow("""SELECT id FROM ml_jobs WHERE id=$1 AND status='running'
-                  AND lease_owner=$2 AND lease_generation=$3 AND lease_until>=now()
+                  AND lease_owner=$2 AND lease_generation=$3 AND job_type='train' AND lease_until>=now()
                   FOR UPDATE""",job_id,lease_owner,int(lease_generation))
                 if not current:
                     raise StaleTrainingLease("ML lease lost before model publication")

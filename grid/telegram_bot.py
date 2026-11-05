@@ -12,7 +12,8 @@ from .fleet_health import fleet_health
 from .pilot_state import pilot_state,expansion_ready,mark_expansion_notified
 from .retention_plan import cleanup_plan
 from .retention import RETENTION_DEFAULTS
-from .telegram_idempotency import claim_update,complete_update
+from .telegram_idempotency import admit_update,finish_update,PUBLIC_OPERATIONS
+from .telegram_health_notifications import notify_node_health,notification_status
 from .ha_status import ha_status
 from .runtime_gate import runtime_state,set_runtime_state
 from .fleet_control import fleet_stop,fleet_resume,begin_fleet_delete,fleet_delete_status,latest_operation,reconcile_fleet_operation
@@ -37,9 +38,29 @@ def _decode_command_result(value):
         return decoded if isinstance(decoded,dict) else {"message":value}
     return {"message":str(value)}
 
-def allowed(chat_id):
+# Explicit bounded read-only surface until authenticated ControlAPI integration.
+# Raw logs and enrollment tokens are intentionally excluded.
+_READ_ONLY_OPERATIONS=PUBLIC_OPERATIONS
+
+
+def allowed(chat_id,user_id=None,operation=None):
     raw={x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()}
-    return bool(raw) and str(chat_id) in raw
+    if str(chat_id) not in raw or type(user_id) is not int or not 0<user_id<2**63:
+        return False
+    if operation not in _READ_ONLY_OPERATIONS:
+        return False
+    try:
+        encoded=os.environ.get("TELEGRAM_OPERATION_USER_IDS", "{}")
+        if len(encoded)>16384:
+            return False
+        policy=json.loads(encoded)
+    except (TypeError,ValueError):
+        return False
+    if not isinstance(policy,dict) or len(policy)>len(PUBLIC_OPERATIONS) or any(key not in PUBLIC_OPERATIONS for key in policy):
+        return False
+    users=policy.get(operation)
+    return (isinstance(users,list) and len(users)<=1000 and all(type(uid) is int and 0<uid<2**63 for uid in users)
+            and user_id in users)
 
 def _node_keyboard(nid):
     return {"inline_keyboard":[
@@ -134,7 +155,10 @@ def _healthy_canary(nodes):
 
 async def handle_command(db,session,chat_id,text,nodes):
     parts=text.strip().split()
-    cmd=parts[0].lower()
+    cmd=parts[0].lower() if parts else ""
+    if cmd not in _READ_ONLY_OPERATIONS:
+        await tg_send(session,chat_id,"NOT_IMPLEMENTED: authenticated ControlAPI command routing is required.")
+        return
     now=time.time()
     if cmd=="/menu" or (cmd=="/start" and len(parts)==1):
         phase=await get_phase(db.pool)
@@ -286,8 +310,10 @@ async def handle_command(db,session,chat_id,text,nodes):
         )
     elif cmd=="/health":
         h=await fleet_health(db.pool,nodes,settings.heartbeat_seconds)
+        delivery=await notification_status(db.pool)
         leader=h["leader"]["owner"] if h["leader"] else "none"
-        lines=[f"Grid health: leader={leader}",f"online={len(h['online'])} offline={len(h['offline'])}"]
+        lines=[f"Grid health: leader={leader}",f"online={len(h['online'])} offline={len(h['offline'])}",
+               f"Notifications: {delivery['state']}; pending={delivery['pending']}, in-flight={delivery['sending']}, uncertain={delivery['ambiguous']} (uncertain deliveries require review; no automatic retry)"]
         lines.append("integrity: "+(", ".join(h["integrity"]) if h["integrity"] else "OK"))
         lines.append("pressure: "+(", ".join(h["pressure"]) if h["pressure"] else "OK"))
         lines.append("DB queue/spool: "+(", ".join(h["queues"]) if h["queues"] else "OK"))
@@ -531,8 +557,8 @@ async def _maybe_finalize_fleet_delete(db,session):
     for chat_id in chats:
         try:
             await tg_send(session,chat_id,"All agents acknowledged deletion. CONTROL and Grid-owned PostgreSQL/data are now being removed. This bot will go offline when deletion completes.")
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("telegram purge notification failed",extra={"event":"telegram_purge_notify_failed","component":type(exc).__name__[:80]})
     data_root=pathlib.Path(os.environ.get("ProgramData",r"C:\\ProgramData"))/"BybitClusterGrid"
     script=data_root/"installer"/"uninstall.ps1"
     if not script.exists():
@@ -553,8 +579,8 @@ async def _notify_expansion_ready(db,session):
         for chat_id in chats:
             try:
                 await tg_send(session,chat_id,message); sent=True
-            except Exception:
-                log.exception("pilot readiness notification failed",extra={"event":"pilot_notify_failed"})
+            except Exception as exc:
+                log.warning("pilot readiness notification failed",extra={"event":"pilot_notify_failed","component":type(exc).__name__[:80]})
         if sent: await mark_expansion_notified(db.pool,r["node_id"])
 
 async def telegram_loop(db,nodes):
@@ -571,19 +597,12 @@ async def telegram_loop(db,nodes):
             me=await _tg_api(session,"getMe",retries=1)
             log.info("telegram authenticated",extra={"event":"telegram_authenticated",
                      "component":str((me.get("result") or {}).get("username") or "bot")})
-        except Exception:
-            log.exception("telegram disabled: bot authentication failed",extra={"event":"telegram_auth_failed"})
+        except Exception as exc:
+            log.error("telegram disabled: bot authentication failed",extra={"event":"telegram_auth_failed","component":type(exc).__name__[:80]})
             return
         while True:
             try:
                 data=await _tg_api(session,"getUpdates",params={"timeout":30,"offset":offset})
-                op_result=await reconcile_fleet_operation(db.pool)
-                if op_result and op_result.get("status")=="DONE":
-                    for notify_chat in [x.strip() for x in settings.telegram_allowed_chat_ids.split(",") if x.strip()]:
-                        try: await tg_send(session,notify_chat,f"SYSTEM: {op_result['state']}. Global {op_result['action']} acknowledged by all required agents.",_main_keyboard())
-                        except Exception: pass
-                await _notify_expansion_ready(db,session)
-                await _maybe_finalize_fleet_delete(db,session)
                 for upd in data.get("result",[]):
                     next_offset=max(offset,upd["update_id"]+1)
                     cb=upd.get("callback_query") or {}
@@ -611,34 +630,38 @@ async def telegram_loop(db,nodes):
                                 if action in cmdmap: txt=cmdmap[action]+" "+nid
                         try:
                             await session.post(f"https://api.telegram.org/bot{settings.telegram_bot_token}/answerCallbackQuery",json={"callback_query_id":cb.get("id")})
-                        except Exception: pass
-                    if not chat or not txt.startswith("/"):
+                        except Exception as exc:
+                            log.warning("telegram callback acknowledgement failed",extra={"event":"telegram_callback_ack_failed","component":type(exc).__name__[:80]})
+                    if not cb and not txt.startswith("/"):
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
-                    if not allowed(chat):
-                        log.warning("telegram unauthorized",extra={"event":"telegram_denied"})
-                        offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
-                    claimed=await claim_update(db.pool,upd["update_id"],chat,txt,node_id)
-                    if not claimed:
-                        # Another leader may have claimed the update but crashed
-                        # before completing its side effects. Do not acknowledge
-                        # and skip an unfinished command as if it succeeded.
-                        status=await db.pool.fetchval(
-                            "SELECT status FROM telegram_updates WHERE update_id=$1",
-                            int(upd["update_id"]))
-                        if status!="DONE":
-                            log.error("telegram update is unfinished; manual reconciliation required",
-                                      extra={"event":"telegram_update_stuck",
-                                             "component":str(upd["update_id"])})
-                            raise RuntimeError("Telegram update not completed; cursor held")
+                    sender=cb.get("from") if cb else msg.get("from")
+                    sender=sender if isinstance(sender,dict) else {}
+                    operation=txt.split()[0].lower() if txt else "UNKNOWN"
+                    callback_id=cb.get("id") if cb else None
+                    authorized=(sender.get("is_bot") is False and allowed(chat,sender.get("id"),operation)
+                                and (not cb or isinstance(callback_id,str) and 1<=len(callback_id)<=256))
+                    admission=await admit_update(db.pool,upd["update_id"],chat,sender.get("id"),operation,
+                                                 node_id,callback_id=callback_id,authorized=authorized)
+                    if admission.decision in ("STUCK","CAPACITY"):
+                        log.error("telegram admission blocked; cursor held",
+                                  extra={"event":"telegram_admission_blocked","component":admission.decision})
+                        raise RuntimeError("Telegram admission blocked; cursor held")
+                    if admission.decision!="ACCEPTED":
                         offset=await commit_telegram_cursor(db.pool,node_id,next_offset); continue
                     try:
                         await handle_command(db,session,chat,txt,nodes)
-                        await complete_update(db.pool,upd["update_id"])
-                    except Exception as e:
-                        await complete_update(db.pool,upd["update_id"],str(e)[:500])
-                        raise
-                    await _notify_expansion_ready(db,session)
+                    except Exception:
+                        await finish_update(db.pool,upd["update_id"],admission.receipt,failed=True)
+                        raise RuntimeError("Telegram command failed") from None
+                    if not await finish_update(db.pool,upd["update_id"],admission.receipt):
+                        raise RuntimeError("Telegram completion rejected; cursor held")
                     offset=await commit_telegram_cursor(db.pool,node_id,next_offset)
+                async def send_health(chat_id,text):
+                    # Notification retries require an explicit delivery decision;
+                    # this transport performs one HTTP attempt only.
+                    await _tg_api(session,"sendMessage",body={"chat_id":chat_id,"text":text},retries=0)
+                await notify_node_health(db.pool,nodes,settings.heartbeat_seconds,
+                                         settings.grid_control_node_id,send_health,allowed)
             except asyncio.CancelledError:
                 raise
             except (asyncio.TimeoutError,aiohttp.ClientError) as e:
@@ -650,6 +673,6 @@ async def telegram_loop(db,nodes):
                     "component":type(e).__name__,
                 })
                 await asyncio.sleep(2)
-            except Exception:
-                log.exception("telegram loop failed",extra={"event":"telegram_error"})
+            except Exception as exc:
+                log.error("telegram loop failed",extra={"event":"telegram_error","component":type(exc).__name__[:80]})
                 await asyncio.sleep(5)

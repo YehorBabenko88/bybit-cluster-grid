@@ -1,5 +1,8 @@
-import asyncio,time,logging,secrets,hashlib,tempfile,os,pathlib,subprocess,json
+import asyncio,time,logging,secrets,hashlib,tempfile,os,pathlib,subprocess,json,configparser,re,stat,threading
 from fastapi import FastAPI,Header,HTTPException,Request
+from fastapi.responses import JSONResponse
+from .coordination import coordinator_authority, floating_leader_guard
+from .floating_leader import FloatingLeader
 from .config import settings
 from .bybit import linear_symbols
 from .resources import capacity_score,node_accepts_work
@@ -23,11 +26,13 @@ from .live_assignment_policy import guarded_live_symbols,pilot_universe
 from .runtime_gate import ensure_runtime_gate,runtime_state,market_work_allowed
 from .fleet_control import reconcile_fleet_operation
 from .storage import Storage
-from .retention import retention_scheduler
+from .retention import retention_scheduler, ensure_retention_schema
 from .maintenance import maintenance_scheduler
 from .ml_artifact_store import LocalArtifactStore
 from .ml_transport import claim as ml_claim,renew as ml_renew,dataset_bundle as ml_dataset_bundle,dataset_page as ml_dataset_page,publish_artifact as ml_publish_artifact,register_saved_artifact as ml_register_saved_artifact,finalize_model as ml_finalize_model
 from .ml_dispatcher import MLDispatcher
+from .data_first_jobs import enqueue as enqueue_data_first,publish as publish_data_first
+from .ml_transport import claim_data_first,train_lease_valid as ml_train_lease_valid
 from .ml_orchestrator_service import MLOrchestratorService
 from .resources import snapshot as resource_snapshot
 from .asyncio_guard import install_asyncio_exception_filter
@@ -46,7 +51,282 @@ background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
 ml_orchestrator=None
 scientific_service=None
+coordination_authority=None
+control_leader=None
+control_task=None
+_MODULE_SOURCE_ROOT=pathlib.Path(__file__).resolve().parents[1]
+_MODULE_HEALTH_TIMEOUT=1.0
+_owned_module_binding=None
+_owned_module_source_admission=None
+_OWNED_MODULE_ENV=('UNIFIED_MODULE_ID','UNIFIED_MODULE_VERSION','UNIFIED_RELEASE_ID',
+                   'UNIFIED_INSTANCE_TOKEN','UNIFIED_SOURCE_COMMIT')
 
+
+
+@app.middleware('http')
+async def coordinated_request_guard(request, call_next):
+    if (getattr(settings, 'grid_coordination_mode', 'legacy') == 'consul'
+            and request.url.path not in ('/health', '/ready')):
+        if control_leader is None or not control_leader.ready or control_leader.requires_fencing:
+            return JSONResponse({'reason': 'COORDINATION_NOT_READY'}, status_code=503)
+        try:
+            await floating_leader_guard(control_leader)()
+        except Exception:
+            return JSONResponse({'reason': 'COORDINATION_NOT_READY'}, status_code=503)
+    return await call_next(request)
+
+
+@app.get('/ready')
+async def control_readiness():
+    if db is None or getattr(db, 'pool', None) is None:
+        raise HTTPException(503, 'database not ready')
+    mode = getattr(settings, 'grid_coordination_mode', 'legacy')
+    if mode == 'consul':
+        if control_leader is None or not control_leader.ready or control_leader.requires_fencing:
+            raise HTTPException(503, 'DCS-backed control is not ready')
+        try:await floating_leader_guard(control_leader)()
+        except Exception:raise HTTPException(503, 'DCS-backed control is not ready')
+    return {'ready': True, 'coordination_mode': mode,
+            'physical_ha_qualified': False, 'legacy_single_primary': mode == 'legacy'}
+
+
+def _owned_module_identity():
+    values=tuple(os.environ.get(key,'') for key in _OWNED_MODULE_ENV)
+    module,version,release,token,source=values
+    if (module!='grid' or len(version)>128
+            or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]{1,40})?',version)
+            or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,128}',release)
+            or not re.fullmatch(r'[a-f0-9]{64}',token)
+            or not re.fullmatch(r'[a-f0-9]{40}',source)):
+        return None
+    return values
+
+
+def _safe_owned_git_config(root):
+    # Validate local metadata before Git can read include/filter/fsmonitor hooks.
+    metadata=root/'.git'
+    for path in (root,*root.parents):
+        info=path.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:return False
+    for relative in ('objects/info/alternates','objects/info/http-alternates','info/attributes'):
+        if os.path.lexists(metadata/relative):return False
+    for relative in ('objects','objects/info','info'):
+        path=metadata/relative
+        if os.path.lexists(path):
+            info=path.lstat()
+            if not stat.S_ISDIR(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:return False
+    config=metadata/'config'
+    for path in (metadata,config):
+        info=path.lstat()
+        if (stat.S_ISLNK(info.st_mode)
+                or getattr(info,'st_file_attributes',0)&getattr(stat,'FILE_ATTRIBUTE_REPARSE_POINT',0x400)):
+            return False
+    if not metadata.is_dir() or not config.is_file() or (metadata/'commondir').exists():
+        return False
+    examined=0
+    deadline=time.monotonic()+1
+    for directory,dirs,files in os.walk(metadata/'objects',followlinks=False):
+        for name in dirs+files:
+            examined+=1
+            if examined>200000 or time.monotonic()>deadline:return False
+            info=(pathlib.Path(directory)/name).lstat()
+            if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:return False
+    with config.open('rb') as stream:raw=stream.read(65537)
+    if len(raw)>65536:return False
+    parser=configparser.RawConfigParser(strict=False)
+    parser.read_string(raw.decode('utf-8-sig'))
+    if parser.defaults():return False
+    core={'repositoryformatversion','filemode','bare','logallrefupdates','ignorecase',
+          'precomposeunicode','symlinks','protectntfs','protecthfs','longpaths',
+          'hookspath','attributesfile','fsmonitor','untrackedcache','autocrlf'}
+    nulls={os.devnull.casefold(),'/dev/null','nul'}
+    for section in parser.sections():
+        name=section.casefold()
+        if name=='core':allowed=core
+        elif re.fullmatch(r'remote "[^"\r\n]{1,128}"',name):allowed={'url','fetch','tagopt','pushurl'}
+        elif re.fullmatch(r'branch "[^"\r\n]{1,256}"',name):allowed={'remote','merge','rebase'}
+        elif name=='user':allowed={'name','email','signingkey'}
+        else:return False
+        for key,value in parser.items(section):
+            if key not in allowed:return False
+            value=value.strip().strip('"').casefold()
+            if key in ('hookspath','attributesfile') and value not in nulls:return False
+            if key in ('fsmonitor','bare','autocrlf') and value not in ('false','0','off','no'):return False
+            if key=='repositoryformatversion' and value!='0':return False
+    return True
+
+
+def _owned_startup_scope(admission,expected,*,verify_git=False):
+    """Live in-process source scope; no CLI/environment authorization."""
+    if isinstance(admission,dict) or not all(callable(getattr(admission,name,None)) for name in ('require_current','source_scope')):
+        raise ValueError('Owned module source binding unavailable')
+    if admission.require_current() is not True or re.fullmatch('[a-f0-9]{40}',expected) is None:
+        raise ValueError('Owned module source binding unavailable')
+    root=_MODULE_SOURCE_ROOT.absolute()
+    scoped=admission.source_scope('grid',root,expected)
+    if (not isinstance(scoped,pathlib.Path) or not scoped.is_absolute()
+            or any(c in str(scoped) for c in ('*','?','[',']','\n','\r','\0'))
+            or scoped!=root or scoped.resolve(strict=True)!=root):
+        raise ValueError('Owned module source binding unavailable')
+    if admission.require_current() is not True:raise ValueError('Owned module source binding unavailable')
+    if not verify_git:return root
+    executable=pathlib.Path(admission.git_executable);digest=admission.git_sha256
+    if not executable.is_absolute() or executable.resolve(strict=True)!=executable or re.fullmatch('[a-f0-9]{64}',digest) is None:
+        raise ValueError('Owned module Git pin unavailable')
+    info=executable.lstat()
+    if (not stat.S_ISREG(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400
+            or not 0<info.st_size<=64*1024*1024
+            or not secrets.compare_digest(hashlib.sha256(executable.read_bytes()).hexdigest(),digest)):
+        raise ValueError('Owned module Git pin unavailable')
+    if admission.require_current() is not True:raise ValueError('Owned module source binding unavailable')
+    return root,executable
+
+
+def _owned_source_is_clean(expected,*,owner_admitted_root=None,startup_admission=None):
+    root=_MODULE_SOURCE_ROOT.absolute()
+    try:
+        executable='git'
+        if startup_admission is not None:
+            if owner_admitted_root is not None:return False
+            owner_admitted_root,executable=_owned_startup_scope(startup_admission,expected,verify_git=True)
+        if owner_admitted_root is not None:
+            # Only an explicitly admitted exact canonical checkout; no parent,
+            # wildcard, alias or environment-derived trust exception.
+            if not isinstance(owner_admitted_root,(str,pathlib.Path)):return False
+            admitted=str(owner_admitted_root)
+            if any(c in admitted for c in ('*','?','[',']','\n','\r','\0')):return False
+            candidate=pathlib.Path(admitted)
+            if (not candidate.is_absolute() or '..' in candidate.parts or admitted!=str(root)
+                    or str(root.resolve(strict=True))!=str(root)):return False
+        if not _safe_owned_git_config(root):return False
+        # Keep proxy/CA environment intact; Git-specific redirects and injected
+        # configuration cannot choose a different checkout or executable helper.
+        env={key:value for key,value in os.environ.items() if not key.startswith('GIT_')}
+        env.update(GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_SYSTEM=os.devnull,GIT_CONFIG_GLOBAL=os.devnull,
+                   GIT_OPTIONAL_LOCKS='0',GIT_TERMINAL_PROMPT='0',GIT_NO_REPLACE_OBJECTS='1',GIT_NO_LAZY_FETCH='1')
+        command=[str(executable),'--no-replace-objects','--no-pager','-c','core.fsmonitor=false',
+                 '-c','core.hooksPath='+os.devnull,'-c','core.attributesFile='+os.devnull,
+                 '-c','core.untrackedCache=false','-c','submodule.recurse=false','-C',str(root)]
+        if owner_admitted_root is not None:command[3:3]=['-c','safe.directory=','-c','safe.directory='+str(root)]
+        started=time.monotonic()
+        def git(*args,limit=2*1024*1024):
+            # Timer kills a blocked child on both Windows and Linux; bounded
+            # pipe reads prevent a hostile tree/status from exhausting memory.
+            if startup_admission is not None:
+                if _owned_startup_scope(startup_admission,expected,verify_git=True)!=(root,executable):raise ValueError('Owned module source binding unavailable')
+            child=subprocess.Popen(command+list(args),env=env,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+            timer=threading.Timer(1,child.kill)
+            timer.start()
+            try:
+                output=child.stdout.read(limit+1)
+                if len(output)>limit:
+                    child.kill()
+                    raise ValueError('Git output bound exceeded')
+                if child.wait(timeout=1)!=0:raise ValueError('Git command rejected')
+                return output
+            finally:
+                timer.cancel()
+                if child.poll() is None:child.kill()
+                child.wait(timeout=1)
+                child.stdout.close()
+        if pathlib.Path(os.fsdecode(git('rev-parse','--show-toplevel')).strip()).resolve()!=root:return False
+        if git('rev-parse','HEAD').decode('ascii').strip()!=expected:return False
+        tree=git('ls-tree','-r','-z','--full-tree',expected,limit=8*1024*1024)
+        total=0
+        entries=tree.split(b'\0')
+        if len(entries)>20001:return False
+        for entry in entries:
+            if not entry:continue
+            metadata,name=entry.split(b'\t',1)
+            mode,kind,oid=metadata.split(b' ')
+            if mode not in (b'100644',b'100755') or kind!=b'blob' or not re.fullmatch(b'[a-f0-9]{40}',oid):return False
+            relative=pathlib.PurePosixPath(os.fsdecode(name))
+            if relative.is_absolute() or any(part in ('..','.git') or '\\' in part or ':' in part for part in relative.parts):return False
+            path=root.joinpath(*relative.parts)
+            for ancestor in (path,*path.parents):
+                if ancestor==root:break
+                info=ancestor.lstat()
+                if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:return False
+            info=path.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_size>16*1024*1024:return False
+            total+=info.st_size
+            if total>256*1024*1024 or time.monotonic()-started>3:return False
+            # Git blob IDs hash the raw bytes with a length prefix, independently
+            # of index flags, attributes and worktree conversion/filter rules.
+            digest=hashlib.sha1(b'blob '+str(info.st_size).encode('ascii')+b'\0')
+            with path.open('rb') as stream:
+                remaining=info.st_size
+                while remaining:
+                    block=stream.read(min(65536,remaining))
+                    if not block:return False
+                    digest.update(block);remaining-=len(block)
+                if stream.read(1):return False
+            if digest.hexdigest().encode('ascii')!=oid:return False
+        clean=git('status','--porcelain','--untracked-files=all','--ignore-submodules=all').strip()==b''
+        if startup_admission is not None:_owned_startup_scope(startup_admission,expected)
+        return clean
+
+    except (OSError,ValueError,UnicodeError,configparser.Error,subprocess.SubprocessError):
+        return False
+
+
+async def _initialize_owned_module_health():
+    global _owned_module_binding,_owned_module_source_admission
+    _owned_module_binding=None
+    _owned_module_source_admission=None
+    if not any(key in os.environ for key in _OWNED_MODULE_ENV):return
+    identity=_owned_module_identity()
+    if identity is None:raise RuntimeError('Owned module profile unavailable')
+    admission=getattr(app.state,'owned_source_admission',None)
+    try:
+        options={} if admission is None else {'startup_admission':admission}
+        clean=await asyncio.wait_for(asyncio.to_thread(_owned_source_is_clean,identity[4],**options),timeout=4)
+        if admission is not None:_owned_startup_scope(admission,identity[4])
+        if getattr(app.state,'owned_source_admission',None) is not admission:clean=False
+        if _owned_module_identity()!=identity:clean=False
+    except Exception:
+        clean=False
+    if clean is not True:raise RuntimeError('Owned module source binding unavailable')
+    _owned_module_source_admission=admission
+    _owned_module_binding=identity
+
+
+@app.get('/internal/v2/module/health')
+async def owned_module_health(request:Request):
+    headers={'Cache-Control':'no-store'}
+    if request.scope.get('query_string'):
+        return JSONResponse({'error':'MODULE_HEALTH_INVALID_REQUEST'},status_code=400,headers=headers)
+    identity=_owned_module_identity()
+    if identity is None:
+        return JSONResponse({'error':'MODULE_HEALTH_UNAVAILABLE'},status_code=503,headers=headers)
+    authorization=request.headers.getlist('authorization')
+    if (len(authorization)!=1 or len(authorization[0])>256
+            or not secrets.compare_digest(authorization[0].encode('utf-8'),('Bearer '+identity[3]).encode('ascii'))):
+        return JSONResponse({'error':'MODULE_HEALTH_FORBIDDEN'},status_code=403,headers=headers)
+    if _owned_module_binding!=identity:
+        return JSONResponse({'error':'MODULE_HEALTH_UNAVAILABLE'},status_code=503,headers=headers)
+    async def probe():
+        admission=_owned_module_source_admission
+        if getattr(app.state,'owned_source_admission',None) is not admission:return False
+        if admission is not None:_owned_startup_scope(admission,identity[4])
+        if control_leader is not None and getattr(control_leader,'requires_fencing',True):return False
+        if (await control_readiness()).get('ready') is not True:return False
+        if admission is not None:_owned_startup_scope(admission,identity[4])
+        if getattr(app.state,'owned_source_admission',None) is not admission:return False
+        pool=db.pool
+        value=await pool.fetchval('SELECT 1')
+        if type(value) is not int or value!=1 or db.pool is not pool:return False
+        if (await control_readiness()).get('ready') is not True:return False
+        if admission is not None:_owned_startup_scope(admission,identity[4])
+        if getattr(app.state,'owned_source_admission',None) is not admission:return False
+        return (not (control_leader is not None and getattr(control_leader,'requires_fencing',True))
+                and _owned_module_identity()==identity and _owned_module_binding==identity)
+    try:
+        ready=await asyncio.wait_for(probe(),timeout=min(1.0,_MODULE_HEALTH_TIMEOUT)) is True
+    except Exception:
+        ready=False
+    return JSONResponse({'module_id':'grid','version':identity[1],'release_id':identity[2],
+                         'instance_token':identity[3],'ready':ready},status_code=200 if ready else 503,headers=headers)
 
 
 def control_disk_state():
@@ -400,6 +680,30 @@ async def ingest_event(payload:dict,x_grid_token:str=Header(default=""),x_node_c
     return {"ok":True}
 
 
+@app.post("/data-first/requests")
+async def submit_data_first(payload:dict,x_grid_token:str=Header(default="")):
+    auth(x_grid_token)
+    try:ident=await enqueue_data_first(db.pool,payload,getattr(app.state,'data_first_policy',None))
+    except ValueError:raise HTTPException(409,"DataFirst input/source admission blocked")
+    return {'job_id':ident}
+
+@app.post("/data-first/claim")
+async def claim_data_first_job(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    if set(payload)!={'node_id'} or type(payload['node_id']) is not str:raise HTTPException(400,"closed node identity required")
+    node_id=payload['node_id'];await node_auth(node_id,x_node_credential,x_grid_token)
+    runtime=nodes.get(node_id,{})
+    if time.time()-float(runtime.get('last_seen',0))>settings.heartbeat_seconds*3:return {'job':None}
+    return {'job':await claim_data_first(db.pool,node_id,getattr(app.state,'data_first_policy',None),runtime)}
+
+@app.post("/data-first/jobs/{job_id}/checkpoint")
+async def checkpoint_data_first(job_id:str,payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
+    if set(payload)!={'node_id','lease_generation','sequence','state','checkpoint','request_sha256'}:raise HTTPException(400,"closed checkpoint required")
+    node_id=payload['node_id'];await node_auth(node_id,x_node_credential,x_grid_token)
+    try:result=await publish_data_first(db.pool,job_id,node_id,payload['lease_generation'],payload['sequence'],payload['state'],payload['checkpoint'],getattr(app.state,'data_first_policy',None),request_pin=payload['request_sha256'])
+    except (ValueError,TypeError):raise HTTPException(409,"DataFirst checkpoint rejected")
+    if result is None:raise HTTPException(409,"DataFirst lease fenced")
+    return result
+
 @app.post("/ml/claim")
 async def claim_ml_job(payload:dict,x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
     node_id=str(payload.get("node_id",""))
@@ -426,6 +730,8 @@ async def get_ml_dataset(job_id:str,node_id:str,lease_generation:int,offset:int=
 async def upload_ml_artifact(job_id:str,request:Request,node_id:str,lease_generation:int,sha256:str,
                              x_grid_token:str=Header(default=""),x_node_credential:str=Header(default="")):
     await node_auth(node_id,x_node_credential,x_grid_token)
+    if not await ml_train_lease_valid(db.pool,job_id,node_id,lease_generation):
+        raise HTTPException(409,"stale or non-training ML lease")
     max_bytes=256*1024*1024
     declared=int(request.headers.get("content-length","0") or 0)
     if declared>max_bytes:raise HTTPException(413,"artifact too large")
@@ -621,44 +927,8 @@ async def rebalance():
 
 @app.on_event("startup")
 async def startup():
-    global db, ingest_storage, background_tasks, ml_orchestrator, scientific_service
-    bootstrap_logging()
-    install_asyncio_exception_filter(asyncio.get_running_loop())
-    log.info(
-        "coordinator startup",
-        extra={"event": "coordinator_startup", "component": "coordinator"},
-    )
-    db=await prepare_database()
-    await ensure_instrument_schema(db.pool)
-    await ensure_strategy_schema(db.pool)
-    await ensure_plugin_schema(db.pool)
-    await ensure_control_schema(db.pool)
-    await ensure_update_schema(db.pool)
-    await ensure_enrollment_schema(db.pool)
-    await ensure_runtime_gate(db.pool)
-    ingest_storage=Storage()
-    ingest_storage.pool=db.pool
-    await ingest_storage.feature_builder.start(db.pool)
-    scientific_service=ScientificResearchService(db.pool)
-    await scientific_service.start()
-    ingest_storage.scientific=scientific_service
-    ingest_storage.derived=__import__('grid.derived_pipeline',fromlist=['DerivedPipeline']).DerivedPipeline(db.pool)
-    await ingest_storage.derived.start()
-    async def ml_nodes():
-        cutoff=time.time()-settings.heartbeat_seconds*3
-        return {nid:dict(v) for nid,v in nodes.items() if float(v.get("last_seen",0))>=cutoff}
-    async def ml_health():
-        snap=resource_snapshot()
-        try:
-            active=await db.pool.fetchval("""SELECT count(*) FROM pg_stat_activity
-              WHERE datname=current_database() AND state='active'""")
-        except Exception:
-            active=settings.strategy_db_active_limit
-        return {"cpu_pct":snap["cpu_pct"],"ram_pct":snap["ram_pct"],
-                "disk_free_gb":snap["disk_free"]/(1024**3),
-                "db_latency_ms":0 if int(active or 0)<settings.strategy_db_active_limit else 9999,
-                "db_queue_ratio":min(1.0,int(active or 0)/max(1,settings.strategy_db_active_limit))}
-    ml_orchestrator=MLOrchestratorService(db.pool,MLDispatcher(db.pool,ml_nodes),ml_health)
+    global db, ingest_storage, background_tasks, coordination_authority, control_leader, control_task
+    await _initialize_owned_module_health()
     async def loop():
         global instruments,assignments
         while True:
@@ -698,19 +968,91 @@ async def startup():
             except Exception:
                 log.exception("coordinator refresh failed",extra={"event":"universe_refresh_failed"})
             await asyncio.sleep(settings.rebalance_seconds)
-    background_tasks = [
-        asyncio.create_task(loop()),
-        asyncio.create_task(telegram_loop(db,nodes)),
-        asyncio.create_task(retention_scheduler(db.pool,settings)),
-        asyncio.create_task(maintenance_scheduler(db.pool,settings)),
-        asyncio.create_task(ml_orchestrator.run()),
-        asyncio.create_task(scientific_service.run()),
-    ]
+
+    async def start_services(epoch=None):
+        global background_tasks
+        await _prepare_control_services(epoch)
+        background_tasks = [
+            asyncio.create_task(loop()),
+            asyncio.create_task(telegram_loop(db,nodes)),
+            asyncio.create_task(retention_scheduler(db.pool,settings)),
+            asyncio.create_task(maintenance_scheduler(db.pool,settings)),
+            asyncio.create_task(ml_orchestrator.run()),
+            asyncio.create_task(scientific_service.run()),
+        ]
+
+    # Configuration and independent-fence readiness precede all DB/writer startup.
+    coordination_authority = await coordinator_authority(settings,
+        external_fence_verifier=getattr(app.state, 'external_fence_verifier', None))
+    bootstrap_logging()
+    install_asyncio_exception_filter(asyncio.get_running_loop())
+    try:
+        db=await prepare_database()
+    except BaseException:
+        if coordination_authority is not None:
+            await coordination_authority.close()
+            coordination_authority=None
+        raise
+    if coordination_authority is None:
+        await start_services()
+        return
+    control_leader=FloatingLeader(db.pool, settings.grid_control_node_id,
+        settings.grid_leader_lease_seconds, settings.grid_leader_renew_seconds,
+        coordination=coordination_authority,
+        cleanup_timeout_seconds=settings.grid_leader_cleanup_timeout_seconds)
+    app.state.grid_lease_guard=floating_leader_guard(control_leader)
+    control_task=asyncio.create_task(control_leader.run(start_services, _stop_control_services))
+
+
+async def _prepare_control_services(epoch=None):
+    global ingest_storage, background_tasks, ml_orchestrator, scientific_service
+    await ensure_instrument_schema(db.pool)
+    await ensure_strategy_schema(db.pool)
+    await ensure_plugin_schema(db.pool)
+    await ensure_control_schema(db.pool)
+    await ensure_update_schema(db.pool)
+    await ensure_enrollment_schema(db.pool)
+    await ensure_runtime_gate(db.pool)
+    await ensure_retention_schema(db.pool)
+    ingest_storage=Storage()
+    ingest_storage.pool=db.pool
+    await ingest_storage.feature_builder.start(db.pool)
+    scientific_service=ScientificResearchService(db.pool)
+    await scientific_service.start()
+    ingest_storage.scientific=scientific_service
+    ingest_storage.derived=__import__('grid.derived_pipeline',fromlist=['DerivedPipeline']).DerivedPipeline(db.pool)
+    await ingest_storage.derived.start()
+    async def ml_nodes():
+        cutoff=time.time()-settings.heartbeat_seconds*3
+        return {nid:dict(v) for nid,v in nodes.items() if float(v.get("last_seen",0))>=cutoff}
+    async def ml_health():
+        snap=resource_snapshot()
+        try:
+            active=await db.pool.fetchval("""SELECT count(*) FROM pg_stat_activity
+              WHERE datname=current_database() AND state='active'""")
+        except Exception:
+            active=settings.strategy_db_active_limit
+        return {"cpu_pct":snap["cpu_pct"],"ram_pct":snap["ram_pct"],
+                "disk_free_gb":snap["disk_free"]/(1024**3),
+                "db_latency_ms":0 if int(active or 0)<settings.strategy_db_active_limit else 9999,
+                "db_queue_ratio":min(1.0,int(active or 0)/max(1,settings.strategy_db_active_limit))}
+    ml_orchestrator=MLOrchestratorService(db.pool,MLDispatcher(db.pool,ml_nodes,data_first_policy=getattr(app.state,"data_first_policy",None)),ml_health)
+
+
+async def _stop_control_services():
+    await shutdown(close_database=False)
+
 
 @app.on_event("shutdown")
-async def shutdown():
+async def shutdown(close_database=True):
     global ingest_storage, background_tasks, ml_orchestrator, scientific_service
-
+    global control_leader, control_task, coordination_authority
+    if close_database and control_leader is not None:
+        control_leader.stop()
+        if control_task is not None:
+            await control_task
+        control_task=None
+        control_leader=None
     if ml_orchestrator is not None:
         ml_orchestrator.stop()
     if scientific_service is not None:
@@ -735,6 +1077,13 @@ async def shutdown():
                 await close()
         ingest_storage = None
 
-    if db is not None and db.pool is not None:
-        await db.pool.close()
-        db.pool=None
+    ml_orchestrator=None
+    scientific_service=None
+
+    if close_database:
+        if coordination_authority is not None:
+            await coordination_authority.close()
+            coordination_authority=None
+        if db is not None and db.pool is not None:
+            await db.pool.close()
+            db.pool=None

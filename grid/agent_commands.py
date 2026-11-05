@@ -51,7 +51,7 @@ async def _update(payload):
             if line.startswith("ROLE=") and line.split("=",1)[1].strip().lower()=="coordinator":
                 role="CONTROL";break
     p=subprocess.run([
-        "powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(preflight),
+        "powershell.exe","-NoProfile","-File",str(preflight),
         "-ReleaseDir",str(target),"-Python",str(python),"-Mode",role
     ],capture_output=True,text=True,timeout=300)
     if p.returncode:
@@ -85,6 +85,10 @@ def _grid_log_tail(lines=120,max_bytes=24000):
 
 async def execute_command(worker,cmd):
     action=cmd["action"]; payload=cmd.get("payload") or {}
+    if os.environ.get('UNIFIED_DEPLOYMENT_MODE')=='LAB_SIMULATION' and action in ('update','repair','rollback','uninstall'):
+        # The legacy installer acts on a different installation/manifest scheme.
+        # A lab capsule transition needs its own pinned Grid-issued actuator.
+        raise RuntimeError('LAB_DEPLOYMENT_ACTUATOR_REQUIRED')
     if action=="pause":
         worker.enabled=False
         worker.bootstrap_paused=True
@@ -136,7 +140,7 @@ async def execute_command(worker,cmd):
         _,data_root=_roots()
         script=data_root/"installer"/"uninstall.ps1"
         if not script.exists(): raise RuntimeError("local uninstall script missing")
-        args=["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(script)]
+        args=["powershell.exe","-NoProfile","-File",str(script)]
         if payload.get("purge_data"): args.append("-PurgeData")
         subprocess.Popen(args,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
         return {"state":"uninstall_started"}

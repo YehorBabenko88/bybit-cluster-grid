@@ -17,7 +17,7 @@ async def fail_or_retry(pool,job_id,owner,generation,error,kind="retryable"):
         async with c.transaction():
             row=await c.fetchrow("""SELECT attempts,max_attempts FROM ml_jobs
               WHERE id=$1 AND lease_owner=$2 AND lease_generation=$3
-                AND status='running' AND lease_until>=clock_timestamp()
+                AND status='running' AND job_type<>'stratt_data_first_v1' AND lease_until>=clock_timestamp()
               FOR UPDATE""",job_id,owner,int(generation))
             if not row:
                 return "stale"
@@ -26,7 +26,7 @@ async def fail_or_retry(pool,job_id,owner,generation,error,kind="retryable"):
                 result=await c.execute("""UPDATE ml_jobs SET status='failed',
                   finished_at=clock_timestamp(),lease_until=NULL,error=$4
                   WHERE id=$1 AND lease_owner=$2 AND lease_generation=$3
-                    AND status='running'""",
+                    AND status='running' AND job_type<>'stratt_data_first_v1'""",
                   job_id,owner,int(generation),str(error)[:4000])
                 state="failed"
             else:
@@ -35,7 +35,7 @@ async def fail_or_retry(pool,job_id,owner,generation,error,kind="retryable"):
                   lease_owner=NULL,lease_until=NULL,
                   not_before=clock_timestamp()+($4*interval '1 second'),error=$5
                   WHERE id=$1 AND lease_owner=$2 AND lease_generation=$3
-                    AND status='running'""",
+                    AND status='running' AND job_type<>'stratt_data_first_v1'""",
                   job_id,owner,int(generation),delay,str(error)[:4000])
                 state="retry"
             if not result.endswith(" 1"):

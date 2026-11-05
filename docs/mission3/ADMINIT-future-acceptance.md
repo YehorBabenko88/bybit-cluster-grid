@@ -1,0 +1,9 @@
+# ADMINIT acceptance preparation only
+
+No ADMINIT connection, inventory collection, service operation, installation, database change, physical update or test is authorized now. `installer/mission3-adminit-plan.ps1` creates a local future acceptance document for an exact reviewed release digest; it does not contact or inspect ADMINIT. It cannot issue an owner grant. Current deployment guards continue to reject ADMINIT, LS5 and PC4.
+
+Before any future office operation, complete and review cloud development/CI evidence, native Windows PS5.1/7 tests, publisher signature/pin review, six-module source capsule provenance, release-aware functional health, coordinated canary/rollback evidence, and backup/restore ownership. Then obtain a separate owner grant scoped to the exact host identity, exact immutable release, permitted operations and time window. No elapsed time, CI success, signature alone, checkbox or prepared plan substitutes for that grant. A later separately reviewed execution capability is required; this source contains no physical execution mode.
+
+The future admitted workload is USDT perpetual history, historical training/OOS evaluation and public-market paper analytics only. Do not request real trading credentials, submit exchange orders, promote synthetic completeness to exchange authenticity, or change unrelated office databases/services. Preserve administrator STOP, unique history, current and recovery releases throughout any later authorized drill.
+
+Initial acceptance document records all physical checks as NOT_RUN. Independently captured host identity, path/ACL, runtime identity, storage ownership, backup proof, connectivity policy, and actual module functional readiness remain outstanding. A future physical runbook must identify rollback owner, explicit stop conditions, data preservation, exact artifact bytes and independent approval; automatic office rollout remains disabled.

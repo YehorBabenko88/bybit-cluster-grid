@@ -68,3 +68,19 @@ def test_publication_fence_is_in_same_transaction_as_registry_insert():
     assert "lease_generation=$3" in block
     assert "lease_until>=now()" in block
     assert "FOR UPDATE" in block
+
+
+def test_current_data_first_generation_cannot_publish_training_candidate():
+    class DataFirstConn(Conn):
+        async def fetchrow(self,sql,*args):
+            if "FROM ml_jobs" in sql:
+                return None if "job_type='train'" in sql else {'id':args[0]}
+            raise AssertionError(sql)
+    async def run():
+        p=Pool(True);p.conn=DataFirstConn(True)
+        worker=TrainingWorker(p,Backend(),'test')
+        with pytest.raises(StaleTrainingLease):
+            await worker._publish_candidate('model','global','dataset','artifact','v1',{},
+                job_id='data-first-job',lease_owner='current-node',lease_generation=7)
+        assert p.conn.inserts==0
+    asyncio.run(run())

@@ -1,5 +1,5 @@
 import copy
-import asyncio, json, logging, time, math
+import asyncio, json, logging, time, math, hashlib, re, uuid
 from collections import deque
 from collections.abc import Mapping
 import websockets
@@ -20,6 +20,37 @@ TICKER_FIELDS=frozenset({
     "nextFundingTime", "markPrice", "indexPrice", "lastPrice", "basisRate",
     "bid1Price", "bid1Size", "ask1Price", "ask1Size", "volume24h", "turnover24h",
 })
+
+
+def public_market_connection(endpoint):
+    """Exact configured socket context, not a remote/exchange identity proof."""
+    endpoints={'wss://stream.bybit.com/v5/public/'+category:category for category in ('linear','inverse','spot')}
+    if type(endpoint) is not str or endpoint not in endpoints:return None
+    return dict(schema='grid.public-market-connection.v1',venue='bybit',category=endpoints[endpoint],endpoint=endpoint,connection_id=uuid.uuid4().hex,scope='PRODUCER_DECLARED_LOCAL_CONNECTION_NOT_REMOTE_AUTHENTICATION')
+
+FUNDING_FIELD_NAMES={'fundingRate':'funding_rate','fundingIntervalHour':'funding_interval_hour','nextFundingTime':'next_funding_time'}
+
+def _ticker_field_observations(previous,updates,event_ms,observed_ms):
+    """Bind only actual funding updates to their own source/process clocks.
+
+    This is process-recorded consistency metadata, not transport authentication,
+    receipt-time attestation or a database ingest clock. A local timestamp fallback
+    is never promoted to an exchange clock. Unrelated deltas cannot refresh it.
+    """
+    result=copy.deepcopy(previous)
+    for raw_name,name in FUNDING_FIELD_NAMES.items():
+        if raw_name not in updates or updates[raw_name] is None:continue
+        old=result.pop(name,None);value=updates[raw_name]
+        clock_ok=(type(event_ms) is int and type(observed_ms) is int
+                  and 0<event_ms<=observed_ms<=253402300799999
+                  and (old is None or event_ms>=old['event_ms'] and observed_ms>=old['observed_ms']))
+        scalar_ok=(type(value) in (int,float) and abs(value)<=1e15 and math.isfinite(value)
+                   or type(value) is str and len(value)<=128 and re.fullmatch(r'-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?',value))
+        if not clock_ok or not scalar_ok:continue
+        if not math.isfinite(float(value)) or abs(float(value))>1e15:continue
+        encoded=json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')
+        result[name]={'event_ms':event_ms,'observed_ms':observed_ms,'value_sha256':hashlib.sha256(encoded).hexdigest()}
+    return result
 
 class MicrostructureCollector:
     """
@@ -79,6 +110,7 @@ class MicrostructureCollector:
         subscribed_topics=set(topics)
         books={}
         tickers={}
+        ticker_observations={}
         last_book_write={}
         last_ticker_write={}
         last_ticker_seen={}
@@ -92,6 +124,7 @@ class MicrostructureCollector:
             # sequence guards, ticker deltas, or derived velocity across reconnects.
             books.clear()
             tickers.clear()
+            ticker_observations.clear()
             last_book_write.clear()
             last_ticker_write.clear()
             last_ticker_seen.clear()
@@ -101,11 +134,13 @@ class MicrostructureCollector:
             wall_tracker=WallTracker()
             try:
                 await wait_for_internet()
+                actual_endpoint=settings.bybit_ws_url
                 async with websockets.connect(
-                    settings.bybit_ws_url,
+                    actual_endpoint,
                     ping_interval=20, ping_timeout=20,
                     max_queue=2000, close_timeout=5
                 ) as ws:
+                    connection_context=public_market_connection(actual_endpoint)
                     # Small subscription batches reduce rejection risk and make reconnect gentler.
                     # Every request must be acknowledged; otherwise a transport can stay
                     # healthy while the market subscription itself was rejected.
@@ -185,12 +220,18 @@ class MicrostructureCollector:
                         elif isinstance(raw_ts,str) and 0<len(raw_ts)<=20 and raw_ts.isascii() and raw_ts.isdecimal() and int(raw_ts)>0:
                             ts=int(raw_ts)
                         else:
+                            if topic in subscribed_topics and topic.startswith('tickers.'):
+                                symbol=topic.split('.',1)[1]
+                                ticker_observations[symbol]=_ticker_field_observations(ticker_observations.get(symbol,{}),data,None,None)
                             log.warning("invalid market timestamp ignored",extra={"event":"invalid_market_timestamp"})
                             continue
 
                         # A corrupt future timestamp can poison ticker monotonic state
                         # and prevent valid updates from being accepted afterwards.
                         if ts>int(time.time()*1000)+300000:
+                            if topic in subscribed_topics and topic.startswith('tickers.'):
+                                symbol=topic.split('.',1)[1]
+                                ticker_observations[symbol]=_ticker_field_observations(ticker_observations.get(symbol,{}),data,None,None)
                             log.warning("future market timestamp ignored",extra={"event":"future_market_timestamp"})
                             continue
 
@@ -202,10 +243,16 @@ class MicrostructureCollector:
                             # A newly connected socket must not publish replayed
                             # ticker data from a long-disconnected market epoch.
                             if self.max_ticker_age_ms is not None and ts<int(time.time()*1000)-self.max_ticker_age_ms:
+                                if topic in subscribed_topics and topic.startswith('tickers.'):
+                                    symbol=topic.split('.',1)[1]
+                                    ticker_observations[symbol]=_ticker_field_observations(ticker_observations.get(symbol,{}),data,None,None)
                                 log.warning("expired ticker ignored",extra={"event":"expired_ticker"})
                                 continue
                             sym=topic.split(".",1)[1]
                             if ts<last_ticker_seen.get(sym,-1):
+                                if topic in subscribed_topics and topic.startswith('tickers.'):
+                                    symbol=topic.split('.',1)[1]
+                                    ticker_observations[symbol]=_ticker_field_observations(ticker_observations.get(symbol,{}),data,None,None)
                                 log.warning("stale ticker ignored",extra={"event":"ticker_stale","component":sym})
                                 continue
                             # Empty/unknown-only ticker deltas must not advance
@@ -218,6 +265,7 @@ class MicrostructureCollector:
                             state=tickers.setdefault(sym,{})
                             quality.setdefault(sym,FeedQuality(sym)).mark("ticker",AVAILABLE)
                             state.update(updates)
+                            ticker_observations[sym]=_ticker_field_observations(ticker_observations.get(sym,{}),updates,raw_ts,int(time.time()*1000))
                             if ts-last_ticker_write.get(sym,0) >= self.snapshot_ms:
                                 payload={
                                     "open_interest":state.get("openInterest"),
@@ -240,6 +288,8 @@ class MicrostructureCollector:
                                 q.mark("open_interest", AVAILABLE if payload["open_interest"] is not None else MISSING, "field unavailable")
                                 q.mark("funding", AVAILABLE if payload["funding_rate"] is not None else MISSING, "not supplied/applicable")
                                 payload["_quality"]=q.snapshot()
+                                if connection_context is not None:payload['_producer_connection']=dict(connection_context)
+                                payload['_field_observations']={'schema':'grid.ticker-field-observations.v1','clock_basis':'EXCHANGE_FRAME_TS_AND_PROCESS_WALL_CLOCK','fields':copy.deepcopy(ticker_observations.get(sym,{}))}
                                 await self.db.insert_event(sym,ts,"derivatives_ticker",payload)
                                 last_ticker_write[sym]=ts
 
@@ -334,6 +384,7 @@ class MicrostructureCollector:
                                 metrics["sequence"]=state["seq"]
                                 metrics["cts"]=data.get("cts")
                                 metrics["_quality"]=q.snapshot()
+                                if connection_context is not None:metrics['_producer_connection']=dict(connection_context)
                                 await self.db.insert_event(sym,ts,"orderbook_snapshot",metrics)
                                 for wall in walls:
                                     if wall["ratio"] >= self.wall_event_ratio:

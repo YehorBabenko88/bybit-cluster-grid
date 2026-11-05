@@ -4,6 +4,9 @@ import aiohttp, websockets
 from .config import settings
 from .resources import snapshot,NODE_ID,ml_runtime_ready
 from .models import Trade
+from collections import deque
+from .public_trade_validation import (decode_frame,parse_trades,MAX_FRAME_BYTES,MAX_ACK_FRAMES,
+    MAX_ACK_BYTES,MAX_OPEN_MINUTES,PERSIST_TIMEOUT_SECONDS,validated_tick,preflight_footprint,preflight_tape)
 from .cluster import FootprintBuilder
 from .storage import Storage
 from .bybit import linear_symbols
@@ -32,7 +35,7 @@ from .ml_agent_worker import ml_agent_loop
 log=logging.getLogger("worker")
 
 class Worker:
-    def __init__(self):
+    def __init__(self,*,data_first_admission=None):
         self.wanted=set()
         self.trade_tasks={}
         self.micro_tasks=[]
@@ -53,6 +56,12 @@ class Worker:
         self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json'))
         self.control_ring=ControlSnapshotRing(os.getenv('GRID_CONTROL_SNAPSHOTS','control-snapshots'))
         self.command_receipts=CommandReceiptStore()
+        self.data_first_admission=data_first_admission
+        self.data_first_launcher=None
+        self.data_first_task=None
+        if data_first_admission is not None:
+            from .data_first_process import DataFirstProcess
+            self.data_first_launcher=DataFirstProcess(data_first_admission)
         self.ml_task=None
         self.ml_stop=asyncio.Event()
         self.restart_requested=False
@@ -60,6 +69,45 @@ class Worker:
         # heartbeat expiry window when the network is partitioned.
         self.last_assignment_heartbeat=None
         self.assignment_lock=asyncio.Lock()
+        self._pending_trade_rows={}
+        self._pending_trade_locks={}
+        self._pending_trade_reservations={}
+        self._pending_trade_quality={}
+
+    def data_first_capability(self):
+        if self.data_first_launcher is None or self.data_first_task is None or self.data_first_task.done():return None
+        try:
+            if self.data_first_launcher.require_admitted() is not True:return None
+            return self.data_first_admission.runtime_capability()
+        except Exception:return None
+
+    def _start_data_first_consumer(self):
+        # A transient first admission failure must not leave an advertised runtime
+        # without a consumer. The waiting loop gates every actual claim.
+        if self.data_first_launcher is not None and self.data_first_task is None:
+            self.data_first_task=asyncio.create_task(self._data_first_loop())
+
+    def _data_first_can_claim(self):
+        try:
+            return (self.enabled and not self.operator_stopped and not self.bootstrap_paused
+                    and self.runtime_state=="ACTIVE" and snapshot().get("disk_pressure_state")=="NORMAL"
+                    and self.data_first_capability() is not None)
+        except Exception:return False
+
+    async def _data_first_loop(self):
+        from .ml_transport_client import DataFirstTransportClient
+        from .data_first_agent_worker import run_once
+        client=DataFirstTransportClient(NODE_ID)
+        while not self.ml_stop.is_set():
+            if self._data_first_can_claim():
+                try:await run_once(client,process_launcher=self.data_first_launcher)
+                except asyncio.CancelledError:raise
+                except Exception:
+                    # Closed diagnostic only; no transport/credential exception text.
+                    log.warning("DataFirst invocation stopped",extra={"event":"data_first_stopped"})
+                    return
+            try:await asyncio.wait_for(self.ml_stop.wait(),timeout=5)
+            except asyncio.TimeoutError:pass
 
     async def expire_stale_assignments(self, now=None):
         """Revoke collectors when CONTROL stops renewing the assignment lease."""
@@ -157,6 +205,8 @@ class Worker:
                 snap['operator_stopped']=self.operator_stopped
                 snap['bootstrap_phase']=self.bootstrap_phase
                 snap['runtime_state']=self.runtime_state
+                capability=self.data_first_capability()
+                if capability is not None:snap['data_first_runtime']=capability
                 snap['wanted_symbols']=len(self.wanted)
                 snap['active_trade_streams']=sum(1 for t in self.trade_tasks.values() if not t.done())
                 snap['pressure_drained']=len(self.pressure_drained)
@@ -238,7 +288,7 @@ class Worker:
                                 except Exception:
                                     log.exception("instrument metadata refresh failed",extra={"event":"metadata_refresh_failed"})
                             recovery=reply.get("recovery_profile") or {}
-                            self.db.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
+                            self.storage.set_replay_rate(recovery.get("minute_per_second",settings.replay_minute_per_second))
                             self.micro_storage.set_replay_rate(recovery.get("micro_per_second",settings.replay_micro_per_second))
                             assigned=set(reply.get("symbols",[])) if self.enabled and market_enabled else set()
                             requested_micro=set(reply.get("micro_symbols",[]))
@@ -313,9 +363,11 @@ class Worker:
             except FileNotFoundError:pass
 
     async def reconcile(self):
+        removed=[]
         for sym in list(self.trade_tasks):
             if sym not in self.wanted:
-                self.trade_tasks.pop(sym).cancel()
+                task=self.trade_tasks.pop(sym);task.cancel();removed.append(task)
+        if removed:await asyncio.gather(*removed,return_exceptions=True)
         for sym in self.wanted:
             existing=self.trade_tasks.get(sym)
             if existing is not None and existing.done():
@@ -348,99 +400,179 @@ class Worker:
                     self.micro_tasks.append(asyncio.create_task(collector.run_batch(batch)))
             log.info("microstructure assignment reconciled",extra={"event":"micro_assignment","component":f"{len(symbols)} symbols"})
 
+    def _trade_handoff_state(self):
+        for name in ('_pending_trade_rows','_pending_trade_locks','_pending_trade_reservations','_pending_trade_quality'):
+            if not hasattr(self,name):setattr(self,name,{})
+
+    async def _persist_trade_rows(self,symbol):
+        self._trade_handoff_state()
+        lock=self._pending_trade_locks.setdefault(symbol,asyncio.Lock())
+        async with lock:
+            rows=self._pending_trade_rows.get(symbol)
+            while rows:
+                retained=getattr(self.storage,'save_retained',None)
+                receipt=await asyncio.wait_for((retained or self.storage.save)(rows[0]),timeout=PERSIST_TIMEOUT_SECONDS)
+                if retained is not None:self.storage.acknowledge_admission(receipt)
+                rows.popleft()
+                self.pressure.observe_symbol(symbol,db_writes=1)
+
+    async def _flush_trade_rows(self,timeout=5):
+        self._trade_handoff_state()
+        async def flush():
+            for symbol in list(self._pending_trade_rows):await self._persist_trade_rows(symbol)
+        try:await asyncio.wait_for(flush(),timeout=timeout)
+        except (asyncio.TimeoutError,BufferError,RuntimeError,OSError):
+            log.warning('pending finalized minutes remain unadmitted',extra={'event':'pending_minute_flush_incomplete'})
+
     async def trade_stream(self,symbol):
-        tick=self.meta[symbol]["tick_size"]
+        tick=validated_tick(self.meta[symbol]["tick_size"])
         fp=FootprintBuilder(tick,settings.cluster_interval_seconds,finalization_delay_ms=2000)
         delays=backoff_delays()
         continuity=TradeContinuity(gap_ms=max(5000,settings.cluster_interval_seconds*1000//2))
         connected_once=False
+        # Worker ownership survives pressure/assignment cancellation of this
+        # collector. Only confirmed Storage receipts remove finalized rows.
+        self._trade_handoff_state()
+        pending_rows=self._pending_trade_rows.setdefault(symbol,deque())
+        pending_quality=self._pending_trade_quality.setdefault(symbol,set())
+
         while True:
             try:
+                await self._persist_trade_rows(symbol)
                 await wait_for_internet()
+                actual_endpoint=settings.bybit_ws_url
                 async with websockets.connect(
-                    settings.bybit_ws_url,
-                    ping_interval=20,ping_timeout=20,max_queue=50000,close_timeout=5
+                    actual_endpoint,
+                    ping_interval=20,ping_timeout=20,max_queue=50000,close_timeout=5,
+                    max_size=MAX_FRAME_BYTES
                 ) as ws:
                     subscription_topic=f"publicTrade.{symbol}"
                     await ws.send(json.dumps({"op":"subscribe","args":[subscription_topic]}))
-                    # Only the ACK for this exact subscription confirms readiness.
-                    # An unrelated ACK must not activate this collector.
+                    pending_frames=deque();pending_bytes=0
                     ack_deadline=asyncio.get_running_loop().time()+15
                     while True:
                         remaining=ack_deadline-asyncio.get_running_loop().time()
-                        if remaining<=0:
-                            raise asyncio.TimeoutError("Bybit trade subscription ACK timeout")
+                        if remaining<=0:raise asyncio.TimeoutError("Bybit trade subscription ACK timeout")
                         raw=await asyncio.wait_for(ws.recv(),timeout=remaining)
-                        ack=json.loads(raw)
+                        ack,size=decode_frame(raw)
                         if ack.get("op")=="subscribe":
                             args=(ack.get("data") or {}).get("args") if isinstance(ack.get("data"),dict) else None
-                            if args is None:
-                                args=ack.get("args")
-                            if args is not None and subscription_topic not in args:
-                                continue
-                            if ack.get("success") is not True:
-                                raise RuntimeError("Bybit trade subscription rejected: "+str(ack.get("ret_msg") or ack))
+                            if args is None:args=ack.get("args")
+                            if args is not None:
+                                if not isinstance(args,list) or not all(isinstance(topic,str) for topic in args):
+                                    raise RuntimeError("invalid Bybit trade subscription ACK args")
+                                if subscription_topic not in args:continue
+                            if ack.get("success") is not True:raise RuntimeError("Bybit trade subscription rejected")
                             break
+                        if ack.get("topic")==subscription_topic:
+                            # Keep only fully validated, bounded trade batches.
+                            # No aggregate or continuity state changes before ACK.
+                            try:trades=parse_trades(ack,symbol,int(time.time()*1000))
+                            except ValueError:
+                                pending_quality.add("invalid_public_trade_frame")
+                                log.warning("invalid public trade batch ignored",extra={"event":"invalid_public_trade_frame","symbol":symbol})
+                                continue
+                            if not trades:continue
+                            if len(pending_frames)>=MAX_ACK_FRAMES or pending_bytes+size>MAX_ACK_BYTES:
+                                raise RuntimeError("public trade subscription buffer limit")
+                            pending_frames.append((trades,size));pending_bytes+=size
+                    from .microstructure import public_market_connection
+                    connection_context=public_market_connection(actual_endpoint)
+                    tape=getattr(self,'micro_tape',None)
+                    # An unmarked pre-existing RAM seed is not assigned a new
+                    # connection identity. Existing arithmetic admission remains.
+                    context_ready=tape is None or (symbol not in tape.state and symbol not in tape.cvd)
+                    if connected_once and tape is not None:
+                        preflight_tape([],tape,symbol)
+                        # Discard only this symbol's admitted unclosed RAM state;
+                        # never flush a partial bucket or touch persisted events.
+                        tape.state.pop(symbol,None);tape.cvd.pop(symbol,None)
+                        context_ready=True
                     if connected_once:
                         continuity.reconnect()
                         fp.mark_open_degraded(symbol,"ws_reconnect")
+                        pending_quality.add("ws_reconnect")
                     connected_once=True
                     delays=backoff_delays()
                     while True:
-                        raw=await asyncio.wait_for(ws.recv(),timeout=45)
-                        msg=json.loads(raw)
-                        if not msg.get("topic","").startswith("publicTrade."):
-                            continue
-                        batch=msg.get("data",[])
-                        self.pressure.observe_symbol(symbol,events=len(batch))
-                        for x in batch:
-                            trade_ts=int(x["T"])
-                            suspect_gap=continuity.observe(trade_ts)
-                            trade=Trade(
-                                symbol=symbol,
-                                ts_ms=trade_ts,
-                                price=float(x["p"]),
-                                qty=float(x["v"]),
-                                side=x["S"],
-                                trade_id=x.get("i","")
-                            )
-                            accepted=fp.add(trade)
-                            if not accepted:
-                                # Duplicate/replayed or already-finalized trade: do not
-                                # feed it into micro tape or any downstream feature path.
+                        if pending_frames:
+                            trades,size=pending_frames.popleft();pending_bytes-=size
+                        else:
+                            raw=await asyncio.wait_for(ws.recv(),timeout=45)
+                            try:
+                                msg,_=decode_frame(raw)
+                                if msg.get("topic")!=subscription_topic:continue
+                                trades=parse_trades(msg,symbol,int(time.time()*1000))
+                            except ValueError:
+                                pending_quality.add("invalid_public_trade_frame")
+                                log.warning("invalid public trade batch ignored",extra={"event":"invalid_public_trade_frame","symbol":symbol})
                                 continue
-                            if symbol in self.micro_wanted:
-                                tape_row=self.micro_tape.add(trade)
-                                if tape_row is not None:
-                                    await self.micro_storage.insert_event(
-                                        symbol,
-                                        tape_row["start_ms"],
-                                        "trade_tape_250ms",
-                                        tape_row,
-                                    )
-                            if suspect_gap:
-                                fp.mark_degraded(symbol,trade_ts,"trade_time_gap")
-                        for row in fp.pop_closed(int(time.time()*1000)):
-                            from .provenance import producer
-                            if not hasattr(self, "provenance_source"):
-                                from .resources import NODE_ID
-                                self.provenance_source = producer(NODE_ID, os.environ.get("GRID_SOURCE_REVISION", ""), settings.bybit_ws_url)
-                            row["source_provenance"] = self.provenance_source
-                            await self.storage.save(row)
-                            self.pressure.observe_symbol(symbol,db_writes=1)
+                        if not trades:continue
+                        # Cap both open buckets and the resulting pending rows;
+                        # reject the whole batch before any aggregate mutation.
+                        proposed=set(fp.buckets)|{(symbol,(trade.ts_ms//fp.interval_ms)*fp.interval_ms) for trade in trades}
+                        if len(proposed)>MAX_OPEN_MINUTES:
+                            pending_quality.add("public_trade_bucket_limit")
+                            log.warning("public trade bucket limit",extra={"event":"public_trade_bucket_limit","symbol":symbol})
+                            continue
+                        try:
+                            eligible=preflight_footprint(trades,fp)
+                            if symbol in self.micro_wanted:preflight_tape(eligible,self.micro_tape,symbol)
+                        except ValueError:
+                            pending_quality.add('invalid_public_trade_frame')
+                            log.warning('invalid public trade arithmetic',extra={'event':'invalid_public_trade_frame','symbol':symbol})
+                            continue
+                        finalize_at=int(time.time()*1000)
+                        reserve=sum(start+fp.interval_ms+fp.finalization_delay_ms<=finalize_at for _,start in proposed)
+                        occupied=sum(map(len,self._pending_trade_rows.values()))+sum(self._pending_trade_reservations.values())
+                        if occupied+reserve>MAX_OPEN_MINUTES:
+                            pending_quality.add('pending_minute_pressure')
+                            raise BufferError('pending finalized minute limit')
+                        self._pending_trade_reservations[symbol]=reserve
+                        try:
+                            for reason in pending_quality:fp.mark_open_degraded(symbol,reason)
+                            self.pressure.observe_symbol(symbol,events=len(trades))
+                            accepted=0
+                            for trade in trades:
+                                suspect_gap=continuity.observe(trade.ts_ms)
+                                if not fp.add(trade):continue
+                                accepted+=1
+                                for reason in pending_quality:fp.mark_degraded(symbol,trade.ts_ms,reason)
+                                if symbol in self.micro_wanted:
+                                    tape_row=self.micro_tape.add(trade)
+                                    if tape_row is not None:
+                                        if connection_context is not None and context_ready:tape_row['_producer_connection']=dict(connection_context)
+                                        await self.micro_storage.insert_event(symbol,tape_row["start_ms"],"trade_tape_250ms",tape_row)
+                                if suspect_gap:fp.mark_degraded(symbol,trade.ts_ms,"trade_time_gap")
+                            if accepted:pending_quality.clear()
+                            if pending_frames:continue
+                            for row in fp.pop_closed(finalize_at):
+                                from .provenance import producer
+                                if not hasattr(self,"provenance_source"):
+                                    from .resources import NODE_ID
+                                    self.provenance_source=producer(NODE_ID,os.environ.get("GRID_SOURCE_REVISION",""),settings.bybit_ws_url)
+                                row["source_provenance"]=self.provenance_source
+                                pending_rows.append(row)
+                        finally:self._pending_trade_reservations.pop(symbol,None)
+                        await self._persist_trade_rows(symbol)
             except asyncio.CancelledError:
+                self._pending_trade_reservations.pop(symbol,None)
+                if not pending_rows:
+                    self._pending_trade_rows.pop(symbol,None)
+                    self._pending_trade_locks.pop(symbol,None)
+                if not pending_quality:self._pending_trade_quality.pop(symbol,None)
                 raise
             except BufferError:
+                pending_quality.add("wal_pressure")
                 self.pressure.state="CRITICAL"
                 self.pressure.bad_ticks=max(self.pressure.bad_ticks,10)
                 log.error("local WAL pressure; draining live symbols until database catches up",
                           extra={"event":"wal_pressure","symbol":symbol})
-                await asyncio.sleep(max(5,settings.heartbeat_seconds))
+                await asyncio.sleep(min(5,max(.1,settings.heartbeat_seconds)))
             except Exception:
+                pending_quality.add("stream_failure")
                 d=next(delays)
-                log.exception("trade stream failed",extra={
-                    "event":"reconnect","symbol":symbol,"delay":d
-                })
+                log.exception("trade stream failed",extra={"event":"reconnect","symbol":symbol,"delay":d})
                 await asyncio.sleep(d)
 
     async def run(self):
@@ -470,6 +602,7 @@ class Worker:
                     return False
             self.ml_task=asyncio.create_task(
                 ml_agent_loop(client,self.ml_stop,poll_seconds=5,can_claim=ml_can_claim))
+        self._start_data_first_consumer()
         # Retention, strategy orchestration and Telegram are CONTROL-owned.
         try:
             await self.heartbeat()
@@ -486,6 +619,10 @@ class Worker:
             if self.ml_task is not None:
                 self.ml_task.cancel()
                 await asyncio.gather(self.ml_task,return_exceptions=True)
+            if self.data_first_task is not None:
+                self.data_first_task.cancel()
+                await asyncio.gather(self.data_first_task,return_exceptions=True)
+            await self._flush_trade_rows()
             await self.micro_storage.close()
             await self.storage.close()
 

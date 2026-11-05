@@ -7,9 +7,12 @@ log=logging.getLogger("control_candidate")
 
 class ControlCandidate:
     """DB-fenced control-plane candidacy. Never enables shared mutations without DB fencing."""
-    def __init__(self,pool,node_id,journal,peers_provider,lease_seconds=20,renew_seconds=5):
+    def __init__(self,pool,node_id,journal,peers_provider,lease_seconds=20,renew_seconds=5,*,coordination=None,ha_required=False):
+        if ha_required and coordination is None:
+            raise ValueError('HA control candidacy requires Consul authority')
+        self.ha_required=bool(ha_required)
         self.pool=pool;self.node_id=node_id;self.journal=journal;self.peers_provider=peers_provider
-        self.election=FloatingLeader(pool,node_id,lease_seconds,renew_seconds)
+        self.election=FloatingLeader(pool,node_id,lease_seconds,renew_seconds,coordination=coordination)
         self.policy=QuorumPolicy(node_id,peer_timeout=max(30,lease_seconds*2))
         self.mode="FOLLOWER";self.is_leader=False
 
@@ -28,6 +31,9 @@ class ControlCandidate:
             self.mode=decision["mode"];self.is_leader=False
         else:
             self.mode="FOLLOWER";self.is_leader=False
+        if self.election.coordination is not None and not self.is_leader:
+            self.mode='FENCING_REQUIRED' if self.election.requires_fencing else 'DCS_NOT_LEADER'
+            return {'mode':self.mode,'leader':False,'telegram':False,'mutations':False}
         return {"mode":self.mode,"leader":self.is_leader,
                 "telegram":bool(self.is_leader or decision.get("telegram",False)),
                 "mutations":bool(self.is_leader and decision.get("mutations",False))}

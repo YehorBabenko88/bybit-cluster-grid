@@ -69,3 +69,12 @@ class MLTransportClient:
         return await self._request("POST",f"/ml/jobs/{job['id']}/finalize",
           json={"node_id":self.node_id,"lease_generation":job["lease_generation"],
                 "artifact_id":artifact_id,"metrics":metrics})
+
+
+class DataFirstTransportClient(MLTransportClient):
+    async def claim(self):
+        x=await self._request('POST','/data-first/claim',json={'node_id':self.node_id})
+        return None if x is None else x.get('job')
+    async def checkpoint(self,job,sequence,state,checkpoint):
+        from .data_first_jobs import request_sha
+        return await self._request('POST',f"/data-first/jobs/{job['id']}/checkpoint",json=dict(node_id=self.node_id,lease_generation=job['lease_generation'],sequence=sequence,state=state,checkpoint=checkpoint,request_sha256=request_sha(job['payload'])))

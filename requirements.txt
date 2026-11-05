@@ -8,3 +8,5 @@ fastapi>=0.115
 uvicorn[standard]>=0.30
 httpx>=0.27
 python-dotenv>=1.0
+# Read-only Terminan gateway and sealed PostgreSQL history export.
+psycopg[binary]==3.3.6

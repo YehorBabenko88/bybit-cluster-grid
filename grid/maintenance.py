@@ -92,9 +92,10 @@ def cleanup_owned_postgres_logs(data_root,older_than_seconds=14*86400):
 async def cleanup_control_metadata(pool):
     # Reservations are advisory capacity locks and are invalid after expiry.
     reservations=await purge_expired(pool)
-    # Keep recent operational history, but do not grow terminal jobs forever.
+    # Keep recent operational history. DataFirst terminal rows are permanent
+    # semantic-id tombstones: deleting them would authorize the same work again.
     jobs=await pool.execute("""DELETE FROM ml_jobs j
-      WHERE j.status IN ('done','failed','cancelled') AND j.finished_at<now()-interval '30 days'
+      WHERE j.job_type<>'stratt_data_first_v1' AND j.status IN ('done','failed','cancelled') AND j.finished_at<now()-interval '30 days'
       AND NOT EXISTS(SELECT 1 FROM ml_artifacts a WHERE a.owner_job=j.id AND a.status<>'DELETED')""")
     # Failed/incomplete snapshots are not immutable training inputs. READY snapshots
     # are deliberately retained because models/audits may reference them.
