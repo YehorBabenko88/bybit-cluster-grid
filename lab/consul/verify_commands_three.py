@@ -6,6 +6,7 @@ No missing prerequisites are converted into SKIP/PASS. Failed evidence retained.
 """
 import argparse
 import asyncio
+from dataclasses import asdict
 import hashlib
 import json
 from pathlib import Path
@@ -17,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import httpx
 from grid.coordination import ConsulConfig, ConsulSessionAuthority
 from grid.coordination_commands import CoordinationCommands, CurrentPrincipal
+from grid.coordination_budget_anchor import BudgetAnchor, ConsulBudgetAnchor
 from provision import IMAGE, docker
 
 SOURCE_COMMIT = '881572b49b5d4d67713fa7f8ff09ed0ff2befc0f'
@@ -42,6 +44,8 @@ async def verify(output):
                     native_windows='NOT_RUN', physical='NOT_RUN', production_tls_acl='NOT_RUN',
                     snapshot_restore='NOT_RUN', backup_restore='NOT_RUN',
                     human_authentication='SYNTHETIC_AUTH', result='RUNNING', events=[])
+    evidence['budget_anchor_payload'] = 'SYNTHETIC_FIXED_HASHES_NO_BUDGET_JOURNAL_OR_STORE_IO'
+    evidence['budget_store_integration'] = 'NOT_WIRED'
 
     def record(name, **fields):
         evidence['events'].append(dict(scenario=name, **fields))
@@ -148,6 +152,15 @@ async def verify(output):
             assert receipt['commit_status'] == 'COMMITTED'
             assert await bridge.submit(lease, intent, 'SYNTHETIC_AUTH') == receipt
             record('commit_and_duplicate', receipt=receipt)
+            # Synthetic anchors exercise the actual consensus primitive only;
+            # these hashes are not receipts from a budget journal/store factory.
+            budget = ConsulBudgetAnchor(authority, 'lab-installation', 'lab-meter', 'a' * 64)
+            anchor1 = BudgetAnchor('lab-installation', 'lab-meter', 'a' * 64, 1, 10, 'b' * 64)
+            anchor2 = BudgetAnchor('lab-installation', 'lab-meter', 'a' * 64, 2, 20, 'c' * 64)
+            anchor3 = BudgetAnchor('lab-installation', 'lab-meter', 'a' * 64, 3, 30, 'd' * 64)
+            budget1 = await budget.compare_and_swap(lease, None, anchor1)
+            assert budget1.status == 'COMMITTED' and budget1.version.anchor == anchor1
+            record('budget_anchor_initial_commit', version=asdict(budget1.version))
             # Capture actual server term/index/state, not PG epoch or invented votes.
             initial_terms = {}
             for node in nodes:
@@ -167,6 +180,8 @@ async def verify(output):
                                             namespace=namespace, isolated_lab=True)
             assert await bridge.get_command(intent['command_id'], 'SYNTHETIC_AUTH') == receipt
             record('actual_raft_leader_crash_receipt_survives', node=leader['name'])
+            assert await budget.read() == budget1.version
+            record('budget_anchor_leader_loss_read', version=asdict(budget1.version))
             # Current application owner session is explicitly released; no force takeover.
             await authority.release(lease)
             successor = await authority.acquire('PC4')
@@ -177,6 +192,12 @@ async def verify(output):
             receipt2 = await bridge.submit(successor, second, 'SYNTHETIC_AUTH')
             assert receipt2['commit_status'] == 'COMMITTED' and receipt2['revision'] == 2
             record('successor_commits_stale_owner_denied', receipt=receipt2)
+            stale_budget = await budget.compare_and_swap(lease, budget1.version, anchor2)
+            assert stale_budget.status == 'UNKNOWN' and stale_budget.version is None
+            assert await budget.read() == budget1.version
+            budget2 = await budget.compare_and_swap(successor, budget1.version, anchor2)
+            assert budget2.status == 'COMMITTED' and budget2.version.anchor == anchor2
+            record('budget_anchor_successor_cas_and_stale_denial', version=asdict(budget2.version))
             victim = survivors[0]
             inspect(victim)
             docker('kill', victim['id'])
@@ -184,6 +205,9 @@ async def verify(output):
             third = dict(second, command_id=str(uuid.uuid4()), actor_id='lab-human', idempotency_key='third', expected_revision=2)
             assert (await bridge.submit(successor, third, 'SYNTHETIC_AUTH'))['commit_status'] == 'UNKNOWN'
             record('two_voter_loss_denies_new_command')
+            unavailable_budget = await budget.compare_and_swap(successor, budget2.version, anchor3)
+            assert unavailable_budget.status == 'UNKNOWN' and unavailable_budget.version is None
+            record('budget_anchor_noquorum_unknown')
             # Kill all processes, retain named volumes, then restart retained IDs.
             for node in nodes:
                 if inspect(node)['State']['Running']:
@@ -202,6 +226,9 @@ async def verify(output):
                 assert int(stats['commit_index']) >= int(stats['applied_index']) > 0
                 record('restarted_actual_raft_stats', node=node['name'], stats=stats)
             record('all_process_restart_retained_volumes_receipts_recovered')
+            assert await budget.read() == budget2.version
+            assert (await budget.reconcile(anchor3)).status == 'UNKNOWN'
+            record('budget_anchor_restart_recovered', version=asdict(budget2.version))
             await authority.release(successor)
             minority, majority = nodes[0], nodes[1:]
             isolated_endpoint = endpoint(minority)
@@ -226,12 +253,29 @@ async def verify(output):
                 receipt3 = await bridge.submit(majority_lease, third, 'SYNTHETIC_AUTH')
                 assert receipt3['commit_status'] == 'COMMITTED'
                 record('one_two_network_partition_majority_commits_minority_denied', receipt=receipt3)
+                # Keep the same locally issued live lease but route its quorum
+                # validation to the actual disconnected endpoint. A separate
+                # instance without that lease would only prove local denial.
+                authority.config = ConsulConfig(endpoints=(isolated_endpoint,), namespace=namespace,
+                                                isolated_lab=True, request_timeout=1)
+                try:
+                    minority_budget = await budget.compare_and_swap(majority_lease, budget2.version, anchor3)
+                    assert minority_budget.status == 'UNKNOWN' and minority_budget.version is None
+                finally:
+                    authority.config = ConsulConfig(endpoints=tuple(endpoint(n) for n in majority),
+                                                    namespace=namespace, isolated_lab=True)
+                assert await budget.read() == budget2.version
+                budget3 = await budget.compare_and_swap(majority_lease, budget2.version, anchor3)
+                assert budget3.status == 'COMMITTED' and budget3.version.anchor == anchor3
+                record('budget_anchor_partition_majority_cas_minority_denied', version=asdict(budget3.version))
             finally:
                 docker('network', 'connect', '--alias', minority['name'], network, minority['id'])
             await wait_healthy(http, nodes)
             authority.config = ConsulConfig(endpoints=tuple(endpoint(n) for n in nodes),
                                             namespace=namespace, isolated_lab=True)
             assert await bridge.get_command(third['command_id'], 'SYNTHETIC_AUTH') == receipt3
+            assert await budget.read() == budget3.version
+            record('budget_anchor_heal_recovered', version=asdict(budget3.version))
             await authority.release(majority_lease)
             record('partition_healed_receipts_reconciled_no_forced_failback')
             # Actual Consul snapshot contains FSM plus Raft index/term metadata;

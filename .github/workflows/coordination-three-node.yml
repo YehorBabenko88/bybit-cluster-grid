@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'grid/coordination_commands.py'
+      - 'grid/coordination_budget_anchor.py'
       - 'tests/coordination/**'
       - 'lab/consul/**'
       - '.github/workflows/coordination-three-node.yml'
@@ -41,13 +42,26 @@ jobs:
         run: python lab/consul/source_receipt.py --expected "$EXPECTED_GRID_SHA" --output qualification-source-before.json
       - name: Offline protocol counterexamples (required)
         run: |
-          python -m pytest tests/coordination/test_coordination_commands.py tests/coordination/test_consul_authority.py --noconftest -p no:cacheprovider -q --basetemp="$RUNNER_TEMP/consensus-pytest-${{ github.run_id }}-${{ github.run_attempt }}" --junitxml=coordination-tests.xml
           python - <<'PY'
-          import xml.etree.ElementTree as ET
+          import json,os,pathlib,pytest,xml.etree.ElementTree as ET
+          class Inventory:
+              expected=[]
+              def pytest_collection_finish(self,session):
+                  for item in session.items:
+                      parts=item.nodeid.split('::')
+                      classname='.'.join([parts[0].removesuffix('.py').replace('/','.'),*parts[1:-1]])
+                      self.expected.append((classname,parts[-1]))
+          inventory=Inventory()
+          result=pytest.main(['tests/coordination/test_budget_anchor.py','tests/coordination/test_coordination_commands.py','tests/coordination/test_consul_authority.py','--noconftest','-p','no:cacheprovider','-q','--basetemp='+os.environ['RUNNER_TEMP']+'/consensus-pytest-${{ github.run_id }}-${{ github.run_attempt }}','--junitxml=coordination-tests.xml'],plugins=[inventory])
+          assert result==0, ('pytest exit',result)
           root=ET.parse('coordination-tests.xml').getroot()
           cases=root.findall('.//testcase')
-          assert len(cases)==60, ('required testcase inventory',len(cases))
+          observed=[(case.get('classname'),case.get('name')) for case in cases]
+          assert len(inventory.expected)==len(set(inventory.expected))==96
+          assert len(observed)==len(set(observed))==96, ('required unique testcase inventory',len(observed))
+          assert set(observed)==set(inventory.expected), 'JUnit must equal exact source collection identities'
           assert not root.findall('.//skipped') and not root.findall('.//failure') and not root.findall('.//error')
+          pathlib.Path(os.environ['RUNNER_TEMP'],'consensus-unit-inventory.json').write_text(json.dumps(dict(expected=sorted(inventory.expected),observed=sorted(observed),skipped=0,failures=0,errors=0),sort_keys=True))
           PY
       - name: Fetch exact previously pinned Consul image on ephemeral runner
         run: docker --host=unix:///var/run/docker.sock pull hashicorp/consul@sha256:259fd02f2544fe1aa03fa49efd3b105c8dd67106d710a72f5e898110266356f7
@@ -59,6 +73,10 @@ jobs:
           e=json.loads(pathlib.Path('qualification-three/evidence.json').read_text())
           required={'immutable_image_version_source_checked','persistent_voters_created','commit_and_duplicate','actual_raft_stats','actual_raft_leader_crash_receipt_survives','successor_commits_stale_owner_denied','two_voter_loss_denies_new_command','restarted_actual_raft_stats','all_process_restart_retained_volumes_receipts_recovered','one_two_network_partition_majority_commits_minority_denied','partition_healed_receipts_reconciled_no_forced_failback','actual_persistent_snapshot','linux_persistent_command_scenarios_complete'}
           assert e['result']=='PASS' and required <= {x['scenario'] for x in e['events']}
+          budget_required={'budget_anchor_initial_commit','budget_anchor_leader_loss_read','budget_anchor_successor_cas_and_stale_denial','budget_anchor_noquorum_unknown','budget_anchor_restart_recovered','budget_anchor_partition_majority_cas_minority_denied','budget_anchor_heal_recovered'}
+          assert budget_required <= {x['scenario'] for x in e['events']}
+          assert all(sum(x['scenario']==scenario for x in e['events'])==1 for scenario in budget_required)
+          assert e['budget_anchor_payload']=='SYNTHETIC_FIXED_HASHES_NO_BUDGET_JOURNAL_OR_STORE_IO' and e['budget_store_integration']=='NOT_WIRED'
           assert len(e['nodes'])==len({n['id'] for n in e['nodes']})==len({n['volume'] for n in e['nodes']})==3
           assert len({n['raft_id'] for n in e['nodes']})==3
           assert any(x['scenario']=='verified_voter_configuration' for x in e['events'])
@@ -74,6 +92,9 @@ jobs:
           files=[pathlib.Path('coordination-tests.xml'),pathlib.Path('qualification-source-before.json'),*pathlib.Path('qualification-three').glob('*.json'),*pathlib.Path('qualification-three').glob('*.snap')]
           report=runpy.run_path('lab/consul/source_receipt.py')['verify'](os.environ['EXPECTED_GRID_SHA'])
           report.update(run=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],files={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files if p.is_file()},fixture_lock_sha256=hashlib.sha256(pathlib.Path('lab/consul/requirements-three-linux.lock').read_bytes()).hexdigest(),production='NO_GO')
+          inventory=pathlib.Path(os.environ['RUNNER_TEMP'],'consensus-unit-inventory.json')
+          report['unit_inventory']=json.loads(inventory.read_text()) if inventory.is_file() else None
+          report['unit_inventory_sha256']=hashlib.sha256(inventory.read_bytes()).hexdigest() if inventory.is_file() else None
           pathlib.Path('qualification-source-after.json').write_text(json.dumps(report,indent=2))
           assert report['head']==os.environ['EXPECTED_GRID_SHA']
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
