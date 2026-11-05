@@ -7,9 +7,12 @@ def _iter_csv_text(stream):
 
 def iter_archive_rows(path):
     lower=path.lower()
-    if lower.endswith(".gz"):
+    # Verified downloads use random suffixless names. Detect their container
+    # from bounded content, without changing the raw download/hash identity.
+    with open(path,"rb") as source:signature=source.read(4)
+    if signature.startswith(b"\x1f\x8b") or lower.endswith(".gz"):
         with gzip.open(path,"rb") as f:yield from _iter_csv_text(f)
-    elif lower.endswith(".zip"):
+    elif signature in (b"PK\x03\x04",b"PK\x05\x06",b"PK\x07\x08") or lower.endswith(".zip"):
         with zipfile.ZipFile(path) as z:
             names=[n for n in z.namelist() if n.lower().endswith(".csv") and not n.endswith("/")]
             if len(names)!=1:raise ValueError("archive must contain exactly one CSV")
