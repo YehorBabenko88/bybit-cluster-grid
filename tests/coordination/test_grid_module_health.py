@@ -31,7 +31,8 @@ def module(monkeypatch, tmp_path):
         return subprocess.check_output(['git', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=' + os.devnull,
             '-C', str(root), *args], env=clean_env, text=True).strip()
     git('init', '-q')
-    (root / 'owner.py').write_text('OWNER = "grid"\n')
+    git('config', 'core.autocrlf', 'false')
+    (root / 'owner.py').write_bytes(b'OWNER = "grid"\n')
     git('add', '.')
     git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'owned source')
     head = git('rev-parse', 'HEAD')

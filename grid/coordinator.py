@@ -57,6 +57,7 @@ control_task=None
 _MODULE_SOURCE_ROOT=pathlib.Path(__file__).resolve().parents[1]
 _MODULE_HEALTH_TIMEOUT=1.0
 _owned_module_binding=None
+_owned_module_source_admission=None
 _OWNED_MODULE_ENV=('UNIFIED_MODULE_ID','UNIFIED_MODULE_VERSION','UNIFIED_RELEASE_ID',
                    'UNIFIED_INSTANCE_TOKEN','UNIFIED_SOURCE_COMMIT')
 
@@ -155,9 +156,39 @@ def _safe_owned_git_config(root):
     return True
 
 
-def _owned_source_is_clean(expected,*,owner_admitted_root=None):
+def _owned_startup_scope(admission,expected,*,verify_git=False):
+    """Live in-process source scope; no CLI/environment authorization."""
+    if isinstance(admission,dict) or not all(callable(getattr(admission,name,None)) for name in ('require_current','source_scope')):
+        raise ValueError('Owned module source binding unavailable')
+    if admission.require_current() is not True or re.fullmatch('[a-f0-9]{40}',expected) is None:
+        raise ValueError('Owned module source binding unavailable')
+    root=_MODULE_SOURCE_ROOT.absolute()
+    scoped=admission.source_scope('grid',root,expected)
+    if (not isinstance(scoped,pathlib.Path) or not scoped.is_absolute()
+            or any(c in str(scoped) for c in ('*','?','[',']','\n','\r','\0'))
+            or scoped!=root or scoped.resolve(strict=True)!=root):
+        raise ValueError('Owned module source binding unavailable')
+    if admission.require_current() is not True:raise ValueError('Owned module source binding unavailable')
+    if not verify_git:return root
+    executable=pathlib.Path(admission.git_executable);digest=admission.git_sha256
+    if not executable.is_absolute() or executable.resolve(strict=True)!=executable or re.fullmatch('[a-f0-9]{64}',digest) is None:
+        raise ValueError('Owned module Git pin unavailable')
+    info=executable.lstat()
+    if (not stat.S_ISREG(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400
+            or not 0<info.st_size<=64*1024*1024
+            or not secrets.compare_digest(hashlib.sha256(executable.read_bytes()).hexdigest(),digest)):
+        raise ValueError('Owned module Git pin unavailable')
+    if admission.require_current() is not True:raise ValueError('Owned module source binding unavailable')
+    return root,executable
+
+
+def _owned_source_is_clean(expected,*,owner_admitted_root=None,startup_admission=None):
     root=_MODULE_SOURCE_ROOT.absolute()
     try:
+        executable='git'
+        if startup_admission is not None:
+            if owner_admitted_root is not None:return False
+            owner_admitted_root,executable=_owned_startup_scope(startup_admission,expected,verify_git=True)
         if owner_admitted_root is not None:
             # Only an explicitly admitted exact canonical checkout; no parent,
             # wildcard, alias or environment-derived trust exception.
@@ -173,14 +204,16 @@ def _owned_source_is_clean(expected,*,owner_admitted_root=None):
         env={key:value for key,value in os.environ.items() if not key.startswith('GIT_')}
         env.update(GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_SYSTEM=os.devnull,GIT_CONFIG_GLOBAL=os.devnull,
                    GIT_OPTIONAL_LOCKS='0',GIT_TERMINAL_PROMPT='0',GIT_NO_REPLACE_OBJECTS='1',GIT_NO_LAZY_FETCH='1')
-        command=['git','--no-replace-objects','--no-pager','-c','core.fsmonitor=false',
+        command=[str(executable),'--no-replace-objects','--no-pager','-c','core.fsmonitor=false',
                  '-c','core.hooksPath='+os.devnull,'-c','core.attributesFile='+os.devnull,
                  '-c','core.untrackedCache=false','-c','submodule.recurse=false','-C',str(root)]
-        if owner_admitted_root is not None:command[3:3]=['-c','safe.directory='+str(root)]
+        if owner_admitted_root is not None:command[3:3]=['-c','safe.directory=','-c','safe.directory='+str(root)]
         started=time.monotonic()
         def git(*args,limit=2*1024*1024):
             # Timer kills a blocked child on both Windows and Linux; bounded
             # pipe reads prevent a hostile tree/status from exhausting memory.
+            if startup_admission is not None:
+                if _owned_startup_scope(startup_admission,expected,verify_git=True)!=(root,executable):raise ValueError('Owned module source binding unavailable')
             child=subprocess.Popen(command+list(args),env=env,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
             timer=threading.Timer(1,child.kill)
             timer.start()
@@ -229,23 +262,32 @@ def _owned_source_is_clean(expected,*,owner_admitted_root=None):
                     digest.update(block);remaining-=len(block)
                 if stream.read(1):return False
             if digest.hexdigest().encode('ascii')!=oid:return False
-        return git('status','--porcelain','--untracked-files=all','--ignore-submodules=all').strip()==b''
+        clean=git('status','--porcelain','--untracked-files=all','--ignore-submodules=all').strip()==b''
+        if startup_admission is not None:_owned_startup_scope(startup_admission,expected)
+        return clean
 
     except (OSError,ValueError,UnicodeError,configparser.Error,subprocess.SubprocessError):
         return False
 
 
 async def _initialize_owned_module_health():
-    global _owned_module_binding
+    global _owned_module_binding,_owned_module_source_admission
     _owned_module_binding=None
+    _owned_module_source_admission=None
     if not any(key in os.environ for key in _OWNED_MODULE_ENV):return
     identity=_owned_module_identity()
     if identity is None:raise RuntimeError('Owned module profile unavailable')
+    admission=getattr(app.state,'owned_source_admission',None)
     try:
-        clean=await asyncio.wait_for(asyncio.to_thread(_owned_source_is_clean,identity[4]),timeout=4)
+        options={} if admission is None else {'startup_admission':admission}
+        clean=await asyncio.wait_for(asyncio.to_thread(_owned_source_is_clean,identity[4],**options),timeout=4)
+        if admission is not None:_owned_startup_scope(admission,identity[4])
+        if getattr(app.state,'owned_source_admission',None) is not admission:clean=False
+        if _owned_module_identity()!=identity:clean=False
     except Exception:
         clean=False
     if clean is not True:raise RuntimeError('Owned module source binding unavailable')
+    _owned_module_source_admission=admission
     _owned_module_binding=identity
 
 
@@ -264,12 +306,19 @@ async def owned_module_health(request:Request):
     if _owned_module_binding!=identity:
         return JSONResponse({'error':'MODULE_HEALTH_UNAVAILABLE'},status_code=503,headers=headers)
     async def probe():
+        admission=_owned_module_source_admission
+        if getattr(app.state,'owned_source_admission',None) is not admission:return False
+        if admission is not None:_owned_startup_scope(admission,identity[4])
         if control_leader is not None and getattr(control_leader,'requires_fencing',True):return False
         if (await control_readiness()).get('ready') is not True:return False
+        if admission is not None:_owned_startup_scope(admission,identity[4])
+        if getattr(app.state,'owned_source_admission',None) is not admission:return False
         pool=db.pool
         value=await pool.fetchval('SELECT 1')
         if type(value) is not int or value!=1 or db.pool is not pool:return False
         if (await control_readiness()).get('ready') is not True:return False
+        if admission is not None:_owned_startup_scope(admission,identity[4])
+        if getattr(app.state,'owned_source_admission',None) is not admission:return False
         return (not (control_leader is not None and getattr(control_leader,'requires_fencing',True))
                 and _owned_module_identity()==identity and _owned_module_binding==identity)
     try:
