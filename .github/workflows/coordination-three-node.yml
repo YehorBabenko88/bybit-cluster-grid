@@ -1,0 +1,97 @@
+name: Three persistent Consul command qualification
+on:
+  pull_request:
+    paths:
+      - 'grid/coordination_commands.py'
+      - 'tests/coordination/**'
+      - 'lab/consul/**'
+      - '.github/workflows/coordination-three-node.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: coordination-three-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  persistent-linux-consul:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_GRID_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: 'false'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Install bounded fixture dependencies on ephemeral runner
+        run: |
+          python -m venv "$RUNNER_TEMP/consensus-fixture-venv"
+          echo "$RUNNER_TEMP/consensus-fixture-venv/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/consensus-fixture-venv/bin/python" -m pip install --require-hashes --only-binary=:all: -r lab/consul/requirements-three-linux.lock
+          "$RUNNER_TEMP/consensus-fixture-venv/bin/python" -m pip check
+      - name: Exact clean source precondition
+        run: python lab/consul/source_receipt.py --expected "$EXPECTED_GRID_SHA" --output qualification-source-before.json
+      - name: Offline protocol counterexamples (required)
+        run: |
+          python -m pytest tests/coordination/test_coordination_commands.py tests/coordination/test_consul_authority.py --noconftest -p no:cacheprovider -q --basetemp="$RUNNER_TEMP/consensus-pytest-${{ github.run_id }}-${{ github.run_attempt }}" --junitxml=coordination-tests.xml
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          root=ET.parse('coordination-tests.xml').getroot()
+          cases=root.findall('.//testcase')
+          assert len(cases)==60, ('required testcase inventory',len(cases))
+          assert not root.findall('.//skipped') and not root.findall('.//failure') and not root.findall('.//error')
+          PY
+      - name: Fetch exact previously pinned Consul image on ephemeral runner
+        run: docker --host=unix:///var/run/docker.sock pull hashicorp/consul@sha256:259fd02f2544fe1aa03fa49efd3b105c8dd67106d710a72f5e898110266356f7
+      - name: Actual three persistent processes and fault scenarios (required, no skip)
+        run: |
+          python lab/consul/verify_commands_three.py --execute-isolated-hosted-linux --output qualification-three
+          python - <<'PY'
+          import json,pathlib
+          e=json.loads(pathlib.Path('qualification-three/evidence.json').read_text())
+          required={'immutable_image_version_source_checked','persistent_voters_created','commit_and_duplicate','actual_raft_stats','actual_raft_leader_crash_receipt_survives','successor_commits_stale_owner_denied','two_voter_loss_denies_new_command','restarted_actual_raft_stats','all_process_restart_retained_volumes_receipts_recovered','one_two_network_partition_majority_commits_minority_denied','partition_healed_receipts_reconciled_no_forced_failback','actual_persistent_snapshot','linux_persistent_command_scenarios_complete'}
+          assert e['result']=='PASS' and required <= {x['scenario'] for x in e['events']}
+          assert len(e['nodes'])==len({n['id'] for n in e['nodes']})==len({n['volume'] for n in e['nodes']})==3
+          assert len({n['raft_id'] for n in e['nodes']})==3
+          assert any(x['scenario']=='verified_voter_configuration' for x in e['events'])
+          for scenario in ('actual_raft_stats','restarted_actual_raft_stats'):
+              assert sum(x['scenario']==scenario for x in e['events'])==3
+          assert not any(x['scenario'] in {'failure','cleanup_failure'} for x in e['events'])
+          PY
+      - name: Final source and evidence hashes
+        if: always()
+        shell: python
+        run: |
+          import hashlib,json,os,pathlib,runpy
+          files=[pathlib.Path('coordination-tests.xml'),pathlib.Path('qualification-source-before.json'),*pathlib.Path('qualification-three').glob('*.json'),*pathlib.Path('qualification-three').glob('*.snap')]
+          report=runpy.run_path('lab/consul/source_receipt.py')['verify'](os.environ['EXPECTED_GRID_SHA'])
+          report.update(run=os.environ['GITHUB_RUN_ID'],attempt=os.environ['GITHUB_RUN_ATTEMPT'],files={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files if p.is_file()},fixture_lock_sha256=hashlib.sha256(pathlib.Path('lab/consul/requirements-three-linux.lock').read_bytes()).hexdigest(),production='NO_GO')
+          pathlib.Path('qualification-source-after.json').write_text(json.dumps(report,indent=2))
+          assert report['head']==os.environ['EXPECTED_GRID_SHA']
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        id: evidence
+        with:
+          name: consensus-three-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            qualification-source-before.json
+            qualification-source-after.json
+            coordination-tests.xml
+            qualification-three/evidence.json
+            qualification-three/qualification.snap
+          if-no-files-found: error
+      - name: Publish artifact digest receipt
+        if: always()
+        env:
+          ARTIFACT_DIGEST: ${{ steps.evidence.outputs.artifact-digest }}
+          ARTIFACT_URL: ${{ steps.evidence.outputs.artifact-url }}
+        run: |
+          printf 'Evidence artifact SHA256: %s\nURL: %s\n' "$ARTIFACT_DIGEST" "$ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
