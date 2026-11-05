@@ -20,7 +20,10 @@ def bound(monkeypatch,tmp_path):
  admission=SimpleNamespace(require_current=lambda:state['live'],source_scope=scope,git_executable=str(git),git_sha256=hashlib.sha256(git.read_bytes()).hexdigest())
  for key,value in zip(c._OWNED_MODULE_ENV,('grid','1.2.3','test-release','a'*64,head)):monkeypatch.setenv(key,value)
  monkeypatch.setattr(c,'_MODULE_SOURCE_ROOT',root);monkeypatch.setattr(c,'_owned_module_binding',None)
- monkeypatch.setattr(c.app.state,'owned_source_admission',None,raising=False)
+ # State stores dynamic attributes in _state, outside its instance __dict__.
+ # Patch that mapping so pytest 9.2's setattr restoration cannot delete the
+ # same absent attribute twice when a test also patches the admission.
+ monkeypatch.setitem(c.app.state._state,'owned_source_admission',None)
  monkeypatch.setattr(c,'settings',SimpleNamespace(grid_coordination_mode='legacy'));monkeypatch.setattr(c,'control_leader',None)
  queries=[]
  async def fetchval(query):queries.append(query);return 1
