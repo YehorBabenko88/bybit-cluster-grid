@@ -9,9 +9,12 @@ class SegmentWAL:
         self.checkpoint_backup=self.root/"checkpoint.bak"
         self._lock=asyncio.Lock()
         self._append_faulted=False
+        # Validate the retained sequence before tail repair or staging cleanup
+        # can mutate a corrupt stream. Only an invalid unterminated final line
+        # may be ignored here; the existing repair step handles that torn tail.
+        self._next_id=self._discover_next_id(allow_partial_tail=True)
         self._repair_trailing_partial()
         self._cleanup_staging_files()
-        self._next_id=self._discover_next_id()
 
     def _segments(self):
         return sorted(self.root.glob("wal-*.seg"))
@@ -75,9 +78,9 @@ class SegmentWAL:
             except FileNotFoundError:pass
             except OSError:pass
 
-    def _discover_next_id(self):
+    def _discover_next_id(self,*,allow_partial_tail=False):
         high=self._checkpoint_id()
-        for _,rid,_ in self._iter_records():
+        for _,rid,_ in self._iter_records(allow_partial_tail=allow_partial_tail):
             high=max(high,rid)
         return high+1
 
@@ -147,8 +150,10 @@ class SegmentWAL:
             self._next_id+=1
             return rid
 
-    def _iter_records(self):
-        for p in self._segments():
+    def _iter_records(self,*,allow_partial_tail=False):
+        previous=None
+        segments=self._segments()
+        for p in segments:
             try:
                 with open(p,"rb") as f:
                     for raw in f:
@@ -163,11 +168,20 @@ class SegmentWAL:
                                 raise ValueError("invalid WAL record id")
                             if (zlib.crc32(body)&0xffffffff)!=crc:
                                 raise ValueError("WAL CRC mismatch")
-                            yield p,rid,obj["payload"]
                         except (ValueError,KeyError,TypeError,UnicodeError) as exc:
+                            if allow_partial_tail and p==segments[-1] and not raw.endswith(b"\n"):
+                                return
                             # Silently skipping a corrupted middle record lets
                             # a later ACK advance past permanently lost data.
                             raise RuntimeError(f"corrupt WAL record in {p}") from exc
+                        # CRC covers payload, not ID metadata. A duplicate ID
+                        # would otherwise be silently skipped after its first
+                        # occurrence is ACKed. Check all retained records,
+                        # including those already below the checkpoint.
+                        if previous is not None and rid<=previous:
+                            raise RuntimeError(f"corrupt WAL record in {p}: non-increasing record id")
+                        previous=rid
+                        yield p,rid,obj["payload"]
             except OSError as exc:
                 # An unreadable segment is not an empty segment. Skipping it
                 # can let recovery ACK records after a missing WAL range.
