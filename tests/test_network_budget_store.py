@@ -377,6 +377,71 @@ def test_truthy_root_admission_cannot_create_owner_state(tmp_path):
     asyncio.run(scenario())
 
 
+def test_journal_close_failure_still_attempts_owner_lock_close(tmp_path):
+    async def scenario():
+        owner, store = await create(tmp_path / 'meter')
+        await granted_read(store, owner)
+        journal, lock = store._file, store._lock_file
+        calls = []
+        class FailedClose:
+            def close(self):
+                calls.append('journal')
+                raise OSError('PRIVATE_CLOSE_CONTEXT')
+        class LockClose:
+            def close(self):
+                calls.append('lock');lock.close()
+        store._file = FailedClose();store._lock_file = LockClose()
+        try:
+            with pytest.raises(BudgetStoreBlocked, match='^BUDGET_CLOSE_UNCERTAIN$') as raised:
+                await store.close()
+            assert calls == ['journal', 'lock']
+            assert raised.value.__cause__ is None
+            assert store.snapshot()['faulted'] is True
+            assert store.snapshot()['cleanup_confirmed'] is False
+            with pytest.raises(BudgetStoreBlocked):await store.apply('grant')
+        finally:
+            # Only the explicitly retained, inert test journal is released here.
+            journal.close();lock.close()
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize('phase', ['create', 'open'])
+def test_factory_failure_sanitizes_errors_and_closes_both_handles(tmp_path, monkeypatch, phase):
+    async def scenario():
+        root = tmp_path / 'meter';root.mkdir();owner = ModeledOwner(root)
+        if phase == 'open':
+            store = await NetworkBudgetStore.create(root, **owner.args())
+            await store.close()
+        real_open = Path.open;calls = [];handles = []
+        class Held:
+            def __init__(self, stream, name):self.stream = stream;self.name = name
+            def __getattr__(self, name):return getattr(self.stream, name)
+            def close(self):
+                calls.append(self.name)
+                if self.name == 'budget.journal':raise OSError('PRIVATE_JOURNAL_PATH')
+                self.stream.close()
+        def opened(path, *args, **kwargs):
+            stream = real_open(path, *args, **kwargs)
+            if path.name in ('budget.journal', 'owner.lock'):
+                handles.append(stream)
+                return Held(stream, path.name)
+            return stream
+        async def fail_persist(*args, **kwargs):raise OSError('PRIVATE_FACTORY_CONTEXT')
+        try:
+            with monkeypatch.context() as patch:
+                patch.setattr(Path, 'open', opened)
+                patch.setattr(NetworkBudgetStore, '_persist', fail_persist)
+                factory = NetworkBudgetStore.create if phase == 'create' else NetworkBudgetStore.open
+                with pytest.raises(BudgetStoreBlocked, match='^BUDGET_'+phase.upper()+'_BLOCKED$') as raised:
+                    await factory(root, **owner.args())
+            assert calls[-2:] == ['budget.journal', 'owner.lock']
+            assert raised.value.__cause__ is None
+            assert 'PRIVATE' not in str(raised.value)
+        finally:
+            for stream in handles:stream.close()
+    asyncio.run(scenario())
+
+
 def test_capacity_and_clock_rollback_fail_closed(tmp_path):
     async def scenario():
         owner, store = await create(tmp_path / 'meter', max_bytes=8192)

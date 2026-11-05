@@ -96,6 +96,7 @@ class NetworkBudgetStore:
         self._mutex = asyncio.Lock()
         self._lock_file = self._file = None
         self._closed = self._faulted = False
+        self._cleanup_confirmed = None
         self._fence = self._marker = None
         self._revision = self._size = 0
         self._sha = '0' * 64
@@ -131,12 +132,20 @@ class NetworkBudgetStore:
             fcntl.flock(self._lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     def _release(self):
+        # Logical closure blocks use even when an OS close outcome is unknown.
+        # Keep uncertainty sticky; a later no-op close is not fresh OS proof.
+        self._closed = True
+        confirmed = self._cleanup_confirmed is not False
         for name in ('_file', '_lock_file'):
             stream = getattr(self, name)
             if stream is not None:
-                stream.close()
-                setattr(self, name, None)
-        self._closed = True
+                try:stream.close()
+                except BaseException:
+                    confirmed = False
+                    self._faulted = True
+                else:setattr(self, name, None)
+        self._cleanup_confirmed = confirmed
+        return confirmed
 
     @classmethod
     async def create(cls, root, *, installation_id, guard, admit_root, clock_ms, max_bytes=8*1024*1024):
@@ -291,8 +300,9 @@ class NetworkBudgetStore:
     def snapshot(self):
         return dict(runtime_admission=RUNTIME_ADMISSION, revision=self._revision, offset=self._size,
                     sha256=self._sha, faulted=self._faulted,
+                    cleanup_confirmed=self._cleanup_confirmed,
                     model=self._model.snapshot() if self._model is not None else None)
 
     async def close(self):
         async with self._mutex:
-            self._release()
+            need(self._release(), 'BUDGET_CLOSE_UNCERTAIN')
