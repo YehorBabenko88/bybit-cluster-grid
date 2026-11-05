@@ -14,7 +14,8 @@ def simulate():
  report=dict(qualification='SYNTHETIC_MODEL_ONLY_NOT_RUNTIME_ACCEPTANCE',virtual_duration_ms=600000,
   real_network_calls=0,nodes=list(NODES),symbols=list(SYMBOLS),max_pending=0,max_http=0,max_bulk=0,max_ws=0,
   reserved_bytes={'research':0,'high':0},byte_basis='RESERVED_CHARGED_SYNTHETIC_BYTES_NOT_OBSERVED_TRANSFER',
-  actual_transfer_bound='NOT_PROVEN',open_p1=['DELAYED_FIRST_SPEND_CAN_ACCUMULATE_UNUSED_READ_CREDITS'],
+  actual_transfer_bound='NOT_PROVEN',open_p1=['NATIVE_MONOTONIC_IO_AND_AUTHENTICATED_DURABLE_METER_NOT_IMPLEMENTED'],
+  read_lifecycle='MODELED_500MS_SINGLE_OUTSTANDING_PER_CONNECTION',max_outstanding_count=0,max_outstanding_bytes=0,
   history_symbols_by_node={},phases={},restart_preserved_credit=False,
   windows_configuration_changes=[],state_bytes_max=0,http_attempts=0,ws_attempts=0)
  def enqueue(node,module,operation,now,connection=None,size=0):
@@ -45,12 +46,12 @@ def simulate():
   if now in (120000,120100):budget.observe(_measurement(True),now_ms=now)
   if now==240000:
    before=budget.snapshot();raw=budget.dumps();budget=BudgetModel.restore(raw,now_ms=now)
-   after=budget.snapshot();report['restart_preserved_credit']=all(before[k]==after[k] for k in ('research_units','high_units','http_units','ws_units','connections'))
+   after=budget.snapshot();report['restart_preserved_credit']=all(before[k]==after[k] for k in ('research_units','high_units','http_units','ws_units')) and len(before['connections'])==len(after['connections']) and all(held['uncertain'] for held in after['connections'].values())
   state=budget.snapshot()
   # Explicit modeled transport closure. Expiry alone never releases a slot.
   for ident,held in list(state['connections'].items()):
    request=held['request'];age=now-held['issued_ms']
-   close=held['protocol']=='HTTP' and (request['priority']=='LOW' and age>=1000 or request['priority']=='HIGH' and age>=300)
+   close=held['protocol']=='HTTP' and (request['priority']=='LOW' and age>=1000 or request['priority']=='HIGH' and age>=300) or now==240100 and held['uncertain']
    if close:budget.close(ident,confirmed=True,now_ms=now)
    elif not held['uncertain'] and held['deadline_ms']-now<=2000:
     budget.renew(ident,confirmed_open=True,now_ms=now)
@@ -82,6 +83,13 @@ def simulate():
      budget.close(receipt['connection'],confirmed=True,now_ms=now)
    else:
     request=receipt['request'];lane='high' if request['priority']=='HIGH' else 'research'
+    outstanding=budget.snapshot()['outstanding']
+    report['max_outstanding_count']=max(report['max_outstanding_count'],len(outstanding))
+    report['max_outstanding_bytes']=max(report['max_outstanding_bytes'],sum(read['bytes'] for read in outstanding.values()))
+    args=(request['node'],request['module'],receipt['connection'],receipt['read_id'],receipt['read_sequence'])
+    budget.consume_read(*args,now_ms=now)
+    # Immediate modeled consumption/transport completion; no real I/O occurred.
+    budget.complete_read(*args,confirmed_stopped=True,now_ms=now)
     report['reserved_bytes'][lane]+=receipt['bytes'];counter[lane]+=receipt['bytes']
     if receipt['operation']=='ws_connect':counter['live']+=receipt['bytes']
     if lane=='research':

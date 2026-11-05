@@ -15,7 +15,9 @@ def test_six_nodes_ten_symbols_virtual_fault_and_recovery_matrix():
  assert report['reserved_bytes']['research']<=1048576*600
  assert report['byte_basis']=='RESERVED_CHARGED_SYNTHETIC_BYTES_NOT_OBSERVED_TRANSFER'
  assert report['actual_transfer_bound']=='NOT_PROVEN'
- assert 'DELAYED_FIRST_SPEND_CAN_ACCUMULATE_UNUSED_READ_CREDITS' in report['open_p1']
+ assert 'NATIVE_MONOTONIC_IO_AND_AUTHENTICATED_DURABLE_METER_NOT_IMPLEMENTED' in report['open_p1']
+ assert report['read_lifecycle']=='MODELED_500MS_SINGLE_OUTSTANDING_PER_CONNECTION'
+ assert 0<report['max_outstanding_count']<=7 and 0<report['max_outstanding_bytes']<=7*65536
  assert all(report['history_symbols_by_node'][node]==report['symbols'] for node in report['nodes'])
  assert report['phases']['degraded']['research']==0 and report['phases']['degraded']['high']>0
  assert report['phases']['ls5_down']['research']==0 and report['phases']['ls5_down']['high']<=65536*6

@@ -13,12 +13,17 @@ def opened(b,*,node="PC1",op="history_get",seq=1,now=1000):
  assert result and result["kind"]=="OPEN"
  return result["connection"]
 
+def complete(b,receipt,now):
+ request=receipt['request'];args=(request['node'],request['module'],receipt['connection'],receipt['read_id'],receipt['read_sequence'])
+ b.consume_read(*args,now_ms=now);b.complete_read(*args,confirmed_stopped=True,now_ms=now)
+
 def test_open_spends_attempt_but_each_chunk_spends_only_bytes():
  b=model();conn=opened(b)
  assert b.snapshot()["attempts"]["http"]==1
  for seq in (2,3):
   b.read("PC1","grid",conn,65536,seq,now_ms=1000)
   permit=b.grant(now_ms=1000);assert permit["kind"]=="READ" and permit["bytes"]==65536
+  complete(b,permit,1000)
  assert b.snapshot()["attempts"]["http"]==1
  assert b.snapshot()["charged"]["research"]==131072
  assert len(b.snapshot()["connections"])==1
@@ -88,7 +93,7 @@ def test_ls5_outage_no_new_bulk_or_connections_and_only_preallocated_high_bytes(
  b=model();conn=opened(b,node="LS5",op="ws_connect",now=3000)
  b.set_authority(False,now_ms=4000)
  b.read("LS5","grid",conn,65536,2,now_ms=4000)
- assert b.grant(now_ms=4000)["kind"]=="READ"
+ receipt=b.grant(now_ms=4000);assert receipt["kind"]=="READ";complete(b,receipt,4000)
  b.read("LS5","grid",conn,1,3,now_ms=4000)
  assert b.grant(now_ms=5000) is None
  b.open("PC1","grid","history_get",1,now_ms=5000)
@@ -149,7 +154,7 @@ def test_serialization_bounds_and_counter_tampering_rejected():
 @pytest.mark.parametrize('kind',['duplicate_pending','duplicate_open','priority','actor','receipt_connection','deadline','float_clock','bool_deadline'])
 def test_restore_rejects_identity_category_and_lease_corruption(kind):
  import copy
- b=model();conn=opened(b);b.read('PC1','grid',conn,1000,2,now_ms=1000);b.grant(now_ms=1000)
+ b=model();conn=opened(b);b.read('PC1','grid',conn,1000,2,now_ms=1000);complete(b,b.grant(now_ms=1000),1000)
  b.read('PC1','grid',conn,1000,3,now_ms=1000);s=b.snapshot()
  if kind=='duplicate_pending':s['pending'].append(copy.deepcopy(s['pending'][0]))
  elif kind=='duplicate_open':
@@ -182,15 +187,94 @@ def test_restore_cannot_move_ls5_control_capability_to_worker(node):
  receipt=s['receipts'].pop('LS5/unified-system');receipt['request']['node']=node;receipt['request']['id']=held['id'];receipt['ticket']=held['id'];s['receipts'][node+'/unified-system']=receipt
  with pytest.raises(ValueError):type(b).restore(json.dumps(s).encode(),now_ms=200)
 
-def test_open_p1_delayed_first_spend_counterexample_is_not_a_transfer_bound():
- # Intentional known limitation, NOT a proof that actual bandwidth is safe.
- # These are never spent on real I/O. Seventy single-use but unused receipts
- # could later be first-spent together, exceeding a one-second+burst envelope.
+def test_delayed_first_spend_cannot_accumulate_seventy_usable_receipts():
+ # No real I/O. Earlier stage1 allowed all seventy first spends to be delayed.
+ # Each unused read now expires without refund, and only the newest can live.
  b=model();conn=opened(b);unused=[]
  for index in range(70):
   now=1000+index*1000;b.renew(conn,confirmed_open=True,now_ms=now)
   b.read('PC1','grid',conn,65536,index+2,now_ms=now)
   unused.append(b.grant(now_ms=now))
- assert all(receipt and receipt['kind']=='READ' and 'expires_ms' not in receipt for receipt in unused)
+ assert all(receipt and receipt['kind']=='READ' and receipt['expires_ms']==receipt['issued_ms']+500 for receipt in unused)
  assert sum(receipt['bytes'] for receipt in unused)>3*1048576
  assert b.snapshot()['charged']['research']==70*65536
+ for receipt in unused[:-1]:
+  with pytest.raises(ValueError):b.consume_read('PC1','grid',conn,receipt['read_id'],receipt['read_sequence'],now_ms=70000)
+ assert b.consume_read('PC1','grid',conn,unused[-1]['read_id'],unused[-1]['read_sequence'],now_ms=70000)['bytes']==65536
+
+def test_one_pending_or_outstanding_read_per_connection():
+ b=model();conn=opened(b)
+ ticket=b.read('PC1','grid',conn,1024,2,now_ms=1000)
+ assert b.read('PC1','grid',conn,1024,2,now_ms=1000)==ticket
+ with pytest.raises(ValueError,match='READ_PENDING'):b.read('PC1','grid',conn,1024,3,now_ms=1000)
+ first=b.grant(now_ms=1000)
+ with pytest.raises(ValueError,match='READ_PENDING'):b.read('PC1','grid',conn,1024,3,now_ms=1100)
+ assert len(b.snapshot()['outstanding'])==1
+ b.consume_read('PC1','grid',conn,first['read_id'],first['read_sequence'],now_ms=1200)
+ with pytest.raises(ValueError,match='READ_PENDING'):b.read('PC1','grid',conn,1024,3,now_ms=1200)
+
+def test_completed_read_single_use_and_completion_does_not_close_transport():
+ b=model();conn=opened(b);b.read('PC1','grid',conn,1024,2,now_ms=1000);r=b.grant(now_ms=1000)
+ assert r['read_sequence']==1
+ b.consume_read('PC1','grid',conn,r['read_id'],1,now_ms=1100)
+ with pytest.raises(ValueError):b.consume_read('PC1','grid',conn,r['read_id'],1,now_ms=1100)
+ assert b.complete_read('PC1','grid',conn,r['read_id'],1,confirmed_stopped=True,now_ms=1200) is True
+ assert conn in b.snapshot()['connections'] and b.snapshot()['outstanding']=={}
+ with pytest.raises(ValueError):b.consume_read('PC1','grid',conn,r['read_id'],1,now_ms=1201)
+ b.read('PC1','grid',conn,1024,3,now_ms=1201);next_read=b.grant(now_ms=1201)
+ assert next_read['read_sequence']==2
+ with pytest.raises(ValueError):b.consume_read('PC1','grid',conn,next_read['read_id'],1,now_ms=1202)
+
+@pytest.mark.parametrize('kind',['unused','inflight','uncertain','close','restart'])
+def test_expiry_uncertainty_close_restart_invalidate_spendability_without_refund(kind):
+ b=model();conn=opened(b);b.read('PC1','grid',conn,65536,2,now_ms=1000);r=b.grant(now_ms=1000)
+ charged=b.snapshot()['charged']['research']
+ if kind=='inflight':b.consume_read('PC1','grid',conn,r['read_id'],1,now_ms=1100)
+ if kind in ('unused','inflight'):b.grant(now_ms=1500)
+ elif kind=='uncertain':b.close(conn,confirmed=False,now_ms=1100)
+ elif kind=='close':b.close(conn,confirmed=True,now_ms=1100)
+ else:b=type(b).restore(b.dumps(),now_ms=1100)
+ now=1500 if kind in ('unused','inflight') else 1100
+ with pytest.raises(ValueError):b.consume_read('PC1','grid',conn,r['read_id'],1,now_ms=now)
+ assert b.snapshot()['charged']['research']==charged and b.snapshot()['outstanding']=={}
+ if kind in ('inflight','uncertain','restart'):
+  assert b.snapshot()['connections'][conn]['uncertain'] is True
+  with pytest.raises(ValueError):b.read('PC1','grid',conn,1,3,now_ms=now)
+ elif kind=='unused':
+  assert b.snapshot()['connections'][conn]['uncertain'] is False
+  b.read('PC1','grid',conn,1,3,now_ms=now);assert b.grant(now_ms=now)['read_sequence']==2
+
+@pytest.mark.parametrize('kind',['expiry','read_id','actor','sequence_bool','cached_status','pending_with_outstanding','two_pending_same_connection'])
+def test_restore_read_lifecycle_identity_and_single_outstanding_invariants(kind):
+ import copy
+ b=model();conn=opened(b);b.read('PC1','grid',conn,1024,2,now_ms=1000);receipt=b.grant(now_ms=1000)
+ if kind=='two_pending_same_connection':
+  complete(b,receipt,1000);b.read('PC1','grid',conn,1024,3,now_ms=1000)
+ s=b.snapshot()
+ if kind=='expiry':s['outstanding'][conn]['expires_ms']+=1
+ elif kind=='read_id':s['outstanding'][conn]['read_id']='read/connection/999/1'
+ elif kind=='actor':s['outstanding'][conn]['request']['node']='PC2'
+ elif kind=='sequence_bool':s['outstanding'][conn]['read_sequence']=True
+ elif kind=='cached_status':s['receipts']['PC1/grid']['status']='EXPIRED'
+ else:
+  item=copy.deepcopy(receipt['request']);seq=3 if kind=='pending_with_outstanding' else 4
+  item['sequence']=seq;item['id']='PC1/grid/'+str(seq);s['pending'].append(item);s['sequences']['PC1/grid']=seq
+ with pytest.raises(ValueError):type(b).restore(json.dumps(s).encode(),now_ms=1000)
+
+@pytest.mark.parametrize('change',['node','module','connection','read_id','sequence','bool_sequence'])
+def test_consume_scope_rejects_wrong_actor_or_nonce_without_retiring_real_read(change):
+ b=model();conn=opened(b);b.read('PC1','grid',conn,1024,2,now_ms=1000);r=b.grant(now_ms=1000)
+ args=['PC1','grid',conn,r['read_id'],r['read_sequence']]
+ index,value={'node':(0,'PC2'),'module':(1,'unified-system'),'connection':(2,'connection/999'),'read_id':(3,'read/forged'),'sequence':(4,2),'bool_sequence':(4,True)}[change];args[index]=value
+ with pytest.raises(ValueError):b.consume_read(*args,now_ms=1100)
+ assert b.snapshot()['outstanding'][conn]['status']=='ISSUED'
+ b.consume_read('PC1','grid',conn,r['read_id'],r['read_sequence'],now_ms=1100)
+
+def test_uncertain_read_completion_never_releases_transport_slot():
+ b=model();conn=opened(b);b.read('PC1','grid',conn,1024,2,now_ms=1000);r=b.grant(now_ms=1000)
+ args=('PC1','grid',conn,r['read_id'],r['read_sequence']);b.consume_read(*args,now_ms=1100)
+ with pytest.raises(ValueError):b.complete_read(*args,confirmed_stopped=1,now_ms=1100)
+ assert b.complete_read(*args,confirmed_stopped=False,now_ms=1100) is False
+ assert b.snapshot()['connections'][conn]['uncertain'] and b.snapshot()['outstanding']=={}
+ with pytest.raises(ValueError):b.complete_read(*args,confirmed_stopped=True,now_ms=1101)
+ b.close(conn,confirmed=True,now_ms=1101);assert conn not in b.snapshot()['connections']

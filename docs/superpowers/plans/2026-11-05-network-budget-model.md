@@ -36,3 +36,16 @@ ownership. The model does not claim actual persistence or authentication.
 - [x] Export a machine-readable synthetic report with per-phase bounds.
 - [ ] Root reviews contract, limitations and actual test evidence before a
   source-only Draft PR and before any SQL/API/ingestion integration.
+
+## Stage 2: short-lived read reservations (pure model only)
+
+- [x] Root approved 500 ms TTL, immutable IDs/scopes, strict connection sequences,
+  one pending/outstanding read per connection and no refund on expiry.
+- [x] Observe eight failing public-API lifecycle regressions before implementation.
+- [x] Implement consume/complete states and preserve uncertain connection slots.
+- [x] Invalidate old spendability on restart; explicitly reconcile modeled
+  transports before simulation reconnects. No real I/O or SQL is added.
+- [x] Run strict actor/sequence/serialized-state regressions plus virtual run.
+- [ ] Root independently reviews the source before the Draft PR is updated.
+- [ ] Agree the authenticated durable meter/native monotonic I/O contract before
+  any actual SQL/network adapter implementation. Actual byte bound NOT PROVEN.

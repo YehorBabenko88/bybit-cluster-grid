@@ -5,7 +5,7 @@ Windows configuration, physical load or production qualification is authorized
 by this model. It is not a new Grid job authority or an activation grant.
 **Reservation-only scope:** all byte counters are RESERVED/CHARGED synthetic
 bytes. They are not observed transfers and do not prove an actual byte-rate
-bound. The manager is not complete; the delayed-first-spend P1 below is open.
+bound. The manager is not complete: the modeled lifecycle below still needs an authenticated durable meter and a native monotonic I/O adapter.
 
 ## Existing authority and source admission
 
@@ -99,23 +99,54 @@ can release the slot. Missing or ambiguous close results stop that lane. A new
 authority epoch inherits unresolved permits; it cannot overlap them by restart,
 lease expiry, or a new identifier. No model receipt is a wire credential.
 
-### Open P1 — delayed first spend; actual transfer bound NOT PROVEN
+### Read lifecycle v2: modeled fix, actual transfer bound NOT PROVEN
 
-The current read receipt has an issuance time but no short expiry or consumption
-acknowledgment. A modeled client can accumulate unused, individually single-use
-receipts over time and first-spend them together. A durable debit prevents
-double spending, but does not solve delayed FIRST spending. The public-API
-regression deliberately preserves this counterexample: seventy unused 64 KiB
-read reservations can exceed a one-second rate-plus-burst transfer envelope.
-The simulator's byte totals are reservation charges, not a network-safety PASS.
+Stage 1's public-API counterexample accumulated seventy unused 64 KiB read
+receipts and allowed delayed first spending. That exact source remains in
+commit `97a0c9787df8907334b364912eb4946ea18af85a`; it is not wire-safe.
+The v2 model fixes that modeled lifecycle as follows:
 
-Before real byte I/O, the next reviewed contract must require a short read TTL,
-at most one outstanding read credit per connection, durable local single use
-and actual consumption acknowledgment, local monotonic I/O deadline, and no
-offline prefetch. Expired unused credit is never refunded. The transfer burst
-analysis must include at most seven outstanding 64 KiB credits plus admitted
-in-flight overhead, rather than equating grant issuance time with transfer time.
-Root must approve this server/local-meter contract before implementation or I/O.
+- `open(node,module,operation,actor_sequence,now_ms=...)` queues only a closed
+  admitted operation. `read(node,module,connection,bytes,actor_sequence,...)`
+  binds a chunk to its exact existing transport owner.
+- A READ receipt includes immutable actor, connection, actor sequence,
+  `read_id`, strictly increasing per-connection `read_sequence`, `issued_ms`,
+  and `expires_ms = issued_ms + 500`. There is at most one pending OR
+  outstanding read per connection; duplicate identical ticket delivery does
+  not create another grant or byte debit.
+- `consume_read(node,module,connection,read_id,read_sequence,now_ms=...)`
+  checks exact internal state, live connection, next per-connection sequence,
+  and first spend strictly before expiry. It transitions ISSUED to IN_FLIGHT.
+  A copied JSON receipt is never sufficient authorization.
+- `complete_read(...,confirmed_stopped=True,now_ms=...)` retires that read only
+  after modeled I/O completion. It never closes or frees the connection.
+  Re-consuming a consumed/completed/expired read fails. False or uncertain
+  completion invalidates the grant and marks the transport uncertain.
+- Expired ISSUED credit is consumed without refund and cannot be first-spent.
+  Expired IN_FLIGHT credit invalidates the grant and poisons its transport;
+  the connection slot remains occupied until confirmed actual transport close.
+  Connection close, uncertainty and restart invalidate pending/outstanding read
+  spendability. Restore preserves credit and slot counts but marks old
+  connections uncertain; their survival is never assumed from JSON.
+- The state schema is v2. Stage 1 saved models are rejected rather than silently
+  upgraded into spendable grants. The simulator explicitly confirms old modeled
+  transport closure before reopening after restart.
+
+The public regression now collects the same seventy unused receipts, with no
+real I/O, and proves all older first spends rejected; only a current, unexpired
+single reservation can be consumed. Model issuance remains bounded by the
+research token bucket and per-node HIGH credits. At most seven outstanding
+64 KiB reservations exist, giving a conservative additional reservation envelope
+of 458,752 bytes over the 2 MiB research burst, before in-flight overhead.
+This is a model bound, not an observed transfer or physical socket proof.
+
+**Open P1:** actual authenticated source/actor admission, fenced durable SQL and
+local consumption acknowledgment, single-use local meter, native monotonic
+read/decompression deadline, compressed/raw/header/total-response caps and no
+offline prefetch remain unimplemented. A real adapter must prevent all I/O
+after expiry, confirm completion before another read, and conservatively account
+for in-flight bytes; server wall-clock fields alone cannot prove that. Root must
+approve the server/local-meter/I/O contract before SQL integration or I/O.
 
 ## Degradation, outage and recovery
 
