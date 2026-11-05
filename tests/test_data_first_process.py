@@ -243,7 +243,11 @@ def test_actual_owned_windows_child_tree_is_joined_on_cancellation(tmp_path,monk
  asyncio.run(run())
 
 
-def test_revocation_during_pin_admission_is_rechecked_before_claim(tmp_path):
+def test_revocation_during_pin_admission_is_rechecked_before_claim(tmp_path,monkeypatch):
+ import types
+ import grid.data_first_process as module
+ # Pure admission ordering model: no native Windows launch is exercised here.
+ monkeypatch.setattr(module,'os',types.SimpleNamespace(name='nt',fstat=module.os.fstat,walk=module.os.walk))
  from grid.data_first_agent_worker import run_once
  admission,_=admitted_fixture(tmp_path);original=admission.process_spec
  def revoked_snapshot():

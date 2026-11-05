@@ -16,12 +16,23 @@ def row(index,kind,payload,event=1999000,ingest=1999500):
  payload=copy.deepcopy(payload);payload['_producer_connection']=context('b'*32 if kind=='trade_tape_250ms'else'a'*32)
  return dict(id=index,symbol='BTCUSDT',source='bybit',event_type=kind,payload=payload,event_ts=stamp(event),ingest_ts=stamp(ingest))
 def tape():return dict(start_ms=1999000,open=100,high=102,low=99,close=101,buy_volume=2,sell_volume=1,buy_count=2,sell_count=1,trade_count=3,delta=1,cvd=5,range=3,aggressor_imbalance=1/3)
-def book(seq=10,update=20):return dict(best_bid='100',best_ask='101',sequence=seq,update_id=update,cts=1999500,_quality={'symbol':'BTCUSDT','feeds':{'orderbook':{'status':'available','reason':'omitted free text'}}})
+def book(seq=10,update=20,*,symbol='BTCUSDT'):return dict(best_bid='100',best_ask='101',sequence=seq,update_id=update,cts=1999500,_quality={'symbol':symbol,'feeds':{'orderbook':{'status':'available','reason':'omitted free text'}}})
 def funding(proof=True):
  p=dict(funding_rate='0.0001',funding_interval_hour='8',next_funding_time='28800000')
  if proof:p['_field_observations']={'schema':'grid.ticker-field-observations.v1','clock_basis':'EXCHANGE_FRAME_TS_AND_PROCESS_WALL_CLOCK','fields':{k:dict(event_ms=1999800,observed_ms=1999850,value_sha256=hash_value(v))for k,v in p.items()}}
  return p
 def rows():return [row(1,'trade_tape_250ms',tape()),row(2,'orderbook_snapshot',book(),1999600,1999700),row(3,'derivatives_ticker',funding(),1999800,1999900)]
+
+def test_ten_symbol_pg_fixture_books_match_the_selected_symbol():
+ from grid.lab_observation_export import SYMBOLS
+ for symbol in sorted(SYMBOLS):
+  record=row(1,'orderbook_snapshot',book(symbol=symbol),1999600,1999700)
+  record['symbol']=symbol
+  packet=export_paper_inputs([record],request(symbol=symbol))
+  assert packet['rows'][0]['payload']['_quality']['symbol']==symbol
+  mismatched=copy.deepcopy(record);mismatched['payload']['_quality']['symbol']='OTHERUSDT'
+  with pytest.raises(ExportBlocked,match='^BLOCKED_QUALITY$'):
+   export_paper_inputs([mismatched],request(symbol=symbol))
 
 def test_real_kinds_exact_clocks_hashes_and_unattested_qualifiers():
  raw=rows();raw[0]['payload']['private_unexported']='secret'
@@ -145,7 +156,7 @@ def test_actual_hosted_pg18_ten_symbol_source_projection_without_mutation(databa
  writer,connect=database
  expected={}
  for symbol in sorted(SYMBOLS):
-  items=[('trade_tape_250ms',tape(),1999000,1999500),('orderbook_snapshot',book(),1999600,1999700),('derivatives_ticker',funding(),1999800,1999900)]
+  items=[('trade_tape_250ms',tape(),1999000,1999500),('orderbook_snapshot',book(symbol=symbol),1999600,1999700),('derivatives_ticker',funding(),1999800,1999900)]
   expected[symbol]=[_insert_paper_fixture(writer,symbol,*item)for item in items]
  before=_snapshot(writer);reader=connect()
  for symbol in sorted(SYMBOLS):
