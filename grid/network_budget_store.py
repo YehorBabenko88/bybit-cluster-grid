@@ -113,6 +113,7 @@ class NetworkBudgetStore:
         need(valid_fence(value))
         if self._fence is not None:
             need(value == self._fence, 'BUDGET_FENCE_CHANGED')
+        self._admitted()  # The awaited guard may have revoked the namespace.
         return dict(value)
 
     def _clock(self):
@@ -259,6 +260,7 @@ class NetworkBudgetStore:
         self._assets()
         await self._current()
         need(self._clock() >= model.snapshot()['clock_ms'], 'BUDGET_CLOCK_ROLLBACK')
+        self._admitted()  # Clock callbacks cannot revoke admission and publish.
 
     async def apply(self, method, *args, **kwargs):
         need(type(method) is str and method in METHODS and 'now_ms' not in kwargs, 'BUDGET_METHOD_REJECTED')
@@ -278,6 +280,7 @@ class NetworkBudgetStore:
                     deadline = (result['expires_ms'] if result['kind'] == 'READ' else
                                 model.snapshot()['connections'][result['connection']]['deadline_ms'])
                     need(self._clock() < deadline, 'BUDGET_RECEIPT_EXPIRED_DURING_PERSIST')
+                self._admitted()  # Final check after the receipt deadline callback.
             except BaseException as exc:
                 self._faulted = True
                 if not isinstance(exc, Exception):raise

@@ -20,10 +20,11 @@ class ModeledOwner:
         self.root = root
         self.now = 0
         self.live = True
+        self.root_live = True
         self.epoch = 1
 
     def admit_root(self, path):
-        return self.live and path == self.root
+        return self.live and self.root_live and path == self.root
 
     async def guard(self):
         if not self.live:
@@ -258,6 +259,37 @@ def test_postwrite_fence_change_blocks_receipt_and_faults_owner(tmp_path, monkey
                 await consume(store, permit)
         with pytest.raises(BudgetStoreBlocked):
             await store.apply('grant')
+        await store.close()
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize('callback', ['guard', 'clock'])
+def test_final_callbacks_cannot_revoke_root_and_publish_receipt(tmp_path, monkeypatch, callback):
+    async def scenario():
+        owner, store = await create(tmp_path / 'meter')
+        permit = await granted_read(store, owner)
+        original = os.fsync
+        durable = [False];clocks = [0]
+        def flushed(fd):
+            original(fd);durable[0] = True
+        async def guard():
+            value = await owner.guard()
+            if durable[0] and callback == 'guard':owner.root_live = False
+            return value
+        def clock():
+            if durable[0]:
+                clocks[0] += 1
+                if callback == 'clock' and clocks[0] == 2:owner.root_live = False
+            return owner.now
+        store.guard = guard;store.clock_ms = clock
+        with monkeypatch.context() as patch:
+            patch.setattr(os, 'fsync', flushed)
+            with pytest.raises(BudgetStoreBlocked):await consume(store, permit)
+        assert owner.root_live is False
+        assert store.snapshot()['faulted'] is True
+        # The committed debit is not rolled back even though publication failed.
+        record = json.loads((owner.root / 'budget.journal').read_bytes().splitlines()[-1])
+        assert record['model']['outstanding'][permit['connection']]['status'] == 'IN_FLIGHT'
         await store.close()
     asyncio.run(scenario())
 
