@@ -62,28 +62,9 @@ async def reconcile_instruments(pool,current,*,retire_confirmations=3):
         return added,retired
 
 async def purge_retired(pool,grace_days=30):
-    """Physical deletion only after grace period and no active/running strategy job references the symbol."""
-    async with pool.acquire() as c:
-        rows=await c.fetch("""SELECT symbol FROM instruments
-          WHERE status='Retired' AND retired_at < now()-($1::int*interval '1 day')""",grace_days)
-        purged=[]
-        for r in rows:
-            sym=r["symbol"]
-            busy=await c.fetchval("""SELECT EXISTS(
-              SELECT 1 FROM strategy_jobs
-              WHERE status IN ('queued','running') AND symbols ? $1
-            )""",sym)
-            if busy: continue
-            # Raw/derived market data can now be removed; simulation results remain for research.
-            for table,tscol in (
-                ("market_events","event_ts"),("orderbook_snapshots","ts"),
-                ("derivatives_metrics","ts"),("footprint_1m","ts"),("candles_1m","ts")
-            ):
-                try:
-                    await c.execute(f"DELETE FROM {table} WHERE symbol=$1",sym)
-                except Exception:
-                    log.exception("retired symbol purge failed",extra={"event":"retired_purge","symbol":sym})
-                    raise
-            await c.execute("DELETE FROM instruments WHERE symbol=$1",sym)
-            purged.append(sym)
-        return purged
+    """Preserve retired history until a separate retention policy is approved.
+
+    Retirement and elapsed grace alone do not authorize deletion. Keep this
+    compatibility hook non-destructive, without even acquiring a DB connection.
+    """
+    return []
