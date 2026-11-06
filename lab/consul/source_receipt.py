@@ -13,7 +13,7 @@ def verify(expected):
     env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull,
                GIT_NO_REPLACE_OBJECTS='1', GIT_CONFIG_COUNT='0')
     def git(*args):
-        return subprocess.check_output(['git','-c','core.fsmonitor=false',*args], env=env, timeout=30)
+        return subprocess.check_output(['git','--no-replace-objects','-c','core.fsmonitor=false',*args], env=env, timeout=30)
     head = git('rev-parse','HEAD').decode().strip()
     if head != expected or git('rev-parse','--show-object-format').strip() != b'sha1':
         raise ValueError('SOURCE_HEAD_OR_FORMAT_MISMATCH')
