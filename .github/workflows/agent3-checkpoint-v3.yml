@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Keep raw checkout bytes stable on disposable runner
-        run: git config --global core.autocrlf false
+        run: git --no-replace-objects config --global core.autocrlf false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -39,9 +39,10 @@ jobs:
           import hashlib,json,os,stat,subprocess
           from pathlib import Path
           head=os.environ["A3_EXPECTED_HEAD"]
-          assert subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()==head
+          assert subprocess.check_output(["git","--no-replace-objects","rev-parse","HEAD"],text=True).strip()==head
+          tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
           owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml"]
-          fixtures=subprocess.check_output(["git","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3"],text=True).splitlines()
+          fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3"],text=True).splitlines()
           paths=sorted(set(owned+fixtures+["grid/__init__.py","grid/observer_checkpoint.py"]))
           rows=[]
           for name in paths:
@@ -52,14 +53,14 @@ jobs:
                   current=current/part; info=current.lstat()
                   assert not stat.S_ISLNK(info.st_mode) and not (getattr(info,"st_file_attributes",0)&1024)
               assert path.is_file()
-              mode=subprocess.check_output(["git","ls-tree",head,"--",name],text=True).split()[0]
+              mode=subprocess.check_output(["git","--no-replace-objects","ls-tree",head,"--",name],text=True).split()[0]
               assert mode in {"100644","100755"}
-              expected=subprocess.check_output(["git","cat-file","blob",head+":"+name])
+              expected=subprocess.check_output(["git","--no-replace-objects","cat-file","blob",head+":"+name])
               actual=path.read_bytes()
               assert actual==expected, "Raw tracked-source mismatch: "+name
               rows.append({"path":name,"sha256":hashlib.sha256(actual).hexdigest(),"bytes":len(actual)})
           out=Path(os.environ["RUNNER_TEMP"])/"agent3-checkpoint-v3"; out.mkdir(exist_ok=True)
-          (out/(os.environ["A3_GUARD_PHASE"]+"-source.json")).write_text(json.dumps({"head":head,"phase":os.environ["A3_GUARD_PHASE"],"files":rows},indent=2),encoding="utf-8")
+          (out/(os.environ["A3_GUARD_PHASE"]+"-source.json")).write_text(json.dumps({"head":head,"tree":tree,"phase":os.environ["A3_GUARD_PHASE"],"files":rows},indent=2),encoding="utf-8")
           print("Exact Git-blob/raw-file source guard:",len(rows),"files",os.environ["A3_GUARD_PHASE"])
       - name: Exact codec inventory and zero skips
         shell: python {0}
@@ -69,7 +70,8 @@ jobs:
           import json,os,subprocess,sys,xml.etree.ElementTree as ET
           from pathlib import Path
           head=os.environ["A3_EXPECTED_HEAD"]
-          raw=subprocess.check_output(["git","cat-file","blob",head+":tests/fixtures/agent3-checkpoint-v3/test-inventory.json"])
+          tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
+          raw=subprocess.check_output(["git","--no-replace-objects","cat-file","blob",head+":tests/fixtures/agent3-checkpoint-v3/test-inventory.json"])
           inventory=json.loads(raw)
           out=Path(os.environ["RUNNER_TEMP"])/"agent3-checkpoint-v3"; out.mkdir(exist_ok=True)
           command=[sys.executable,"-B","-m","pytest","-q","-p","no:cacheprovider","--basetemp="+str(out/"pytest-temp"),"--junitxml="+str(out/"junit.xml"),"tests/test_market_data_lifecycle_checkpoint_v3.py"]
@@ -82,7 +84,7 @@ jobs:
           assert all(case.attrib["classname"]=="tests.test_market_data_lifecycle_checkpoint_v3" for case in cases)
           actual=sorted("tests/test_market_data_lifecycle_checkpoint_v3.py::"+case.attrib["name"] for case in cases)
           assert actual==sorted(inventory["nodeids"])
-          (out/"result.json").write_text(json.dumps({"head":head,"evidence_scope":"PURE_CODEC_UNTRUSTED_CLAIMS_NOT_ACTUAL_AUTHORITY","cases":len(cases),"skips":0,"nodeids":actual},indent=2),encoding="utf-8")
+          (out/"result.json").write_text(json.dumps({"head":head,"tree":tree,"evidence_scope":"PURE_CODEC_UNTRUSTED_CLAIMS_NOT_ACTUAL_AUTHORITY","cases":len(cases),"skips":0,"nodeids":actual},indent=2),encoding="utf-8")
       - name: Source guard after tests
         if: always()
         shell: python {0}
@@ -93,9 +95,10 @@ jobs:
           import hashlib,json,os,stat,subprocess
           from pathlib import Path
           head=os.environ["A3_EXPECTED_HEAD"]
-          assert subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()==head
+          assert subprocess.check_output(["git","--no-replace-objects","rev-parse","HEAD"],text=True).strip()==head
+          tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
           owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml"]
-          fixtures=subprocess.check_output(["git","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3"],text=True).splitlines()
+          fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3"],text=True).splitlines()
           paths=sorted(set(owned+fixtures+["grid/__init__.py","grid/observer_checkpoint.py"]))
           rows=[]
           for name in paths:
@@ -106,14 +109,14 @@ jobs:
                   current=current/part; info=current.lstat()
                   assert not stat.S_ISLNK(info.st_mode) and not (getattr(info,"st_file_attributes",0)&1024)
               assert path.is_file()
-              mode=subprocess.check_output(["git","ls-tree",head,"--",name],text=True).split()[0]
+              mode=subprocess.check_output(["git","--no-replace-objects","ls-tree",head,"--",name],text=True).split()[0]
               assert mode in {"100644","100755"}
-              expected=subprocess.check_output(["git","cat-file","blob",head+":"+name])
+              expected=subprocess.check_output(["git","--no-replace-objects","cat-file","blob",head+":"+name])
               actual=path.read_bytes()
               assert actual==expected, "Raw tracked-source mismatch: "+name
               rows.append({"path":name,"sha256":hashlib.sha256(actual).hexdigest(),"bytes":len(actual)})
           out=Path(os.environ["RUNNER_TEMP"])/"agent3-checkpoint-v3"; out.mkdir(exist_ok=True)
-          (out/(os.environ["A3_GUARD_PHASE"]+"-source.json")).write_text(json.dumps({"head":head,"phase":os.environ["A3_GUARD_PHASE"],"files":rows},indent=2),encoding="utf-8")
+          (out/(os.environ["A3_GUARD_PHASE"]+"-source.json")).write_text(json.dumps({"head":head,"tree":tree,"phase":os.environ["A3_GUARD_PHASE"],"files":rows},indent=2),encoding="utf-8")
           print("Exact Git-blob/raw-file source guard:",len(rows),"files",os.environ["A3_GUARD_PHASE"])
       - name: Upload offline codec evidence only
         if: always()
