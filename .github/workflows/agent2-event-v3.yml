@@ -44,6 +44,13 @@ jobs:
         run: |
           import os,subprocess,sys
           subprocess.run([sys.executable,'tests/coordination/event_v3/verify_offline.py','--expected',os.environ['EXPECTED_GRID_SHA'],'--output',os.path.join(os.environ['RUNNER_TEMP'],'event-v3-offline')],check=True)
+      - name: No-replace controls in independent owned clone
+        shell: python
+        run: |
+          import os,pathlib,shutil,subprocess,sys
+          scratch=pathlib.Path(os.environ['RUNNER_TEMP'],'event-v3-noreplace')
+          subprocess.run([sys.executable,'tests/coordination/event_v3/verify_no_replace.py','--expected',os.environ['EXPECTED_GRID_SHA'],'--scratch',str(scratch)],check=True)
+          shutil.copyfile(scratch/'evidence.json',pathlib.Path(os.environ['RUNNER_TEMP'],'event-v3-offline/no-replace-evidence.json'))
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
