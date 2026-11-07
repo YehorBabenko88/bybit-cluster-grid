@@ -36,19 +36,43 @@ jobs:
       - name: Install isolated test dependency
         run: python -m pip install --disable-pip-version-check pytest==8.3.5
       - name: Source guard before tests
-        shell: python {0}
+        shell: python -I -B {0}
         env:
           A3_EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
           A3_GUARD_PHASE: before
         run: |
+          import sys
+          assert sys.flags.isolated and sys.dont_write_bytecode
+          assert sys.pycache_prefix is None, "Redirected bytecode cache forbidden"
           import hashlib,json,os,stat,subprocess
           from pathlib import Path
+          assert not os.environ.get("PYTHONPYCACHEPREFIX"), "Redirected bytecode environment forbidden"
           head=os.environ["A3_EXPECTED_HEAD"]
           assert subprocess.check_output(["git","--no-replace-objects","rev-parse","HEAD"],text=True).strip()==head
           tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
           owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml","grid/market_ingestion_domain.py","grid/market_page_validation.py","tests/test_market_ingestion_domain.py","tests/test_market_page_validation.py","docs/market-data/agent3/domain-review1.md","docs/market-data/agent3/page-preparation-v1.md"]
           fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3","tests/fixtures/agent3-market-domain"],text=True).splitlines()
           paths=sorted(set(owned+fixtures+["grid/__init__.py","grid/observer_checkpoint.py"]))
+          tracked=set(subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head],text=True).splitlines())
+          root=Path.cwd()
+          assert not Path(os.environ["RUNNER_TEMP"]).resolve().is_relative_to(root.resolve()), "Evidence must be outside checkout"
+          pending=[root]
+          scanned=0
+          while pending:
+              directory=pending.pop()
+              with os.scandir(directory) as entries:
+                  for entry in entries:
+                      path=Path(entry.path)
+                      if directory==root and entry.name==".git":
+                          continue
+                      info=entry.stat(follow_symlinks=False)
+                      assert not stat.S_ISLNK(info.st_mode) and not (getattr(info,"st_file_attributes",0)&1024), "Unexpected linked checkout path: "+str(path)
+                      if stat.S_ISDIR(info.st_mode):
+                          pending.append(path)
+                      else:
+                          scanned+=1
+                          assert path.suffix.lower() not in {".pyc",".pyo"}, "Bytecode cache forbidden: "+str(path)
+                          assert path.suffix.lower()!=".py" or path.relative_to(root).as_posix() in tracked, "Unexpected Python source: "+str(path)
           rows=[]
           for name in paths:
               path=Path(name)
@@ -65,22 +89,39 @@ jobs:
               assert actual==expected, "Raw tracked-source mismatch: "+name
               rows.append({"path":name,"sha256":hashlib.sha256(actual).hexdigest(),"bytes":len(actual)})
           out=Path(os.environ["RUNNER_TEMP"])/"agent3-checkpoint-v3"; out.mkdir(exist_ok=True)
-          (out/(os.environ["A3_GUARD_PHASE"]+"-source.json")).write_text(json.dumps({"head":head,"tree":tree,"phase":os.environ["A3_GUARD_PHASE"],"files":rows},indent=2),encoding="utf-8")
+          (out/(os.environ["A3_GUARD_PHASE"]+"-source.json")).write_text(json.dumps({"head":head,"tree":tree,"phase":os.environ["A3_GUARD_PHASE"],"checkout_files_scanned":scanned,"bytecode_admission":"NO_CACHE_NO_UNEXPECTED_PY","files":rows},indent=2),encoding="utf-8")
           print("Exact Git-blob/raw-file source guard:",len(rows),"files",os.environ["A3_GUARD_PHASE"])
       - name: Exact codec inventory and zero skips
-        shell: python {0}
+        shell: python -I -B {0}
         env:
           A3_EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          import json,os,subprocess,sys,xml.etree.ElementTree as ET
+          import sys
+          assert sys.flags.isolated and sys.dont_write_bytecode
+          assert sys.pycache_prefix is None, "Redirected bytecode cache forbidden"
+          import json,os,subprocess,xml.etree.ElementTree as ET
           from pathlib import Path
+          assert not os.environ.get("PYTHONPYCACHEPREFIX")
+          assert not os.environ.get("PYTEST_ADDOPTS") and not os.environ.get("PYTEST_PLUGINS")
           head=os.environ["A3_EXPECTED_HEAD"]
+          workflow_path=".github/workflows/agent3-checkpoint-v3.yml"
+          workflow=subprocess.check_output(["git","--no-replace-objects","cat-file","blob",head+":"+workflow_path])
+          assert Path(workflow_path).read_bytes()==workflow
+          text=workflow.decode("utf-8")
+          begin="      - name: Source guard before tests\n"
+          end="      - name: Exact codec inventory and zero skips\n"
+          assert text.count(begin)==1 and text.count(end)==1
+          block=text.split(begin,1)[1].split(end,1)[0].split("        run: |\n",1)[1]
+          assert all(not line or line.startswith("          ") for line in block.splitlines())
+          guard="\n".join(line[10:] for line in block.splitlines())
+          launcher=guard+"\nimport sys\nsys.path.insert(0,str(Path.cwd()))\nimport pytest\nraise SystemExit(pytest.main(sys.argv[1:]))\n"
+          child_env={**os.environ,"PYTEST_DISABLE_PLUGIN_AUTOLOAD":"1","A3_GUARD_PHASE":"before-test-import"}
           tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
           raw=subprocess.check_output(["git","--no-replace-objects","cat-file","blob",head+":tests/fixtures/agent3-checkpoint-v3/test-inventory.json"])
           inventory=json.loads(raw)
           out=Path(os.environ["RUNNER_TEMP"])/"agent3-checkpoint-v3"; out.mkdir(exist_ok=True)
-          command=[sys.executable,"-B","-m","pytest","-q","-p","no:cacheprovider","--basetemp="+str(out/"pytest-temp"),"--junitxml="+str(out/"junit.xml"),"tests/test_market_data_lifecycle_checkpoint_v3.py"]
-          result=subprocess.run(command,capture_output=True,text=True)
+          command=[sys.executable,"-I","-B","-c",launcher,"-q","-p","no:cacheprovider","--basetemp="+str(out/"pytest-temp"),"--junitxml="+str(out/"junit.xml"),"tests/test_market_data_lifecycle_checkpoint_v3.py"]
+          result=subprocess.run(command,capture_output=True,text=True,env=child_env)
           (out/"pytest.log").write_text(result.stdout+result.stderr,encoding="utf-8"); print(result.stdout); print(result.stderr)
           assert result.returncode==0
           cases=ET.parse(out/"junit.xml").getroot().findall(".//testcase")
@@ -91,13 +132,30 @@ jobs:
           assert actual==sorted(inventory["nodeids"])
           (out/"result.json").write_text(json.dumps({"head":head,"tree":tree,"evidence_scope":"PURE_CODEC_UNTRUSTED_CLAIMS_NOT_ACTUAL_AUTHORITY","cases":len(cases),"skips":0,"nodeids":actual},indent=2),encoding="utf-8")
       - name: Exact separate domain/page inventory and zero skips
-        shell: python {0}
+        shell: python -I -B {0}
         env:
           A3_EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          import json,os,subprocess,sys,xml.etree.ElementTree as ET
+          import sys
+          assert sys.flags.isolated and sys.dont_write_bytecode
+          assert sys.pycache_prefix is None, "Redirected bytecode cache forbidden"
+          import json,os,subprocess,xml.etree.ElementTree as ET
           from pathlib import Path
+          assert not os.environ.get("PYTHONPYCACHEPREFIX")
+          assert not os.environ.get("PYTEST_ADDOPTS") and not os.environ.get("PYTEST_PLUGINS")
           head=os.environ["A3_EXPECTED_HEAD"]
+          workflow_path=".github/workflows/agent3-checkpoint-v3.yml"
+          workflow=subprocess.check_output(["git","--no-replace-objects","cat-file","blob",head+":"+workflow_path])
+          assert Path(workflow_path).read_bytes()==workflow
+          text=workflow.decode("utf-8")
+          begin="      - name: Source guard before tests\n"
+          end="      - name: Exact codec inventory and zero skips\n"
+          assert text.count(begin)==1 and text.count(end)==1
+          block=text.split(begin,1)[1].split(end,1)[0].split("        run: |\n",1)[1]
+          assert all(not line or line.startswith("          ") for line in block.splitlines())
+          guard="\n".join(line[10:] for line in block.splitlines())
+          launcher=guard+"\nimport sys\nsys.path.insert(0,str(Path.cwd()))\nimport pytest\nraise SystemExit(pytest.main(sys.argv[1:]))\n"
+          child_env={**os.environ,"PYTEST_DISABLE_PLUGIN_AUTOLOAD":"1","A3_GUARD_PHASE":"before-test-import"}
           tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
           raw=subprocess.check_output(["git","--no-replace-objects","cat-file","blob",head+":tests/fixtures/agent3-market-domain/test-inventory.json"])
           inventory=json.loads(raw)
@@ -106,8 +164,8 @@ jobs:
           assert len(inventory["nodeids"])==55 and len(set(inventory["nodeids"]))==55
           out=Path(os.environ["RUNNER_TEMP"])/"agent3-checkpoint-v3"; out.mkdir(exist_ok=True)
           files=["tests/test_market_ingestion_domain.py","tests/test_market_page_validation.py"]
-          command=[sys.executable,"-B","-m","pytest","-q","-p","no:cacheprovider","--basetemp="+str(out/"domain-pytest-temp"),"--junitxml="+str(out/"domain-junit.xml"),*files]
-          result=subprocess.run(command,capture_output=True,text=True)
+          command=[sys.executable,"-I","-B","-c",launcher,"-q","-p","no:cacheprovider","--basetemp="+str(out/"domain-pytest-temp"),"--junitxml="+str(out/"domain-junit.xml"),*files]
+          result=subprocess.run(command,capture_output=True,text=True,env=child_env)
           (out/"domain-pytest.log").write_text(result.stdout+result.stderr,encoding="utf-8"); print(result.stdout); print(result.stderr)
           assert result.returncode==0
           cases=ET.parse(out/"domain-junit.xml").getroot().findall(".//testcase")
@@ -119,19 +177,43 @@ jobs:
           (out/"domain-result.json").write_text(json.dumps({"head":head,"tree":tree,"evidence_scope":"OFFLINE_DOMAIN_AND_PAGE_PREPARATION_NOT_AUTHORITY_OR_PROVIDER","cases":55,"skips":0,"nodeids":actual},indent=2),encoding="utf-8")
       - name: Source guard after tests
         if: always()
-        shell: python {0}
+        shell: python -I -B {0}
         env:
           A3_EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
           A3_GUARD_PHASE: after
         run: |
+          import sys
+          assert sys.flags.isolated and sys.dont_write_bytecode
+          assert sys.pycache_prefix is None, "Redirected bytecode cache forbidden"
           import hashlib,json,os,stat,subprocess
           from pathlib import Path
+          assert not os.environ.get("PYTHONPYCACHEPREFIX"), "Redirected bytecode environment forbidden"
           head=os.environ["A3_EXPECTED_HEAD"]
           assert subprocess.check_output(["git","--no-replace-objects","rev-parse","HEAD"],text=True).strip()==head
           tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
           owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml","grid/market_ingestion_domain.py","grid/market_page_validation.py","tests/test_market_ingestion_domain.py","tests/test_market_page_validation.py","docs/market-data/agent3/domain-review1.md","docs/market-data/agent3/page-preparation-v1.md"]
           fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3","tests/fixtures/agent3-market-domain"],text=True).splitlines()
           paths=sorted(set(owned+fixtures+["grid/__init__.py","grid/observer_checkpoint.py"]))
+          tracked=set(subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head],text=True).splitlines())
+          root=Path.cwd()
+          assert not Path(os.environ["RUNNER_TEMP"]).resolve().is_relative_to(root.resolve()), "Evidence must be outside checkout"
+          pending=[root]
+          scanned=0
+          while pending:
+              directory=pending.pop()
+              with os.scandir(directory) as entries:
+                  for entry in entries:
+                      path=Path(entry.path)
+                      if directory==root and entry.name==".git":
+                          continue
+                      info=entry.stat(follow_symlinks=False)
+                      assert not stat.S_ISLNK(info.st_mode) and not (getattr(info,"st_file_attributes",0)&1024), "Unexpected linked checkout path: "+str(path)
+                      if stat.S_ISDIR(info.st_mode):
+                          pending.append(path)
+                      else:
+                          scanned+=1
+                          assert path.suffix.lower() not in {".pyc",".pyo"}, "Bytecode cache forbidden: "+str(path)
+                          assert path.suffix.lower()!=".py" or path.relative_to(root).as_posix() in tracked, "Unexpected Python source: "+str(path)
           rows=[]
           for name in paths:
               path=Path(name)
@@ -148,7 +230,7 @@ jobs:
               assert actual==expected, "Raw tracked-source mismatch: "+name
               rows.append({"path":name,"sha256":hashlib.sha256(actual).hexdigest(),"bytes":len(actual)})
           out=Path(os.environ["RUNNER_TEMP"])/"agent3-checkpoint-v3"; out.mkdir(exist_ok=True)
-          (out/(os.environ["A3_GUARD_PHASE"]+"-source.json")).write_text(json.dumps({"head":head,"tree":tree,"phase":os.environ["A3_GUARD_PHASE"],"files":rows},indent=2),encoding="utf-8")
+          (out/(os.environ["A3_GUARD_PHASE"]+"-source.json")).write_text(json.dumps({"head":head,"tree":tree,"phase":os.environ["A3_GUARD_PHASE"],"checkout_files_scanned":scanned,"bytecode_admission":"NO_CACHE_NO_UNEXPECTED_PY","files":rows},indent=2),encoding="utf-8")
           print("Exact Git-blob/raw-file source guard:",len(rows),"files",os.environ["A3_GUARD_PHASE"])
       - name: Upload offline codec evidence only
         if: always()
