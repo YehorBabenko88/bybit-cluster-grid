@@ -1,0 +1,18 @@
+{
+  "scope": "NATIVE_SESSION_ID_FORMAT_CORRECTION_NOT_SYNTAX_AS_AUTHORITY",
+  "previous_sha256": "50da8f3276772709b623c7c2629f257caa19da80221b21d81db7bc1c8a95b36b",
+  "successor_sha256": "9bdb1084004fcc6cfb76fa0f1bce0013b6a26a9b288cbb71c82db621feb4f4d0",
+  "evidence_sha256": "bd1c5976812e09a1585cabff995a9454330da165a436dc6c0053a526785426fe",
+  "exact_delta": [
+    "/$defs/native_session_id",
+    "/$id",
+    "/properties/schema/const",
+    "/properties/worker_session_id/$ref"
+  ],
+  "actual_native_old_schema_rejected": true,
+  "actual_native_new_schema_accepted": true,
+  "malformed_noncanonical_negatives": 8,
+  "unchanged_client_uuid4_negatives": 4,
+  "actual_foreign_stale_native_tests": "OWNER_BROKER_LOG_NATIVE6_SEPARATE_NOT_SCHEMA_VECTORS",
+  "actual_native_mutations_in_this_generator": 0
+}

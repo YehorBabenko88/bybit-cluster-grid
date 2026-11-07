@@ -1,0 +1,26 @@
+[
+  {
+    "path": "actual-native-session.json",
+    "sha256": "bd1c5976812e09a1585cabff995a9454330da165a436dc6c0053a526785426fe"
+  },
+  {
+    "path": "build.py",
+    "sha256": "383bfe769a3422357c8e4d3160e68eea82c619b9097297d76316bad1780d703a"
+  },
+  {
+    "path": "lease-lock.schema.json",
+    "sha256": "9bdb1084004fcc6cfb76fa0f1bce0013b6a26a9b288cbb71c82db621feb4f4d0"
+  },
+  {
+    "path": "MANIFEST.json",
+    "sha256": "77e833f6e29aa65db01d6eeed617701a24a6a1a5e9aedffa9526d3981df6cda0"
+  },
+  {
+    "path": "PROTOCOL.md",
+    "sha256": "c5bd9a021bcebd3bcbb1a4c948e90b42bf5a29dcf0c4f0ba59b6a2a12ed9a918"
+  },
+  {
+    "path": "verification.json",
+    "sha256": "64944cba1fa5f388c480448e468d1afcf88da70f13aa39c8582dea3b7f905d86"
+  }
+]
