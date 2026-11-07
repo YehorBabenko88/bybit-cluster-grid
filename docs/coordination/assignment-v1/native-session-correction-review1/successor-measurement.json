@@ -1,0 +1,41 @@
+{
+  "scope": "CANDIDATE_SERIALIZATION_ONLY_NOT_NATIVE_RUNTIME_OR_ISSUER",
+  "previous_measurement_sha256": "75c08be72231acc2346f401e1765c23cd75810a23b644dd40e88dae71d60f390",
+  "successor_lease_schema_sha256": "9bdb1084004fcc6cfb76fa0f1bce0013b6a26a9b288cbb71c82db621feb4f4d0",
+  "actual_consul_requests": 0,
+  "sample_native_sessions": "UNCHANGED_HISTORICAL_CANDIDATES_NOT_REAL_ISSUANCE",
+  "plans": {
+    "admit": {
+      "operations": 43,
+      "encoded_bytes": 20119,
+      "encoded_sha256": "7622e073483f74bd1aebee7d91783f83cc1a8ed4d8fcd0857ee03600ad1630be",
+      "lease_record_changes": 1,
+      "operation_headroom": 21,
+      "bytes_headroom": 12649
+    },
+    "begin_dispatch": {
+      "operations": 34,
+      "encoded_bytes": 9295,
+      "encoded_sha256": "1b7f5fcea2462d24cf5d677f243cc3e848ce4ba72a28a985ea0d9d8f27cacd3e",
+      "lease_record_changes": 0,
+      "operation_headroom": 30,
+      "bytes_headroom": 23473
+    },
+    "record_computed_metadata": {
+      "operations": 35,
+      "encoded_bytes": 9909,
+      "encoded_sha256": "57d25afe3bd2b5ce3c2aedcac3b0db834bcb06da4e2587592bb4f04fc802feda",
+      "lease_record_changes": 0,
+      "operation_headroom": 29,
+      "bytes_headroom": 22859
+    },
+    "cancel_request": {
+      "operations": 26,
+      "encoded_bytes": 10658,
+      "encoded_sha256": "f1d4ec79b10f6f92607221ad58ba548007eba834130cc8b04df5dcfc2477de1c",
+      "lease_record_changes": 0,
+      "operation_headroom": 38,
+      "bytes_headroom": 22110
+    }
+  }
+}

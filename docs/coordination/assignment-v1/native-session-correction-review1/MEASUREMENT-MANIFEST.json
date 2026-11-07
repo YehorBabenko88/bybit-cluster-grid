@@ -1,0 +1,26 @@
+[
+  {
+    "path": "admit.successor.native-plan.json",
+    "sha256": "73bade25cb25863113a2226e41c24971a94307d6de3e3b946140594f24cca97d"
+  },
+  {
+    "path": "begin_dispatch.successor.native-plan.json",
+    "sha256": "8f85391cfe82d27fe8e3ce54daab512549bbaf474c23638d11eb95dd34ab86b8"
+  },
+  {
+    "path": "cancel_request.successor.native-plan.json",
+    "sha256": "81678d3167a3bcdb7701460873a9ee835db897a52c9a85442c9474557e9c5dd6"
+  },
+  {
+    "path": "measure_successor.py",
+    "sha256": "2391de6d56a106160d06f67fe0394caf2e63497f149de0cf56383e9462d2063e"
+  },
+  {
+    "path": "record_computed_metadata.successor.native-plan.json",
+    "sha256": "8ff46851285f1889f2b79e5ef1b8ccb3648ff02e1db92589e086acce9bab96ee"
+  },
+  {
+    "path": "successor-measurement.json",
+    "sha256": "f456b645fa788ff1896b565ae7cfb27c3bc0a1f243dbeb16f09a0143c204fdd8"
+  }
+]
