@@ -37,4 +37,9 @@ class AssignmentContractTests(unittest.TestCase):
         from grid.authority_assignment_v1 import _decode
         for raw in (b'{"x":1}',b'{"x":"a","x":"b"}',b'{ "x":"a"}',b'{"x":'+b'['*13+b'null'+b']'*13+b'}'):
             with self.assertRaises(ValueError):_decode(raw)
+    def test_malformed_native_success_response_is_not_commit_confirmation(self):
+        class Malformed:
+            async def _request(self,*args,**kwargs):return {}
+        backend=AssignmentAuthority(Malformed(),self.generation)
+        with self.assertRaises(AssignmentUnavailable):asyncio.run(backend._transaction([{'KV':{'Verb':'check-not-exists','Key':'probe'}}]))
 if __name__=='__main__':unittest.main()

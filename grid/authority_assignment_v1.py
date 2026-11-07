@@ -136,7 +136,9 @@ class AssignmentAuthority:
     async def _transaction(self,operations,*,read_only=False):
         measure_native_plan(operations) # actual64op/32768encoded limit, not proof.
         result=await self.authority._request('PUT','/v1/txn',json=operations,**({'params':{'consistent':''}} if read_only else {}))
-        if type(result) is not dict or result.get('Errors'):raise AssignmentUnavailable('NATIVE_TRANSACTION_OUTCOME_UNKNOWN')
+        if (type(result) is not dict or result.get('Errors') or type(result.get('Results')) is not list
+                or len(result['Results'])!=len(operations) or any(type(item) is not dict for item in result['Results'])):
+            raise AssignmentUnavailable('NATIVE_TRANSACTION_OUTCOME_UNKNOWN')
         return result
     async def execute(self,original_request_bytes,*,context,leader):
         if self.native_provider is None:raise AssignmentUnavailable('ACTUAL_NATIVE_PROVIDER_UNAVAILABLE')
