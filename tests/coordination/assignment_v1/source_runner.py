@@ -17,12 +17,17 @@ UNITS={
  'test_runtime_policy.RuntimePolicyDataTests.test_schema_control_and13_terminal_newline_negatives',
  'test_runtime_policy.RuntimePolicyDataTests.test_schema_positive_u63_limit_and_no_implicit_policy_write'}
 
+def load_checked_guard(helper):
+ raw=helper.read_bytes();assert hashlib.sha256(raw).hexdigest()==GUARD_SHA
+ guard=types.ModuleType('a2_pinned_source_guard');guard.__file__=str(helper)
+ exec(compile(raw,str(helper),'exec'),guard.__dict__)
+ return guard
+
 def main():
  p=argparse.ArgumentParser();p.add_argument('--expected-head',required=True);p.add_argument('--support-source',required=True,type=Path);p.add_argument('--binary',required=True,type=Path);p.add_argument('--scratch',required=True,type=Path);p.add_argument('--output',required=True,type=Path);a=p.parse_args()
  if not sys.flags.isolated or not sys.dont_write_bytecode or sys.pycache_prefix is not None:raise RuntimeError('ISOLATED_NO_BYTECODE_REQUIRED')
  root=Path(__file__).absolute().parents[3];support=a.support_source.absolute();output=a.output.absolute();scratch=a.scratch.absolute();output.mkdir(parents=True,exist_ok=False)
- helper=support/'tests/control_mux/source_runner.py';raw=helper.read_bytes();assert hashlib.sha256(raw).hexdigest()==GUARD_SHA
- guard=types.ModuleType('a2_pinned_source_guard');guard.__file__=str(helper);exec(compile(raw,str(helper),'exec'),guard.__dict__)
+ helper=support/'tests/control_mux/source_runner.py';guard=load_checked_guard(helper)
  exclusions=tuple(path for path in (support,Path(sys.prefix).absolute()) if path.is_relative_to(root))
  if output.is_relative_to(root):
   if output!=root/'.assignment-evidence':raise AssertionError('EVIDENCE_PATH')

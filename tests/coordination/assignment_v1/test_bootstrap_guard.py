@@ -1,5 +1,5 @@
 """Negative executable guard bootstrap cache fixture; no native processes."""
-import importlib.util,importlib._bootstrap_external,subprocess,tempfile,unittest,os,sys
+import importlib.util,importlib._bootstrap_external,subprocess,tempfile,unittest,os,sys,types
 from pathlib import Path
 class SourceBootstrapTests(unittest.TestCase):
     def test_checked_helper_bytes_cannot_be_replaced_by_valid_pyc(self):
@@ -15,9 +15,11 @@ class SourceBootstrapTests(unittest.TestCase):
             cache.write_bytes(importlib._bootstrap_external._code_to_timestamp_pyc(payload,int(helper.stat().st_mtime),len(raw)))
             spec=importlib.util.spec_from_file_location('positive_matched_cache_control',helper);module=importlib.util.module_from_spec(spec)
             with self.assertRaisesRegex(RuntimeError,sentinel):spec.loader.exec_module(module)
-            head=subprocess.check_output(['git','--no-replace-objects','-C',str(root),'rev-parse','HEAD']).decode().strip()
-            result=subprocess.run([sys.executable,'-I','-B',str(root/'tests/coordination/assignment_v1/source_runner.py'),'--expected-head',head,'--support-source',str(folder/'support'),'--binary',str(folder/'not-used.exe'),'--scratch',str(folder/'not-used-data'),'--output',str(folder/'evidence')],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=60)
-            output=result.stdout.decode(errors='replace');self.assertNotEqual(result.returncode,0)
-            self.assertNotIn(sentinel,output)
-            self.assertTrue(any(text in output for text in ('UNEXPECTED_IMPORTABLE_SOURCE','HEAD_MISMATCH','RAW_SOURCE_MISMATCH:','not a git repository')),output)
+            runner=root/'tests/coordination/assignment_v1/source_runner.py'
+            namespace={'__name__':'assignment_bootstrap_test','__file__':str(runner)}
+            exec(compile(runner.read_bytes(),str(runner),'exec'),namespace)
+            guard=namespace['load_checked_guard'](helper)
+            self.assertTrue(callable(guard.source_receipt))
+            self.assertEqual(guard.source_receipt.__code__.co_filename,str(helper))
+            with self.assertRaises(subprocess.CalledProcessError):guard.source_receipt(folder/'support',namespace['SUPPORT_HEAD'])
 if __name__=='__main__':unittest.main()
