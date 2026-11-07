@@ -1,0 +1,1 @@
+{"data_schema_sha256":"14c9f8e8d5c70584b0ca675c6de676498dafedab442076e71c96d45eb4346a77","interval_ms":"60000","lineage_sha256":"de6b2ddbdbaf3b029ac3f0bd70cdb049c6975c4a889c740df6ab30f09d980a63","rows":[["0","100","102","99","101","3","301"],["120000","101","103","100","102","4","406"]],"schema":"grid.gateway.synthetic-row-segment.v1-review1","source_class":"SYNTHETIC"}

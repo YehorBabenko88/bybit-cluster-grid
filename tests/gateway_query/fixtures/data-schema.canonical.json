@@ -1,0 +1,1 @@
+{"category":"linear","columns":["open_time_ms","open","high","low","close","volume","turnover"],"financial_encoding":"canonical-exact-decimal-strings","interval_ms":"60000","price_unit":"quote-per-base","schema":"grid.gateway.synthetic-ohlcv-row.v1-review1","source_class":"SYNTHETIC","turnover_unit":"quote","volume_unit":"base"}
