@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - 'grid/checkpoint_v3_codec.py'
+      - 'grid/market_ingestion_domain.py'
+      - 'grid/market_page_validation.py'
+      - 'tests/test_market_ingestion_domain.py'
+      - 'tests/test_market_page_validation.py'
+      - 'tests/fixtures/agent3-market-domain/**'
       - 'tests/test_market_data_lifecycle_checkpoint_v3.py'
       - 'tests/fixtures/agent3-checkpoint-v3/**'
       - 'docs/market-data/agent3/**'
@@ -41,8 +46,8 @@ jobs:
           head=os.environ["A3_EXPECTED_HEAD"]
           assert subprocess.check_output(["git","--no-replace-objects","rev-parse","HEAD"],text=True).strip()==head
           tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
-          owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml"]
-          fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3"],text=True).splitlines()
+          owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml","grid/market_ingestion_domain.py","grid/market_page_validation.py","tests/test_market_ingestion_domain.py","tests/test_market_page_validation.py","docs/market-data/agent3/domain-review1.md","docs/market-data/agent3/page-preparation-v1.md"]
+          fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3","tests/fixtures/agent3-market-domain"],text=True).splitlines()
           paths=sorted(set(owned+fixtures+["grid/__init__.py","grid/observer_checkpoint.py"]))
           rows=[]
           for name in paths:
@@ -85,6 +90,33 @@ jobs:
           actual=sorted("tests/test_market_data_lifecycle_checkpoint_v3.py::"+case.attrib["name"] for case in cases)
           assert actual==sorted(inventory["nodeids"])
           (out/"result.json").write_text(json.dumps({"head":head,"tree":tree,"evidence_scope":"PURE_CODEC_UNTRUSTED_CLAIMS_NOT_ACTUAL_AUTHORITY","cases":len(cases),"skips":0,"nodeids":actual},indent=2),encoding="utf-8")
+      - name: Exact separate domain/page inventory and zero skips
+        shell: python {0}
+        env:
+          A3_EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          import json,os,subprocess,sys,xml.etree.ElementTree as ET
+          from pathlib import Path
+          head=os.environ["A3_EXPECTED_HEAD"]
+          tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
+          raw=subprocess.check_output(["git","--no-replace-objects","cat-file","blob",head+":tests/fixtures/agent3-market-domain/test-inventory.json"])
+          inventory=json.loads(raw)
+          assert inventory["schema"]=="agent3.market-domain-page.test-inventory.v1"
+          assert inventory["expected_count"]==55 and inventory["expected_skips"]==0
+          assert len(inventory["nodeids"])==55 and len(set(inventory["nodeids"]))==55
+          out=Path(os.environ["RUNNER_TEMP"])/"agent3-checkpoint-v3"; out.mkdir(exist_ok=True)
+          files=["tests/test_market_ingestion_domain.py","tests/test_market_page_validation.py"]
+          command=[sys.executable,"-B","-m","pytest","-q","-p","no:cacheprovider","--basetemp="+str(out/"domain-pytest-temp"),"--junitxml="+str(out/"domain-junit.xml"),*files]
+          result=subprocess.run(command,capture_output=True,text=True)
+          (out/"domain-pytest.log").write_text(result.stdout+result.stderr,encoding="utf-8"); print(result.stdout); print(result.stderr)
+          assert result.returncode==0
+          cases=ET.parse(out/"domain-junit.xml").getroot().findall(".//testcase")
+          assert len(cases)==55 and not any(list(case) for case in cases)
+          classes={"tests.test_market_ingestion_domain":"tests/test_market_ingestion_domain.py","tests.test_market_page_validation":"tests/test_market_page_validation.py"}
+          assert all(case.attrib["classname"] in classes for case in cases)
+          actual=sorted(classes[case.attrib["classname"]]+"::"+case.attrib["name"] for case in cases)
+          assert len(set(actual))==55 and actual==sorted(inventory["nodeids"])
+          (out/"domain-result.json").write_text(json.dumps({"head":head,"tree":tree,"evidence_scope":"OFFLINE_DOMAIN_AND_PAGE_PREPARATION_NOT_AUTHORITY_OR_PROVIDER","cases":55,"skips":0,"nodeids":actual},indent=2),encoding="utf-8")
       - name: Source guard after tests
         if: always()
         shell: python {0}
@@ -97,8 +129,8 @@ jobs:
           head=os.environ["A3_EXPECTED_HEAD"]
           assert subprocess.check_output(["git","--no-replace-objects","rev-parse","HEAD"],text=True).strip()==head
           tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
-          owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml"]
-          fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3"],text=True).splitlines()
+          owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml","grid/market_ingestion_domain.py","grid/market_page_validation.py","tests/test_market_ingestion_domain.py","tests/test_market_page_validation.py","docs/market-data/agent3/domain-review1.md","docs/market-data/agent3/page-preparation-v1.md"]
+          fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3","tests/fixtures/agent3-market-domain"],text=True).splitlines()
           paths=sorted(set(owned+fixtures+["grid/__init__.py","grid/observer_checkpoint.py"]))
           rows=[]
           for name in paths:
