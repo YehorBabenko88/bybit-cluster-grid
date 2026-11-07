@@ -1,0 +1,68 @@
+{
+  "schema": "agent2.authority-runtime-v1.review1.manifest",
+  "status": "FRESH_A3_A4_A5_ROOT_SCHEMA_KEY_OP_LEDGER_ACK_PENDING",
+  "files": [
+    {
+      "path": "docs/coordination/runtime-v1/COMMON-INDEX-REVIEW1.md",
+      "bytes": 3547,
+      "sha256_raw": "2ca70a7116b229451f89ee978826f3afa021761ff9c0c7824b2440044e7daa59"
+    },
+    {
+      "path": "docs/coordination/runtime-v1/common-index-review1.schema.json",
+      "bytes": 2674,
+      "sha256_raw": "88f75ae0c4de1f1a5111339b8c20097d37da02cceacd516f663e6cc4568c1f49"
+    },
+    {
+      "path": "docs/coordination/runtime-v1/common-index-review1.vectors.json",
+      "bytes": 2790,
+      "sha256_raw": "2d2b2408c6e8ebb25b2be2834ade4a151901617e68ef361972080c65a826b451"
+    },
+    {
+      "path": "docs/coordination/runtime-v1/KEYS-AND-TRANSITIONS-REVIEW1.md",
+      "bytes": 12913,
+      "sha256_raw": "3e949711cf97ac87b6df3227a2c366971b3816045ffc1da5a3703cf7aba93f6b"
+    },
+    {
+      "path": "docs/coordination/runtime-v1/native-operation-ledger-review1.json",
+      "bytes": 22223,
+      "sha256_raw": "b27ad41e275106cfc02bf9b185290d8b811fc3be66f18f52160a3c5f9a7681e3"
+    },
+    {
+      "path": "docs/coordination/runtime-v1/PLAN.md",
+      "bytes": 1655,
+      "sha256_raw": "6e06ea72a49a0d09924682fa583fb62a9f00e8805790e9ce64ad62829a45e721"
+    },
+    {
+      "path": "docs/coordination/runtime-v1/REVIEW-SCOPE.md",
+      "bytes": 2168,
+      "sha256_raw": "8ae3968302983cf6f37770c22cd7b8edae9e216ff8bec8dfb9e391cbada1b6d7"
+    },
+    {
+      "path": "grid/authority_runtime_v1.py",
+      "bytes": 5655,
+      "sha256_raw": "cfb32db73f1859d9d78b03d886372cc08584c81abd64930b5409a91edc417b64"
+    },
+    {
+      "path": "tests/coordination/runtime_v1/probe_native_ledger.py",
+      "bytes": 10727,
+      "sha256_raw": "8571b7b12b3cb4f3aa14125320f880b70b5a5d6ba3468e3654da8e272255c340"
+    },
+    {
+      "path": "tests/coordination/runtime_v1/test_common_index.py",
+      "bytes": 1384,
+      "sha256_raw": "cf34bbfdc8eb7cfe38e5d0ec3e0e884392e14b327434fc496ce136d6dbb060bd"
+    },
+    {
+      "path": "tests/coordination/runtime_v1/test_layout.py",
+      "bytes": 1494,
+      "sha256_raw": "872a59a8ade7bc38c48335e38de23c014e8ef109e873775d2e2b9c8b8102ab6b"
+    }
+  ],
+  "unit_methods": 4,
+  "native_probe_operations": 52,
+  "native_probe_encoded_bytes": 11379,
+  "producer_implemented": false,
+  "publication_qualified": false,
+  "native_identity": false,
+  "runtime_admission": false
+}
