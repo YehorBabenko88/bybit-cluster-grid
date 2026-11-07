@@ -32,9 +32,10 @@ Primary source hashes are ObjectStore193c4e68e48dcdda212412ed7bd00d23afa04fe36bf
 manifest43f7eb6961248d7ec21e4f2ab0d4e2c0e70876590d590ccd7cf18b934c9605e1.
 Physical CRLF hashes are not interchangeable primary source admission.
 
-No positive query API exists yet. Approved proposed owner ABI requires trusted
+The later isolated component is documented in authenticated-component.md. Its owner ABI requires trusted
 expected_identity_authority and fixed DisposableIdentityAuthority.require_issued_read
 before each of six reads and final bounded output (query7); manifest2 is separate.
 Complete output cap1MiB, no truncation. Root-qualified exact A2 source/dependencies/
-actual disposable mTLS/store/registry/grant/audit composition and cross-owner
-evidence remain required before positive query integration. Existing P0/F06 unchanged.
+actual disposable mTLS/store/registry/grant/audit composition is required. Local
+component tests provide scoped evidence; public Gateway route/native admission
+remains separate. Existing P0/F06 unchanged.

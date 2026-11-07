@@ -20,11 +20,11 @@ A4_HEAD = 'f9f2d04595cf2360dab78980996ae6c34c9e26fc'
 A4_TREE = '7fa3c8ad67c4efece7e2a692f48fb63a9e40ffd3'
 
 
-def verify_source(root):
+def verify_source(root, head=A4_HEAD, tree=A4_TREE):
     def git(*args):
         return subprocess.check_output(['git','--no-replace-objects','-C',str(root),*args])
-    assert git('rev-parse','HEAD').decode().strip() == A4_HEAD
-    assert git('rev-parse','HEAD^{tree}').decode().strip() == A4_TREE
+    assert git('rev-parse','HEAD').decode().strip() == head
+    assert git('rev-parse','HEAD^{tree}').decode().strip() == tree
     assert not git('for-each-ref','--format=%(refname)','refs/replace').strip()
     assert not git('status','--porcelain','--untracked-files=all').strip()
     entries = [e.split(b'\t') for e in git('ls-tree','-rz','--full-tree','HEAD').split(b'\0') if e]

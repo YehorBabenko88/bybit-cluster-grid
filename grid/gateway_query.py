@@ -346,3 +346,94 @@ def _decode_fixture(manifest_bytes, objects):
             'manifest_revision':root['manifest_revision'],'lineage':lineage,
             'data_schema_sha256':DATA_SCHEMA_SHA256,'declared_range':index['declared_range'],
             'rows':rows,'cells':cells}
+
+
+def query_market_data(request_bytes, *, owner_read_capability,
+                      expected_identity_authority, pinned_owned_store):
+    """Disposable synthetic component read under Root-qualified A2/A4 sources.
+
+    Root must admit the complete canonical source/dependency capsule before
+    calling: module names or a caller role never perform that admission here.
+    No HTTP listener, native identity/publication or provider call is introduced.
+    """
+    prepared = prepare_query(request_bytes)
+    if owner_read_capability is None or expected_identity_authority is None:
+        return prepared.not_executed()
+    # Exact canonical classes come only from Root's admitted composition, never
+    # from a capability-selected module, factory, type name or callback.
+    try:
+        from unified_system.gateway_identity import DisposableIdentityAuthority, GatewayReadCapability
+        from unified_system.storage.object_store import ObjectStore
+        from unified_system.storage.manifest import decode_manifest
+    except ImportError:
+        return prepared.not_executed()
+    if (type(expected_identity_authority) is not DisposableIdentityAuthority
+            or type(owner_read_capability) is not GatewayReadCapability):
+        return prepared.not_executed()
+    request = prepared.as_dict()
+    binding = {'schema':'unified.gateway.read-binding.v1-review2',
+               'dataset_id':request['dataset_id'],'dataset_revision':request['dataset_revision'],
+               'manifest_sha256':request['knowledge_cut']['manifest_sha256'],
+               'schema_sha256':request['data_schema_sha256'],
+               'consumer_id':request['consumer_context']['consumer_id'],
+               'view_id':request['consumer_context']['view_id']}
+
+    def current():
+        result = DisposableIdentityAuthority.require_issued_read(
+            expected_identity_authority, owner_read_capability,
+            tool_name='unified.query_market_data',request_bytes=request_bytes,
+            binding=binding,owned_store=pinned_owned_store)
+        if result is not None: raise QueryFormatError('unsupported current-check result')
+
+    remaining = 1048576
+    def read(key, limit):
+        nonlocal remaining
+        _string(key,_HASH)
+        if remaining <= 0: raise QueryFormatError('query input byte bound')
+        current()  # Exactly one check per attempted owner object read.
+        if type(pinned_owned_store) is not ObjectStore:
+            raise QueryFormatError('exact owned store required')
+        raw = pinned_owned_store.read(key,max_bytes=min(limit,remaining))
+        if type(raw) is not bytes or not 0 < len(raw) <= min(limit,remaining):
+            raise QueryFormatError('bounded object bytes required')
+        remaining -= len(raw)
+        return raw
+
+    root_raw = read(binding['manifest_sha256'],16384)
+    root = decode_manifest(root_raw).as_dict()  # Actual A4 codec on already-read bytes.
+    if (root['manifest_revision'] != request['knowledge_cut']['manifest_revision']
+            or root['data_schema_sha256'] != DATA_SCHEMA_SHA256
+            or root['lineage']['dataset_id'] != request['dataset_id']
+            or root['lineage']['instrument_id'] != request['instrument_id']):
+        raise QueryFormatError('query manifest identity/revision binding')
+    descriptor = root['data_schema_sha256']; index_key = root['segments_root_sha256']
+    objects = {descriptor:read(descriptor,4096),index_key:read(index_key,16384)}
+    index = _fixture_json(objects[index_key],16384)
+    refs = index.get('segments') if type(index) is dict else None
+    if type(refs) is not list or len(refs) != 1: raise QueryFormatError('bounded segment index')
+    _closed(refs[0],('sha256','bytes','row_count')); rows_key=refs[0]['sha256']
+    objects[rows_key]=read(rows_key,524288)
+    coverage_key=root['coverage_root_sha256'];deps_key=root['dependencies_root_sha256']
+    objects[coverage_key]=read(coverage_key,524288)
+    objects[deps_key]=read(deps_key,16384)
+    fixture = decode_synthetic_fixture(root_raw,objects)
+    start,end = (int(request['range'][k]) for k in ('start_ms','end_ms'))
+    if not int(fixture['declared_range']['start_ms']) <= start < end <= int(fixture['declared_range']['end_ms']):
+        raise QueryFormatError('query outside explicit fixture coverage')
+    result = {
+        'schema':'grid.gateway.synthetic-query-result.v1-review1',
+        'status':'SYNTHETIC_QUERY_RESULT','source_class':'SYNTHETIC',
+        'request_sha256':prepared.request_sha256,'request':request,
+        'classification':'SYNTHETIC_FIXTURE_LOCALLY_CHECKED_ONLY',
+        'session_classification':'SYNTHETIC_SESSION_AUTHENTICATED_ONLY',
+        'native_authenticated':False,'provider_coverage':'UNKNOWN','provider_gaps':'UNKNOWN',
+        'publication':'UNPROVEN','registry':'UNPROVEN','source_completeness':'UNPROVEN',
+        'integrity':'LOCAL_HASH_MATCHED_NOT_REPLICA_VERIFIED',
+        'committed_revision':None,'manifest_sha256':binding['manifest_sha256'],
+        'manifest_revision':root['manifest_revision'],'dataset_revision':request['dataset_revision'],
+        'rows':[row for row in fixture['rows'] if start <= int(row[0]) < end],
+        'cells':[cell for cell in fixture['cells'] if start <= int(cell['start_ms']) < end],
+    }
+    if len(_canonical(result)) > 1048576: raise QueryFormatError('complete query output byte bound')
+    current()  # Seventh check: no positive output after expiry/revocation.
+    return result

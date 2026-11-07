@@ -1,8 +1,9 @@
 # Synthetic OHLCV query preparation — local review2
 
-Only grid.gateway_query.prepare_query(request_bytes) and immutable PreparedQuery
-are implemented. No shared query ABI, listener, store, mTLS module or capability
-adapter is wired. not_executed() always returns NOT_EXECUTED, rows/coverage/gaps/
+This document describes grid.gateway_query.prepare_query(request_bytes) and immutable
+PreparedQuery. The subsequent isolated authenticated component is documented in
+authenticated-component.md; no public Gateway route/listener is wired here.
+not_executed() always returns NOT_EXECUTED, rows/coverage/gaps/
 capabilities/resolved_manifest=null, native_authenticated=false. Requested identity
 and cuts remain claims. No success-empty history or verified fixture coverage.
 
