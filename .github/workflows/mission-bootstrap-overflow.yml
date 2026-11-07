@@ -1,0 +1,84 @@
+name: Scientific bootstrap finite evidence
+on:
+  pull_request:
+    paths: ['grid/strategy_statistics.py', 'tests/test_strategy_statistics_overflow.py', '.github/workflows/mission-bootstrap-overflow.yml']
+  push:
+    branches: [feature/mission-bootstrap-overflow-20261107]
+permissions:
+  contents: read
+jobs:
+  finite:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_NO_REPLACE_OBJECTS: '1'
+      GIT_CONFIG_COUNT: '2'
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: 'false'
+      GIT_CONFIG_KEY_1: core.eol
+      GIT_CONFIG_VALUE_1: lf
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.10'
+      - name: Exact source and ten mandatory numerical regressions
+        shell: python -I -B {0}
+        run: |
+          import hashlib,io,json,os,pathlib,subprocess,sys,unittest
+          root=pathlib.Path.cwd()
+          git=pathlib.Path('C:/Program Files/Git/cmd/git.exe' if sys.platform=='win32' else '/usr/bin/git')
+          def g(*args):
+              return subprocess.check_output([str(git),'--no-replace-objects','--no-optional-locks','-c','core.fsmonitor=false',*args],cwd=root)
+          assert sys.flags.isolated and sys.dont_write_bytecode and sys.pycache_prefix is None
+          assert g('rev-parse','HEAD').decode().strip()==os.environ['EXPECTED_HEAD']
+          def receipt():
+              entries=[]
+              for row in g('ls-tree','-rz','--full-tree','HEAD').split(b'\0'):
+                  if not row: continue
+                  meta,name=row.split(b'\t',1);mode,kind,oid=meta.split()
+                  assert mode in (b'100644',b'100755') and kind==b'blob'
+                  entries.append((name.decode(),oid.decode()))
+              raw=subprocess.check_output([str(git),'--no-replace-objects','cat-file','--batch'],cwd=root,input=''.join(oid+'\n' for _,oid in entries).encode())
+              stream=io.BytesIO(raw);result={}
+              for name,oid in entries:
+                  actual,kind,size=stream.readline().split();data=stream.read(int(size))
+                  assert actual.decode()==oid and kind==b'blob' and stream.read(1)==b'\n'
+                  path=root/name
+                  assert path.is_file() and not path.is_symlink() and path.read_bytes()==data
+                  result[name]=hashlib.sha256(data).hexdigest()
+              for path in root.rglob('*'):
+                  rel=path.relative_to(root)
+                  if '.git' in rel.parts: continue
+                  assert not path.is_symlink() and not (getattr(path.lstat(),'st_file_attributes',0)&1024)
+                  if path.is_file(): assert rel.as_posix() in result and path.suffix not in ('.pyc','.pyo')
+              return result
+          before=receipt()
+          sys.path.insert(0,str(root))
+          suite=unittest.defaultTestLoader.discover(str(root/'tests'),pattern='test_strategy_statistics_overflow.py')
+          ids=[]
+          def collect(suite):
+              for item in suite:
+                  if isinstance(item,unittest.TestSuite): collect(item)
+                  else: ids.append(item.id())
+          collect(suite);assert len(ids)==len(set(ids))==10
+          result=unittest.TextTestRunner(verbosity=2).run(suite)
+          assert result.wasSuccessful() and result.testsRun==10 and not result.skipped
+          assert before==receipt()
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'bootstrap-finite-evidence.json'
+          out.write_text(json.dumps({'head':os.environ['EXPECTED_HEAD'],'tests':ids,'skips':0,'source_sha256':before,'qualification':'NUMERICAL_COMPONENT_ONLY','native_admission':False,'strategy_profitability_proven':False},indent=2)+'\n',encoding='utf-8')
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bootstrap-finite-${{ matrix.os }}
+          path: ${{ runner.temp }}/bootstrap-finite-evidence.json
+          if-no-files-found: error
