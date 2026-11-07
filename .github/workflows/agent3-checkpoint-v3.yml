@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'grid/checkpoint_v3_codec.py'
+      - 'grid/bybit_response_advice.py'
+      - 'tests/test_bybit_response_advice.py'
+      - 'tests/fixtures/agent3-bybit-response/**'
+      - 'docs/market-data/bybit-response-advice-v1.md'
       - 'grid/market_ingestion_domain.py'
       - 'grid/market_page_validation.py'
       - 'tests/test_market_ingestion_domain.py'
@@ -50,8 +54,8 @@ jobs:
           head=os.environ["A3_EXPECTED_HEAD"]
           assert subprocess.check_output(["git","--no-replace-objects","rev-parse","HEAD"],text=True).strip()==head
           tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
-          owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml","grid/market_ingestion_domain.py","grid/market_page_validation.py","tests/test_market_ingestion_domain.py","tests/test_market_page_validation.py","docs/market-data/agent3/domain-review1.md","docs/market-data/agent3/page-preparation-v1.md"]
-          fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3","tests/fixtures/agent3-market-domain"],text=True).splitlines()
+          owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml","grid/market_ingestion_domain.py","grid/market_page_validation.py","tests/test_market_ingestion_domain.py","tests/test_market_page_validation.py","docs/market-data/agent3/domain-review1.md","docs/market-data/agent3/page-preparation-v1.md","grid/bybit_response_advice.py","tests/test_bybit_response_advice.py","docs/market-data/bybit-response-advice-v1.md"]
+          fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3","tests/fixtures/agent3-market-domain","tests/fixtures/agent3-bybit-response"],text=True).splitlines()
           paths=sorted(set(owned+fixtures+["grid/__init__.py","grid/observer_checkpoint.py"]))
           tracked=set(subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head],text=True).splitlines())
           root=Path.cwd()
@@ -177,6 +181,50 @@ jobs:
           actual=sorted(classes[case.attrib["classname"]]+"::"+case.attrib["name"] for case in cases)
           assert len(set(actual))==55 and actual==sorted(inventory["nodeids"])
           (out/"domain-result.json").write_text(json.dumps({"head":head,"tree":tree,"evidence_scope":"OFFLINE_DOMAIN_AND_PAGE_PREPARATION_NOT_AUTHORITY_OR_PROVIDER","cases":55,"skips":0,"nodeids":actual},indent=2),encoding="utf-8")
+      - name: Exact separate response advice inventory and zero skips
+        shell: python -I -B {0}
+        env:
+          A3_EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          import sys
+          assert sys.flags.isolated and sys.dont_write_bytecode
+          assert sys.pycache_prefix is None, "Redirected bytecode cache forbidden"
+          import json,os,subprocess,xml.etree.ElementTree as ET
+          from pathlib import Path
+          assert not os.environ.get("PYTHONPYCACHEPREFIX")
+          assert not os.environ.get("PYTEST_ADDOPTS") and not os.environ.get("PYTEST_PLUGINS")
+          head=os.environ["A3_EXPECTED_HEAD"]
+          workflow_path=".github/workflows/agent3-checkpoint-v3.yml"
+          workflow=subprocess.check_output(["git","--no-replace-objects","cat-file","blob",head+":"+workflow_path])
+          assert Path(workflow_path).read_bytes()==workflow
+          text=workflow.decode("utf-8")
+          begin="      - name: Source guard before tests\n"
+          end="      - name: Exact codec inventory and zero skips\n"
+          assert text.count(begin)==1 and text.count(end)==1
+          block=text.split(begin,1)[1].split(end,1)[0].split("        run: |\n",1)[1]
+          assert all(not line or line.startswith("          ") for line in block.splitlines())
+          guard="\n".join(line[10:] for line in block.splitlines())
+          launcher=guard+"\nimport sys\nsys.path.insert(0,str(Path.cwd()))\nimport pytest\nraise SystemExit(pytest.main(sys.argv[1:]))\n"
+          child_env={**os.environ,"PYTEST_DISABLE_PLUGIN_AUTOLOAD":"1","A3_GUARD_PHASE":"before-test-import"}
+          tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
+          raw=subprocess.check_output(["git","--no-replace-objects","cat-file","blob",head+":tests/fixtures/agent3-bybit-response/test-inventory.json"])
+          inventory=json.loads(raw)
+          assert inventory["schema"]=="agent3.bybit-response-advice.test-inventory.v1"
+          assert inventory["expected_count"]==44 and inventory["expected_skips"]==0
+          assert len(inventory["nodeids"])==44 and len(set(inventory["nodeids"]))==44
+          out=Path(os.environ["RUNNER_TEMP"])/"agent3-checkpoint-v3"; out.mkdir(exist_ok=True)
+          files=["tests/test_bybit_response_advice.py"]
+          command=[sys.executable,"-I","-B","-c",launcher,"-q","-p","no:cacheprovider","--basetemp="+str(out/"response-pytest-temp"),"--junitxml="+str(out/"response-junit.xml"),*files]
+          result=subprocess.run(command,capture_output=True,text=True,env=child_env)
+          (out/"response-pytest.log").write_text(result.stdout+result.stderr,encoding="utf-8"); print(result.stdout); print(result.stderr)
+          assert result.returncode==0
+          cases=ET.parse(out/"response-junit.xml").getroot().findall(".//testcase")
+          assert len(cases)==44 and not any(list(case) for case in cases)
+          classes={"tests.test_bybit_response_advice":"tests/test_bybit_response_advice.py"}
+          assert all(case.attrib["classname"] in classes for case in cases)
+          actual=sorted(classes[case.attrib["classname"]]+"::"+case.attrib["name"] for case in cases)
+          assert len(set(actual))==44 and actual==sorted(inventory["nodeids"])
+          (out/"response-result.json").write_text(json.dumps({"head":head,"tree":tree,"evidence_scope":"OFFLINE_PURE_UNTRUSTED_ADVICE_NOT_AUTHORITY_PROVIDER_OR_NATIVE","cases":44,"skips":0,"nodeids":actual},indent=2),encoding="utf-8")
       - name: Source guard after tests
         if: always()
         shell: python -I -B {0}
@@ -193,8 +241,8 @@ jobs:
           head=os.environ["A3_EXPECTED_HEAD"]
           assert subprocess.check_output(["git","--no-replace-objects","rev-parse","HEAD"],text=True).strip()==head
           tree=subprocess.check_output(["git","--no-replace-objects","rev-parse",head+"^{tree}"],text=True).strip()
-          owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml","grid/market_ingestion_domain.py","grid/market_page_validation.py","tests/test_market_ingestion_domain.py","tests/test_market_page_validation.py","docs/market-data/agent3/domain-review1.md","docs/market-data/agent3/page-preparation-v1.md"]
-          fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3","tests/fixtures/agent3-market-domain"],text=True).splitlines()
+          owned=["grid/checkpoint_v3_codec.py","tests/test_market_data_lifecycle_checkpoint_v3.py","docs/market-data/agent3/checkpoint-v3.md",".github/workflows/agent3-checkpoint-v3.yml","grid/market_ingestion_domain.py","grid/market_page_validation.py","tests/test_market_ingestion_domain.py","tests/test_market_page_validation.py","docs/market-data/agent3/domain-review1.md","docs/market-data/agent3/page-preparation-v1.md","grid/bybit_response_advice.py","tests/test_bybit_response_advice.py","docs/market-data/bybit-response-advice-v1.md"]
+          fixtures=subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head,"--","tests/fixtures/agent3-checkpoint-v3","tests/fixtures/agent3-market-domain","tests/fixtures/agent3-bybit-response"],text=True).splitlines()
           paths=sorted(set(owned+fixtures+["grid/__init__.py","grid/observer_checkpoint.py"]))
           tracked=set(subprocess.check_output(["git","--no-replace-objects","ls-tree","-r","--name-only",head],text=True).splitlines())
           root=Path.cwd()
