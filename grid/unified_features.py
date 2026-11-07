@@ -1,10 +1,12 @@
 import json
 from datetime import timedelta
+from math import isfinite
 from .features import FeatureEngine
 from .volatility_regime import VolatilityRegimeDetector
 from .setup_flags import setup_flags
 from .retention_v2 import register_consumer
 from .control_state import set_consumer_watermark
+from .orderbook import parse_book_levels
 
 class UnifiedFeatureBuilder:
     """Builds one reproducible 1m feature row from candle + nearest prior microstructure."""
@@ -62,6 +64,11 @@ class UnifiedFeatureBuilder:
             ORDER BY event_ts DESC LIMIT 1""",symbol,ts,self.micro_max_age_s)
         bp=_payload_dict(book["payload"]) if book else {}
         dp=_payload_dict(deriv["payload"]) if deriv else {}
+        book_available=_available_book(bp)
+        if not book_available:
+            # Legacy absent quality is unknown, not implicit availability. Never
+            # leak stale/invalid book features while reporting capability false.
+            bp={}
         features=dict(base)
         features.update({
             "book_imbalance":_num(bp.get("imbalance")),
@@ -74,7 +81,7 @@ class UnifiedFeatureBuilder:
             "index_price":_num(dp.get("index_price")),
             "basis_rate":_num(dp.get("basis_rate")),
         })
-        caps={"candle":True,"footprint":True,"orderbook":bool(book),"derivatives":bool(deriv)}
+        caps={"candle":True,"footprint":True,"orderbook":book_available,"derivatives":bool(deriv)}
         # Candle/trade quality is a hard gate. Missing optional feeds remain explicit capabilities.
         eligible=bool(base["eligible"])
         regime=self.regime.update(symbol,features,eligible=eligible)
@@ -100,6 +107,38 @@ class UnifiedFeatureBuilder:
         await set_consumer_watermark(
             pool,"market_events","unified_features",built["symbol"],built["ts"],required=True
         )
+
+def _available_book(payload):
+    """Require existing explicit feed quality and usable two-sided analytics."""
+    quality=payload.get("_quality")
+    if not isinstance(quality,dict):return False
+    feeds=quality.get("feeds")
+    if not isinstance(feeds,dict):return False
+    book_quality=feeds.get("orderbook")
+    if not isinstance(book_quality,dict) or book_quality.get("status")!="available":return False
+    book=payload.get("book")
+    if not isinstance(book,dict):return False
+    try:
+        for side in ("bids","asks"):
+            levels=book.get(side)
+            if not isinstance(levels,list) or len(levels)>200:return False
+            for level in levels:
+                if not isinstance(level,(list,tuple)) or len(level)!=2:return False
+                if any(isinstance(value,bool) for value in level):return False
+        bids=parse_book_levels(book.get("bids"),snapshot=True)
+        asks=parse_book_levels(book.get("asks"),snapshot=True)
+        if not bids or not asks or max(bids)>=min(asks):return False
+        values=[]
+        for key in ("spread","bid_depth","ask_depth","imbalance"):
+            raw=payload.get(key)
+            if isinstance(raw,bool):return False
+            value=float(raw)
+            if not isfinite(value):return False
+            values.append(value)
+        return min(values[:3])>0 and -1<=values[3]<=1
+    except (TypeError,ValueError,OverflowError):
+        return False
+
 
 def _num(v):
     try: return float(v) if v is not None else None

@@ -351,6 +351,17 @@ class MicrostructureCollector:
                                 for p,qty in asks.items():
                                     if qty==0: state["a"].pop(p,None)
                                     else: state["a"][p]=qty
+                            # Both sides are required for usable book analytics. A delta
+                            # removing the final level invalidates this epoch; later
+                            # deltas cannot restore it without a fresh snapshot.
+                            if not state["b"] or not state["a"]:
+                                guard.valid=False
+                                velocity.state.pop(sym,None)
+                                wall_tracker.state.pop(sym,None)
+                                state["b"].clear(); state["a"].clear()
+                                q.mark("orderbook",MISSING,"incomplete orderbook sides")
+                                log.warning("incomplete orderbook sides",extra={"event":"orderbook_incomplete","component":sym})
+                                continue
                             # Depth-50 streams should never accumulate unbounded levels.
                             # A malformed sequence must recover from a fresh snapshot.
                             if len(state["b"])>200 or len(state["a"])>200:
