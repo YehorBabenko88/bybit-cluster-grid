@@ -1,0 +1,43 @@
+{
+  "scope": "EXACT_CANDIDATE_ENVELOPES_NOT_NATIVE_EXECUTION_OR_ISSUER",
+  "previous_review_measurement_sha256": "1fb6365a57a2206349dd3ac0499d54a7d22be0f7a1e1ec97544ba07342cb219e",
+  "validated_record_writes": 17,
+  "actual_consul_requests": 0,
+  "plans": {
+    "admit": {
+      "operations": 43,
+      "encoded_bytes": 20119,
+      "encoded_sha256": "99c30b69f04510842502a636237ec69f22c0c80cd09738a384f0c7dc7329e0ff",
+      "operation_headroom": 21,
+      "bytes_headroom": 12649
+    },
+    "begin_dispatch": {
+      "operations": 34,
+      "encoded_bytes": 9295,
+      "encoded_sha256": "1b7f5fcea2462d24cf5d677f243cc3e848ce4ba72a28a985ea0d9d8f27cacd3e",
+      "operation_headroom": 30,
+      "bytes_headroom": 23473
+    },
+    "record_computed_metadata": {
+      "operations": 35,
+      "encoded_bytes": 9909,
+      "encoded_sha256": "57d25afe3bd2b5ce3c2aedcac3b0db834bcb06da4e2587592bb4f04fc802feda",
+      "operation_headroom": 29,
+      "bytes_headroom": 22859
+    },
+    "cancel_request": {
+      "operations": 26,
+      "encoded_bytes": 10658,
+      "encoded_sha256": "f1d4ec79b10f6f92607221ad58ba548007eba834130cc8b04df5dcfc2477de1c",
+      "operation_headroom": 38,
+      "bytes_headroom": 22110
+    }
+  },
+  "sample_predecessors": {
+    "assignment_counter": "4->5",
+    "resource_ledger": "7->8",
+    "quota_ledger": "9->10",
+    "job_sequence": "ADMITTED0->1;RUNNING1->2;COMPUTED2->3;cancel-after-running2->3"
+  },
+  "bounds": "Runtime must measure actual complete plan every send; samples are not workload/native qualification"
+}

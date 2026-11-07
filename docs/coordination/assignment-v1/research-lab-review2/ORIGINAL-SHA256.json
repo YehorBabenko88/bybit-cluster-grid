@@ -1,0 +1,82 @@
+[
+  {
+    "Hash": "FB5FCBD39CD0CDDF68304BB39B7D0CAB3898A80947849E18FAFC036A6EA0A0ED",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\admit.native-plan.json"
+  },
+  {
+    "Hash": "860BE6E12B903792E378F71DFDB0E777B44E6417C2C13E86B8C6242D76D38E83",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\assignment-counter.schema.json"
+  },
+  {
+    "Hash": "8F85391CFE82D27FE8E3CE54DAAB512549BBAF474C23638D11EB95DD34AB86B8",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\begin_dispatch.native-plan.json"
+  },
+  {
+    "Hash": "F73A102C9F89562FFA541D2F64C9A1B17D8395108E853C4462F3095F97CE284D",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\build_schemas.py"
+  },
+  {
+    "Hash": "81678D3167A3BCDB7701460873A9EE835DB897A52C9A85442C9474557E9C5DD6",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\cancel_request.native-plan.json"
+  },
+  {
+    "Hash": "2C027CD30D77D696A78FA39C5337B5D8589C1E9A626D3E91A66EE131A848865C",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\error.schema.json"
+  },
+  {
+    "Hash": "F971ECE6D098CDCFABF43EF55B3377F465A92490556A89E1462A3CAAB26B9559",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\issued-assignment.schema.json"
+  },
+  {
+    "Hash": "5AA11BB0928DAF09F08ED25E00A65ABDEE717526BD0D36A132C1D24312774A22",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\job-state.schema.json"
+  },
+  {
+    "Hash": "50DA8F3276772709B623C7C2629F257CAA19DA80221B21D81DB7BC1C8A95B36B",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\lease-lock.schema.json"
+  },
+  {
+    "Hash": "E3BBFFA54C90F1485E35596535E06A11E2BC79DD6C537FDFEAE9D13EB07B12D4",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\measure_plan.py"
+  },
+  {
+    "Hash": "75C08BE72231ACC2346F401E1765C23CD75810A23B644DD40E88DAE71D60F390",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\measurement.json"
+  },
+  {
+    "Hash": "736ACCA970BD392F46530CDA94ACD97701E879B18889C429A2C2113E04810E4C",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\observation.schema.json"
+  },
+  {
+    "Hash": "BC176DAABB49849FFFF887ED41602196FAB15C79B27CDE857AD505797F138564",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\original-command.schema.json"
+  },
+  {
+    "Hash": "023FC3373A5F8677FC852CBA3D84437036BC68E1232EFD5C3D9DF0282FBCD857",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\phase-receipt.schema.json"
+  },
+  {
+    "Hash": "9F72AE19CA0DB03CF873102379C27ED42164C5573A9173827C3BC108AB77CD90",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\PROTOCOL.md"
+  },
+  {
+    "Hash": "5D73A2DCE07D7A51D3AB9A43BDAE17F525BE7DC1EE8FDA8A10C8305D08F0B03D",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\quota-ledger.schema.json"
+  },
+  {
+    "Hash": "8FF46851285F1889F2B79E5EF1B8CCB3648FF02E1DB92589E086ACCE9BAB96EE",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\record_computed_metadata.native-plan.json"
+  },
+  {
+    "Hash": "99A378C90E0D4949B441FA56A5FB0E0EB2CD5308CAC3ED07DBD3D8D06DE81145",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\resource-hold.schema.json"
+  },
+  {
+    "Hash": "9A15B459A5750CCA751123822A536C78474CB684352A2575B3673DE4EF914FC6",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\resource-ledger.schema.json"
+  },
+  {
+    "Hash": "B52B23EBD6CB4F789A0680E9C8EC027A3BE2E80BBB826AD9781D2323C3786072",
+    "Path": "C:\\Users\\LS-5\\Documents\\Codex\\2026-11-06\\codex-agent-2-high-availability-distributed\\outputs\\RESEARCH-LAB-ADMISSION-REVIEW2\\structural-validation.json"
+  }
+]
