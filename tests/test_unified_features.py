@@ -23,7 +23,9 @@ def test_unified_features_preserve_missing_capabilities_as_null():
 
 def test_unified_features_merge_microstructure():
     async def run():
-        p=Pool({"event_ts":row()["ts"],"payload":{"imbalance":"0.7","spread":"1","bid_depth":"10","ask_depth":"4"}},
+        p=Pool({"event_ts":row()["ts"],"payload":{"imbalance":"0.7","spread":"1","bid_depth":"10","ask_depth":"4",
+                   "_quality":{"feeds":{"orderbook":{"status":"available","reason":None}}},
+                   "book":{"bids":[[100,10]],"asks":[[101,4]]},"best_bid":100,"best_ask":101}},
                {"event_ts":row()["ts"],"payload":{"open_interest":"123","funding_rate":"0.001"}})
         x=await UnifiedFeatureBuilder().build(p,row())
         assert x["capabilities"]["orderbook"] and x["capabilities"]["derivatives"]
