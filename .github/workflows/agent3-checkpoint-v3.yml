@@ -44,7 +44,7 @@ jobs:
           import sys
           assert sys.flags.isolated and sys.dont_write_bytecode
           assert sys.pycache_prefix is None, "Redirected bytecode cache forbidden"
-          import hashlib,json,os,stat,subprocess
+          import hashlib,importlib.machinery,json,os,stat,subprocess
           from pathlib import Path
           assert not os.environ.get("PYTHONPYCACHEPREFIX"), "Redirected bytecode environment forbidden"
           head=os.environ["A3_EXPECTED_HEAD"]
@@ -73,7 +73,8 @@ jobs:
                           scanned+=1
                           assert path.suffix.lower() not in {".pyc",".pyo"}, "Bytecode cache forbidden: "+str(path)
                           assert path.suffix.lower() not in {".pyd",".so"}, "Unadmitted Python native overlay: "+str(path)
-                          assert path.suffix.lower()!=".py" or path.relative_to(root).as_posix() in tracked, "Unexpected Python source: "+str(path)
+                          source_suffixes=set(importlib.machinery.SOURCE_SUFFIXES)|{".py",".pyw"}
+                          assert not any(path.name.lower().endswith(ext.lower()) for ext in source_suffixes) or path.relative_to(root).as_posix() in tracked, "Unexpected Python source: "+str(path)
           rows=[]
           for name in paths:
               path=Path(name)
@@ -186,7 +187,7 @@ jobs:
           import sys
           assert sys.flags.isolated and sys.dont_write_bytecode
           assert sys.pycache_prefix is None, "Redirected bytecode cache forbidden"
-          import hashlib,json,os,stat,subprocess
+          import hashlib,importlib.machinery,json,os,stat,subprocess
           from pathlib import Path
           assert not os.environ.get("PYTHONPYCACHEPREFIX"), "Redirected bytecode environment forbidden"
           head=os.environ["A3_EXPECTED_HEAD"]
@@ -215,7 +216,8 @@ jobs:
                           scanned+=1
                           assert path.suffix.lower() not in {".pyc",".pyo"}, "Bytecode cache forbidden: "+str(path)
                           assert path.suffix.lower() not in {".pyd",".so"}, "Unadmitted Python native overlay: "+str(path)
-                          assert path.suffix.lower()!=".py" or path.relative_to(root).as_posix() in tracked, "Unexpected Python source: "+str(path)
+                          source_suffixes=set(importlib.machinery.SOURCE_SUFFIXES)|{".py",".pyw"}
+                          assert not any(path.name.lower().endswith(ext.lower()) for ext in source_suffixes) or path.relative_to(root).as_posix() in tracked, "Unexpected Python source: "+str(path)
           rows=[]
           for name in paths:
               path=Path(name)
