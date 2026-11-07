@@ -1,0 +1,64 @@
+name: Agent2 Assignment native Consul substrate
+on:
+  push:
+    branches: [feature/agent2-assignment-native-20261107]
+    paths: ['grid/authority_assignment_v1.py', 'tests/coordination/assignment_v1/**', 'docs/coordination/assignment-v1/**', '.github/workflows/agent2-assignment-native.yml']
+  pull_request:
+    paths: ['grid/authority_assignment_v1.py', 'tests/coordination/assignment_v1/**', 'docs/coordination/assignment-v1/**', '.github/workflows/agent2-assignment-native.yml']
+permissions:
+  contents: read
+jobs:
+  substrate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    env:
+      GIT_NO_REPLACE_OBJECTS: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      GIT_CONFIG_COUNT: '2'
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: 'false'
+      GIT_CONFIG_KEY_1: core.eol
+      GIT_CONFIG_VALUE_1: lf
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/unified-system
+          ref: be5cb942436f82f374375eabb255768bb139797f
+          path: .deps/unified
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.10'
+      - name: Pinned isolated dependency environment
+        shell: python
+        run: |
+          import pathlib,subprocess,sys
+          subprocess.run([sys.executable,'-m','venv','.runtime-env'],check=True)
+          py=pathlib.Path('.runtime-env')/('Scripts/python.exe' if sys.platform=='win32' else 'bin/python')
+          subprocess.run([str(py),'-m','pip','install','--no-compile','--require-hashes','--only-binary=:all:','-r','.deps/unified/tests/control_mux/requirements.lock'],check=True)
+      - name: Download pinned owned-test Consul binary
+        run: python -I -B .deps/unified/tests/control_mux/fetch_consul.py --output .lab-bin
+      - name: Primary raw source and owned triplet contracts
+        shell: python
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          import os,pathlib,subprocess,sys
+          py=pathlib.Path('.runtime-env')/('Scripts/python.exe' if sys.platform=='win32' else 'bin/python')
+          binary=pathlib.Path('.lab-bin')/('consul.exe' if sys.platform=='win32' else 'consul')
+          subprocess.run([str(py),'-I','-B','tests/coordination/assignment_v1/source_runner.py','--expected-head',os.environ['EXPECTED_HEAD'],'--support-source',str(pathlib.Path('.deps/unified').resolve()),'--binary',str(binary.resolve()),'--scratch',str(pathlib.Path('.assignment-data').resolve()),'--output',str(pathlib.Path('.assignment-evidence').resolve())],check=True)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: agent2-assignment-substrate-${{ matrix.os }}
+          path: .assignment-evidence
+          if-no-files-found: error
