@@ -1,4 +1,4 @@
-"""Primary-source nine DATA/local Journal contract tests; creates no Consul RPC or sessions."""
+"""Primary-source twelve DATA/local Journal and OS lock contract tests; creates no Consul RPC or sessions."""
 import argparse,hashlib,json,subprocess,sys,types,unittest
 from pathlib import Path
 
@@ -15,7 +15,6 @@ def main():
     guard=types.ModuleType('pinned_primary_guard');exec(compile(raw,'<pinned-primary-guard>','exec'),guard.__dict__)
     for ancestor in (script,*script.parents):guard.ordinary(ancestor)
     before=guard.inventory(root);support_before=guard.inventory(support)
-    assert before.get('grid/authority_assignment_v1.py')=='1d578644ecbe881554bc3dd61d49227db2171ea2037d22599df44a73d698fd27'
     assert support_before['unified_system/journal.py']=='9f170cf33f8cdd79baef6fa633d03bebf9eb4b594c54c9cf8dd6c7cb9810bbc3'
     sys.path[:0]=[str(root),str(support)]
     suite=unittest.defaultTestLoader.discover(str(root/'tests/coordination/assignment_v1/unqualified_registration'),pattern='test_*.py')
@@ -24,13 +23,13 @@ def main():
             if isinstance(item,unittest.TestSuite):yield from ids(item)
             else:yield item.id()
     actual=list(ids(suite));expected=json.loads((script.parent/'EXPECTED-TESTS.json').read_bytes())
-    assert len(actual)==len(set(actual))==len(expected)==len(set(expected))==9 and sorted(actual)==sorted(expected)
+    assert len(actual)==len(set(actual))==len(expected)==len(set(expected))==12 and sorted(actual)==sorted(expected)
     result=unittest.TextTestRunner(verbosity=2).run(suite)
     assert guard.inventory(root)==before and guard.inventory(support)==support_before
-    assert result.wasSuccessful() and result.testsRun==9 and not result.skipped
+    assert result.wasSuccessful() and result.testsRun==12 and not result.skipped
     print(json.dumps(dict(scope='PROPOSED_UNQUALIFIED_WORKER_DATA_LOCAL_CUSTODY_NO_NATIVE_RPC',result='PASS',head=args.expected_head,
-        tree=git(root,'rev-parse','HEAD^{tree}').decode().strip(),tests=9,skips=0,exact_unique_ids=True,grid_raw_files=len(before),
+        tree=git(root,'rev-parse','HEAD^{tree}').decode().strip(),tests=12,skips=0,exact_unique_ids=True,grid_raw_files=len(before),
         support_raw_files=len(support_before),codec_sha256=before[str(script.parent.relative_to(root)/'contract_data.py').replace('\\','/')],
-        native_rpc_calls=0,native_write_implementation=False,worker_permission=False,production='NO_GO')))
+        native_rpc_calls=0,native_write_implementation=False,local_adapter_implemented=True,module_sha256=before['grid/authority_assignment_v1.py'],worker_permission=False,production='NO_GO')))
 
 if __name__=='__main__':main()

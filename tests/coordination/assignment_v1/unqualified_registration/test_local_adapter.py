@@ -1,5 +1,6 @@
 """Actual lifetime OS lock and fixed Journal; no native RPC/authority grants."""
-import base64,json,os,subprocess,sys,tempfile,unittest,uuid
+import base64,copy,json,os,pickle,subprocess,sys,tempfile,unittest,uuid
+from unittest.mock import patch
 from pathlib import Path
 from unified_system.journal import Journal
 from grid import authority_assignment_v1 as native
@@ -42,7 +43,10 @@ except RegistrationCustodyUnavailable as exc:
             path=Path(tmp)/'registration.sqlite';owned=native.RootRegistrationCustody(Journal(path),original_intent_bytes=self.raw)
             with self.assertRaisesRegex(RuntimeError,'ORIGINAL_ERROR'):
                 with owned:
-                    owned.retain_original();raise RuntimeError('ORIGINAL_ERROR')
+                    owned.retain_original()
+                    for duplicate in (copy.copy,copy.deepcopy,pickle.dumps):
+                        with self.assertRaises(TypeError):duplicate(owned)
+                    raise RuntimeError('ORIGINAL_ERROR')
             owned.close();owned.close()
             with self.assertRaises(native.RegistrationCustodyUnavailable):owned.read_state()
             with native.RootRegistrationCustody(Journal(path),original_intent_bytes=self.raw) as resumed:
@@ -51,6 +55,25 @@ except RegistrationCustodyUnavailable as exc:
                 self.assertEqual(len(resumed.read_state()['unresolved_rpc_attempts']),1)
                 with self.assertRaises((ValueError,native.RegistrationCustodyUnavailable)):
                     resumed.begin_rpc(rpc_kind='SESSION_CREATE',rpc_attempt_id=str(uuid.uuid4()),endpoint_sha256='b'*64)
+            failing=native.RootRegistrationCustody(Journal(Path(tmp)/'close-error.sqlite'),original_intent_bytes=self.raw)
+            original_close=failing.close;original_error=RuntimeError('PRESERVE_ORIGINAL')
+            def close_then_report_failure():original_close();raise OSError('LOCAL_CLOSE_REPORT_UNKNOWN')
+            with patch.object(failing,'close',side_effect=close_then_report_failure),self.assertRaises(RuntimeError) as caught:
+                with failing:
+                    failing.retain_original();raise original_error
+            self.assertIs(caught.exception,original_error)
+            self.assertTrue(any('Custody close failure' in note for note in caught.exception.__notes__))
+            # UNISSUED format-only local reports; no actual native session is
+            # created or claimed by this Journal API-fidelity negative.
+            with native.RootRegistrationCustody(Journal(Path(tmp)/'result-join.sqlite'),original_intent_bytes=self.raw) as joined:
+                joined.retain_original();created=str(uuid.uuid4());info=str(uuid.uuid4())
+                sid='12345678-1234-1234-9234-123456789abc'
+                joined.begin_rpc(rpc_kind='SESSION_CREATE',rpc_attempt_id=created,endpoint_sha256='b'*64)
+                joined.finish_rpc(rpc_attempt_id=created,outcome='CONFIRMED',native_session_id=sid)
+                joined.begin_rpc(rpc_kind='SESSION_INFO',rpc_attempt_id=info,endpoint_sha256='b'*64)
+                with self.assertRaises(ValueError):
+                    joined.finish_rpc(rpc_attempt_id=info,outcome='CONFIRMED',native_session_id=str(uuid.uuid4()))
+                joined.finish_rpc(rpc_attempt_id=info,outcome='CONFIRMED',native_session_id=sid)
     def test_actual_foreign_file_mutated_path_and_sidecar_deny_before_append(self):
         with tempfile.TemporaryDirectory(prefix='a2-root-custody-foreign-') as tmp:
             foreign=Path(tmp)/'foreign.sqlite';Journal(foreign).initialize()
@@ -62,9 +85,12 @@ except RegistrationCustodyUnavailable as exc:
                 journal.path=foreign
                 with self.assertRaises(native.RegistrationCustodyUnavailable):owned.read_state()
                 journal.path=path
-                path.with_name(path.name+'-journal').write_bytes(b'untrusted')
+                sidecar=path.with_name(path.name+'-journal');sidecar.write_bytes(b'untrusted')
                 with self.assertRaises(native.RegistrationCustodyUnavailable):
                     owned.begin_rpc(rpc_kind='SESSION_CREATE',rpc_attempt_id=str(uuid.uuid4()),endpoint_sha256='b'*64)
                 self.assertEqual(len(before),1)
+                sidecar.unlink()  # Only this test's known owned sidecar.
+                os.link(path,Path(tmp)/'unexpected-hardlink.sqlite')
+                with self.assertRaises(native.RegistrationCustodyUnavailable):owned.read_state()
 
 if __name__=='__main__':unittest.main()
