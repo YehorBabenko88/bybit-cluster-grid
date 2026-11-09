@@ -1,5 +1,5 @@
 """Real consistent native read substrate; probe rows are NOT issued job proof."""
-import json,os,tempfile,unittest,uuid
+import asyncio,json,os,tempfile,time,unittest,uuid
 from pathlib import Path
 from grid.coordination import ConsulConfig,ConsulSessionAuthority,CoordinationLost,CoordinationUnavailable
 from grid.authority_runtime_v1 import canonical
@@ -42,6 +42,39 @@ class NativeSnapshotTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(CoordinationLost):
             await self.backend._transaction([_check(r) for r in old]+[_cas(effect,0,dict(schema='untrusted.probe-effect.v1'))])
         self.assertEqual((await self.backend._read_snapshot((effect,)))[0].index,0)
+    async def test_actual_acl_denial_never_becomes_absence(self):
+        policy=await self.authority._request('PUT','/v1/acl/policy',json=dict(Name='snapshot-'+str(uuid.uuid4()),Rules='key_prefix "'+self.a+'" { policy = "read" }'))
+        token=await self.authority._request('PUT','/v1/acl/token',json=dict(Description='owned-snapshot-negative',Policies=[dict(ID=policy['ID'])]))
+        try:
+            restricted=ConsulSessionAuthority(ConsulConfig(tuple(self.lab.nodes),self.authority.config.namespace,isolated_lab=True,acl_token=token['SecretID'],request_timeout=2))
+            try:
+                backend=AssignmentAuthority(restricted,self.generation)
+                with self.assertRaises((AssignmentUnavailable,CoordinationUnavailable)):
+                    await backend._read_snapshot((self.a,self.b))
+            finally:await restricted.close()
+        finally:
+            await self.authority._request('DELETE','/v1/acl/token/'+token['AccessorID'])
+            await self.authority._request('DELETE','/v1/acl/policy/'+policy['ID'])
+    async def test_actual_all_node_restart_retains_raw_snapshot_indices(self):
+        before=await self.backend._read_snapshot((self.a,self.b,self.missing))
+        await asyncio.to_thread(self.lab.restart_all)
+        self.assertEqual(await self.backend._read_snapshot((self.a,self.b,self.missing)),before)
+    async def test_actual_leader_failure_two_voters_keep_snapshot(self):
+        before=await self.backend._read_snapshot((self.a,self.b))
+        configuration=await self.authority._request('GET','/v1/operator/raft/configuration',params={'consistent':''})
+        leader=next(row for row in configuration['Servers'] if row['Leader'])
+        index=int(leader['Node'].rsplit('-',1)[1]);owned=self.lab.processes[index]
+        owned.kill();owned.wait(timeout=10)
+        try:
+            deadline=time.monotonic()+15
+            while True:
+                try:after=await self.backend._read_snapshot((self.a,self.b));break
+                except CoordinationUnavailable:
+                    if time.monotonic()>=deadline:raise
+                    await asyncio.sleep(.2)
+            self.assertEqual(after,before)
+            self.assertEqual(sum(p.poll() is None for p in self.lab.processes),2)
+        finally:await asyncio.to_thread(self.lab.restart_all)
     async def test_snapshot_rejects_duplicate_outside_namespace_and_overflow(self):
         for keys in ((self.a,self.a),(),[self.a],('unified/foreign/probe',),(self.prefix+'../other',),tuple(self.prefix+str(i) for i in range(65))):
             with self.subTest(keys_type=type(keys).__name__),self.assertRaises(ValueError):await self.backend._read_snapshot(keys)

@@ -9,7 +9,7 @@ class ConsulLab:
         self.binary=Path(binary).resolve();self.scratch=Path(scratch).resolve()
         assert hashlib.sha256(self.binary.read_bytes()).hexdigest()==PINS[sys.platform]
         self.token=str(uuid.uuid4())  # own disposable admin only, never emitted
-        self.processes=[];self.logs=[];self.nodes=[]
+        self.processes=[];self.all_processes=[];self.logs=[];self.nodes=[]
     def __enter__(self):
         self.scratch.mkdir(parents=True,exist_ok=False)
         ports=[];reserved=[]
@@ -36,7 +36,7 @@ class ConsulLab:
                 env=os.environ.copy();env['CHECKPOINT_DISABLE']='1'
                 p=subprocess.Popen([str(self.binary),'agent','-config-file',str(path)],stdout=log,stderr=subprocess.STDOUT,
                     env=env,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
-                self.processes.append(p);self.nodes.append('http://127.0.0.1:'+str(http))
+                self.processes.append(p);self.all_processes.append(p);self.nodes.append('http://127.0.0.1:'+str(http))
             deadline=time.monotonic()+45
             while time.monotonic()<deadline:
                 assert all(p.poll() is None for p in self.processes)
@@ -62,13 +62,37 @@ class ConsulLab:
         try:
             with opener.open(request,timeout=2) as response: return response.status,response.read(1048576)
         except urllib.error.HTTPError as exc: return exc.code,exc.read(1048576)
+    def restart_all(self):
+        """Restart ONLY retained owned handles/configs/data, never a service/PID scan."""
+        arguments=[p.args for p in self.processes]
+        for p in self.processes:
+            if p.poll() is None:p.kill()
+            p.wait(timeout=10)
+        self.processes=[]
+        for argv,log in zip(arguments,self.logs,strict=True):
+            env=os.environ.copy();env['CHECKPOINT_DISABLE']='1'
+            p=subprocess.Popen(argv,stdout=log,stderr=subprocess.STDOUT,env=env,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+            self.processes.append(p);self.all_processes.append(p)
+        deadline=time.monotonic()+45
+        while time.monotonic()<deadline:
+            assert all(p.poll() is None for p in self.processes)
+            try:
+                for node in self.nodes:
+                    status,raw=self.request(node,'GET','/v1/operator/raft/configuration?consistent')
+                    assert status==200
+                    rows=json.loads(raw)['Servers']
+                    assert len(rows)==3 and all(v['Voter'] for v in rows) and sum(v['Leader'] for v in rows)==1
+                print(json.dumps(dict(scope='OWNED_LOOPBACK_ALL_RESTARTED',processes=[p.pid for p in self.processes],same_owned_configs_and_data=True)),flush=True)
+                return
+            except (OSError,ValueError,KeyError,AssertionError):time.sleep(.2)
+        raise RuntimeError('OWNED_RESTART_QUORUM_TIMEOUT')
     def __exit__(self,*args):
-        for process in self.processes:
+        for process in self.all_processes:
             if process.poll() is None: process.kill()
-        for process in self.processes: process.wait(timeout=10)
+        for process in self.all_processes: process.wait(timeout=10)
         for log in self.logs: log.close()
-        assert all(process.poll() is not None for process in self.processes)
+        assert all(process.poll() is not None for process in self.all_processes)
         print(json.dumps(dict(scope='OWNED_LOOPBACK_LAB_RETIRED',
-            processes=[dict(pid=p.pid,returncode=p.returncode) for p in self.processes],
+            processes=[dict(pid=p.pid,returncode=p.returncode) for p in self.all_processes],
             all_owned_processes_waited=True,foreign_process_operations=0,
             session_retirement='OWNED_SERVERS_STOPPED_TEMPORARY_DIRECTORY_CLEANUP_FOLLOWS')),flush=True)
