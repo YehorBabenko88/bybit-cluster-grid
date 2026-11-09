@@ -24,10 +24,10 @@ def main():
             if isinstance(t,unittest.TestSuite):yield from ids(t)
             else:yield t.id()
     actual=list(ids(suite));expected=json.loads((script.parent/'NATIVE-EXPECTED-TESTS.json').read_bytes())
-    assert len(actual)==len(set(actual))==len(expected)==len(set(expected))==18
+    assert len(actual)==len(set(actual))==len(expected)==len(set(expected))==20
     assert sorted(actual)==sorted(expected)
     r=unittest.TextTestRunner(verbosity=2).run(suite)
     assert guard.inventory(root)==before and guard.inventory(support)==support_before
-    assert r.wasSuccessful() and r.testsRun==18 and not r.skipped
-    print(json.dumps(dict(result='PASS',scope='CONSISTENT_NATIVE_RAW_READ_CAS_FAILOVER_RESTART_ONLY_NOT_ISSUED_GRANT',head=a.expected_head,tree=git(root,'rev-parse','HEAD^{tree}').decode().strip(),support_head='1f6b0b5c231853607f5bec780f1544cd32bf577d',raw_files=len(before),support_raw_files=len(support_before),tests=18,skips=0,exact_unique_ids=True,module_sha256=before['grid/authority_assignment_v1.py'])))
+    assert r.wasSuccessful() and r.testsRun==20 and not r.skipped
+    print(json.dumps(dict(result='PASS',scope='CONSISTENT_NATIVE_RAW_READ_CAS_FAILOVER_RESTART_ONLY_NOT_ISSUED_GRANT',head=a.expected_head,tree=git(root,'rev-parse','HEAD^{tree}').decode().strip(),support_head='1f6b0b5c231853607f5bec780f1544cd32bf577d',raw_files=len(before),support_raw_files=len(support_before),tests=20,skips=0,exact_unique_ids=True,module_sha256=before['grid/authority_assignment_v1.py'])))
 if __name__=='__main__':main()

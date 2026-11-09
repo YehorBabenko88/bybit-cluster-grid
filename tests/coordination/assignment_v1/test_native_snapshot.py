@@ -42,6 +42,39 @@ class NativeSnapshotTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(CoordinationLost):
             await self.backend._transaction([_check(r) for r in old]+[_cas(effect,0,dict(schema='untrusted.probe-effect.v1'))])
         self.assertEqual((await self.backend._read_snapshot((effect,)))[0].index,0)
+    async def test_actual_destroyed_leader_prepared_fence_cannot_write_after_takeover(self):
+        generation_key=self.authority.config.namespace+'/commands/generation'
+        await self.authority._request('PUT','/v1/kv/'+generation_key,content=canonical(dict(generation=self.generation)))
+        old=await self.authority.acquire('old-coordinator')
+        self.assertIsNotNone(old)
+        prepared=await self.backend._leader_fence(old)
+        await self.authority._request('PUT','/v1/session/destroy/'+old.session_id)
+        successor=await self.authority.acquire('successor-coordinator')
+        self.assertIsNotNone(successor)
+        self.assertNotEqual(successor.session_id,old.session_id)
+        self.assertGreater(successor.token,old.token)
+        self.assertFalse(await self.authority.validate(old))
+        with self.assertRaises(AssignmentUnavailable):await self.backend._leader_fence(old)
+        effect=self.prefix+'stale-leader-effect'
+        with self.assertRaises(CoordinationLost):
+            await self.backend._transaction(prepared+[_cas(effect,0,dict(schema='untrusted.probe-effect.v1',owner='stale'))])
+        self.assertEqual((await self.backend._read_snapshot((effect,)))[0].index,0)
+        await self.backend._transaction(await self.backend._leader_fence(successor)+[_cas(effect,0,dict(schema='untrusted.probe-effect.v1',owner='successor'))])
+        self.assertEqual(json.loads((await self.backend._read_snapshot((effect,)))[0].raw)['owner'],'successor')
+        print(json.dumps(dict(scope='ACTUAL_NATIVE_SESSION_FENCE_PROBE_ONLY',old_token=old.token,new_token=successor.token,stale_write='REJECTED',successor_probe='COMMITTED')),flush=True)
+    async def test_actual_generation_change_rejects_prepared_fence_without_probe_effect(self):
+        key=self.authority.config.namespace+'/commands/generation'
+        await self.authority._request('PUT','/v1/kv/'+key,content=canonical(dict(generation=self.generation)))
+        leader=await self.authority.acquire('generation-probe')
+        self.assertIsNotNone(leader)
+        prepared=await self.backend._leader_fence(leader)
+        await self.authority._request('PUT','/v1/kv/'+key,content=canonical(dict(generation=str(uuid.uuid4()))))
+        self.assertTrue(await self.authority.validate(leader))
+        effect=self.prefix+'old-generation-effect'
+        with self.assertRaises(CoordinationLost):
+            await self.backend._transaction(prepared+[_cas(effect,0,dict(schema='untrusted.probe-effect.v1'))])
+        self.assertEqual((await self.backend._read_snapshot((effect,)))[0].index,0)
+        with self.assertRaises(AssignmentUnavailable):await self.backend._leader_fence(leader)
     async def test_actual_acl_denial_never_becomes_absence(self):
         policy=await self.authority._request('PUT','/v1/acl/policy',json=dict(Name='snapshot-'+str(uuid.uuid4()),Rules='key_prefix "'+self.a+'" { policy = "read" }'))
         token=await self.authority._request('PUT','/v1/acl/token',json=dict(Description='owned-snapshot-negative',Policies=[dict(ID=policy['ID'])]))
