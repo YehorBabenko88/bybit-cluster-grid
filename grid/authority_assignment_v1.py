@@ -543,7 +543,13 @@ class RootRegistrationCustody:
                 except OSError as exc:errors.append(exc)
         if errors:raise RegistrationCustodyUnavailable('LOCAL_CUSTODY_CLOSE_UNKNOWN') from errors[0]
 
-    def __enter__(self):self._ensure_owned();return self
+    def __enter__(self):
+        try:self._ensure_owned()
+        except BaseException as error:
+            try:self.close()
+            except BaseException as cleanup:error.add_note('Custody entry cleanup: '+type(cleanup).__name__)
+            raise
+        return self
     def __copy__(self):raise TypeError('LOCAL_CUSTODY_NOT_COPYABLE')
     def __deepcopy__(self,memo):raise TypeError('LOCAL_CUSTODY_NOT_COPYABLE')
     def __reduce__(self):raise TypeError('LOCAL_CUSTODY_NOT_SERIALIZABLE')

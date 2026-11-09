@@ -102,10 +102,10 @@ except RegistrationCustodyUnavailable as exc:
                 with self.assertRaisesRegex(native.RegistrationCustodyUnavailable,'JOURNAL_PATH_CHANGED'):
                     with owned:self.fail('FAILED_ENTRY_BODY_MUST_NOT_RUN')
                 journal.path=path
-                # No caller/manual close before the actual next process.
-                self.child(path,'ACQUIRED')
                 for descriptor in descriptors:
                     with self.assertRaises(OSError):os.fstat(descriptor)
+                # No caller/manual close before the actual next process.
+                self.child(path,'ACQUIRED')
                 self.assertEqual(Journal(path).read(),before)
             finally:owned.close()
             path2=Path(tmp)/'close-error.sqlite';second=native.RootRegistrationCustody(Journal(path2),original_intent_bytes=self.raw)
