@@ -85,7 +85,7 @@ class ConsulSessionAuthority:
                 context.load_verify_locations(cafile=config.ca_bundle)
             if config.client_certificate:
                 context.load_cert_chain(config.client_certificate, config.client_key)
-            client = httpx.AsyncClient(verify=context, follow_redirects=False)
+            client = httpx.AsyncClient(verify=context, follow_redirects=False, trust_env=False)
         self.client = client
 
     async def close(self):
