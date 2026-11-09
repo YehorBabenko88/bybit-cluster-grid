@@ -1,0 +1,131 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "request_id",
+    "target_kind",
+    "target_capability",
+    "target_version",
+    "dataset_manifest_id",
+    "dataset_revision",
+    "experiment_id",
+    "strategy_version",
+    "parameters_digest",
+    "execution_mode",
+    "resource_budget",
+    "quota_owner",
+    "principal_id",
+    "authority_generation",
+    "assignment_revision",
+    "fencing_token",
+    "idempotency_key",
+    "result_schema",
+    "result_artifact_ref"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "unified.gateway.target-request.v1"
+    },
+    "request_id": {
+      "type": "string",
+      "maxLength": 96,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$(?![\\s\\S])"
+    },
+    "target_kind": {
+      "type": "string",
+      "const": "MetaAnalyse"
+    },
+    "target_capability": {
+      "type": "string",
+      "const": "meta.ohlcv.untouched_levels.v1"
+    },
+    "target_version": {
+      "type": "string",
+      "const": "f3c01a23fa5baaeeeb28eb8e9397e72b5ef4d5a1"
+    },
+    "dataset_manifest_id": {
+      "type": "string",
+      "const": "local-sha256:33d5bf0f918884c8908795b384e0964a48a1351c808800964b8cacf3f83e28b6"
+    },
+    "dataset_revision": {
+      "type": "string",
+      "const": "LOCAL_FIXTURE_1"
+    },
+    "experiment_id": {
+      "type": "string",
+      "const": "fixture.gateway.btc.levels"
+    },
+    "strategy_version": {
+      "type": "null"
+    },
+    "parameters_digest": {
+      "type": "string",
+      "const": "c548e2ffcd542d5d741682303694b3c6d06507740f158a6e30089b2d5355f648"
+    },
+    "execution_mode": {
+      "type": "string",
+      "const": "DIRECT_DISPOSABLE_SYNTHETIC"
+    },
+    "resource_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_input_bytes",
+        "max_output_bytes",
+        "max_rows",
+        "max_executions"
+      ],
+      "properties": {
+        "max_input_bytes": {
+          "type": "integer",
+          "const": 16384
+        },
+        "max_output_bytes": {
+          "type": "integer",
+          "const": 16384
+        },
+        "max_rows": {
+          "type": "integer",
+          "const": 3
+        },
+        "max_executions": {
+          "type": "integer",
+          "const": 1
+        }
+      }
+    },
+    "quota_owner": {
+      "type": "string",
+      "const": "LOCAL_TEST_ONLY"
+    },
+    "principal_id": {
+      "type": "string",
+      "const": "11111111-1111-4111-8111-111111111111"
+    },
+    "authority_generation": {
+      "type": "null"
+    },
+    "assignment_revision": {
+      "type": "null"
+    },
+    "fencing_token": {
+      "type": "null"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "maxLength": 96,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$(?![\\s\\S])"
+    },
+    "result_schema": {
+      "type": "string",
+      "const": "unified.gateway.direct-target-result.v1"
+    },
+    "result_artifact_ref": {
+      "type": "null"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:unified:gateway:target-request:v1"
+}

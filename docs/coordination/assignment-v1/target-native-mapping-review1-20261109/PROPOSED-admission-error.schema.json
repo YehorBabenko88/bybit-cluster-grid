@@ -1,0 +1,99 @@
+{
+  "$id": "urn:unified:target-admission-error:v1-review1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "enum": [
+        "DIRECT_PROFILE_NOT_ADMISSIBLE",
+        "PROFILE_NOT_COMMISSIONED",
+        "MAPPING_NOT_REPRESENTABLE",
+        "TARGET_BINDING_MISMATCH",
+        "IDENTITY_SCOPE_DENIED",
+        "INPUT_BINDING_NOT_ADMITTED",
+        "RESOURCE_QUOTA_NOT_QUALIFIED",
+        "WORKER_LEASE_FENCE_NOT_QUALIFIED",
+        "UTC_AT_COMMIT_NOT_QUALIFIED",
+        "PUBLICATION_NOT_QUALIFIED",
+        "IDEMPOTENCY_CONFLICT",
+        "CONSENSUS_UNAVAILABLE",
+        "NATIVE_OUTCOME_UNKNOWN"
+      ]
+    },
+    "execution_permitted": {
+      "const": false
+    },
+    "hold_release_permitted": {
+      "const": false
+    },
+    "lab_submit_sha256": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+          "type": "string"
+        }
+      ]
+    },
+    "native_original_state": {
+      "enum": [
+        "UNKNOWN",
+        "ADMITTED",
+        "RUNNING",
+        "COMPUTED",
+        "CANCEL_REQUESTED"
+      ]
+    },
+    "request_id": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "maxLength": 96,
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$(?![\\s\\S])",
+          "type": "string"
+        }
+      ]
+    },
+    "retry_permitted": {
+      "const": false
+    },
+    "schema": {
+      "const": "unified.authority.target-admission-error.v1-review1"
+    },
+    "target_request_sha256": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+          "type": "string"
+        }
+      ]
+    },
+    "this_attempt": {
+      "enum": [
+        "NOT_ATTEMPTED_THIS_CALL",
+        "THIS_ATTEMPT_ROLLED_BACK",
+        "UNCERTAIN"
+      ]
+    }
+  },
+  "required": [
+    "code",
+    "execution_permitted",
+    "hold_release_permitted",
+    "lab_submit_sha256",
+    "native_original_state",
+    "request_id",
+    "retry_permitted",
+    "schema",
+    "target_request_sha256",
+    "this_attempt"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:unified:gateway:lab-job-submit:v1-review1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "unified.gateway.lab-job-submit.v1-review1"
+    },
+    "operation": {
+      "const": "SUBMIT_RESEARCH"
+    },
+    "cluster_id": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "cluster_generation": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "job_id": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "original_actor_principal_id": {
+      "type": "string",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "quota_owner_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,128}$(?![\\s\\S])"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,128}$(?![\\s\\S])"
+    },
+    "commissioned_profile_sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "input_request_sha256": {
+      "const": "c548e2ffcd542d5d741682303694b3c6d06507740f158a6e30089b2d5355f648"
+    },
+    "producer_head": {
+      "const": "aed8a7c8a952f96803c207d5e90b133969a47f04"
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cpu_millicores": {
+          "const": "1000"
+        },
+        "resident_memory_bytes": {
+          "const": "268435456"
+        },
+        "max_artifact_bytes": {
+          "const": "1048576"
+        }
+      },
+      "required": [
+        "cpu_millicores",
+        "resident_memory_bytes",
+        "max_artifact_bytes"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "operation",
+    "cluster_id",
+    "cluster_generation",
+    "request_id",
+    "job_id",
+    "original_actor_principal_id",
+    "quota_owner_id",
+    "idempotency_key",
+    "commissioned_profile_sha256",
+    "input_request_sha256",
+    "producer_head",
+    "resources"
+  ]
+}

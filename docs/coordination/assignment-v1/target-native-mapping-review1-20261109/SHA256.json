@@ -1,0 +1,87 @@
+[
+  {
+    "path": "build_contract_probe.py",
+    "sha256": "e4a289c495b7bdc898d250b80fe856804135e7046199a694759f811fcd836088",
+    "bytes": 10536
+  },
+  {
+    "path": "DESIGN-REVIEW.json",
+    "sha256": "476d744884f52531d0305eb5a7d372ce1fe9899b166d654cc6a2bbf1d3664354",
+    "bytes": 375
+  },
+  {
+    "path": "DESIGN.md",
+    "sha256": "586f93b6222219480c15316ee8ab8f726ccf95023ccd10c6fe3c77688b8aff16",
+    "bytes": 19902
+  },
+  {
+    "path": "PRIMARY-SOURCE-REFS.json",
+    "sha256": "51187274da43c8b5a6d01625a1b613ef724c1e7c7a33b142f6ea8208c252d434",
+    "bytes": 1019
+  },
+  {
+    "path": "PROPOSED-admission-error.schema.json",
+    "sha256": "df0b52379af3e44e64dc2ebc50be5c3196e368d83b846bbd9220d2f9a71f6322",
+    "bytes": 2226
+  },
+  {
+    "path": "PROPOSED-commissioned-profile-v2.schema.json",
+    "sha256": "27b169eebb07980c729ca479cf4ab66efe8e8e99f4f0f04fda1b6878f03eb05c",
+    "bytes": 4073
+  },
+  {
+    "path": "PROPOSED-native-outer.schema.json",
+    "sha256": "faf01152678c5b066145dcafebe92f593a641a54dac84da3ce1e1df94c0fb261",
+    "bytes": 3360
+  },
+  {
+    "path": "pure-contract-verification.json",
+    "sha256": "cb6e2715a62151d3fe8e869e84b93919e38a80ba1c61209f1734c0cd727fbd1b",
+    "bytes": 2531
+  },
+  {
+    "path": "pure-contract.log",
+    "sha256": "547bca3f13c3ef53bb7c5dfdb9fa0f763446ec5f8945cc1c2f7363003843c22d",
+    "bytes": 2603
+  },
+  {
+    "path": "SAMPLE-NOT-COMMISSIONED-native-outer.canonical.json",
+    "sha256": "c0e6c331b6c307b83be6bee8add23b487612ff283d7167d4bb93114ec86d20b5",
+    "bytes": 1048
+  },
+  {
+    "path": "SAMPLE-NOT-COMMISSIONED-profile.canonical.json",
+    "sha256": "72d92e1ff023f00823b65637f3c79bc080510f8a02cfe24b3c4715286d43299c",
+    "bytes": 2748
+  },
+  {
+    "path": "SAMPLE-NOT-ISSUED-lab-submit.canonical.json",
+    "sha256": "b1675ccb47475d4d70788f3033cd9f05507ad320435d63d667d893aa07f00e71",
+    "bytes": 787
+  },
+  {
+    "path": "originals/broker-profile-v1.schema.json",
+    "sha256": "e999dc35c4737346ac152172292078ac9eed040ffdf31afdf001ae86974f51d1",
+    "bytes": 1776
+  },
+  {
+    "path": "originals/gateway_target_adapter.py",
+    "sha256": "775976b3d344409d6c25ba96f2a475f5085695edf9947f482440c263355d6a8f",
+    "bytes": 16531
+  },
+  {
+    "path": "originals/lab-submit-review1.schema.json",
+    "sha256": "19357891fc022a87831009f17c663304ab72d88ed6ea344bb65c6bc325a321cc",
+    "bytes": 2618
+  },
+  {
+    "path": "originals/ROOT-CONTRACT.md",
+    "sha256": "1efd982c7c0bf5271fa108f33bbb497929014daded0a97973505cae36bd8c85b",
+    "bytes": 4970
+  },
+  {
+    "path": "originals/target-direct-request.schema.json",
+    "sha256": "2a7a9370eedc43b76b03fa13252e86606162ae8f494a362fd69d5b22a85858fe",
+    "bytes": 3151
+  }
+]

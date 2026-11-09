@@ -1,0 +1,11 @@
+{
+  "scope": "INDEPENDENT_DESIGN_REVIEW_ONLY",
+  "reviewer": "ha_design_review",
+  "actionable_p0": 0,
+  "actionable_p1": 0,
+  "p2": "CANONICAL_SAMPLE_TRAILING_LF",
+  "p2_resolution": "REMOVED_LF_THREE_RAW_SHA_ASSERTS_PURE_PROBE_EXIT0",
+  "rereview": "ALL_THREE_EXACT_RAW_H_S_D_MATCH_NO_TRAILING_LF_P2_CLOSED",
+  "native_calls": 0,
+  "admission_or_api_ack": false
+}

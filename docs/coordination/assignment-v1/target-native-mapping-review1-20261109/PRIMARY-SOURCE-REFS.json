@@ -1,0 +1,29 @@
+{
+  "scope": "EXACT_GITHUB_RAW_BLOBS_NOT_EXECUTED",
+  "originals": [
+    {
+      "name": "target-direct-request.schema.json",
+      "ref": "cf7dad91bf0d3a24073c91e0d3e326e6d9e7d2db",
+      "path": "docs/intelligence/target-adapter/request.schema.json",
+      "blob": "4b98e4f925eca55241579b7aae4a5ac3e3d30a19"
+    },
+    {
+      "name": "gateway_target_adapter.py",
+      "ref": "cf7dad91bf0d3a24073c91e0d3e326e6d9e7d2db",
+      "path": "unified_system/gateway_target_adapter.py",
+      "blob": "c96654cf42ab41f8a66c2092cea7509bfa6238a4"
+    },
+    {
+      "name": "ROOT-CONTRACT.md",
+      "ref": "cf7dad91bf0d3a24073c91e0d3e326e6d9e7d2db",
+      "path": "docs/intelligence/target-adapter/CONTRACT.md",
+      "blob": "8e9f3556b77247532e0971a326382473bb8ab378"
+    },
+    {
+      "name": "lab-submit-review1.schema.json",
+      "ref": "3e498de973536c2d6393f83abe7d59cb1452a9b4",
+      "path": "docs/intelligence/jobs/lab-submit-review1.schema.json",
+      "blob": "be180aacc49e5ca4d82c5ab775fc47034147f31e"
+    }
+  ]
+}
