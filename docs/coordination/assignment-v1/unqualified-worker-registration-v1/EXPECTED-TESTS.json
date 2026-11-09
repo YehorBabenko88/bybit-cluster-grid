@@ -1,0 +1,8 @@
+[
+  "test_contract.RegistrationContractTests.test_bad_encoding_duplicate_numeric_and_noncanonical_rejected",
+  "test_contract.RegistrationContractTests.test_intent_is_closed_acyclic_and_exact_canonical",
+  "test_contract.RegistrationContractTests.test_native_uuid_any_version_identity_uuid4_and_fullmatch",
+  "test_contract.RegistrationContractTests.test_only_allocated_registration_and_lock_keys",
+  "test_contract.RegistrationContractTests.test_record_exact_original_join_without_permission",
+  "test_contract.RegistrationContractTests.test_registration_cannot_upgrade_or_advertise_resources"
+]
