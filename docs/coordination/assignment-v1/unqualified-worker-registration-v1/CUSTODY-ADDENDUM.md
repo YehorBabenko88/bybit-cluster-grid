@@ -116,6 +116,15 @@ and its attempted marker must be durable. Before registration transaction, the
 actual returned SID and transaction-attempt marker must be retained. A crash
 at either attempted boundary is UNKNOWN; no automatic SID/rekey/retry.
 
+For this custody candidate, each retained read attempt also selects ONE fixed
+configured endpoint: explicit read failover needs another retained read attempt
+ID and consumes the same row budget. Root permits existing failover reads, but
+this candidate does not wrap a multi-endpoint logical read with a misleading
+single-endpoint hash. No unrecorded native leader/session-info preflight before
+original retention: parse locally, retain original, then retain each RPC attempt.
+Any later use of the existing multi-endpoint reader needs an explicit endpoint
+inventory binding contract rather than silently changing these receipt fields.
+
 If an RPC returns but result persistence fails, retain the prior attempted
 marker and report UNKNOWN without claiming rollback. Failure cleanup may
 destroy ONLY an owned known new SID after a provably unsent/definitively rejected
