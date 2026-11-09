@@ -2,6 +2,7 @@
 import base64,hashlib,importlib.util,sqlite3,tempfile,unittest,uuid
 import json
 from contextlib import closing
+from unittest.mock import patch
 from jsonschema import Draft202012Validator
 from pathlib import Path
 from unified_system.journal import Journal
@@ -37,6 +38,12 @@ class CustodyContractTests(unittest.TestCase):
             journal.append('BLOCKED',dict(pending,rpc_attempt_id=str(uuid.uuid4())),expected_sequence=2)
             with self.assertRaisesRegex(ValueError,'NO_AUTOMATIC_MUTATION_RETRY'):
                 self.codec.replay(journal.read(),original_intent_bytes=self.raw)
+            # Pure filesystem negative: sidecar directory-entry detection must
+            # not trust exists(), which is false for a dangling link. No native
+            # transport/session/issuer proof is mocked here.
+            path.with_name(path.name+'-wal').write_bytes(b'untrusted-sidecar')
+            with patch.object(Path,'exists',return_value=False),self.assertRaises(ValueError):
+                self.codec.preflight_path(path)
     def test_closed_receipt_original_bounds_and_flags(self):
         schema=json.loads((FOLDER/'custody-receipt.schema.json').read_bytes())
         Draft202012Validator.check_schema(schema);Draft202012Validator(schema).validate(self.original)

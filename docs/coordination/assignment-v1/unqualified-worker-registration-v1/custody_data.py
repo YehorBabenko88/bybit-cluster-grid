@@ -23,7 +23,10 @@ def preflight_path(path):
         if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:raise ValueError('REPARSE_OR_SYMLINK')
     info=path.stat()
     if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or not 0<info.st_size<=MAX_DB_BYTES:raise ValueError('JOURNAL_FILE_BOUND')
-    if any(path.with_name(path.name+suffix).exists() for suffix in ('-wal','-shm','-journal')):raise ValueError('JOURNAL_SIDECAR_REQUIRES_OWNER_RECOVERY')
+    for suffix in ('-wal','-shm','-journal'):
+        try:path.with_name(path.name+suffix).lstat()
+        except FileNotFoundError:continue
+        raise ValueError('JOURNAL_SIDECAR_REQUIRES_OWNER_RECOVERY')
 
 def parse_receipt(raw,*,original_intent_bytes):
     if type(raw) is not bytes or len(raw)>MAX_RECEIPT_BYTES:raise ValueError('CUSTODY_RECEIPT_BOUND')
