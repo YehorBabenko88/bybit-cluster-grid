@@ -92,5 +92,33 @@ except RegistrationCustodyUnavailable as exc:
                 sidecar.unlink()  # Only this test's known owned sidecar.
                 os.link(path,Path(tmp)/'unexpected-hardlink.sqlite')
                 with self.assertRaises(native.RegistrationCustodyUnavailable):owned.read_state()
+    def test_failed_context_entry_closes_owned_handles_before_contender(self):
+        with tempfile.TemporaryDirectory(prefix='a2-root-custody-enter-') as tmp:
+            path=Path(tmp)/'registration.sqlite';journal=Journal(path)
+            owned=native.RootRegistrationCustody(journal,original_intent_bytes=self.raw)
+            owned.retain_original();before=Journal(path).read();descriptors=(owned._db_fd,owned._lock_fd)
+            journal.path=Path(tmp)/'wrong.sqlite'
+            try:
+                with self.assertRaisesRegex(native.RegistrationCustodyUnavailable,'JOURNAL_PATH_CHANGED'):
+                    with owned:self.fail('FAILED_ENTRY_BODY_MUST_NOT_RUN')
+                journal.path=path
+                # No caller/manual close before the actual next process.
+                self.child(path,'ACQUIRED')
+                for descriptor in descriptors:
+                    with self.assertRaises(OSError):os.fstat(descriptor)
+                self.assertEqual(Journal(path).read(),before)
+            finally:owned.close()
+            path2=Path(tmp)/'close-error.sqlite';second=native.RootRegistrationCustody(Journal(path2),original_intent_bytes=self.raw)
+            second.retain_original();sidecar=path2.with_name(path2.name+'-journal');sidecar.write_bytes(b'owned-test-fault')
+            actual_close=second.close
+            def close_then_report_failure():actual_close();raise OSError('CLOSE_REPORT_UNKNOWN')
+            try:
+                with patch.object(second,'close',side_effect=close_then_report_failure),self.assertRaises(native.RegistrationCustodyUnavailable) as caught:
+                    with second:self.fail('FAILED_ENTRY_BODY_MUST_NOT_RUN')
+                self.assertEqual(str(caught.exception),'SIDECAR_REQUIRES_EXPLICIT_OWNER_RECOVERY')
+                self.assertTrue(any('Custody entry cleanup' in note for note in caught.exception.__notes__))
+                sidecar.unlink()  # Only this known temporary fault, never DB/lock.
+                self.child(path2,'ACQUIRED')
+            finally:actual_close()
 
 if __name__=='__main__':unittest.main()
