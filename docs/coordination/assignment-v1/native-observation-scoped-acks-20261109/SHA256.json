@@ -1,0 +1,37 @@
+[
+  {
+    "path": "ACK-REGISTRY.json",
+    "sha256": "c4278328cb082d0ddeb98916ef2f07b5346795974a191c0055de33ef439e8cb9",
+    "bytes": 1933
+  },
+  {
+    "path": "AGENT4-ACK.original.json",
+    "sha256": "4dfe16115fe7c8447de9d46f69c594bb1e975c8389b09e1876daeb140797743e",
+    "bytes": 2388
+  },
+  {
+    "path": "AGENT5-ACK.original.json",
+    "sha256": "d0ed07582ac52bd85ae6328ead1fb720dfd3d21365ad6dab7dc8eda28c24d57a",
+    "bytes": 2219
+  },
+  {
+    "path": "AGENT6-ACK.original.json",
+    "sha256": "77cd9b4cdd749b999d2383b54e7a3477fc06bcb906c99bfc28dc9eaaeb282f19",
+    "bytes": 3639
+  },
+  {
+    "path": "AGENT7-ACK.original.txt",
+    "sha256": "302a130a3a00da4ce13f3c14c76f6810c6aac88cf65d7f534a7dccd04e0a2e31",
+    "bytes": 4469
+  },
+  {
+    "path": "AGENT7-review.original.json",
+    "sha256": "949eb62bd7ac693f3bf42d535baaa89cac37cdfc28614e2a76954675a36e0a28",
+    "bytes": 9792
+  },
+  {
+    "path": "CONSUMER-UNKNOWN-CLARIFICATION.md",
+    "sha256": "513d27bac337f9e228b1a20ac7ff8d27ab4a005b16591a762ac21a97db468147",
+    "bytes": 2146
+  }
+]

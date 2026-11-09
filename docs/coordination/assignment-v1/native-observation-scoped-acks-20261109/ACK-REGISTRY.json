@@ -1,0 +1,44 @@
+{
+  "schema": "agent2.native-observation.scoped-ack-registry.addendum.v1",
+  "immutable_proposal_head": "6f1d85a568b3e7f2de60dcfa7db3dfec9b753ddd",
+  "immutable_proposal_tree": "e1b941cdcbc295b9526aa42bccaf7660904da9e9",
+  "schema_sha256": "89537023318bca5283d83948a517766598e1a0ed363187214959c7ed78e23acb",
+  "design_sha256": "736623311752919adbfde0776cfda4af13a9e884aed7c5d0e734576f3c9c8356",
+  "acks": [
+    {
+      "sha256": "4dfe16115fe7c8447de9d46f69c594bb1e975c8389b09e1876daeb140797743e",
+      "file": "AGENT4-ACK.original.json",
+      "owner": "A4",
+      "scope": "PURE_STORAGE_PROVENANCE_PUBLICATION_BOUNDARY_RECEIPT_BYTES_UNKNOWN"
+    },
+    {
+      "sha256": "d0ed07582ac52bd85ae6328ead1fb720dfd3d21365ad6dab7dc8eda28c24d57a",
+      "file": "AGENT5-ACK.original.json",
+      "owner": "A5",
+      "scope": "PURE_READ_OBSERVATION_JOB_PHASE_ORIGINAL_SEMANTIC_DIRECTION"
+    },
+    {
+      "sha256": "77cd9b4cdd749b999d2383b54e7a3477fc06bcb906c99bfc28dc9eaaeb282f19",
+      "file": "AGENT6-ACK.original.json",
+      "owner": "A6",
+      "hash_provenance": "A2_COMPUTED_AFTER_FULL_LOCAL_RECEIPT_READ",
+      "scope": "PURE_CONSUMER_DIRECTION_WITH_UNKNOWN_DISCLOSURE_WORDING_CLARIFICATION"
+    },
+    {
+      "sha256": "949eb62bd7ac693f3bf42d535baaa89cac37cdfc28614e2a76954675a36e0a28",
+      "file": "AGENT7-review.original.json",
+      "owner": "A7",
+      "scope": "PURE_SCIENTIFIC_INPUT_RESULT_PROVENANCE_UNKNOWN"
+    }
+  ],
+  "owner_counts": "ATTRIBUTED_SEPARATELY_NOT_COMBINED_OR_TRANSFERRED_TO_NATIVE_TESTS",
+  "root_wire_profile_freeze": "NOT_GRANTED",
+  "native_producer_source_qualification": "NOT_GRANTED",
+  "renderer_allocation_or_wiring": "NOT_GRANTED",
+  "commissioning": "NOT_GRANTED",
+  "native_calls": 0,
+  "runtime_shared_edits": 0,
+  "public_submit": "DENY",
+  "scheduler": "BLOCKED",
+  "status": "SCOPED_PURE_DIRECTION_ACKS_COMPLETE_ROOT_FREEZE_PENDING_NO_GO"
+}

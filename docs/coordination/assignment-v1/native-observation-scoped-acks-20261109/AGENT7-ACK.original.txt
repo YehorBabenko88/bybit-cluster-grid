@@ -1,0 +1,65 @@
+A7 SCOPED PURE NATIVE OBSERVATION DESIGN COMPATIBILITY ACK
+Grid6f1d85a568b3e7f2de60dcfa7db3dfec9b753ddd
+treee1b941cdcbc295b9526aa42bccaf7660904da9e9
+schema89537023318bca5283d83948a517766598e1a0ed363187214959c7ed78e23acb
+design736623311752919adbfde0776cfda4af13a9e884aed7c5d0e734576f3c9c8356.
+
+Separate review from mapping26e ACK. No concrete correction found in the reviewed
+scientific input/result/provenance/UNKNOWN boundary. This ACK approves only the
+proposed pre-publication READ-observation design direction, not shared ABI freeze,
+source implementation, disclosure authority, runtime wiring or positive operations.
+
+Own pure checks: primary Git blob OIDs/SHA256 recomputed; supplied design/schema
+and unchanged predecessor736acca hashes match. All14 SAMPLE-DATA-NOT-NATIVE files
+validate and preserve canonical bytes, maximum4441B<=16KiB. Full T/base64/H/P/S/
+lab13/D and retained original UUID/key/plannedjob/actor/quota/generation/realm joins
+checked against the proposed retained sample originals. No receipt is commissioned
+or issued by these checks. Six own schema denials cover positive publish permission,
+payload injection, COMMITTED publication, DURABLE projection, COMPLETED result and
+scientific-units injection. Owner116/186/8 counts are not adopted.
+
+Scientific/provenance compatibility:
+- f499/2070 and664d are metadata observations only. Hash agreement is not payload
+  possession, successful scientific computation, retrieval, replicas or publication.
+- computation.payload stays null; retrieval NOT_ESTABLISHED and scientific payload
+  validation NOT_PERFORMED. Do not synthesize levels, signals, units or PnL/chart
+  from these metadata. A6 must clear incompatible prior scientific payload views.
+- Retain inner A7/Meta synthetic whole-window semantics, explicit clocks/units,
+  unavailable finance, NOT_EVALUATED source and false execution/trading/training
+  eligibility when a separately approved actual payload is eventually retrieved.
+  Native job admission never changes those scientific facts or flags.
+- H outer request, c548 original A7 input, local33d5 payload label, Meta dataset
+  digest, S profile and D native intent remain distinct. LOCAL_FIXTURE_1 remains
+  local, not an A4 committed dataset/revision or two-copy/protection proof.
+
+UNKNOWN/current-history conditions:
+- Known admission/current phase/computed receipt remain separate. LAST_KNOWN must
+  preserve the last COMPLETE verified snapshot with policy/operation UNKNOWN and
+  visible non-NONE refresh reason; never render its current field as latest state.
+- UNRESOLVED preserves planned identity, not evidence a native job was admitted or
+  absent. No re-execute, new profile/UUID/key/debit, hold release, refund or GC.
+- READ_RESEARCH view is not current Submit/Cancel acknowledgment. RUNNING is not
+  child-alive/start proof; CANCEL_REQUESTED is not verified exit/cancel/refund.
+- Actual current READ authority is required before disclosure regardless of known
+  historical commits. JSON CURRENT/scope/receipt/hash labels cannot issue access.
+- Native receipt bytes_sha256 binds actual decoded KV Value bytes and positive
+  ModifyIndex, not reconstructed JSON, scientific artifact hash, worker fence or
+  UTC commit instant. Same-authority complete raw joins remain producer gates.
+
+Publication remains NOT_AUTHORIZED/null receipt/location, projection NOT_AVAILABLE/
+null receipt and completion NOT_ESTABLISHED. This matches current A7 always-denied
+positive projection/read APIs. Future actual committed publication/projection or
+payload response needs a new reviewed codec; do not strip known positive facts into
+this admission-only version or fill its null payload field.
+
+Wire<=16KiB/depth12/canonical ASCII/no numeric literals/strict duplicate rejection
+and u63 strings require actual codec enforcement, not just JSON Schema. Original T
+inside strict canonical base64 retains its own numeric codec. Both complete wire
+and decoded T must fit; no truncate/hash-only omitted dependency. Sample byte size
+does not qualify full native transaction, quotas, memory containment or retention.
+
+Target/broker/worker/scheduler/Consul/native calls: ZERO. Shared edits: ZERO.
+No actual receipts, Assignments, profiles or authority/source qualification created.
+Existing positive issuer, UTC, resource, A4 two-domain publication, A7 durable
+projection, hosted/physical and global release gates remain unqualified.
+DESIGN_PENDING / NO-GO; public submit DENY; scheduler BLOCKED.

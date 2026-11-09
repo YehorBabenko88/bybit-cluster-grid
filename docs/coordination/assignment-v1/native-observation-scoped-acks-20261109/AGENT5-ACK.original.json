@@ -1,0 +1,32 @@
+{
+  "status": "SCOPED_PURE_READ_OBSERVATION_SCHEMA_AND_SEMANTIC_DIRECTION_ACK",
+  "source_head": "6f1d85a568b3e7f2de60dcfa7db3dfec9b753ddd",
+  "tree": "e1b941cdcbc295b9526aa42bccaf7660904da9e9",
+  "schema_sha256": "89537023318bca5283d83948a517766598e1a0ed363187214959c7ed78e23acb",
+  "design_sha256": "736623311752919adbfde0776cfda4af13a9e884aed7c5d0e734576f3c9c8356",
+  "predecessor_sha256": "736acca970bd392f46530cda94acd97701e879b18889c429a2c2113e04810e4c",
+  "predecessor_nine_branches_and_defs": "EXACT_UNCHANGED_LOCALLY_RESOLVED",
+  "own_synthetic_sample_schema_and_binding_controls": 14,
+  "own_closed_operation_permission_completion_negative_controls": 84,
+  "owner_counts": "NOT_ADOPTED",
+  "ack_scope": [
+    "READ_RESEARCHonly, notcurrentSUBMIT/CANCELack",
+    "FulloriginalT/H/P/S/N/D/requestkey/jobactorquota/genrealmcorrelation; plannedJobnotissuedwhenUNKNOWN",
+    "Immutableadmission vs currentphase/computedreceipt identities; actual omittedbodyAssignment/attempt/sourcecommand/session/index joins stillrequired",
+    "Lastknowncompletehistorypreservedwithpolicy/operationUNKNOWN and noncurrentrefreshstatus",
+    "UNRESOLVED nofakegrant/receipt/assignment/attempt and noabsence/retryinference",
+    "Metadataonly/no scientificpayload/chartdata; publication/projection/completion fixedunavailable; all4permissionsfalse"
+  ],
+  "mandatory_before_runtime": [
+    "ActualcurrentREADdisclosure evenwhenpolicylabelUNKNOWN; no publichistory/error without rights",
+    "Actualsame-authority consistent original/profile/job/Assignment/attempt/phase/rawreceipt proof; JSON and dataclass not source",
+    "ExactreceiptKVValuebytesSHA/externalIndex with rawbodykind/sourcecommand/sequence joins, not domaincounter/leader/Raftalias",
+    "No mixing snapshothistoryorusing current field as latestwhen LAST_KNOWN",
+    "Pureassertprobe notruntimevalidator, no wirefreeze orsource/producerimplementationACK",
+    "FuturestorageCOMMITTED/projectionDURABLE/COMPLETED need separate version andactualA2/A4/A7/A5/A6/ROOT approval"
+  ],
+  "actual_native_broker_worker_target_calls": 0,
+  "production_shared_code_edits": false,
+  "runtime_wire_freeze": "NOT_GRANTED",
+  "go_no_go": "NO_GO"
+}

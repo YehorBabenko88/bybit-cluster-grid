@@ -1,0 +1,48 @@
+{
+  "actual_consul_calls": 0,
+  "broker_calls": 0,
+  "conditions": [
+    "READ observation only; current real read rights and same-authority original/raw receipt/index/session joins remain required before disclosure.",
+    "Known history plus failed refresh retains snapshot uncertainty; no global absence, automatic replay/rekey/debit release, direct journal adoption or new permit.",
+    "Exact decoded immutable KV Value SHA and external actual ModifyIndex are required; synthetic sample receipt shapes/hashes do not prove native existence.",
+    "Computed metadata has no payload retrieval, units revalidation or chart data; golden artifact digests do not establish possession/replication/publication.",
+    "Future positive publication/projection/result completion requires a separate actual A2/A4/A7 codec/version and protected two-domain closure; this proposal cannot silently represent or erase such known positive facts."
+  ],
+  "design": {
+    "blob": "519bdf73925518f1bb422979077acca4608e350c",
+    "sha256": "736623311752919adbfde0776cfda4af13a9e884aed7c5d0e734576f3c9c8356"
+  },
+  "head": "6f1d85a568b3e7f2de60dcfa7db3dfec9b753ddd",
+  "independent_sample_data_checks": 14,
+  "independent_schema_counterclaim_rejections": [
+    "publication.status",
+    "projection.status",
+    "result_completion",
+    "computation.payload",
+    "permissions.publish",
+    "permissions.retry",
+    "requested_operation",
+    "requested_operation"
+  ],
+  "manifest_members_verified": 27,
+  "manifest_sha256": "7eca846ddb0b1b0154c5bc0143b22afe3e9f43407fdf67875fea9cca78e572b3",
+  "native_runtime_admitted": false,
+  "owner_vector_counts_transferred": false,
+  "predecessor_nine_alternatives_and_defs_unchanged": true,
+  "production_admitted": false,
+  "projection_qualified": false,
+  "proposed_schema": {
+    "blob": "af6d30a0bdffe830677e5130e067eb792e78db40",
+    "bytes": 32458,
+    "sha256": "89537023318bca5283d83948a517766598e1a0ed363187214959c7ed78e23acb"
+  },
+  "publication_qualified": false,
+  "review_date": "2026-11-09",
+  "schema": "agent4.native-observation-proposal-review.v1",
+  "shared_wire_freeze_approved": false,
+  "target_calls": 0,
+  "tree": "e1b941cdcbc295b9526aa42bccaf7660904da9e9",
+  "two_domain_qualified": false,
+  "verdict": "SCOPED_PURE_STORAGE_PUBLICATION_RECEIPT_UNKNOWN_COMPATIBILITY_ACK",
+  "worker_calls": 0
+}
