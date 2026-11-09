@@ -2,6 +2,7 @@
 import copy,hashlib,importlib.util,json,unittest
 from pathlib import Path
 from grid.authority_runtime_v1 import canonical
+from jsonschema import Draft202012Validator
 
 ROOT=Path(__file__).absolute().parents[4]
 HELPER=ROOT/'docs/coordination/assignment-v1/unqualified-worker-registration-v1/contract_data.py'
@@ -22,10 +23,13 @@ class RegistrationContractTests(unittest.TestCase):
             native_session_id='12345678-1234-1234-9234-123456789abc',registration_state='UNQUALIFIED',
             admitted_fields=[],resources_reserved=False,effect_permitted=False)
     def test_intent_is_closed_acyclic_and_exact_canonical(self):
+        schema=json.loads((HELPER.parent/'intent.schema.json').read_bytes())
+        Draft202012Validator.check_schema(schema);Draft202012Validator(schema).validate(self.intent)
         self.assertEqual(self.codec.parse_intent(self.raw),self.intent)
         self.assertEqual(self.codec.intent_digest(self.raw),hashlib.sha256(self.raw).hexdigest())
         for extra in ('native_session_id','original_registration_intent_sha256','capacity'):
             with self.subTest(extra=extra),self.assertRaises(ValueError):self.codec.parse_intent(canonical(dict(self.intent,**{extra:'not-allowed'})))
+            self.assertTrue(list(Draft202012Validator(schema).iter_errors(dict(self.intent,**{extra:'not-allowed'}))))
     def test_bad_encoding_duplicate_numeric_and_noncanonical_rejected(self):
         for raw in (self.raw+b'\n',b' '+self.raw,b'{"schema":"x","schema":"x"}',self.raw.replace(b'"COMMISSION_UNQUALIFIED_WORKER"',b'1'),self.raw.replace(b'"COMMISSION_UNQUALIFIED_WORKER"',b'true')):
             with self.subTest(raw=raw[:30]),self.assertRaises(ValueError):self.codec.parse_intent(raw)
@@ -39,8 +43,11 @@ class RegistrationContractTests(unittest.TestCase):
             with self.subTest(sid=sid),self.assertRaises(ValueError):self.codec.parse_record(canonical(dict(self.record,native_session_id=sid)),original_intent_bytes=self.raw)
         with self.assertRaises(ValueError):self.codec.parse_intent(canonical(dict(self.intent,node_id=self.record['native_session_id'])))
     def test_registration_cannot_upgrade_or_advertise_resources(self):
+        schema=json.loads((HELPER.parent/'record.schema.json').read_bytes())
+        Draft202012Validator.check_schema(schema);Draft202012Validator(schema).validate(self.record)
         for field,value in (('registration_state','ACTIVE'),('admitted_fields',['cpu_millicores']),('resources_reserved',True),('effect_permitted',True),('resources_reserved','false'),('effect_permitted','false')):
             with self.subTest(field=field,value=value),self.assertRaises(ValueError):self.codec.parse_record(canonical(dict(self.record,**{field:value})),original_intent_bytes=self.raw)
+            self.assertTrue(list(Draft202012Validator(schema).iter_errors(dict(self.record,**{field:value}))))
         with self.assertRaises(ValueError):self.codec.parse_record(canonical(dict(self.record,pid='123')),original_intent_bytes=self.raw)
     def test_only_allocated_registration_and_lock_keys(self):
         prefix='unified/'+self.intent['cluster_id']+'/runtime-v1/research-lab-v1/'+self.intent['realm_id']+'/workers/'+self.intent['node_id']+'/registration-v1'
