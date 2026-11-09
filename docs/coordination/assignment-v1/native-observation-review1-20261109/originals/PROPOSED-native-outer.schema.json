@@ -1,0 +1,131 @@
+{
+  "$id": "urn:unified:gateway:target-native-request:v1-review1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "assignment_revision": {
+      "type": "null"
+    },
+    "authority_generation": {
+      "maxLength": 96,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$(?![\\s\\S])",
+      "type": "string"
+    },
+    "dataset_manifest_id": {
+      "const": "local-sha256:33d5bf0f918884c8908795b384e0964a48a1351c808800964b8cacf3f83e28b6",
+      "type": "string"
+    },
+    "dataset_revision": {
+      "const": "LOCAL_FIXTURE_1",
+      "type": "string"
+    },
+    "execution_mode": {
+      "const": "NATIVE_RESEARCH_ADMISSION_REQUEST_NOT_PERMISSION"
+    },
+    "experiment_id": {
+      "const": "fixture.gateway.btc.levels",
+      "type": "string"
+    },
+    "fencing_token": {
+      "type": "null"
+    },
+    "idempotency_key": {
+      "maxLength": 96,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$(?![\\s\\S])",
+      "type": "string"
+    },
+    "parameters_digest": {
+      "const": "c548e2ffcd542d5d741682303694b3c6d06507740f158a6e30089b2d5355f648",
+      "type": "string"
+    },
+    "principal_id": {
+      "maxLength": 96,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$(?![\\s\\S])",
+      "type": "string"
+    },
+    "quota_owner": {
+      "pattern": "^[A-Za-z0-9_-]{1,128}(?![\\s\\S])",
+      "type": "string"
+    },
+    "request_id": {
+      "maxLength": 96,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$(?![\\s\\S])",
+      "type": "string"
+    },
+    "resource_budget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_executions": {
+          "const": 1,
+          "type": "integer"
+        },
+        "max_input_bytes": {
+          "const": 16384,
+          "type": "integer"
+        },
+        "max_output_bytes": {
+          "const": 16384,
+          "type": "integer"
+        },
+        "max_rows": {
+          "const": 3,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_input_bytes",
+        "max_output_bytes",
+        "max_rows",
+        "max_executions"
+      ],
+      "type": "object"
+    },
+    "result_artifact_ref": {
+      "type": "null"
+    },
+    "result_schema": {
+      "const": "unified.gateway.native-target-observation.v1-review1"
+    },
+    "schema": {
+      "const": "unified.gateway.target-native-request.v1-review1"
+    },
+    "strategy_version": {
+      "type": "null"
+    },
+    "target_capability": {
+      "const": "meta.ohlcv.untouched_levels.v1",
+      "type": "string"
+    },
+    "target_kind": {
+      "const": "MetaAnalyse",
+      "type": "string"
+    },
+    "target_version": {
+      "const": "f3c01a23fa5baaeeeb28eb8e9397e72b5ef4d5a1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "request_id",
+    "target_kind",
+    "target_capability",
+    "target_version",
+    "dataset_manifest_id",
+    "dataset_revision",
+    "experiment_id",
+    "strategy_version",
+    "parameters_digest",
+    "execution_mode",
+    "resource_budget",
+    "quota_owner",
+    "principal_id",
+    "authority_generation",
+    "assignment_revision",
+    "fencing_token",
+    "idempotency_key",
+    "result_schema",
+    "result_artifact_ref"
+  ],
+  "type": "object"
+}

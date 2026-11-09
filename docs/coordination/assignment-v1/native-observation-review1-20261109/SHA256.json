@@ -1,0 +1,137 @@
+[
+  {
+    "path": "build_probe.py",
+    "sha256": "09e588d06b8792d3959464fcffe515ff9ac60194e3dcd77096df43e6dc3d831e",
+    "bytes": 14052
+  },
+  {
+    "path": "DESIGN-REVIEW.json",
+    "sha256": "a8ef53c5d13c7f856642162cf8c37423b734400149cbd13749d6a83284ccd262",
+    "bytes": 611
+  },
+  {
+    "path": "DESIGN.md",
+    "sha256": "736623311752919adbfde0776cfda4af13a9e884aed7c5d0e734576f3c9c8356",
+    "bytes": 16539
+  },
+  {
+    "path": "PROPOSED-native-observation.schema.json",
+    "sha256": "89537023318bca5283d83948a517766598e1a0ed363187214959c7ed78e23acb",
+    "bytes": 32458
+  },
+  {
+    "path": "pure-probe.log",
+    "sha256": "aaaaf7b9a864ae57b05f567cdc499afbdce6fd0b7654dce68248937edc4fb766",
+    "bytes": 947
+  },
+  {
+    "path": "pure-verification.json",
+    "sha256": "ee85a0f8c05bb3b713b0148e3dbed29d078637f6a5d24689fad4cd1ad00791e2",
+    "bytes": 926
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-00.canonical.json",
+    "sha256": "fafc50aa56868bcf4672eff4a3c2be9499b70cfba450947dfbb1362970c1a795",
+    "bytes": 3959
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-01.canonical.json",
+    "sha256": "fbd3cd6155dedcec03769beed84db295b8499df197c66a9a307bbb1f7495aba7",
+    "bytes": 3957
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-02.canonical.json",
+    "sha256": "c8c7a3b4f02bf6179d55b256b3ab050162a6e9deb5d2213d23597ad5821a9977",
+    "bytes": 3970
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-03.canonical.json",
+    "sha256": "e9547acba02dad98047ee1fb0c09063593d1fa17f5ec5b8a18a091a9f95a06ca",
+    "bytes": 3957
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-04.canonical.json",
+    "sha256": "21debd0a7cf57774363c648af9b6dd4d9aa674ab894049f3f79bc43ad4780ba9",
+    "bytes": 3955
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-05.canonical.json",
+    "sha256": "d2f6edca45a8892a235b43d8c20035dfac3628f0731af64ab7046559f35f688a",
+    "bytes": 3968
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-06.canonical.json",
+    "sha256": "9272a541574f5573a38cd6fb49b44b680cd593d7bacd7d4ed93ddd8da05aeb1c",
+    "bytes": 4425
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-07.canonical.json",
+    "sha256": "7f8a4f5dfcd6c80de657c6952a991c64a2dbdbcb7ab8648075b543e768908364",
+    "bytes": 4423
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-08.canonical.json",
+    "sha256": "d78b3839e5bf60495f67a605b1996b98b3b66f2006b3441f33d7fd75d8236b58",
+    "bytes": 4436
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-09.canonical.json",
+    "sha256": "826ad425755ce244e0647a7829ae55daf13ff6c38f6719fe8b935b6a6ee5e882",
+    "bytes": 3972
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-10.canonical.json",
+    "sha256": "260236ca9e54006796b07ecfa2b05c1d1ccb8a6694cc637fb2fc18a78e59bf39",
+    "bytes": 3970
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-11.canonical.json",
+    "sha256": "a64eea0b71b4b104358777c7de564ecac33d4d62c4e8c09405783db17feb4c12",
+    "bytes": 3983
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-12.canonical.json",
+    "sha256": "4bcf8552c17e7f3ca13c25ff24474d4e17b0241930ed7a49b1f7d2864ed50e74",
+    "bytes": 3535
+  },
+  {
+    "path": "SAMPLE-DATA-NOT-NATIVE-13.canonical.json",
+    "sha256": "6c130ae361d349d696746c8b8b6f70598b83c372fe168113805998d3b57fa8b8",
+    "bytes": 4441
+  },
+  {
+    "path": "originals/observation.schema.json",
+    "sha256": "736acca970bd392f46530cda94acd97701e879b18889c429a2c2113e04810e4c",
+    "bytes": 12838
+  },
+  {
+    "path": "originals/phase-receipt.schema.json",
+    "sha256": "023fc3373a5f8677fc852cba3d84437036bc68e1232efd5c3d9df0282fbcd857",
+    "bytes": 6317
+  },
+  {
+    "path": "originals/PROPOSED-commissioned-profile-v2.schema.json",
+    "sha256": "27b169eebb07980c729ca479cf4ab66efe8e8e99f4f0f04fda1b6878f03eb05c",
+    "bytes": 4073
+  },
+  {
+    "path": "originals/PROPOSED-native-outer.schema.json",
+    "sha256": "faf01152678c5b066145dcafebe92f593a641a54dac84da3ce1e1df94c0fb261",
+    "bytes": 3360
+  },
+  {
+    "path": "originals/SAMPLE-NOT-COMMISSIONED-native-outer.canonical.json",
+    "sha256": "c0e6c331b6c307b83be6bee8add23b487612ff283d7167d4bb93114ec86d20b5",
+    "bytes": 1048
+  },
+  {
+    "path": "originals/SAMPLE-NOT-COMMISSIONED-profile.canonical.json",
+    "sha256": "72d92e1ff023f00823b65637f3c79bc080510f8a02cfe24b3c4715286d43299c",
+    "bytes": 2748
+  },
+  {
+    "path": "originals/SAMPLE-NOT-ISSUED-lab-submit.canonical.json",
+    "sha256": "b1675ccb47475d4d70788f3033cd9f05507ad320435d63d667d893aa07f00e71",
+    "bytes": 787
+  }
+]

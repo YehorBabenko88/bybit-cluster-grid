@@ -1,0 +1,12 @@
+{
+  "scope": "INDEPENDENT_PURE_DESIGN_AND_SCHEMA_REVIEW_ONLY",
+  "reviewer": "ha_design_review",
+  "initial_candidate_sha256": "9afe769ef4e8cf9a7bd6bd25d6aa77a536ce53740a3696f8db420ede650d7d83",
+  "initial_findings": "NO_ACTIONABLE_P0_P1_P2",
+  "final_candidate_sha256": "89537023318bca5283d83948a517766598e1a0ed363187214959c7ed78e23acb",
+  "final_delta": "REQUESTED_OPERATION_NARROWED_TO_READ_RESEARCH_ONLY_WITH_EXPLICIT_COMMAND_ACK_SEPARATION",
+  "final_delta_review": "CONSISTENT_NO_NEW_FINDING_RAW_CANDIDATE_SHA_MATCH",
+  "native_calls": 0,
+  "wire_ack": false,
+  "runtime_qualification": false
+}

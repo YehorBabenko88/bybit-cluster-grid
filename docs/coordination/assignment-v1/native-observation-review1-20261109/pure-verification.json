@@ -1,0 +1,21 @@
+{
+  "actual_consul_calls": 0,
+  "broker_contexts": 0,
+  "completion_profile": "FIXED_NOT_ESTABLISHED_NO_COMPLETED_BRANCH",
+  "go_no_go": "DESIGN_PENDING_NO_GO",
+  "issued_assignments": 0,
+  "known_facts_preserved_when_policy_unknown": true,
+  "max_sample_encoded_bytes": 4441,
+  "projection_profile": "FIXED_NOT_AVAILABLE_NO_DURABLE_BRANCH",
+  "publication_profile": "FIXED_NOT_AUTHORIZED_NO_COMMITTED_BRANCH",
+  "pure_semantic_correlation_negative_vectors": 186,
+  "raw_codec_negative_vectors": 8,
+  "scheduler_dispatches": 0,
+  "schema_sha256": "89537023318bca5283d83948a517766598e1a0ed363187214959c7ed78e23acb",
+  "scope": "PURE_ADMISSION_ONLY_OBSERVATION_DATA_CONTRACT_NOT_AUTHORITY",
+  "shared_wire_abi_approved": false,
+  "source_lab_observation_sha256": "736acca970bd392f46530cda94acd97701e879b18889c429a2c2113e04810e4c",
+  "structural_negative_vectors": 116,
+  "structural_positive_samples": 14,
+  "target_calls": 0
+}
