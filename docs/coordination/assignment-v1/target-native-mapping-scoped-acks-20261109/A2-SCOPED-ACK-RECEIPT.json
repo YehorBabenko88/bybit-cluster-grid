@@ -1,0 +1,13 @@
+{
+  "source_head": "26e63a28b8cb04e986153f80369169d7e2f8854d",
+  "design_sha256": "586f93b6222219480c15316ee8ab8f726ccf95023ccd10c6fe3c77688b8aff16",
+  "a4_receipt_sha256": "04ec0dffc141cc368179a8536aa00e5ad2e4cb85ede2d49a8a04c9a1cb7390e1",
+  "a2_verification": "FULL_RECEIPT_READ_RAW_SHA256_MATCH",
+  "ack_scope": "INPUT_PROVENANCE_STORAGE_UNKNOWN_REPRESENTABILITY_PURE_DESIGN_ONLY",
+  "a7": "PENDING",
+  "final_profile_schema_freeze": false,
+  "commissioning_allowed": false,
+  "native_calls_allowed": false,
+  "public_submit": "DENY",
+  "scheduler": "BLOCKED"
+}

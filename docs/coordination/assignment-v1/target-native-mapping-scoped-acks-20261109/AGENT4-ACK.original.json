@@ -1,0 +1,87 @@
+{
+  "P": {
+    "bytes": 2748,
+    "sha256": "72d92e1ff023f00823b65637f3c79bc080510f8a02cfe24b3c4715286d43299c"
+  },
+  "T": {
+    "bytes": 1048,
+    "sha256": "c0e6c331b6c307b83be6bee8add23b487612ff283d7167d4bb93114ec86d20b5"
+  },
+  "actual_consul_calls": 0,
+  "broker_contexts": 0,
+  "conditions": [
+    "This is pure single-job mapping design only; actual ROOT trusted commissioning/new native outer/error/observation/source/API ACKs remain separate.",
+    "All actual original identity, current issuer, native session/generation/CAS/hold/accounting joins remain mandatory.",
+    "Retain exact T/H/P/S/lab13/D and UNKNOWN history; no new registry, automatic retry/rekey, profile GC/debt release or direct-mode upgrade.",
+    "LOCAL manifest and trial resources do not establish A4 committed dataset, two replicas, capacity or publication.",
+    "Full commissioning and mutation plans must be reserialized/measured after all added profile/identity/closure records; old64op32768 measurements do not transfer."
+  ],
+  "dag_has_no_required_self_hash": true,
+  "design": {
+    "blob": "a953d45651769db18240431d5ba4fc27634f9347",
+    "bytes": 19902,
+    "sha256": "586f93b6222219480c15316ee8ab8f726ccf95023ccd10c6fe3c77688b8aff16"
+  },
+  "field_counts": [
+    20,
+    13
+  ],
+  "lab13": {
+    "bytes": 787,
+    "sha256": "b1675ccb47475d4d70788f3033cd9f05507ad320435d63d667d893aa07f00e71"
+  },
+  "native_runtime_admitted": false,
+  "primary_copied_source_blob_identity": {
+    "ROOT-CONTRACT.md": {
+      "bytes": 4970,
+      "sha256": "1efd982c7c0bf5271fa108f33bbb497929014daded0a97973505cae36bd8c85b",
+      "source_blob": "8e9f3556b77247532e0971a326382473bb8ab378",
+      "source_head": "cf7dad91bf0d3a24073c91e0d3e326e6d9e7d2db"
+    },
+    "gateway_target_adapter.py": {
+      "bytes": 16531,
+      "sha256": "775976b3d344409d6c25ba96f2a475f5085695edf9947f482440c263355d6a8f",
+      "source_blob": "c96654cf42ab41f8a66c2092cea7509bfa6238a4",
+      "source_head": "cf7dad91bf0d3a24073c91e0d3e326e6d9e7d2db"
+    },
+    "lab-submit-review1.schema.json": {
+      "bytes": 2618,
+      "sha256": "19357891fc022a87831009f17c663304ab72d88ed6ea344bb65c6bc325a321cc",
+      "source_blob": "be180aacc49e5ca4d82c5ab775fc47034147f31e",
+      "source_head": "3e498de973536c2d6393f83abe7d59cb1452a9b4"
+    },
+    "target-direct-request.schema.json": {
+      "bytes": 3151,
+      "sha256": "2a7a9370eedc43b76b03fa13252e86606162ae8f494a362fd69d5b22a85858fe",
+      "source_blob": "4b98e4f925eca55241579b7aae4a5ac3e3d30a19",
+      "source_head": "cf7dad91bf0d3a24073c91e0d3e326e6d9e7d2db"
+    }
+  },
+  "production_admitted": false,
+  "profile_bound_16384_is_not_transaction_measurement": true,
+  "proposed_schema_bindings": {
+    "PROPOSED-admission-error.schema.json": {
+      "blob": "0284adc11d24bba8464943a66193b659baecdac8",
+      "sha256": "df0b52379af3e44e64dc2ebc50be5c3196e368d83b846bbd9220d2f9a71f6322"
+    },
+    "PROPOSED-commissioned-profile-v2.schema.json": {
+      "blob": "3ce4ba4bf14c9300b809061cbfa38d77ddabb4be",
+      "sha256": "27b169eebb07980c729ca479cf4ab66efe8e8e99f4f0f04fda1b6878f03eb05c"
+    },
+    "PROPOSED-native-outer.schema.json": {
+      "blob": "7a091d29f8616ccaa50cdb856dd2b44be7f437ef",
+      "sha256": "faf01152678c5b066145dcafebe92f593a641a54dac84da3ce1e1df94c0fb261"
+    }
+  },
+  "publication_qualified": false,
+  "review_date": "2026-11-09",
+  "sample_join_checks": true,
+  "schema": "agent4.target-native-mapping.design-review.v1",
+  "shared_wire_abi_approved": false,
+  "source_head": "26e63a28b8cb04e986153f80369169d7e2f8854d",
+  "source_tree": "03b843222305c7d7eabb44be34b6b154da18d473",
+  "strict_base64_exact_roundtrip": true,
+  "targets_executed": 0,
+  "two_domain_qualified": false,
+  "verdict": "SCOPED_INPUT_PROVENANCE_STORAGE_UNKNOWN_BYTE_BOUND_COMPATIBILITY_ACK"
+}

@@ -1,0 +1,58 @@
+A7 SCOPED PURE DESIGN COMPATIBILITY ACK
+Grid26e63a28b8cb04e986153f80369169d7e2f8854d
+tree03b843222305c7d7eabb44be34b6b154da18d473
+DESIGN SHA586f93b6222219480c15316ee8ab8f726ccf95023ccd10c6fe3c77688b8aff16.
+
+ACK covers only fixed research input/provenance, exact-byte retention, local versus
+publication identity, UNKNOWN handling and codec budget direction. No concrete
+design correction is required within that scope. It does not approve a new wire
+ABI, issuer, native backend, transaction, expiry policy or positive operation.
+
+Own pure checks, without executing A2 probe or any target/backend:
+- All packet Git blob OIDs recomputed, design SHA matches supplied pin.
+- T1048bytes/Hc0e6c331..., strict base64 decode+reencode exact; full20 retained.
+- P2748bytes/S72d92e1f..., lab13 787bytes/Db1675ccb... are canonical and acyclic.
+- Frozen lab13 schema rawSHA19357891... unchanged; all three samples validate.
+- Actual primary A7 c548 request and its canonical payload33d5 are byte-bound;
+  request/idem/actor/quota/generation joins match the proposed samples.
+- Assignment revision, fencing token and artifact ref are null pre-issuance.
+- Dot-containing idem is unrepresentable in frozen lab13 and refuses; no rekey.
+These checks are DATA/schema/hash verification, not successful native jobs.
+
+Required compatibility conditions remain exactly separate:
+1. Re-read actual c548 input, pinned A7 aed8 wrapper/Meta f3 and three Meta sources;
+   preserve synthetic whole-window semantics, explicit clocks, UNKNOWN source
+   authenticity and null finance. Native compute admission cannot flip inner
+   scientific/trading/training authority or manufacture PIT/provider evidence.
+2. Keep c548 producer request, H outer request, S profile, D native intent,
+   payload33d5 local identifier and Meta dataset content digest distinct. Neither
+   LOCAL_FIXTURE_1 nor payload hash is an A4 committed dataset/revision/replica.
+3. Profile-v2 binding stays in SAME existing authority selector; only actual Root
+   commissioner may establish checked-absent immutable P. No caller profile write,
+   direct-v1 promotion, stand-context conversion or second registry is approved.
+4. Preflight actual exact bytes/type/size before decode/hash/allocation; verify
+   strict base64 canonical roundtrip. T<=16KiB and complete C3(P)<=16KiB both hold.
+   Expansion/overhead that does not fit MUST refuse; no truncation or hash-only
+   omitted dependency. JSON Schema numeric equality alone cannot reject float
+   aliases: the separately approved strict native codec must enforce exact types.
+5. Four input caps are not CPU/RSS/native containment/reservation measurements.
+   Full actual serialized native transaction/indices/rows and A4 dependency/retention
+   closure budgets remain unqualified; no transfer from prior64op/32768 candidate.
+6. Restore SAME original identities and plan after uncertainty with fresh current
+   read rights. Unknown transport/no quorum/partial history never authorizes another
+   start, profile, debit, rekey, hold release or deletion. Known native commitment
+   is not erased by an uncertain current attempt/projection. COMPUTED is not
+   publication/COMPLETED; old lease expiry is not a refund or historic-read grant.
+7. A2 actual issuer, same-transaction fencing/quorum/session/indices, explicit UTC
+   policy, A5 worker/attempt/capacity, A4 protected two-domain publication and A7
+   durable receipt projection still require their own implementation/qualification.
+   This ACK does not approve NATIVE_SESSION_INVALIDATION_NOT_UTC_AT_COMMIT as a
+   replacement for an operator's strict-UTC requirement.
+8. New native observation result schema has not been provided to A7 and is NOT
+   ACKed here. Direct success/refusal/result references are not native receipt,
+   scheduler history or publication proof. Exact result/source/units/read contract
+   needs separate Root/A4/A5/A6/A7 review before any positive integration.
+
+Target/broker/Consul/scheduler/native calls: ZERO. Source/shared schema edits: ZERO.
+Owner probe counts not adopted. Whole-backend approval: NOT_GRANTED.
+DESIGN_PENDING / NO-GO remains until exact co-ACK plus implementation/qualification.
