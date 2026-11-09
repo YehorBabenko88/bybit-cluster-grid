@@ -48,6 +48,11 @@ class CommissionerPreparationTests(unittest.IsolatedAsyncioTestCase):
         finally:self.authority.client=original
         with self.assertRaises(ValueError):
             await source.commission_unqualified_worker(canonical(dict(self.intent,node_id=str(uuid.uuid4()))),leader=None)
+        async def forbidden_hook(_):raise AssertionError('CALLBACK_MUST_NOT_RUN')
+        original.event_hooks['response'].append(forbidden_hook)
+        try:
+            with self.assertRaises(native.RegistrationCustodyUnavailable):await source.reconcile_unqualified_worker(self.raw,leader=None)
+        finally:original.event_hooks['response'].remove(forbidden_hook)
         await original.aclose()
         with self.assertRaises(native.RegistrationCustodyUnavailable):await source.reconcile_unqualified_worker(self.raw,leader=None)
     async def test_private_record_builder_is_unissued_closed_metadata_only(self):

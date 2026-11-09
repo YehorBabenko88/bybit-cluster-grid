@@ -796,6 +796,7 @@ class UnqualifiedWorkerCommissioner:
         self._match_original(original_intent_bytes);self._leader_local(leader);self._leader=leader
         self._ensure_original_retained();rows=await self._snapshot();record,lock=rows[2:]
         if not record.index:return self._observation('UNKNOWN','UNKNOWN')  # Not proof never committed.
+        if record.session:return self._observation('CONFLICT','UNKNOWN')  # Permanent create-only row must not be leased.
         value=_decode(record.raw)
         retained=RootRegistrationCustody.read_state(self._custody)['native_session_id']
         joined=self._record_join(value,retained)
