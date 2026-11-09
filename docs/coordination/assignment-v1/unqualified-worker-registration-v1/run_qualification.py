@@ -1,4 +1,4 @@
-"""Primary-source thirteen DATA/local Journal and OS lock contract tests; creates no Consul RPC or sessions."""
+"""Primary-source eighteen SOURCE/local and structural preparation contract tests; creates no Consul RPC or sessions."""
 import argparse,hashlib,json,subprocess,sys,types,unittest
 from pathlib import Path
 
@@ -23,13 +23,13 @@ def main():
             if isinstance(item,unittest.TestSuite):yield from ids(item)
             else:yield item.id()
     actual=list(ids(suite));expected=json.loads((script.parent/'EXPECTED-TESTS.json').read_bytes())
-    assert len(actual)==len(set(actual))==len(expected)==len(set(expected))==13 and sorted(actual)==sorted(expected)
+    assert len(actual)==len(set(actual))==len(expected)==len(set(expected))==18 and sorted(actual)==sorted(expected)
     result=unittest.TextTestRunner(verbosity=2).run(suite)
     assert guard.inventory(root)==before and guard.inventory(support)==support_before
-    assert result.wasSuccessful() and result.testsRun==13 and not result.skipped
-    print(json.dumps(dict(scope='PROPOSED_UNQUALIFIED_WORKER_DATA_LOCAL_CUSTODY_NO_NATIVE_RPC',result='PASS',head=args.expected_head,
-        tree=git(root,'rev-parse','HEAD^{tree}').decode().strip(),tests=13,skips=0,exact_unique_ids=True,grid_raw_files=len(before),
+    assert result.wasSuccessful() and result.testsRun==18 and not result.skipped
+    print(json.dumps(dict(scope='SOURCE_PREPARATION_COMMISSIONER_GATE_CLOSED_NO_NATIVE_RPC',result='PASS',head=args.expected_head,
+        tree=git(root,'rev-parse','HEAD^{tree}').decode().strip(),tests=18,skips=0,exact_unique_ids=True,grid_raw_files=len(before),
         support_raw_files=len(support_before),codec_sha256=before[str(script.parent.relative_to(root)/'contract_data.py').replace('\\','/')],
-        native_rpc_calls=0,native_write_implementation=False,local_adapter_implemented=True,module_sha256=before['grid/authority_assignment_v1.py'],worker_permission=False,production='NO_GO')))
+        native_rpc_calls=0,native_write_code_prepared=True,native_write_execution_enabled=False,local_adapter_implemented=True,module_sha256=before['grid/authority_assignment_v1.py'],worker_permission=False,production='NO_GO')))
 
 if __name__=='__main__':main()
