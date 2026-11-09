@@ -1,0 +1,68 @@
+name: Agent2 owned Consul proxy isolation
+on:
+  push:
+    branches: [feature/agent2-consul-proxy-isolation-20261109]
+  pull_request:
+    paths:
+      - grid/coordination.py
+      - tests/coordination/assignment_v1/proxy_isolation/**
+      - docs/coordination/assignment-v1/CONSUL-PROXY-ISOLATION.md
+      - .github/workflows/agent2-consul-proxy-isolation.yml
+permissions:
+  contents: read
+jobs:
+  actual-read-only:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            lock: windows
+            executable: consul.exe
+          - os: ubuntu-24.04
+            lock: linux
+            executable: consul
+    runs-on: ${{ matrix.os }}
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        env:
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: 'false'
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          path: grid
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        env:
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: 'false'
+        with:
+          repository: YehorBabenko88/unified-system
+          ref: 1f6b0b5c231853607f5bec780f1544cd32bf577d
+          path: support
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.10'
+      - shell: bash
+        run: |
+          python -m pip install --only-binary=:all: --require-hashes -r support/docs/intelligence/research-identity/requirements-${{ matrix.lock }}.lock
+          python -I -B support/docs/intelligence/research-identity/fetch_consul.py --directory "$RUNNER_TEMP/a2-proxy-consul"
+      - shell: bash
+        env:
+          A2_NATIVE_CONSUL_BINARY: ${{ runner.temp }}/a2-proxy-consul/${{ matrix.executable }}
+        run: |
+          set -o pipefail
+          python -I -B grid/tests/coordination/assignment_v1/proxy_isolation/run_qualification.py --expected-head "$EXPECTED_HEAD" --support-root "$GITHUB_WORKSPACE/support" 2>&1 | tee "$RUNNER_TEMP/consul-proxy.log"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: consul-proxy-${{ matrix.lock }}-${{ env.EXPECTED_HEAD }}
+          path: ${{ runner.temp }}/consul-proxy.log
+          if-no-files-found: warn
