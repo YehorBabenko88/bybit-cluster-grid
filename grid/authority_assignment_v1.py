@@ -4,10 +4,11 @@ No native identity issuer, second consensus, public arbitrary-KV endpoint or
 execution permission is created. Existing reviewed layout/lease modules unchanged.
 """
 import base64,json,re,uuid
+import httpx
 from dataclasses import dataclass
 from urllib.parse import quote
 from .authority_runtime_v1 import RuntimeLayout,canonical,measure_native_plan
-from .coordination import CoordinationLost,CoordinationUnavailable
+from .coordination import ConsulSessionAuthority,CoordinationLost,CoordinationUnavailable
 
 class AssignmentUnavailable(RuntimeError):pass
 
@@ -127,6 +128,46 @@ class AssignmentAuthority:
             if type(session) is not str:raise ValueError('SESSION_TYPE')
         except (ValueError,TypeError,KeyError,UnicodeError) as exc:raise AssignmentUnavailable('NATIVE_RECORD_ENCODING') from exc
         return CapturedRecord(key,row['ModifyIndex'],raw,session)
+    async def _read_snapshot(self,keys):
+        """Private one-Txn consistent facts, NOT identity/admission/closure proof.
+
+        Public owners must derive their exact key set and check current rights.
+        Missing at this snapshot is not proof an original never committed.
+        """
+        namespace=getattr(getattr(self.authority,'config',None),'namespace','')+'/'
+        if (type(keys) is not tuple or not 1<=len(keys)<=64
+                or any(type(k) is not str or not 1<=len(k)<=1024 or not k.startswith(namespace)
+                       or re.fullmatch(r'[A-Za-z0-9_-]+(?:/[A-Za-z0-9_.:-]+)*',k) is None
+                       or any(part in ('.','..') for part in k.split('/')) for k in keys)
+                or len(set(keys))!=len(keys)):
+            raise ValueError('SNAPSHOT_KEY_INVENTORY')
+        if (type(self.authority) is not ConsulSessionAuthority or not self.authority._owns_client
+                or type(self.authority.client) is not httpx.AsyncClient
+                or type(self.authority.client._transport) is not httpx.AsyncHTTPTransport):
+            raise AssignmentUnavailable('ACTUAL_CONSUL_SNAPSHOT_SOURCE_REQUIRED')
+        result=await self._transaction([{'KV':dict(Verb='get-or-empty',Key=k)} for k in keys],read_only=True)
+        if result.get('KnownLeader') is not True or result.get('ResultsFilteredByACLs') is not False:
+            raise AssignmentUnavailable('CONSISTENT_UNFILTERED_SNAPSHOT_UNAVAILABLE')
+        records=[]
+        try:
+            for key,item in zip(keys,result['Results'],strict=True):
+                if set(item)!={'KV'} or type(item['KV']) is not dict:raise ValueError('SNAPSHOT_ROW')
+                row=item['KV'];index=row['ModifyIndex'];created=row['CreateIndex']
+                if (row.get('Key')!=key or type(index) is not int or not 0<=index<2**63
+                        or type(created) is not int or not 0<=created<=index):raise ValueError('SNAPSHOT_INDEX')
+                session=row.get('Session','')
+                if type(session) is not str:raise ValueError('SNAPSHOT_SESSION')
+                if session and str(uuid.UUID(session))!=session:raise ValueError('SNAPSHOT_SESSION')
+                if index==0:
+                    if created!=0 or row.get('Value') is not None or session:raise ValueError('SNAPSHOT_ABSENCE')
+                    raw=None
+                else:
+                    if created==0 or type(row.get('Value')) is not str:raise ValueError('SNAPSHOT_VALUE')
+                    raw=base64.b64decode(row['Value'],validate=True);_decode(raw)
+                records.append(CapturedRecord(key,index,raw,session))
+        except (ValueError,TypeError,KeyError,UnicodeError) as exc:
+            raise AssignmentUnavailable('NATIVE_SNAPSHOT_ENCODING') from exc
+        return tuple(records)
     async def _leader_fence(self,leader):
         if not await self.authority.validate(leader):raise AssignmentUnavailable('CURRENT_GRID_LEADER_REQUIRED')
         key=self.authority.config.namespace+'/commands/generation';generation=await self._read(key)
