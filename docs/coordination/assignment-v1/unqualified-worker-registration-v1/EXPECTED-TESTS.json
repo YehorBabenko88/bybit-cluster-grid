@@ -4,5 +4,8 @@
   "test_contract.RegistrationContractTests.test_native_uuid_any_version_identity_uuid4_and_fullmatch",
   "test_contract.RegistrationContractTests.test_only_allocated_registration_and_lock_keys",
   "test_contract.RegistrationContractTests.test_record_exact_original_join_without_permission",
-  "test_contract.RegistrationContractTests.test_registration_cannot_upgrade_or_advertise_resources"
+  "test_contract.RegistrationContractTests.test_registration_cannot_upgrade_or_advertise_resources",
+  "test_custody.CustodyContractTests.test_real_journal_restart_retains_attempt_unknown_without_rpc",
+  "test_custody.CustodyContractTests.test_closed_receipt_original_bounds_and_flags",
+  "test_custody.CustodyContractTests.test_real_foreign_corrupt_and_oversized_journal_refused"
 ]
