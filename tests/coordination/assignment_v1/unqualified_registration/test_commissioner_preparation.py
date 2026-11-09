@@ -46,6 +46,8 @@ class CommissionerPreparationTests(unittest.IsolatedAsyncioTestCase):
         try:
             with self.assertRaises(native.RegistrationCustodyUnavailable):await source.commission_unqualified_worker(self.raw,leader=None)
         finally:self.authority.client=original
+        with self.assertRaises(ValueError):
+            await source.commission_unqualified_worker(canonical(dict(self.intent,node_id=str(uuid.uuid4()))),leader=None)
         await original.aclose()
         with self.assertRaises(native.RegistrationCustodyUnavailable):await source.reconcile_unqualified_worker(self.raw,leader=None)
     async def test_private_record_builder_is_unissued_closed_metadata_only(self):
@@ -53,6 +55,9 @@ class CommissionerPreparationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(record),14);self.assertEqual(record['registration_state'],'UNQUALIFIED')
         self.assertEqual(record['admitted_fields'],[]);self.assertIs(record['resources_reserved'],False);self.assertIs(record['effect_permitted'],False)
         self.assertNotIn('operation',record);self.assertEqual(record['worker_inventory_incarnation_id'],self.intent['worker_inventory_incarnation_id'])
+        self.assertEqual(source._record_join(record,None),'UNKNOWN')
+        self.assertEqual(source._record_join(record,str(uuid.uuid4())),'CONFLICT')
+        self.assertEqual(source._record_join(record,record['native_session_id']),'MATCHED_UNQUALIFIED_METADATA')
     async def test_sender_has_one_stream_site_and_no_core_retry_wrapper(self):
         source=inspect.getsource(native.UnqualifiedWorkerCommissioner)
         tree=ast.parse(source)

@@ -3,13 +3,13 @@
 No native identity issuer, second consensus, public arbitrary-KV endpoint or
 execution permission is created. Existing reviewed layout/lease modules unchanged.
 """
-import base64,hashlib,json,os,re,stat,uuid
+import asyncio,base64,hashlib,ipaddress,json,os,re,stat,uuid
 from pathlib import Path
 import httpx
 from dataclasses import dataclass
-from urllib.parse import quote
+from urllib.parse import quote,urlsplit
 from .authority_runtime_v1 import RuntimeLayout,canonical,measure_native_plan
-from .coordination import ConsulSessionAuthority,CoordinationLost,CoordinationUnavailable
+from .coordination import ConsulSessionAuthority,ConsulConfig,ConsulLease,CoordinationLost,CoordinationUnavailable
 
 class AssignmentUnavailable(RuntimeError):pass
 
@@ -559,3 +559,287 @@ class RootRegistrationCustody:
             if error is None:raise
             error.add_note('Custody close failure: '+type(cleanup).__name__)
         return False
+
+@dataclass(frozen=True)
+class UnqualifiedRegistrationObservation:
+    """Root-only observation DATA; no role, worker capsule or effect permit."""
+    outcome: str
+    original_registration_intent_sha256: str
+    mutation_status: str
+    session_observation: str='UNKNOWN'
+    resources_reserved: bool=False
+    effect_permitted: bool=False
+
+class _RegistrationAtomicRejected(RegistrationCustodyUnavailable):pass
+
+def _registration_native_json(raw):
+    if type(raw) is not bytes or not 0<len(raw)<=65536:raise ValueError('NATIVE_RESPONSE_BOUND')
+    depth=0;quoted=False;escaped=False
+    for char in raw:
+        if quoted:
+            if escaped:escaped=False
+            elif char==92:escaped=True
+            elif char==34:quoted=False
+        elif char==34:quoted=True
+        elif char in (91,123):
+            depth+=1
+            if depth>16:raise ValueError('NATIVE_RESPONSE_DEPTH')
+        elif char in (93,125):depth-=1
+    def pairs(items):
+        out={}
+        for key,value in items:
+            if key in out:raise ValueError('NATIVE_DUPLICATE_KEY')
+            out[key]=value
+        return out
+    def forbidden(_):raise ValueError('NATIVE_NONINTEGER_NUMBER')
+    value=json.loads(raw.decode('utf-8'),object_pairs_hook=pairs,parse_float=forbidden,parse_constant=forbidden)
+    def bounded(item,level=0):
+        if level>16:raise ValueError('NATIVE_RESPONSE_DEPTH')
+        if type(item) in (dict,list):
+            if len(item)>128:raise ValueError('NATIVE_CONTAINER_BOUND')
+            for part in (item.values() if type(item) is dict else item):bounded(part,level+1)
+    bounded(value);return value
+
+class UnqualifiedWorkerCommissioner:
+    """SOURCE/PREPARATION ONLY. Public execution gate is unconditionally closed.
+
+    Private native implementation below is review material, NOT an execution
+    authorization. No flag/env/callback/JSON role can open the public gate.
+    Root owns exclusive authority/client/config/custody lifecycle. Native ACL,
+    not this Python object or local Journal, supplies server authorization.
+    """
+    def __init__(self,authority,generation,realm_id,*,root_custody):
+        if type(authority) is not ConsulSessionAuthority or type(root_custody) is not RootRegistrationCustody:
+            raise RegistrationCustodyUnavailable('FIXED_AUTHORITY_AND_ACTUAL_ROOT_CUSTODY_REQUIRED')
+        from . import coordination
+        if hashlib.sha256(Path(coordination.__file__).read_bytes()).hexdigest()!='3dd73d3eb3dfb576f7174a94fab05a0f87fe248ffcacccfa19786ccc74f0776b':
+            raise RegistrationCustodyUnavailable('EXPLICIT_PROXY_FREE_CORE_SOURCE_REQUIRED')
+        self._authority=authority;self._config=authority.config;self._client=authority.client;self._custody=root_custody
+        self._generation=_uuid(generation);self._realm=_uuid(realm_id);self._original=root_custody._original
+        self._intent=_parse_registration_intent(self._original);self._digest=hashlib.sha256(self._original).hexdigest()
+        if (self._intent['cluster_generation']!=self._generation or self._intent['realm_id']!=self._realm
+                or self._config.namespace!='unified/'+self._intent['cluster_id']):raise ValueError('REGISTRATION_SOURCE_BINDING')
+        base=self._config.namespace+'/runtime-v1/research-lab-v1/'+self._realm+'/workers/'+self._intent['node_id']+'/registration-v1'
+        self._keys=(self._config.namespace+'/commands/generation',authority.key,base,base+'/lock')
+        self._leader=None;self._sid=None;self._created_this_call=False;self._session_verified=False;self._txn_started=False
+        self._txn_rejected=False;self._known_commit=False;self._plan=None;self._operation_lock=asyncio.Lock()
+        self._check_bound()
+        self._endpoint=self._config.endpoints[0].rstrip('/')
+        self._endpoint_digest=hashlib.sha256(self._config.endpoints[0].encode('ascii')).hexdigest()
+
+    def _check_bound(self):
+        client=self._client;config=self._config
+        if (self._authority.config is not config or self._authority.client is not client
+                or type(config) is not ConsulConfig or not config.isolated_lab or not config.acl_token
+                or self._authority._owns_client is not True or type(client) is not httpx.AsyncClient
+                or client.is_closed or client.trust_env is not False or client.follow_redirects is not False
+                or type(client._transport) is not httpx.AsyncHTTPTransport or client._mounts
+                or getattr(client._transport._pool,'_retries',None)!=0 or client._auth is not None
+                or any(client.event_hooks.values())):
+            raise RegistrationCustodyUnavailable('EXCLUSIVE_FIXED_PROXY_FREE_CLIENT_REQUIRED')
+        for endpoint in config.endpoints:
+            parsed=urlsplit(endpoint)
+            try:valid=ipaddress.ip_address(parsed.hostname).is_loopback and parsed.port is not None and 0<parsed.port<65536
+            except (ValueError,TypeError):valid=False
+            if (not valid or parsed.scheme not in ('http','https') or parsed.username or parsed.password
+                    or parsed.path not in ('','/') or parsed.query or parsed.fragment):
+                raise RegistrationCustodyUnavailable('ISOLATED_LITERAL_LOOPBACK_ENDPOINTS_ONLY')
+        if self._authority.key!=self._keys[1] or self._keys[1]!=config.namespace+'/leader':raise RegistrationCustodyUnavailable('LEADER_KEY_CHANGED')
+        if self._custody._original!=self._original or self._custody._intent!=self._intent:
+            raise RegistrationCustodyUnavailable('ROOT_CUSTODY_ORIGINAL_CHANGED')
+        RootRegistrationCustody._ensure_owned(self._custody)
+
+    def _match_original(self,raw):
+        self._check_bound()
+        if type(raw) is not bytes or raw!=self._original:raise ValueError('RETAINED_EXACT_REGISTRATION_ORIGINAL_REQUIRED')
+
+    async def commission_unqualified_worker(self,original_intent_bytes,*,leader):
+        self._match_original(original_intent_bytes)
+        raise RegistrationCustodyUnavailable('SOURCE_PREPARATION_ONLY_EXECUTION_GATE_CLOSED')
+
+    async def reconcile_unqualified_worker(self,original_intent_bytes,*,leader):
+        self._match_original(original_intent_bytes)
+        raise RegistrationCustodyUnavailable('SOURCE_PREPARATION_ONLY_EXECUTION_GATE_CLOSED')
+
+    def _leader_local(self,leader):
+        if (type(leader) is not ConsulLease or self._authority._sessions.get(leader.session_id) is not leader
+                or self._authority.clock()>=self._authority._deadlines.get(leader.session_id,0)):
+            raise RegistrationCustodyUnavailable('ACTUAL_CURRENT_GRID_LEADER_REQUIRED')
+
+    def _record(self,sid):
+        if type(sid) is not str or str(uuid.UUID(sid))!=sid:raise ValueError('ACTUAL_NATIVE_SESSION_FORMAT')
+        value={key:item for key,item in self._intent.items() if key not in ('schema','operation')}
+        value.update(schema='unified.authority.unqualified-worker-registration.v1-review1',
+            original_registration_intent_sha256=self._digest,native_session_id=sid,registration_state='UNQUALIFIED',
+            admitted_fields=[],resources_reserved=False,effect_permitted=False)
+        canonical(value);return value
+
+    def _fixed_request(self,kind):
+        if kind=='SESSION_CREATE':
+            return 'PUT','/v1/session/create',None,dict(Name='unqualified-worker-registration-'+self._intent['original_registration_request_id'],
+                TTL='10s',Behavior='release',LockDelay='0s',NodeChecks=[])
+        if kind=='CONSISTENT_READ':
+            operations=[{'KV':dict(Verb='get-or-empty',Key=key)} for key in self._keys];measure_native_plan(operations)
+            return 'PUT','/v1/txn',{'consistent':''},operations
+        if kind=='REGISTRATION_TXN':
+            if self._plan is None:raise RegistrationCustodyUnavailable('FIXED_NATIVE_PLAN_NOT_PREPARED')
+            measure_native_plan(self._plan);return 'PUT','/v1/txn',None,self._plan
+        if kind in ('SESSION_INFO','SESSION_DESTROY'):
+            if self._sid is None or str(uuid.UUID(self._sid))!=self._sid:raise RegistrationCustodyUnavailable('KNOWN_NATIVE_SESSION_REQUIRED')
+            if kind=='SESSION_DESTROY':
+                state=RootRegistrationCustody.read_state(self._custody)
+                if (not self._created_this_call or not self._session_verified or state['unresolved_rpc_attempts']
+                        or (self._txn_started and not self._txn_rejected)):
+                    raise RegistrationCustodyUnavailable('NO_SESSION_ADOPTION_OR_INVALIDATION_AS_ROLLBACK')
+                return 'PUT','/v1/session/destroy/'+self._sid,None,None
+            return 'GET','/v1/session/info/'+self._sid,{'consistent':''},None
+        raise ValueError('FIXED_REGISTRATION_RPC_KIND_REQUIRED')
+
+    async def _send(self,kind):
+        """PRIVATE, NOT TO BE EXECUTED before explicit native execution release."""
+        self._check_bound();self._leader_local(self._leader)
+        method,path,params,payload=self._fixed_request(kind)
+        attempt=str(uuid.uuid4());reported=False
+        RootRegistrationCustody.begin_rpc(self._custody,rpc_kind=kind,rpc_attempt_id=attempt,endpoint_sha256=self._endpoint_digest)
+        try:
+            self._check_bound()
+            if kind=='REGISTRATION_TXN':self._txn_started=True
+            # ONE stream invocation; no redirect, endpoint retry or Core wrapper.
+            async with asyncio.timeout(self._config.request_timeout):
+                async with self._client.stream(method,self._endpoint+path,params=params,json=payload,
+                    headers={'X-Consul-Token':self._config.acl_token,'Accept':'application/json','Accept-Encoding':'identity'},
+                    timeout=self._config.request_timeout,follow_redirects=False) as response:
+                    encoding=response.headers.get('Content-Encoding','identity')
+                    length=response.headers.get('Content-Length')
+                    if encoding!='identity' or (length is not None and (not length.isdecimal() or int(length)>65536)):
+                        raise ValueError('NATIVE_RESPONSE_BOUND')
+                    chunks=[];size=0
+                    async for chunk in response.aiter_raw(chunk_size=8192):
+                        size+=len(chunk)
+                        if size>65536:raise ValueError('NATIVE_RESPONSE_BOUND')
+                        chunks.append(chunk)
+                    status=response.status_code;value=_registration_native_json(b''.join(chunks))
+            if status==409 and kind=='REGISTRATION_TXN' and type(value) is dict and type(value.get('Errors')) is list and value['Errors']:
+                if len(value['Errors'])>len(self._plan):raise ValueError('NATIVE_ATOMIC_REJECTION_BOUND')
+                if any(type(item) is not dict or type(item.get('OpIndex')) is not int or not 0<=item['OpIndex']<len(self._plan)
+                        or type(item.get('What')) is not str or not 0<len(item['What'])<=4096 for item in value['Errors']):raise ValueError('NATIVE_ATOMIC_REJECTION_SHAPE')
+                RootRegistrationCustody.finish_rpc(self._custody,rpc_attempt_id=attempt,outcome='REJECTED')
+                reported=True;self._txn_rejected=True;raise _RegistrationAtomicRejected('SINGLE_ATTEMPT_NATIVE_ATOMIC_REJECTION')
+            if status!=200:raise RegistrationCustodyUnavailable('NATIVE_RESPONSE_UNCERTAIN_OR_DENIED')
+            sid=None
+            if kind=='SESSION_CREATE':
+                if type(value) is not dict or set(value)!={'ID'}:raise ValueError('NATIVE_SESSION_RESPONSE')
+                sid=value['ID']
+                if type(sid) is not str or str(uuid.UUID(sid))!=sid or sid==self._leader.session_id:raise ValueError('NATIVE_SESSION_BINDING')
+                self._sid=sid;self._created_this_call=True
+            elif kind=='REGISTRATION_TXN':
+                if (type(value) is not dict or value.get('Errors') not in (None,[]) or type(value.get('Results')) is not list
+                        or len(value['Results'])!=len(self._plan) or any(type(item) is not dict for item in value['Results'])):
+                    raise ValueError('NATIVE_TRANSACTION_RESULT_UNKNOWN')
+                self._known_commit=True
+            elif kind=='SESSION_DESTROY' and value is not True:raise ValueError('NATIVE_CLEANUP_UNKNOWN')
+            elif kind=='SESSION_INFO' and (type(value) is not list or len(value)>1):raise ValueError('NATIVE_SESSION_INFO')
+            RootRegistrationCustody.finish_rpc(self._custody,rpc_attempt_id=attempt,outcome='CONFIRMED',native_session_id=sid)
+            reported=True;self._check_bound();return value
+        except BaseException as error:
+            if not reported:
+                try:RootRegistrationCustody.finish_rpc(self._custody,rpc_attempt_id=attempt,outcome='UNKNOWN')
+                except BaseException as custody_error:error.add_note('Retained RPC attempt remains UNKNOWN: '+type(custody_error).__name__)
+            raise
+
+    async def _snapshot(self):
+        value=await self._send('CONSISTENT_READ')
+        if (type(value) is not dict or value.get('Errors') not in (None,[]) or value.get('KnownLeader') is not True
+                or value.get('ResultsFilteredByACLs') is not False or type(value.get('Results')) is not list or len(value['Results'])!=4):
+            raise RegistrationCustodyUnavailable('CONSISTENT_UNFILTERED_NATIVE_SNAPSHOT_REQUIRED')
+        rows=[]
+        for key,item in zip(self._keys,value['Results'],strict=True):
+            if type(item) is not dict or set(item)!={'KV'} or type(item['KV']) is not dict:raise ValueError('NATIVE_SNAPSHOT_ROW')
+            row=item['KV'];index=row['ModifyIndex'];created=row['CreateIndex'];session=row.get('Session','')
+            if row.get('Key')!=key or type(index) is not int or not 0<=index<2**63 or type(created) is not int or not 0<=created<=index:
+                raise ValueError('NATIVE_SNAPSHOT_INDEX')
+            if type(session) is not str or (session and str(uuid.UUID(session))!=session):raise ValueError('NATIVE_SESSION_FORMAT')
+            if index==0:
+                if created or row.get('Value') is not None or session:raise ValueError('NATIVE_ABSENCE')
+                raw=None
+            else:
+                if created==0 or type(row.get('Value')) is not str:raise ValueError('NATIVE_VALUE')
+                raw=base64.b64decode(row['Value'],validate=True);_decode(raw)
+            rows.append(CapturedRecord(key,index,raw,session))
+        generation,lock=rows[:2]
+        expected=dict(owner=self._leader.owner,session_id=self._leader.session_id,namespace=self._config.namespace)
+        if (not generation.index or _decode(generation.raw)!={'generation':self._generation}
+                or lock.index!=self._leader.token or lock.session!=self._leader.session_id or _decode(lock.raw)!=expected):
+            raise RegistrationCustodyUnavailable('CURRENT_NATIVE_GENERATION_AND_LEADER_REQUIRED')
+        return tuple(rows)
+
+    def _observation(self,outcome,status,session='UNKNOWN'):
+        return UnqualifiedRegistrationObservation(outcome,self._digest,status,session)
+
+    def _record_join(self,value,retained_sid):
+        if retained_sid is None:return 'UNKNOWN'
+        try:matches=type(value) is dict and value==self._record(retained_sid)
+        except (ValueError,TypeError):matches=False
+        return 'MATCHED_UNQUALIFIED_METADATA' if matches else 'CONFLICT'
+
+    def _session_policy_matches(self,info):
+        return (type(info) is list and len(info)==1 and type(info[0]) is dict and info[0].get('ID')==self._sid
+            and info[0].get('Name')=='unqualified-worker-registration-'+self._intent['original_registration_request_id']
+            and info[0].get('TTL')=='10s' and info[0].get('Behavior')=='release' and info[0].get('LockDelay')==0)
+
+    def _ensure_original_retained(self):
+        rows=RootRegistrationCustody._read_verified(self._custody,allow_empty=self._custody._allocated_new)
+        if not rows:RootRegistrationCustody.retain_original(self._custody)
+        return RootRegistrationCustody._read_verified(self._custody)
+
+    async def _reconcile_prepared(self,original_intent_bytes,*,leader):
+        self._match_original(original_intent_bytes);self._leader_local(leader);self._leader=leader
+        self._ensure_original_retained();rows=await self._snapshot();record,lock=rows[2:]
+        if not record.index:return self._observation('UNKNOWN','UNKNOWN')  # Not proof never committed.
+        value=_decode(record.raw)
+        retained=RootRegistrationCustody.read_state(self._custody)['native_session_id']
+        joined=self._record_join(value,retained)
+        if joined!='MATCHED_UNQUALIFIED_METADATA':return self._observation(joined,'UNKNOWN')
+        sid=retained  # Never adopt a SID merely because the native row reports it.
+        if not lock.index or lock.raw!=record.raw:return self._observation('KNOWN_UNQUALIFIED_RECORD','COMMITTED')
+        if lock.session!=sid:return self._observation('KNOWN_UNQUALIFIED_RECORD','COMMITTED','ABSENT')
+        self._sid=retained  # Read target only; never sets _created_this_call.
+        try:info=await self._send('SESSION_INFO')
+        except Exception:return self._observation('KNOWN_UNQUALIFIED_RECORD','COMMITTED')
+        return self._observation('KNOWN_UNQUALIFIED_RECORD','COMMITTED','CURRENT_AS_OF_READ' if self._session_policy_matches(info) else 'UNKNOWN')
+
+    async def _commission_prepared(self,original_intent_bytes,*,leader):
+        """Review-only orchestration; public gate above NEVER invokes this yet."""
+        async with self._operation_lock:
+            self._match_original(original_intent_bytes);self._leader_local(leader);self._leader=leader
+            rows=self._ensure_original_retained()
+            if any(row['receipt']['rpc_kind'] in _RC_MUTATIONS for row in rows):
+                return await self._reconcile_prepared(original_intent_bytes,leader=leader)  # READ only; no retry/resume/adoption.
+            before=await self._snapshot()
+            if before[2].index or before[3].index:return self._observation('CONFLICT','NOT_ATTEMPTED')
+            try:
+                await self._send('SESSION_CREATE')
+                info=await self._send('SESSION_INFO')
+                if not self._session_policy_matches(info):
+                    raise RegistrationCustodyUnavailable('ACTUAL_NEW_NATIVE_SESSION_POLICY_REQUIRED')
+                self._session_verified=True
+                current=await self._snapshot()
+                if current[2].index or current[3].index:raise RegistrationCustodyUnavailable('CREATE_ONLY_NODE_SLOT_CONFLICT')
+                record=self._record(self._sid);encoded=base64.b64encode(canonical(record)).decode('ascii')
+                self._plan=[_check(current[0]),{'KV':dict(Verb='check-index',Key=self._keys[1],Index=self._leader.token)},
+                    {'KV':dict(Verb='check-session',Key=self._keys[1],Session=self._leader.session_id)},
+                    {'KV':dict(Verb='check-not-exists',Key=self._keys[2])},{'KV':dict(Verb='check-not-exists',Key=self._keys[3])},
+                    {'KV':dict(Verb='cas',Key=self._keys[2],Index=0,Value=encoded)},
+                    {'KV':dict(Verb='lock',Key=self._keys[3],Session=self._sid,Value=encoded)}]
+                measure_native_plan(self._plan);await self._send('REGISTRATION_TXN')
+                observation=await self._reconcile_prepared(original_intent_bytes,leader=leader)
+                if self._known_commit and observation.mutation_status!='COMMITTED':
+                    return self._observation('KNOWN_COMMIT_OBSERVATION_UNKNOWN','COMMITTED')
+                return observation
+            except asyncio.CancelledError:raise  # Retained attempt UNKNOWN; no cleanup-as-rollback.
+            except Exception:
+                if self._known_commit:return self._observation('KNOWN_UNQUALIFIED_RECORD','COMMITTED')
+                if self._created_this_call and (not self._txn_started or self._txn_rejected):
+                    try:await self._send('SESSION_DESTROY')
+                    except Exception:return self._observation('UNKNOWN','REJECTED' if self._txn_rejected else 'UNKNOWN')
+                return self._observation('UNKNOWN','REJECTED' if self._txn_rejected else 'UNKNOWN')
