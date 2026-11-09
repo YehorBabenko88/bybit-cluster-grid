@@ -3,7 +3,7 @@
 No native identity issuer, second consensus, public arbitrary-KV endpoint or
 execution permission is created. Existing reviewed layout/lease modules unchanged.
 """
-import base64,json,re,uuid
+import base64,hashlib,json,re,uuid
 import httpx
 from dataclasses import dataclass
 from urllib.parse import quote
@@ -188,3 +188,83 @@ class AssignmentAuthority:
         raise AssignmentUnavailable('ASSIGNMENT_DOMAIN_PROFILE_NOT_APPROVED')
     async def reconcile(self,original_request_bytes,*,context):
         raise AssignmentUnavailable('ASSIGNMENT_RECEIPT_PROFILE_NOT_APPROVED')
+
+@dataclass(frozen=True)
+class ResearchAdmissionResult:
+    """NEGATIVE_PATH observation DATA, never a receipt or execution capability."""
+    outcome: str
+    reason: str
+    original_intent_sha256: str
+    commit_status: str='NOT_ATTEMPTED'
+    effect_permitted: bool=False
+
+class ResearchLabAuthority:
+    """Internal authenticated negative path over the existing Grid authority.
+
+    No job writes, queue, second broker, resource proof or positive permission.
+    Existing committed jobs are deliberately UNKNOWN until a qualified resolver
+    checks their full original/receipt/assignment/phase dependencies.
+    """
+    def __init__(self,authority,generation,*,broker):
+        from unified_system.gateway_research_identity import ResearchIdentityBroker
+        if (type(authority) is not ConsulSessionAuthority or type(broker) is not ResearchIdentityBroker
+                or broker._authority is not authority or broker._generation!=generation):
+            raise TypeError('ACTUAL_SAME_AUTHORITY_RESEARCH_BROKER_REQUIRED')
+        self._native=AssignmentAuthority(authority,generation)
+        self._broker=broker
+
+    async def _observe(self,original,*,context,scope,leader=None):
+        from unified_system.gateway_research_identity import ResearchIdentityBroker
+        command=_decode(original)
+        fields={'schema','operation','cluster_id','cluster_generation','request_id','job_id',
+                'original_actor_principal_id','quota_owner_id','idempotency_key',
+                'commissioned_profile_sha256','input_request_sha256','producer_head','resources'}
+        if (set(command)!=fields or command['schema']!='unified.gateway.lab-job-submit.v1-review1'
+                or command['operation']!='SUBMIT_RESEARCH'):
+            raise ValueError('EXACT_ORIGINAL_LAB13_REQUIRED')
+        authority=self._native.authority
+        if scope=='SUBMIT_RESEARCH' and not await authority.validate(leader):
+            raise AssignmentUnavailable('CURRENT_GRID_LEADER_REQUIRED')
+        capture=await ResearchIdentityBroker.capture_current(self._broker,context,scope=scope,request_bytes=original)
+        identity=ResearchIdentityBroker.require_capture(self._broker,capture,expected_authority=authority,scope=scope,request_bytes=original)
+        profile=_decode(identity.records[1].raw)
+        if (profile.get('schema')!='unified.authority.target-bound-research-profile.v2-review1'
+                or profile.get('cluster_id')!=command['cluster_id']
+                or command['cluster_generation']!=self._native.generation
+                or identity.actor_id!=command['original_actor_principal_id']
+                or identity.quota_owner_id!=command['quota_owner_id']
+                or identity.profile_sha256!=command['commissioned_profile_sha256']):
+            raise AssignmentUnavailable('CURRENT_TARGET_BOUND_PROFILE_REQUIRED')
+        realm=_uuid(profile['realm_id']);job=_uuid(command['job_id'])
+        namespace=authority.config.namespace
+        if namespace!='unified/'+_uuid(command['cluster_id']):raise ValueError('CLUSTER_BINDING')
+        job_key=namespace+'/runtime-v1/research-lab-v1/'+realm+'/jobs/'+job
+        keys=tuple(r.key for r in identity.records)
+        generation_key=namespace+'/commands/generation'
+        if generation_key not in keys:raise AssignmentUnavailable('CURRENT_GENERATION_SOURCE_REQUIRED')
+        rows=await self._native._read_snapshot(keys+(authority.key,job_key))
+        for current,prior in zip(rows,identity.records):
+            if (current.key,current.index,current.raw,current.session)!=(prior.key,prior.index,prior.raw,prior.session):
+                raise AssignmentUnavailable('CURRENT_IDENTITY_SNAPSHOT_CHANGED')
+        if _decode(rows[keys.index(generation_key)].raw)!={'generation':self._native.generation}:
+            raise AssignmentUnavailable('GENERATION_NOT_CURRENT')
+        if scope=='SUBMIT_RESEARCH':
+            lock=rows[-2]
+            if lock.index!=leader.token or lock.session!=leader.session_id or not await authority.validate(leader):
+                raise AssignmentUnavailable('CURRENT_GRID_LEADER_REQUIRED')
+        # Recheck the actual fixed issuer, exact original and local peer/expiry
+        # after all awaits; this does not establish Raft commit-time UTC.
+        ResearchIdentityBroker.require_capture(self._broker,capture,expected_authority=authority,scope=scope,request_bytes=original)
+        return rows[-1]
+
+    async def submit(self,original_lab13_bytes,*,context,leader,owned_attempt=None):
+        job=await self._observe(original_lab13_bytes,context=context,scope='SUBMIT_RESEARCH',leader=leader)
+        # No caller-supplied attempt/boolean/method shape can bypass this gate.
+        reason='JOB_RECONCILIATION_API_UNQUALIFIED' if job.index else 'NATIVE_WORKER_RESOURCE_API_UNQUALIFIED'
+        return ResearchAdmissionResult('UNKNOWN' if job.index else 'DENIED',reason,hashlib.sha256(original_lab13_bytes).hexdigest())
+
+    async def lookup(self,original_lab13_bytes,*,context):
+        await self._observe(original_lab13_bytes,context=context,scope='READ_RESEARCH')
+        # Snapshot absence is not never-committed evidence. Do not manufacture a
+        # NOT_FOUND receipt or expose arbitrary native job record payloads.
+        return ResearchAdmissionResult('UNKNOWN','JOB_RECONCILIATION_API_UNQUALIFIED',hashlib.sha256(original_lab13_bytes).hexdigest())

@@ -52,6 +52,7 @@ jobs:
       - shell: bash
         env:
           A2_NATIVE_CONSUL_BINARY: ${{ runner.temp }}/a2-snapshot-consul/${{ matrix.executable }}
+          A2_RESEARCH_CONSUL_BINARY: ${{ runner.temp }}/a2-snapshot-consul/${{ matrix.executable }}
         run: |
           set -o pipefail
           python -I -B grid/tests/coordination/assignment_v1/run_native_qualification.py --expected-head "$EXPECTED_HEAD" --support-root "$GITHUB_WORKSPACE/support" 2>&1 | tee "$RUNNER_TEMP/native-snapshot.log"

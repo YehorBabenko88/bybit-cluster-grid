@@ -17,6 +17,8 @@ def main():
     for ancestor in (script,*script.parents):guard.ordinary(ancestor)
     before=guard.inventory(root);support_before=guard.inventory(support)
     os.environ['A2_ASSIGNMENT_TEST_SUPPORT']=str(support)
+    os.environ['A2_RESEARCH_GRID_SOURCE']=str(root)
+    sys.path[:0]=[str(support),str(support/'tests/gateway_research_identity')]
     sys.path[:0]=[str(root),str(root/'tests/coordination/assignment_v1')]
     suite=unittest.defaultTestLoader.discover(str(root/'tests/coordination/assignment_v1'),pattern='test_*.py')
     def ids(s):
@@ -24,10 +26,10 @@ def main():
             if isinstance(t,unittest.TestSuite):yield from ids(t)
             else:yield t.id()
     actual=list(ids(suite));expected=json.loads((script.parent/'NATIVE-EXPECTED-TESTS.json').read_bytes())
-    assert len(actual)==len(set(actual))==len(expected)==len(set(expected))==20
+    assert len(actual)==len(set(actual))==len(expected)==len(set(expected))==25
     assert sorted(actual)==sorted(expected)
     r=unittest.TextTestRunner(verbosity=2).run(suite)
     assert guard.inventory(root)==before and guard.inventory(support)==support_before
-    assert r.wasSuccessful() and r.testsRun==20 and not r.skipped
-    print(json.dumps(dict(result='PASS',scope='CONSISTENT_NATIVE_RAW_READ_CAS_FAILOVER_RESTART_ONLY_NOT_ISSUED_GRANT',head=a.expected_head,tree=git(root,'rev-parse','HEAD^{tree}').decode().strip(),support_head='1f6b0b5c231853607f5bec780f1544cd32bf577d',raw_files=len(before),support_raw_files=len(support_before),tests=20,skips=0,exact_unique_ids=True,module_sha256=before['grid/authority_assignment_v1.py'])))
+    assert r.wasSuccessful() and r.testsRun==25 and not r.skipped
+    print(json.dumps(dict(result='PASS',scope='CONSISTENT_NATIVE_RAW_READ_CAS_FAILOVER_RESTART_ONLY_NOT_ISSUED_GRANT',head=a.expected_head,tree=git(root,'rev-parse','HEAD^{tree}').decode().strip(),support_head='1f6b0b5c231853607f5bec780f1544cd32bf577d',raw_files=len(before),support_raw_files=len(support_before),tests=25,skips=0,exact_unique_ids=True,module_sha256=before['grid/authority_assignment_v1.py'])))
 if __name__=='__main__':main()
