@@ -20,8 +20,24 @@ from .worker import Worker
 
 
 class OwnedWorkerService:
-    def __init__(self,*,data_first_admission=None):
+    DATA_ONLY_PROFILE = 'grid.data-only-collector.v1'
+
+    def __init__(self,*,data_first_admission=None,raw_capture_factory=None,launch_profile=None):
+        if launch_profile is not None and (type(launch_profile) is not str or launch_profile != self.DATA_ONLY_PROFILE):
+            raise ValueError('Owned worker launch profile unavailable')
+        if raw_capture_factory is not None and not callable(raw_capture_factory):
+            raise ValueError('Owned worker raw capture factory invalid')
+        if launch_profile == self.DATA_ONLY_PROFILE and (raw_capture_factory is None or data_first_admission is not None):
+            raise ValueError('Data-only worker requires raw capture without research admission')
         self.data_first_admission=data_first_admission
+        self.raw_capture_factory=raw_capture_factory
+        self.launch_profile=launch_profile
+        self._started = False
+        self._closed = False
+        self._closing = False
+        self._close_error = None
+        self._close_task = None
+        self._site_start_task = None
         self.identity = None
         self.worker = None
         self.task = None
@@ -37,9 +53,11 @@ class OwnedWorkerService:
             raise RuntimeError('Owned worker source binding unavailable')
         return root
 
-    async def start(self, port):
-        if self.task is not None or self.runner is not None:
+    async def _bind_worker(self):
+        if self._started or self._closed:
             raise RuntimeError('Owned worker already started')
+        # Even failed startup is a consumed service lifetime, never an auto-retry.
+        self._started = True
         identity = binding._owned_module_identity()
         if identity is None or settings.role != 'worker':
             raise RuntimeError('Owned worker profile unavailable')
@@ -62,23 +80,59 @@ class OwnedWorkerService:
             clean = await asyncio.wait_for(asyncio.to_thread(verify), 4)
         except Exception:
             clean = False
+        if self._closed:
+            raise RuntimeError('Owned worker closed during source verification')
         if clean is not True or binding._owned_module_identity() != identity:
             raise RuntimeError('Owned worker source binding unavailable')
         self.identity = identity
-        self.worker = Worker(data_first_admission=self.data_first_admission)
-        self.task = asyncio.create_task(self.worker.run(), name='owned-grid-worker')
-        app = web.Application(client_max_size=1024)
-        app.router.add_route('*', '/{path:.*}', self.health)
-        self.runner = web.AppRunner(app, access_log=None, keepalive_timeout=1,
-                                    max_line_size=2048, max_field_size=2048)
+        kwargs = dict(data_first_admission=self.data_first_admission)
+        if self.raw_capture_factory is not None:
+            kwargs['raw_capture_factory'] = self.raw_capture_factory
+        if self.launch_profile is not None:
+            kwargs['launch_profile'] = self.launch_profile
+        self.worker = Worker(**kwargs)
+
+    async def start(self, port):
+        if self.launch_profile == self.DATA_ONLY_PROFILE:
+            raise RuntimeError('Data-only worker requires explicit offline input; listener start denied')
+        await self._bind_worker()
         try:
+            self.task = asyncio.create_task(self.worker.run(), name='owned-grid-worker')
+            app = web.Application(client_max_size=1024)
+            app.router.add_route('*', '/{path:.*}', self.health)
+            self.runner = web.AppRunner(app, access_log=None, keepalive_timeout=1,
+                                        max_line_size=2048, max_field_size=2048)
             await self.runner.setup()
             site = web.TCPSite(self.runner, '127.0.0.1', port)
-            await site.start()
+            self._site_start_task = asyncio.create_task(site.start(), name='owned-grid-listener-start')
+            await self._site_start_task
+            if self._closed:
+                raise RuntimeError('Owned worker closed during listener startup')
             self.port = site._server.sockets[0].getsockname()[1]
-        except BaseException:
-            await self.close()
+        except BaseException as startup_error:
+            try:
+                await self.close()
+            except BaseException as cleanup_error:
+                raise self._combined_error('Owned worker startup and shutdown failed',
+                                           startup_error, cleanup_error) from None
             raise
+
+    async def run_offline(self, frames, *, symbol, endpoint, observed_at_ms):
+        """One finite actual Worker call; no listener, run(), provider or retry.
+
+        Source custody still uses the existing binding. The profile restricts
+        workload and is never a source, authority or network capability.
+        """
+        if self.launch_profile != self.DATA_ONLY_PROFILE:
+            raise RuntimeError('Explicit data-only profile required')
+        await self._bind_worker()
+        try:
+            self.task = asyncio.create_task(self.worker.receive_offline(
+                frames, symbol=symbol, endpoint=endpoint, observed_at_ms=observed_at_ms),
+                name='owned-grid-offline-worker')
+            return await self.task
+        finally:
+            await self.close()
 
     async def health(self, request):
         headers = {'Cache-Control': 'no-store'}
@@ -108,12 +162,69 @@ class OwnedWorkerService:
             status=200 if ready else 503, headers=headers)
 
     async def close(self):
-        if self.runner is not None:
-            await self.runner.cleanup()
-            self.runner = None
-        if self.task is not None:
-            self.task.cancel()
-            await asyncio.gather(self.task, return_exceptions=True)
+        # One retained retirement task: concurrent callers observe the same result.
+        # Shielding keeps cancellation of a waiter from cancelling retirement.
+        self._closed = True
+        if self._close_task is None:
+            self._close_task = asyncio.create_task(self._shutdown(), name='owned-grid-worker-shutdown')
+        return await asyncio.shield(self._close_task)
+
+    @staticmethod
+    def _combined_error(message, *errors):
+        unique = []
+        def collect(error):
+            if isinstance(error, BaseExceptionGroup):
+                for item in error.exceptions:
+                    collect(item)
+            elif not any(error is item for item in unique):
+                unique.append(error)
+        for error in errors:
+            collect(error)
+        return unique[0] if len(unique) == 1 else BaseExceptionGroup(message, unique)
+
+    async def _shutdown(self):
+        self._closing = True
+        errors = []
+        try:
+            # A listener that finishes starting late must be joined before its
+            # runner is cleaned. Never report closed then publish a new server.
+            if self._site_start_task is not None:
+                cancel_requested = not self._site_start_task.done()
+                try:
+                    if cancel_requested:
+                        self._site_start_task.cancel()
+                    outcomes = await asyncio.gather(self._site_start_task, return_exceptions=True)
+                    for outcome in outcomes:
+                        if isinstance(outcome, BaseException):
+                            if cancel_requested and isinstance(outcome, asyncio.CancelledError):
+                                continue
+                            errors.append(outcome)
+                except BaseException as error:
+                    errors.append(error)
+            if self.runner is not None:
+                try:
+                    await self.runner.cleanup()
+                    self.runner = None
+                except BaseException as error:
+                    errors.append(error)
+            if self.task is not None:
+                cancel_requested = not self.task.done()
+                try:
+                    if cancel_requested:
+                        self.task.cancel()
+                    outcomes = await asyncio.gather(self.task, return_exceptions=True)
+                    for outcome in outcomes:
+                        if isinstance(outcome, BaseException):
+                            if cancel_requested and isinstance(outcome, asyncio.CancelledError):
+                                continue
+                            errors.append(outcome)
+                except BaseException as error:
+                    errors.append(error)
+        finally:
+            self._closing = False
+        if errors:
+            self._close_error = self._combined_error('Owned worker shutdown failed', *errors)
+            raise self._close_error
 
 
 async def serve(port,*,data_first_admission=None):
@@ -121,7 +232,14 @@ async def serve(port,*,data_first_admission=None):
     try:
         await service.start(port)
         await service.task
-    finally:
+    except BaseException as primary_error:
+        try:
+            await service.close()
+        except BaseException as cleanup_error:
+            raise service._combined_error('Owned worker serving and shutdown failed',
+                                          primary_error, cleanup_error) from None
+        raise
+    else:
         await service.close()
 
 
