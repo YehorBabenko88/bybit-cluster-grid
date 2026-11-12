@@ -11,6 +11,7 @@ from .continuity import SequenceGuard
 from .book_velocity import BookVelocity
 from .wall_tracker import WallTracker
 from .topic_watchdog import TopicWatchdog
+from .raw_capture import RawCaptureError, RawCaptureRecorder
 
 log=logging.getLogger("microstructure")
 
@@ -58,7 +59,10 @@ class MicrostructureCollector:
     Writes throttled analytical snapshots instead of every 20ms delta.
     Ticker/OI fields are merged because Bybit ticker deltas omit unchanged fields.
     """
-    def __init__(self, db, snapshot_ms=1000, wall_event_ratio=6.0, max_ticker_age_ms=None):
+    def __init__(self, db, snapshot_ms=1000, wall_event_ratio=6.0, max_ticker_age_ms=None, *, raw_capture_factory=None):
+        if raw_capture_factory is not None and not callable(raw_capture_factory):
+            raise RawCaptureError('RAW_CAPTURE_FACTORY_INVALID')
+        self.raw_capture_factory=raw_capture_factory
         self.db=db
         if (
             isinstance(snapshot_ms,bool)
@@ -103,6 +107,12 @@ class MicrostructureCollector:
         ):
             raise ValueError("symbols must be nonempty ASCII alphanumeric strings")
         symbols=list(dict.fromkeys(symbols))
+        capture=None
+        if self.raw_capture_factory is not None:
+            if len(symbols)!=1: raise RawCaptureError('RAW_CAPTURE_SINGLE_INSTRUMENT_REQUIRED')
+            capture=self.raw_capture_factory(symbols[0],settings.bybit_ws_url)
+            if not isinstance(capture,RawCaptureRecorder) or not capture.matches(symbols[0],settings.bybit_ws_url):
+                raise RawCaptureError('RAW_CAPTURE_SOURCE_BINDING_INVALID')
         delays=backoff_delays()
         topics=[]
         for s in symbols:
@@ -132,14 +142,24 @@ class MicrostructureCollector:
             guards.clear()
             velocity=BookVelocity()
             wall_tracker=WallTracker()
+            disconnect_reason='transport_error'
             try:
+                if capture is not None:
+                    if not capture.matches(symbols[0],settings.bybit_ws_url):
+                        raise RawCaptureError('RAW_CAPTURE_SOURCE_BINDING_CHANGED')
+                    capture.begin_connection()
                 await wait_for_internet()
                 actual_endpoint=settings.bybit_ws_url
+                raw_options={} if capture is None else {'max_size':capture.profile.max_frame_bytes}
                 async with websockets.connect(
                     actual_endpoint,
                     ping_interval=20, ping_timeout=20,
-                    max_queue=2000, close_timeout=5
+                    max_queue=2000, close_timeout=5, **raw_options
                 ) as ws:
+                    async def receive_frame():
+                        raw=await ws.recv()
+                        ref=None if capture is None else await capture.frame(raw)
+                        return raw,ref
                     connection_context=public_market_connection(actual_endpoint)
                     # Small subscription batches reduce rejection risk and make reconnect gentler.
                     # Every request must be acknowledged; otherwise a transport can stay
@@ -153,7 +173,7 @@ class MicrostructureCollector:
                             remaining=ack_deadline-asyncio.get_running_loop().time()
                             if remaining<=0:
                                 raise asyncio.TimeoutError("Bybit microstructure subscription ACK timeout")
-                            raw=await asyncio.wait_for(ws.recv(),timeout=remaining)
+                            raw,frame_ref=await asyncio.wait_for(receive_frame(),timeout=remaining)
                             ack=json.loads(raw)
                             if not isinstance(ack,dict):
                                 raise RuntimeError("invalid Bybit subscription response")
@@ -170,6 +190,7 @@ class MicrostructureCollector:
                                         continue
                                 if ack.get("success") is not True:
                                     raise RuntimeError("Bybit subscription rejected: "+str(ack.get("ret_msg") or ack))
+                                if capture is not None: await capture.validated(frame_ref)
                                 break
                             # Earlier subscription batches can emit snapshots before
                             # later batches acknowledge. Preserve those frames in order.
@@ -177,7 +198,7 @@ class MicrostructureCollector:
                                 if ack["topic"].startswith(("orderbook.","tickers.")):
                                     if len(pending_market_frames)>=2000:
                                         raise RuntimeError("subscription market frame buffer overflow")
-                                    pending_market_frames.append(raw)
+                                    pending_market_frames.append((raw,frame_ref))
                         await asyncio.sleep(0.05)
                     delays=backoff_delays()
                     log.info("microstructure connected",extra={"event":"ws_connected","component":"microstructure"})
@@ -187,10 +208,10 @@ class MicrostructureCollector:
 
                     while True:
                         if pending_market_frames:
-                            raw=pending_market_frames.popleft()
+                            raw,frame_ref=pending_market_frames.popleft()
                         else:
                             try:
-                                raw=await asyncio.wait_for(ws.recv(),timeout=10)
+                                raw,frame_ref=await asyncio.wait_for(receive_frame(),timeout=10)
                             except asyncio.TimeoutError:
                                 raw=None
                         now=asyncio.get_running_loop().time()
@@ -202,14 +223,17 @@ class MicrostructureCollector:
                         try:
                             msg=json.loads(raw)
                         except (json.JSONDecodeError,UnicodeDecodeError,TypeError):
+                            if capture is not None: await capture.gap('frame_invalid',frame_ref)
                             log.warning("invalid market JSON ignored",extra={"event":"invalid_market_json"})
                             continue
                         if not isinstance(msg,dict):
+                            if capture is not None: await capture.gap('frame_invalid',frame_ref)
                             log.warning("non-object market frame ignored",extra={"event":"invalid_market_frame"})
                             continue
                         topic=msg.get("topic","")
                         data=msg.get("data") or {}
                         if not isinstance(topic,str) or not isinstance(data,dict):
+                            if capture is not None: await capture.gap('frame_invalid',frame_ref)
                             log.warning("invalid market envelope ignored",extra={"event":"invalid_market_envelope"})
                             continue
                         raw_ts=msg.get("ts")
@@ -261,6 +285,8 @@ class MicrostructureCollector:
                             if not updates:
                                 log.warning("empty ticker delta ignored",extra={"event":"ticker_empty","component":sym})
                                 continue
+                            if capture is not None:
+                                await capture.validated(frame_ref,exchange_event_ms=ts if raw_ts is not None else None)
                             last_ticker_seen[sym]=ts
                             state=tickers.setdefault(sym,{})
                             quality.setdefault(sym,FeedQuality(sym)).mark("ticker",AVAILABLE)
@@ -313,6 +339,7 @@ class MicrostructureCollector:
                                 bids=parse_book_levels(data.get("b"),snapshot=is_snapshot)
                                 asks=parse_book_levels(data.get("a"),snapshot=is_snapshot)
                             except (ValueError,TypeError):
+                                if capture is not None: await capture.gap('frame_invalid',frame_ref)
                                 guard.valid=False
                                 velocity.state.pop(sym,None)
                                 wall_tracker.state.pop(sym,None)
@@ -331,6 +358,7 @@ class MicrostructureCollector:
                                         log.warning("stale orderbook snapshot ignored",extra={"event":"orderbook_stale_snapshot","component":sym})
                                         continue
                                     state["b"].clear(); state["a"].clear()
+                                    if capture is not None: await capture.gap('sequence_invalid',frame_ref)
                                     q.mark("orderbook",MISSING,"snapshot missing sequence metadata")
                                     log.warning("orderbook snapshot missing sequence metadata",extra={"event":"orderbook_bad_snapshot","component":sym})
                                     continue
@@ -338,6 +366,7 @@ class MicrostructureCollector:
                                 state["a"]=asks
                                 q.mark("orderbook",AVAILABLE)
                             elif not guard.delta(data.get("seq"),data.get("u")):
+                                if capture is not None: await capture.gap('sequence_invalid',frame_ref)
                                 velocity.state.pop(sym,None)
                                 wall_tracker.state.pop(sym,None)
                                 state["b"].clear(); state["a"].clear()
@@ -372,6 +401,10 @@ class MicrostructureCollector:
                                 log.warning("crossed or locked orderbook",extra={"event":"orderbook_crossed","component":sym})
                                 continue
                             book_watchdog.observe(sym,now)
+                            if capture is not None:
+                                await capture.validated(frame_ref,exchange_event_ms=ts if raw_ts is not None else None,
+                                    sequence=guard.last_seq,update_id=guard.last_update,resync=is_snapshot,
+                                    source_restart=data.get('u')==1)
                             state["u"]=data.get("u",state["u"])
                             state["seq"]=data.get("seq",state["seq"])
 
@@ -393,9 +426,20 @@ class MicrostructureCollector:
                                     await self.db.insert_event(sym,ts,"liquidity_wall_removed",wall)
                                 last_book_write[sym]=ts
 
+            except RawCaptureError:
+                raise
             except asyncio.CancelledError:
+                disconnect_reason='cancelled'
                 raise
             except Exception:
+                if capture is not None:
+                    raise RawCaptureError('RAW_CAPTURE_TRANSPORT_STOP') from None
                 d=next(delays)
                 log.exception("microstructure stream failed",extra={"event":"reconnect","delay":d})
                 await asyncio.sleep(d)
+            finally:
+                if capture is not None:
+                    try: await capture.disconnect(disconnect_reason)
+                    except RawCaptureError:
+                        if disconnect_reason!='cancelled': raise
+                        log.warning('raw disconnect observation unavailable during cancellation',extra={'event':'raw_capture_cancel_unknown'})
