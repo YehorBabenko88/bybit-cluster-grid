@@ -147,7 +147,8 @@ class HookTests(unittest.TestCase):
         source=Path(self.worker_source_override) if self.worker_source_override is not None else Path(__file__).parents[2]/'grid'/'worker.py'
         tree=ast.parse(source.read_bytes())
         cls=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='Worker')
-        names={'trade_stream','_trade_handoff_state','_persist_trade_rows','reconcile','_stop_raw_capture_tasks'}
+        names={'trade_stream','_trade_handoff_state','_persist_trade_rows','reconcile','_stop_raw_capture_tasks',
+               '_require_full_workload','_raw_capture_for','_record_received_frame'}
         methods=[n for n in cls.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name in names]
         namespace={k:getattr(validation,k) for k in ('validated_tick','MAX_FRAME_BYTES','MAX_ACK_FRAMES',
             'MAX_ACK_BYTES','MAX_OPEN_MINUTES','PERSIST_TIMEOUT_SECONDS','decode_frame','parse_trades','preflight_footprint','preflight_tape')}

@@ -1,44 +1,86 @@
 import os
 import asyncio, json, time, logging, os, pathlib
-import aiohttp, websockets
-from .config import settings
-from .resources import snapshot,NODE_ID,ml_runtime_ready
 from .models import Trade
 from collections import deque
 from .public_trade_validation import (decode_frame,parse_trades,MAX_FRAME_BYTES,MAX_ACK_FRAMES,
     MAX_ACK_BYTES,MAX_OPEN_MINUTES,PERSIST_TIMEOUT_SECONDS,validated_tick,preflight_footprint,preflight_tape)
-from .cluster import FootprintBuilder
-from .storage import Storage
-from .bybit import linear_symbols
-from .service import prepare_database, bootstrap_logging, health_monitor
-from .microstructure import MicrostructureCollector
-from .micro_event_storage import MicroEventStorage
-from .micro_tape import MicroTapeAggregator
-from .resilience import backoff_delays, wait_for_internet
-from .retention import ensure_retention_schema, retention_scheduler
-from .telegram_bot import telegram_loop
-from .strategy_jobs import ensure_strategy_schema
-from .strategy_plugins import ensure_plugin_schema
-from .strategy_runner import strategy_worker
-from .agent_commands import execute_command
-from .credential_store import node_credential
-from .decommission import mark_coordinator_success,mark_internet_success,internet_available,decommission_due
-from .pressure import PressureController, NORMAL, SOFT_PRESSURE, desired_drained_symbols
 from .continuity import TradeContinuity
 from .raw_capture import RawCaptureError, RawCaptureRecorder
-from .local_control_journal import LocalControlJournal
-from .control_snapshot_ring import ControlSnapshotRing,replica_meta
-from .integrity_guard import verify_manifest
-from .command_receipts import CommandReceiptStore
-from .ml_transport_client import MLTransportClient
-from .ml_agent_worker import ml_agent_loop
+
+COLLECTOR_PROFILE='grid.data-only-collector.v1'
+_FULL_DEPENDENCIES_LOADED=False
+_LEGACY_GLOBALS=frozenset(('aiohttp','websockets','settings','snapshot','NODE_ID','ml_runtime_ready',
+    'FootprintBuilder','Storage','linear_symbols','prepare_database','bootstrap_logging','health_monitor',
+    'MicrostructureCollector','MicroEventStorage','MicroTapeAggregator','backoff_delays','wait_for_internet',
+    'ensure_retention_schema','retention_scheduler','telegram_loop','ensure_strategy_schema','ensure_plugin_schema',
+    'strategy_worker','execute_command','node_credential','mark_coordinator_success','mark_internet_success',
+    'internet_available','decommission_due','PressureController','NORMAL','SOFT_PRESSURE','desired_drained_symbols',
+    'LocalControlJournal','ControlSnapshotRing','replica_meta','verify_manifest','CommandReceiptStore',
+    'MLTransportClient','ml_agent_loop'))
+
+
+def __getattr__(name):
+    # Preserve legacy attribute access/patching without loading unrelated modules
+    # for a data-only import. Private/offline callers never request these names.
+    if name not in _LEGACY_GLOBALS:raise AttributeError(name)
+    _load_full_worker_dependencies()
+    return globals()[name]
+
+
+def _load_full_worker_dependencies():
+    """Legacy collaborators are loaded only for the unchanged full workload."""
+    global _FULL_DEPENDENCIES_LOADED
+    if _FULL_DEPENDENCIES_LOADED:return
+    global aiohttp, websockets, settings, snapshot, NODE_ID, ml_runtime_ready
+    global FootprintBuilder, Storage, linear_symbols, prepare_database, bootstrap_logging, health_monitor
+    global MicrostructureCollector, MicroEventStorage, MicroTapeAggregator, backoff_delays, wait_for_internet
+    global ensure_retention_schema, retention_scheduler, telegram_loop, ensure_strategy_schema, ensure_plugin_schema
+    global strategy_worker, execute_command, node_credential, mark_coordinator_success, mark_internet_success
+    global internet_available, decommission_due, PressureController, NORMAL, SOFT_PRESSURE, desired_drained_symbols
+    global LocalControlJournal, ControlSnapshotRing, replica_meta, verify_manifest, CommandReceiptStore
+    global MLTransportClient, ml_agent_loop
+    import aiohttp, websockets
+    from .config import settings
+    from .resources import snapshot,NODE_ID,ml_runtime_ready
+    from .cluster import FootprintBuilder
+    from .storage import Storage
+    from .bybit import linear_symbols
+    from .service import prepare_database, bootstrap_logging, health_monitor
+    from .microstructure import MicrostructureCollector
+    from .micro_event_storage import MicroEventStorage
+    from .micro_tape import MicroTapeAggregator
+    from .resilience import backoff_delays, wait_for_internet
+    from .retention import ensure_retention_schema, retention_scheduler
+    from .telegram_bot import telegram_loop
+    from .strategy_jobs import ensure_strategy_schema
+    from .strategy_plugins import ensure_plugin_schema
+    from .strategy_runner import strategy_worker
+    from .agent_commands import execute_command
+    from .credential_store import node_credential
+    from .decommission import mark_coordinator_success,mark_internet_success,internet_available,decommission_due
+    from .pressure import PressureController, NORMAL, SOFT_PRESSURE, desired_drained_symbols
+    from .local_control_journal import LocalControlJournal
+    from .control_snapshot_ring import ControlSnapshotRing,replica_meta
+    from .integrity_guard import verify_manifest
+    from .command_receipts import CommandReceiptStore
+    from .ml_transport_client import MLTransportClient
+    from .ml_agent_worker import ml_agent_loop
+    _FULL_DEPENDENCIES_LOADED=True
 
 log=logging.getLogger("worker")
 
 class Worker:
-    def __init__(self,*,data_first_admission=None,raw_capture_factory=None):
+    def __init__(self,*,data_first_admission=None,raw_capture_factory=None,launch_profile=None):
+        if launch_profile is not None and (type(launch_profile) is not str or launch_profile != COLLECTOR_PROFILE):
+            raise ValueError('COLLECTOR_PROFILE_INVALID')
+        if launch_profile is not None and (not callable(raw_capture_factory) or data_first_admission is not None):
+            raise ValueError('COLLECTOR_CONSTRUCTION_INVALID')
         if raw_capture_factory is not None and not callable(raw_capture_factory):
             raise RawCaptureError('RAW_CAPTURE_FACTORY_INVALID')
+        self.launch_profile=launch_profile
+        self._offline_used=False
+        if launch_profile is None:
+            _load_full_worker_dependencies()
         self.raw_capture_factory=raw_capture_factory
         self.raw_capture_failure=None
         self.wanted=set()
@@ -46,9 +88,9 @@ class Worker:
         self.micro_tasks=[]
         self.micro_signature=()
         self.micro_wanted=set()
-        self.storage=Storage()
-        self.micro_storage=MicroEventStorage()
-        self.micro_tape=MicroTapeAggregator(settings.micro_tape_bucket_ms)
+        self.storage=Storage() if launch_profile is None else None
+        self.micro_storage=MicroEventStorage() if launch_profile is None else None
+        self.micro_tape=MicroTapeAggregator(settings.micro_tape_bucket_ms) if launch_profile is None else None
         self.db=None
         self.meta={}
         self.enabled=True
@@ -56,11 +98,11 @@ class Worker:
         self.operator_stopped=False
         self.bootstrap_phase=os.getenv('GRID_BOOTSTRAP_PHASE','NORMAL')
         self.runtime_state='INFRA_ONLY'
-        self.pressure=PressureController(settings.resource_cpu_limit,settings.resource_ram_limit,settings.resource_disk_free_gb)
+        self.pressure=PressureController(settings.resource_cpu_limit,settings.resource_ram_limit,settings.resource_disk_free_gb) if launch_profile is None else None
         self.pressure_drained=set()
-        self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json'))
-        self.control_ring=ControlSnapshotRing(os.getenv('GRID_CONTROL_SNAPSHOTS','control-snapshots'))
-        self.command_receipts=CommandReceiptStore()
+        self.control_journal=LocalControlJournal(os.getenv('GRID_CONTROL_JOURNAL','control-state.json')) if launch_profile is None else None
+        self.control_ring=ControlSnapshotRing(os.getenv('GRID_CONTROL_SNAPSHOTS','control-snapshots')) if launch_profile is None else None
+        self.command_receipts=CommandReceiptStore() if launch_profile is None else None
         self.data_first_admission=data_first_admission
         self.data_first_launcher=None
         self.data_first_task=None
@@ -79,6 +121,70 @@ class Worker:
         self._pending_trade_reservations={}
         self._pending_trade_quality={}
 
+    def _require_full_workload(self):
+        if getattr(self,'launch_profile',None) is not None:
+            raise RuntimeError('COLLECTOR_SOURCE_ADMISSION_REQUIRED')
+
+    def _raw_capture_for(self,symbol,endpoint):
+        factory=getattr(self,'raw_capture_factory',None)
+        capture=None if factory is None else factory(symbol,endpoint)
+        if factory is not None and (not isinstance(capture,RawCaptureRecorder) or not capture.matches(symbol,endpoint)):
+            raise RawCaptureError('RAW_CAPTURE_SOURCE_BINDING_INVALID')
+        return capture
+
+    async def _record_received_frame(self,raw,capture):
+        ref=None if capture is None else await capture.frame(raw)
+        return raw,ref
+
+    async def receive_offline(self,frames,*,symbol,endpoint,observed_at_ms):
+        """One finite synthetic receive, never provider admission or a run mode.
+
+        Uses the same raw-before-decode hook and existing trade parser. Results
+        remain local observations, not publication or a historical checkpoint.
+        """
+        if self.launch_profile != COLLECTOR_PROFILE:
+            raise RuntimeError('COLLECTOR_OFFLINE_PROFILE_REQUIRED')
+        if (type(frames) is not tuple or not 1<=len(frames)<=4
+                or endpoint!='synthetic://bybit/linear'
+                or type(symbol) is not str or symbol!='BTCUSDT'
+                or type(observed_at_ms) is not int or not 0<observed_at_ms<2**63):
+            raise ValueError('COLLECTOR_OFFLINE_INPUT_INVALID')
+        total=0
+        for raw in frames:
+            if type(raw) not in (str,bytes):raise ValueError('COLLECTOR_OFFLINE_INPUT_INVALID')
+            if len(raw)>MAX_FRAME_BYTES:raise ValueError('COLLECTOR_OFFLINE_INPUT_INVALID')
+            size=len(raw.encode('utf-8')) if type(raw) is str else len(raw)
+            if size>MAX_FRAME_BYTES:raise ValueError('COLLECTOR_OFFLINE_INPUT_INVALID')
+            total+=size
+        if total>4*MAX_FRAME_BYTES:raise ValueError('COLLECTOR_OFFLINE_INPUT_INVALID')
+        if self._offline_used:raise RuntimeError('COLLECTOR_OFFLINE_ALREADY_USED')
+        self._offline_used=True
+        capture=self._raw_capture_for(symbol,endpoint)
+        if capture is None or capture._source_kind!='SYNTHETIC':
+            raise RawCaptureError('RAW_CAPTURE_SOURCE_BINDING_INVALID')
+        capture.begin_connection()
+        batches=[]
+        try:
+            for raw in frames:
+                raw,ref=await self._record_received_frame(raw,capture)
+                try:
+                    message,_=decode_frame(raw)
+                    trades=parse_trades(message,symbol,observed_at_ms)
+                except ValueError:
+                    await capture.gap('frame_invalid',ref)
+                    continue
+                await capture.validated(ref,exchange_event_ms=max((t.ts_ms for t in trades),default=None))
+                batches.append(tuple(trades))
+            await capture.disconnect('normal_stop')
+        except BaseException as error:
+            self.raw_capture_failure='COLLECTOR_OFFLINE_UNCERTAIN'
+            try:
+                await capture.disconnect('cancelled' if isinstance(error,asyncio.CancelledError) else 'transport_error')
+            except BaseException as cleanup:
+                error.add_note('capture disconnect outcome unknown: '+type(cleanup).__name__)
+            raise
+        return {'batches':tuple(batches),'metrics':capture.metrics()}
+
     def data_first_capability(self):
         if self.data_first_launcher is None or self.data_first_task is None or self.data_first_task.done():return None
         try:
@@ -87,6 +193,7 @@ class Worker:
         except Exception:return None
 
     def _start_data_first_consumer(self):
+        if getattr(self,'launch_profile',None) is not None:return
         # A transient first admission failure must not leave an advertised runtime
         # without a consumer. The waiting loop gates every actual claim.
         if self.data_first_launcher is not None and self.data_first_task is None:
@@ -100,6 +207,7 @@ class Worker:
         except Exception:return False
 
     async def _data_first_loop(self):
+        self._require_full_workload()
         from .ml_transport_client import DataFirstTransportClient
         from .data_first_agent_worker import run_once
         client=DataFirstTransportClient(NODE_ID)
@@ -159,6 +267,7 @@ class Worker:
                 await self.reconcile()
 
     async def heartbeat(self):
+        self._require_full_workload()
         async with aiohttp.ClientSession() as s:
             while True:
                 snap=snapshot()
@@ -375,6 +484,7 @@ class Worker:
         self.trade_tasks.clear(); self.micro_tasks=[]
 
     async def reconcile(self):
+        self._require_full_workload()
         raw_factory=getattr(self,'raw_capture_factory',None)
         if raw_factory is not None:
             # A terminal raw stop must not be turned into a fresh profile by
@@ -466,10 +576,8 @@ class Worker:
             log.warning('pending finalized minutes remain unadmitted',extra={'event':'pending_minute_flush_incomplete'})
 
     async def trade_stream(self,symbol):
-        factory=getattr(self,'raw_capture_factory',None)
-        capture=None if factory is None else factory(symbol,settings.bybit_ws_url)
-        if factory is not None and (not isinstance(capture,RawCaptureRecorder) or not capture.matches(symbol,settings.bybit_ws_url)):
-            raise RawCaptureError('RAW_CAPTURE_SOURCE_BINDING_INVALID')
+        self._require_full_workload()
+        capture=self._raw_capture_for(symbol,settings.bybit_ws_url)
         tick=validated_tick(self.meta[symbol]["tick_size"])
         fp=FootprintBuilder(tick,settings.cluster_interval_seconds,finalization_delay_ms=2000)
         delays=backoff_delays()
@@ -498,8 +606,7 @@ class Worker:
                 ) as ws:
                     async def receive_frame():
                         raw=await ws.recv()
-                        ref=None if capture is None else await capture.frame(raw)
-                        return raw,ref
+                        return await self._record_received_frame(raw,capture)
                     subscription_topic=f"publicTrade.{symbol}"
                     await ws.send(json.dumps({"op":"subscribe","args":[subscription_topic]}))
                     pending_frames=deque();pending_bytes=0
@@ -649,6 +756,7 @@ class Worker:
                         log.warning('raw disconnect observation unavailable during cancellation',extra={'event':'raw_capture_cancel_unknown'})
 
     async def run(self):
+        self._require_full_workload()
         bootstrap_logging()
         # Workers are DB-less by design: CONTROL owns PostgreSQL and accepts
         # authenticated ingestion. This keeps database credentials off agent PCs.
