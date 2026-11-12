@@ -147,7 +147,7 @@ class HookTests(unittest.TestCase):
         source=Path(self.worker_source_override) if self.worker_source_override is not None else Path(__file__).parents[2]/'grid'/'worker.py'
         tree=ast.parse(source.read_bytes())
         cls=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='Worker')
-        names={'trade_stream','_trade_handoff_state','_persist_trade_rows','reconcile'}
+        names={'trade_stream','_trade_handoff_state','_persist_trade_rows','reconcile','_stop_raw_capture_tasks'}
         methods=[n for n in cls.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name in names]
         namespace={k:getattr(validation,k) for k in ('validated_tick','MAX_FRAME_BYTES','MAX_ACK_FRAMES',
             'MAX_ACK_BYTES','MAX_OPEN_MINUTES','PERSIST_TIMEOUT_SECONDS','decode_frame','parse_trades','preflight_footprint','preflight_tape')}
@@ -301,4 +301,39 @@ class HookTests(unittest.TestCase):
         def create(coro): coro.close(); scheduled.append(True); return SimpleNamespace(done=lambda:False)
         async def gather(*_args,**_kwargs): return []
         with patch.object(asyncio,'create_task',create),patch.object(asyncio,'gather',gather): complete(worker.reconcile())
+        self.assertEqual(scheduled,[]); self.assertTrue(worker.raw_capture_failure)
+
+    def test_micro_assignment_cancel_outcome_blocks_replacement_profiles(self):
+        worker=self.worker_type()(); worker.trade_tasks={}; worker.wanted=set(); worker.meta={}
+        worker.micro_signature=('BTCUSDT',); worker.micro_wanted={'BTCUSDT','ETHUSDT'}
+        class PendingTask:
+            stopped=False
+            def done(self): return self.stopped
+            def cancel(self): self.stopped=True
+        worker.micro_tasks=[PendingTask()]; worker.micro_storage=object()
+        factory_calls=[]; worker.raw_capture_factory=lambda *_:factory_calls.append(True)
+        factory=worker.raw_capture_factory
+        class Collector:
+            def __init__(self,*_args,**_kwargs): pass
+            async def run_batch(self,batch): factory(batch[0],'synthetic://bybit/linear')
+        worker.reconcile.__func__.__globals__['MicrostructureCollector']=Collector
+        self.config.settings.microstructure_snapshot_ms=1000
+        async def gather(*tasks,**_kwargs): return [asyncio.CancelledError() for _ in tasks]
+        def create(coro): complete(coro); return SimpleNamespace(done=lambda:False)
+        with patch.object(asyncio,'gather',gather),patch.object(asyncio,'create_task',create): complete(worker.reconcile())
+        self.assertEqual(factory_calls,[]); self.assertTrue(worker.raw_capture_failure)
+
+    def test_trade_removal_cancel_outcome_blocks_later_reassignment(self):
+        worker=self.worker_type()(); worker.wanted=set(); worker.meta={'BTCUSDT':{'tick_size':.5}}
+        worker.micro_signature=(); worker.micro_wanted=set(); worker.micro_tasks=[]
+        class PendingTask:
+            stopped=False
+            def done(self): return self.stopped
+            def cancel(self): self.stopped=True
+        worker.trade_tasks={'BTCUSDT':PendingTask()}; worker.raw_capture_factory=lambda *_:self.capture
+        scheduled=[]
+        def create(coro): coro.close(); scheduled.append(True); return SimpleNamespace(done=lambda:False)
+        async def gather(*tasks,**_kwargs): return [asyncio.CancelledError() for _ in tasks]
+        with patch.object(asyncio,'gather',gather),patch.object(asyncio,'create_task',create):
+            complete(worker.reconcile()); worker.wanted={'BTCUSDT'}; complete(worker.reconcile())
         self.assertEqual(scheduled,[]); self.assertTrue(worker.raw_capture_failure)

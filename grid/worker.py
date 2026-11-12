@@ -367,6 +367,13 @@ class Worker:
             try:os.remove(flag)
             except FileNotFoundError:pass
 
+    async def _stop_raw_capture_tasks(self):
+        tasks=list(self.trade_tasks.values())+list(self.micro_tasks)
+        for task in tasks:
+            if not task.done(): task.cancel()
+        if tasks: await asyncio.gather(*tasks,return_exceptions=True)
+        self.trade_tasks.clear(); self.micro_tasks=[]
+
     async def reconcile(self):
         raw_factory=getattr(self,'raw_capture_factory',None)
         if raw_factory is not None:
@@ -384,16 +391,18 @@ class Worker:
                     except Exception:
                         self.raw_capture_failure='RAW_CAPTURE_TASK_OUTCOME_UNKNOWN'
             if getattr(self,'raw_capture_failure',None):
-                for task in tasks:
-                    if not task.done(): task.cancel()
-                if tasks: await asyncio.gather(*tasks,return_exceptions=True)
-                self.trade_tasks.clear(); self.micro_tasks=[]
+                await self._stop_raw_capture_tasks()
                 return
         removed=[]
         for sym in list(self.trade_tasks):
             if sym not in self.wanted:
                 task=self.trade_tasks.pop(sym);task.cancel();removed.append(task)
-        if removed:await asyncio.gather(*removed,return_exceptions=True)
+        if removed:
+            outcomes=await asyncio.gather(*removed,return_exceptions=True)
+            if raw_factory is not None and any(isinstance(result,BaseException) for result in outcomes):
+                self.raw_capture_failure='RAW_CAPTURE_REMOVAL_OUTCOME_UNKNOWN'
+                await self._stop_raw_capture_tasks()
+                return
         for sym in self.wanted:
             existing=self.trade_tasks.get(sym)
             if existing is not None and existing.done():
@@ -413,7 +422,11 @@ class Worker:
             for t in self.micro_tasks:
                 t.cancel()
             if self.micro_tasks:
-                await asyncio.gather(*self.micro_tasks,return_exceptions=True)
+                outcomes=await asyncio.gather(*self.micro_tasks,return_exceptions=True)
+                if raw_factory is not None and any(isinstance(result,BaseException) for result in outcomes):
+                    self.raw_capture_failure='RAW_CAPTURE_REASSIGNMENT_OUTCOME_UNKNOWN'
+                    await self._stop_raw_capture_tasks()
+                    return
             self.micro_tasks=[]
             collector=MicrostructureCollector(
                 self.micro_storage,
