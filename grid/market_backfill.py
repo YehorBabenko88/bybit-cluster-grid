@@ -24,7 +24,29 @@ async def claim_backfill(pool):
               WHERE symbol=$1 AND timeframe=$2""",row["symbol"],row["timeframe"])
             return dict(row)
 
-async def fetch_kline_page(base_url,symbol,interval="1",end_ms=None,limit=1000):
+async def fetch_kline_page(base_url,symbol,interval="1",end_ms=None,limit=1000,*,start_ms=None):
+    if start_ms is not None:
+        from .bybit import _bounded_int, _https_origin, _read_bounded_http_response, _bounded_result
+        origin=_https_origin(base_url)
+        _bounded_int(start_ms,"start_ms",0,2**63-1)
+        _bounded_int(end_ms,"end_ms",0,2**63-1)
+        _bounded_int(limit,"kline limit",1,1000)
+        if end_ms<start_ms:raise ValueError("end_ms precedes start_ms")
+        if (not isinstance(symbol,str) or not 1<=len(symbol)<=64
+                or not symbol.isascii() or not symbol.isalnum()):
+            raise ValueError("invalid symbol")
+        if (type(interval) not in (str,int) or not 1<=len(str(interval))<=32
+                or not str(interval).isascii() or not str(interval).isalnum()):
+            raise ValueError("invalid interval")
+        params={"category":"linear","symbol":symbol,"interval":str(interval),
+                "limit":limit,"start":start_ms,"end":end_ms}
+        timeout=aiohttp.ClientTimeout(total=30,connect=10,sock_read=30)
+        async with aiohttp.ClientSession(timeout=timeout,trust_env=False,auto_decompress=False,
+                                        cookie_jar=aiohttp.DummyCookieJar(),
+                                        headers={"Accept-Encoding":"identity"}) as s:
+            async with s.get(origin+"/v5/market/kline",params=params,allow_redirects=False) as r:
+                raw=await _read_bounded_http_response(r)
+        return _bounded_result(raw)["list"]
     params={"category":"linear","symbol":symbol,"interval":str(interval),"limit":int(limit)}
     if end_ms:params["end"]=int(end_ms)
     async with aiohttp.ClientSession() as s:
