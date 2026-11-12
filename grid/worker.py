@@ -25,6 +25,7 @@ from .credential_store import node_credential
 from .decommission import mark_coordinator_success,mark_internet_success,internet_available,decommission_due
 from .pressure import PressureController, NORMAL, SOFT_PRESSURE, desired_drained_symbols
 from .continuity import TradeContinuity
+from .raw_capture import RawCaptureError, RawCaptureRecorder
 from .local_control_journal import LocalControlJournal
 from .control_snapshot_ring import ControlSnapshotRing,replica_meta
 from .integrity_guard import verify_manifest
@@ -35,7 +36,11 @@ from .ml_agent_worker import ml_agent_loop
 log=logging.getLogger("worker")
 
 class Worker:
-    def __init__(self,*,data_first_admission=None):
+    def __init__(self,*,data_first_admission=None,raw_capture_factory=None):
+        if raw_capture_factory is not None and not callable(raw_capture_factory):
+            raise RawCaptureError('RAW_CAPTURE_FACTORY_INVALID')
+        self.raw_capture_factory=raw_capture_factory
+        self.raw_capture_failure=None
         self.wanted=set()
         self.trade_tasks={}
         self.micro_tasks=[]
@@ -362,12 +367,42 @@ class Worker:
             try:os.remove(flag)
             except FileNotFoundError:pass
 
+    async def _stop_raw_capture_tasks(self):
+        tasks=list(self.trade_tasks.values())+list(self.micro_tasks)
+        for task in tasks:
+            if not task.done(): task.cancel()
+        if tasks: await asyncio.gather(*tasks,return_exceptions=True)
+        self.trade_tasks.clear(); self.micro_tasks=[]
+
     async def reconcile(self):
+        raw_factory=getattr(self,'raw_capture_factory',None)
+        if raw_factory is not None:
+            # A terminal raw stop must not be turned into a fresh profile by
+            # the legacy collector supervisor on its next assignment tick.
+            tasks=list(self.trade_tasks.values())+list(self.micro_tasks)
+            for task in tasks:
+                if task.done():
+                    try: task.result()
+                    except RawCaptureError as error: self.raw_capture_failure=str(error)
+                    except asyncio.CancelledError:
+                        # Cancellation can interrupt an unknown sink outcome;
+                        # it is not permission to construct a fresh budget.
+                        self.raw_capture_failure='RAW_CAPTURE_CANCELLED_STOP'
+                    except Exception:
+                        self.raw_capture_failure='RAW_CAPTURE_TASK_OUTCOME_UNKNOWN'
+            if getattr(self,'raw_capture_failure',None):
+                await self._stop_raw_capture_tasks()
+                return
         removed=[]
         for sym in list(self.trade_tasks):
             if sym not in self.wanted:
                 task=self.trade_tasks.pop(sym);task.cancel();removed.append(task)
-        if removed:await asyncio.gather(*removed,return_exceptions=True)
+        if removed:
+            outcomes=await asyncio.gather(*removed,return_exceptions=True)
+            if raw_factory is not None and any(isinstance(result,BaseException) for result in outcomes):
+                self.raw_capture_failure='RAW_CAPTURE_REMOVAL_OUTCOME_UNKNOWN'
+                await self._stop_raw_capture_tasks()
+                return
         for sym in self.wanted:
             existing=self.trade_tasks.get(sym)
             if existing is not None and existing.done():
@@ -387,15 +422,21 @@ class Worker:
             for t in self.micro_tasks:
                 t.cancel()
             if self.micro_tasks:
-                await asyncio.gather(*self.micro_tasks,return_exceptions=True)
+                outcomes=await asyncio.gather(*self.micro_tasks,return_exceptions=True)
+                if raw_factory is not None and any(isinstance(result,BaseException) for result in outcomes):
+                    self.raw_capture_failure='RAW_CAPTURE_REASSIGNMENT_OUTCOME_UNKNOWN'
+                    await self._stop_raw_capture_tasks()
+                    return
             self.micro_tasks=[]
             collector=MicrostructureCollector(
                 self.micro_storage,
                 snapshot_ms=settings.microstructure_snapshot_ms,
+                **({} if raw_factory is None else {'raw_capture_factory':raw_factory}),
             )
             symbols=list(signature)
-            for i in range(0,len(symbols),8):
-                batch=symbols[i:i+8]
+            batch_size=8 if raw_factory is None else 1
+            for i in range(0,len(symbols),batch_size):
+                batch=symbols[i:i+batch_size]
                 if batch:
                     self.micro_tasks.append(asyncio.create_task(collector.run_batch(batch)))
             log.info("microstructure assignment reconciled",extra={"event":"micro_assignment","component":f"{len(symbols)} symbols"})
@@ -425,6 +466,10 @@ class Worker:
             log.warning('pending finalized minutes remain unadmitted',extra={'event':'pending_minute_flush_incomplete'})
 
     async def trade_stream(self,symbol):
+        factory=getattr(self,'raw_capture_factory',None)
+        capture=None if factory is None else factory(symbol,settings.bybit_ws_url)
+        if factory is not None and (not isinstance(capture,RawCaptureRecorder) or not capture.matches(symbol,settings.bybit_ws_url)):
+            raise RawCaptureError('RAW_CAPTURE_SOURCE_BINDING_INVALID')
         tick=validated_tick(self.meta[symbol]["tick_size"])
         fp=FootprintBuilder(tick,settings.cluster_interval_seconds,finalization_delay_ms=2000)
         delays=backoff_delays()
@@ -437,7 +482,12 @@ class Worker:
         pending_quality=self._pending_trade_quality.setdefault(symbol,set())
 
         while True:
+            disconnect_reason='transport_error'
             try:
+                if capture is not None:
+                    if not capture.matches(symbol,settings.bybit_ws_url):
+                        raise RawCaptureError('RAW_CAPTURE_SOURCE_BINDING_CHANGED')
+                    capture.begin_connection()
                 await self._persist_trade_rows(symbol)
                 await wait_for_internet()
                 actual_endpoint=settings.bybit_ws_url
@@ -446,6 +496,10 @@ class Worker:
                     ping_interval=20,ping_timeout=20,max_queue=50000,close_timeout=5,
                     max_size=MAX_FRAME_BYTES
                 ) as ws:
+                    async def receive_frame():
+                        raw=await ws.recv()
+                        ref=None if capture is None else await capture.frame(raw)
+                        return raw,ref
                     subscription_topic=f"publicTrade.{symbol}"
                     await ws.send(json.dumps({"op":"subscribe","args":[subscription_topic]}))
                     pending_frames=deque();pending_bytes=0
@@ -453,7 +507,7 @@ class Worker:
                     while True:
                         remaining=ack_deadline-asyncio.get_running_loop().time()
                         if remaining<=0:raise asyncio.TimeoutError("Bybit trade subscription ACK timeout")
-                        raw=await asyncio.wait_for(ws.recv(),timeout=remaining)
+                        raw,frame_ref=await asyncio.wait_for(receive_frame(),timeout=remaining)
                         ack,size=decode_frame(raw)
                         if ack.get("op")=="subscribe":
                             args=(ack.get("data") or {}).get("args") if isinstance(ack.get("data"),dict) else None
@@ -463,6 +517,7 @@ class Worker:
                                     raise RuntimeError("invalid Bybit trade subscription ACK args")
                                 if subscription_topic not in args:continue
                             if ack.get("success") is not True:raise RuntimeError("Bybit trade subscription rejected")
+                            if capture is not None: await capture.validated(frame_ref)
                             break
                         if ack.get("topic")==subscription_topic:
                             # Keep only fully validated, bounded trade batches.
@@ -475,7 +530,7 @@ class Worker:
                             if not trades:continue
                             if len(pending_frames)>=MAX_ACK_FRAMES or pending_bytes+size>MAX_ACK_BYTES:
                                 raise RuntimeError("public trade subscription buffer limit")
-                            pending_frames.append((trades,size));pending_bytes+=size
+                            pending_frames.append((trades,size,frame_ref));pending_bytes+=size
                     from .microstructure import public_market_connection
                     connection_context=public_market_connection(actual_endpoint)
                     tape=getattr(self,'micro_tape',None)
@@ -496,14 +551,15 @@ class Worker:
                     delays=backoff_delays()
                     while True:
                         if pending_frames:
-                            trades,size=pending_frames.popleft();pending_bytes-=size
+                            trades,size,frame_ref=pending_frames.popleft();pending_bytes-=size
                         else:
-                            raw=await asyncio.wait_for(ws.recv(),timeout=45)
+                            raw,frame_ref=await asyncio.wait_for(receive_frame(),timeout=45)
                             try:
                                 msg,_=decode_frame(raw)
                                 if msg.get("topic")!=subscription_topic:continue
                                 trades=parse_trades(msg,symbol,int(time.time()*1000))
                             except ValueError:
+                                if capture is not None: await capture.gap('frame_invalid',frame_ref)
                                 pending_quality.add("invalid_public_trade_frame")
                                 log.warning("invalid public trade batch ignored",extra={"event":"invalid_public_trade_frame","symbol":symbol})
                                 continue
@@ -519,9 +575,12 @@ class Worker:
                             eligible=preflight_footprint(trades,fp)
                             if symbol in self.micro_wanted:preflight_tape(eligible,self.micro_tape,symbol)
                         except ValueError:
+                            if capture is not None: await capture.gap('frame_invalid',frame_ref)
                             pending_quality.add('invalid_public_trade_frame')
                             log.warning('invalid public trade arithmetic',extra={'event':'invalid_public_trade_frame','symbol':symbol})
                             continue
+                        if capture is not None:
+                            await capture.validated(frame_ref,exchange_event_ms=max(t.ts_ms for t in trades))
                         finalize_at=int(time.time()*1000)
                         reserve=sum(start+fp.interval_ms+fp.finalization_delay_ms<=finalize_at for _,start in proposed)
                         occupied=sum(map(len,self._pending_trade_rows.values()))+sum(self._pending_trade_reservations.values())
@@ -555,7 +614,10 @@ class Worker:
                                 pending_rows.append(row)
                         finally:self._pending_trade_reservations.pop(symbol,None)
                         await self._persist_trade_rows(symbol)
+            except RawCaptureError:
+                raise
             except asyncio.CancelledError:
+                disconnect_reason='cancelled'
                 self._pending_trade_reservations.pop(symbol,None)
                 if not pending_rows:
                     self._pending_trade_rows.pop(symbol,None)
@@ -563,6 +625,9 @@ class Worker:
                 if not pending_quality:self._pending_trade_quality.pop(symbol,None)
                 raise
             except BufferError:
+                if capture is not None:
+                    await capture.gap('buffer_pressure')
+                    raise RawCaptureError('RAW_CAPTURE_PRESSURE_STOP') from None
                 pending_quality.add("wal_pressure")
                 self.pressure.state="CRITICAL"
                 self.pressure.bad_ticks=max(self.pressure.bad_ticks,10)
@@ -570,10 +635,18 @@ class Worker:
                           extra={"event":"wal_pressure","symbol":symbol})
                 await asyncio.sleep(min(5,max(.1,settings.heartbeat_seconds)))
             except Exception:
+                if capture is not None:
+                    raise RawCaptureError('RAW_CAPTURE_TRANSPORT_STOP') from None
                 pending_quality.add("stream_failure")
                 d=next(delays)
                 log.exception("trade stream failed",extra={"event":"reconnect","symbol":symbol,"delay":d})
                 await asyncio.sleep(d)
+            finally:
+                if capture is not None:
+                    try: await capture.disconnect(disconnect_reason)
+                    except RawCaptureError:
+                        if disconnect_reason!='cancelled': raise
+                        log.warning('raw disconnect observation unavailable during cancellation',extra={'event':'raw_capture_cancel_unknown'})
 
     async def run(self):
         bootstrap_logging()

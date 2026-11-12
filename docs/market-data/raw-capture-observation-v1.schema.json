@@ -1,0 +1,46 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"urn:grid:raw-capture-observation:v1-review1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema","instrument","producer_source_revision","source_kind","endpoint","connection_id","observation_index","kind","received_at_utc","received_monotonic_ns","payload_kind","payload_sha256","payload_bytes","frame_metadata_sha256","previous_metadata_sha256","exchange_event_at_utc","sequence","update_id","reason","publication"],
+  "$defs":{
+    "sha":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "nullable_sha":{"anyOf":[{"$ref":"#/$defs/sha"},{"type":"null"}]},
+    "u63":{"type":"string","pattern":"^(0|[1-9][0-9]{0,18})$"},
+    "positive_u63":{"type":"string","pattern":"^[1-9][0-9]{0,18}$"},
+    "utc":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$"}
+  },
+  "properties":{
+    "schema":{"const":"grid.raw-capture-observation.v1-review1"},
+    "instrument":{"type":"object","additionalProperties":false,"required":["exchange","category","symbol","instrument_version"],"properties":{"exchange":{"const":"bybit"},"category":{"const":"linear"},"symbol":{"type":"string","pattern":"^[A-Z0-9][A-Z0-9_-]{0,63}$"},"instrument_version":{"$ref":"#/$defs/positive_u63"}}},
+    "producer_source_revision":{"type":"string","pattern":"^[0-9a-f]{40}$"},
+    "source_kind":{"enum":["SYNTHETIC","PUBLIC_PROVIDER_OBSERVED_UNAUTHENTICATED"]},
+    "endpoint":{"enum":["synthetic://bybit/linear","wss://stream.bybit.com/v5/public/linear"]},
+    "connection_id":{"type":"string","pattern":"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "observation_index":{"$ref":"#/$defs/positive_u63"},
+    "kind":{"enum":["frame","validated","disconnect","gap_observation","resync"]},
+    "received_at_utc":{"$ref":"#/$defs/utc"},
+    "received_monotonic_ns":{"$ref":"#/$defs/u63"},
+    "payload_kind":{"enum":["TEXT_UTF8_REENCODED_NOT_WIRE","BINARY_APPLICATION_PAYLOAD","NONE"]},
+    "payload_sha256":{"$ref":"#/$defs/nullable_sha"},
+    "payload_bytes":{"$ref":"#/$defs/u63"},
+    "frame_metadata_sha256":{"$ref":"#/$defs/nullable_sha"},
+    "previous_metadata_sha256":{"$ref":"#/$defs/nullable_sha"},
+    "exchange_event_at_utc":{"anyOf":[{"$ref":"#/$defs/utc"},{"type":"null"}]},
+    "sequence":{"anyOf":[{"$ref":"#/$defs/u63"},{"type":"null"}]},
+    "update_id":{"anyOf":[{"$ref":"#/$defs/u63"},{"type":"null"}]},
+    "reason":{"enum":[null,"transport_closed","transport_error","cancelled","normal_stop","sequence_invalid","buffer_pressure","frame_oversize","restart_unknown","storage_failure","frame_invalid","initial_snapshot","after_gap","source_restart"]},
+    "publication":{"const":"LOCAL_UNATTESTED"}
+  },
+  "allOf":[
+    {"if":{"properties":{"source_kind":{"const":"SYNTHETIC"}}},"then":{"properties":{"endpoint":{"const":"synthetic://bybit/linear"}}},"else":{"properties":{"endpoint":{"const":"wss://stream.bybit.com/v5/public/linear"}}}},
+    {"if":{"properties":{"kind":{"const":"frame"}}},"then":{"properties":{"payload_kind":{"enum":["TEXT_UTF8_REENCODED_NOT_WIRE","BINARY_APPLICATION_PAYLOAD"]},"payload_sha256":{"$ref":"#/$defs/sha"},"payload_bytes":{"$ref":"#/$defs/u63"},"frame_metadata_sha256":{"type":"null"},"exchange_event_at_utc":{"type":"null"},"sequence":{"type":"null"},"update_id":{"type":"null"},"reason":{"type":"null"}}},"else":{"properties":{"payload_kind":{"const":"NONE"},"payload_sha256":{"type":"null"},"payload_bytes":{"const":"0"}}}},
+    {"if":{"properties":{"kind":{"const":"validated"}}},"then":{"properties":{"frame_metadata_sha256":{"$ref":"#/$defs/sha"},"reason":{"type":"null"}}}},
+    {"if":{"properties":{"kind":{"const":"resync"}}},"then":{"properties":{"frame_metadata_sha256":{"$ref":"#/$defs/sha"},"reason":{"enum":["initial_snapshot","after_gap","source_restart"]}}}},
+    {"if":{"properties":{"kind":{"const":"disconnect"}}},"then":{"properties":{"reason":{"enum":["transport_closed","transport_error","cancelled","normal_stop"]}}}},
+    {"if":{"properties":{"kind":{"const":"gap_observation"}}},"then":{"properties":{"reason":{"enum":["sequence_invalid","buffer_pressure","frame_oversize","restart_unknown","storage_failure","frame_invalid"]}}}}
+  ]
+}
+
+
