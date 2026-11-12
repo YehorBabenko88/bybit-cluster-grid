@@ -189,7 +189,12 @@ class RawCaptureRecorder:
         if self._failed or self._busy or not self._connected: self._terminal('state')
         control=kind in ('gap_observation','disconnect')
         ceiling=self.profile.max_observations-(0 if control else self.profile.reserved_control_slots)
-        if self._attempts>=ceiling: self._terminal('capacity')
+        if self._attempts>=ceiling:
+            if not control and self._attempts<self.profile.max_observations:
+                self._gap_open=True; self._gap_durable=False; self._gap_reason='buffer_pressure'
+                await self._emit('gap_observation',received=received,frame=frame,reason='buffer_pressure')
+                self._gap_durable=True
+            self._terminal('capacity')
         raw_count=0 if payload is None else len(payload)
         if self._payload_charge+raw_count>self.profile.max_payload_bytes: self._terminal('capacity')
         try:

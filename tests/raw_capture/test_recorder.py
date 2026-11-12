@@ -196,3 +196,11 @@ class RecorderTests(unittest.TestCase):
         ref=self.frame()
         with self.assertRaises(self.m.RawCaptureError): complete(self.capture.validated(ref,resync='yes'))
         self.assertEqual(len(self.sink.records),1)
+
+    def test_validation_capacity_uses_reserved_gap_slot_before_stopping(self):
+        refs=[self.frame(b'') for _ in range(14)]
+        with self.assertRaises(self.m.RawCaptureError): complete(self.capture.validated(refs[-1]))
+        self.assertEqual(self.observation()['kind'],'gap_observation')
+        self.assertEqual(self.observation()['reason'],'buffer_pressure')
+        self.assertTrue(self.capture.metrics()['gap_durable'])
+        self.assertLessEqual(len(self.sink.records),16)

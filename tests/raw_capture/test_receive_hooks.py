@@ -250,3 +250,55 @@ class HookTests(unittest.TestCase):
         with patch.object(asyncio,'create_task',create): complete(worker.reconcile())
         self.assertEqual(received,[worker.raw_capture_factory])
         self.assertEqual(batches,[['BTCUSDT'],['ETHUSDT']])
+
+    def test_cancelled_uncertain_task_is_not_restarted_by_supervisor(self):
+        worker=self.worker_type()()
+        class CancelledTask:
+            def done(self): return True
+            def result(self): raise asyncio.CancelledError
+        worker.trade_tasks={'BTCUSDT':CancelledTask()}; worker.micro_tasks=[]
+        worker.wanted={'BTCUSDT'}; worker.meta={'BTCUSDT':{'tick_size':.5}}
+        worker.micro_wanted=set(); worker.micro_signature=()
+        factory_calls=[]
+        worker.raw_capture_factory=lambda *_:factory_calls.append(True)
+        scheduled=[]
+        def create(coro): coro.close(); scheduled.append(True); return SimpleNamespace(done=lambda:False)
+        async def gather(*_args,**_kwargs): return []
+        with patch.object(asyncio,'create_task',create),patch.object(asyncio,'gather',gather):
+            complete(worker.reconcile()); complete(worker.reconcile())
+        self.assertEqual(scheduled,[]); self.assertEqual(factory_calls,[])
+        self.assertTrue(worker.raw_capture_failure)
+
+    def test_crossed_book_persists_gap_before_fresh_snapshot(self):
+        crossed=json.loads(DELTA); crossed['data']['b']=[['102','1']]
+        fresh=json.loads(SNAP); fresh['data'].update(seq=30,u=1); fresh['ts']=START+2000
+        self.run_collector([ACK,SNAP,json.dumps(crossed),json.dumps(fresh)])
+        observations=[json.loads(meta) for meta,_ in self.sink.records]
+        gaps=[i for i,v in enumerate(observations) if v['kind']=='gap_observation']
+        recovered=[i for i,v in enumerate(observations) if v['kind']=='resync' and v['reason']=='after_gap']
+        self.assertTrue(gaps and recovered); self.assertLess(gaps[0],recovered[0])
+
+    def test_accumulated_level_overflow_persists_gap_before_snapshot(self):
+        large=json.loads(SNAP); large['data']['b']=[[str(n),'1'] for n in range(1,201)]
+        large['data']['a']=[['1000','1']]
+        overflow=json.loads(DELTA); overflow['data']['b']=[['201','1']]
+        fresh=json.loads(SNAP); fresh['data'].update(seq=30,u=1); fresh['ts']=START+2000
+        self.run_collector([ACK,json.dumps(large),json.dumps(overflow),json.dumps(fresh)])
+        observations=[json.loads(meta) for meta,_ in self.sink.records]
+        self.assertTrue(any(v['kind']=='gap_observation' for v in observations))
+        self.assertTrue(any(v['kind']=='resync' and v['reason']=='after_gap' for v in observations))
+
+    def test_unknown_raw_task_exception_is_terminal_not_profile_reset(self):
+        worker=self.worker_type()()
+        class FailedTask:
+            def done(self): return True
+            def result(self): raise OSError('synthetic pre-connect failure')
+        worker.trade_tasks={'BTCUSDT':FailedTask()}; worker.micro_tasks=[]
+        worker.wanted={'BTCUSDT'}; worker.meta={'BTCUSDT':{'tick_size':.5}}
+        worker.micro_wanted=set(); worker.micro_signature=()
+        worker.raw_capture_factory=lambda *_:self.capture
+        scheduled=[]
+        def create(coro): coro.close(); scheduled.append(True); return SimpleNamespace(done=lambda:False)
+        async def gather(*_args,**_kwargs): return []
+        with patch.object(asyncio,'create_task',create),patch.object(asyncio,'gather',gather): complete(worker.reconcile())
+        self.assertEqual(scheduled,[]); self.assertTrue(worker.raw_capture_failure)

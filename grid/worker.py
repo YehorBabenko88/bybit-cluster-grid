@@ -377,7 +377,12 @@ class Worker:
                 if task.done():
                     try: task.result()
                     except RawCaptureError as error: self.raw_capture_failure=str(error)
-                    except (asyncio.CancelledError,Exception): pass
+                    except asyncio.CancelledError:
+                        # Cancellation can interrupt an unknown sink outcome;
+                        # it is not permission to construct a fresh budget.
+                        self.raw_capture_failure='RAW_CAPTURE_CANCELLED_STOP'
+                    except Exception:
+                        self.raw_capture_failure='RAW_CAPTURE_TASK_OUTCOME_UNKNOWN'
             if getattr(self,'raw_capture_failure',None):
                 for task in tasks:
                     if not task.done(): task.cancel()

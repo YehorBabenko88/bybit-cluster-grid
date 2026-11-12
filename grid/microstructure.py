@@ -383,6 +383,7 @@ class MicrostructureCollector:
                             # Depth-50 streams should never accumulate unbounded levels.
                             # A malformed sequence must recover from a fresh snapshot.
                             if len(state["b"])>200 or len(state["a"])>200:
+                                if capture is not None: await capture.gap('frame_invalid',frame_ref)
                                 guard.valid=False
                                 velocity.state.pop(sym,None)
                                 wall_tracker.state.pop(sym,None)
@@ -393,6 +394,7 @@ class MicrostructureCollector:
                             # A crossed or locked book cannot provide a valid spread.
                             # Drop the epoch instead of publishing misleading metrics.
                             if state["b"] and state["a"] and max(state["b"])>=min(state["a"]):
+                                if capture is not None: await capture.gap('frame_invalid',frame_ref)
                                 guard.valid=False
                                 velocity.state.pop(sym,None)
                                 wall_tracker.state.pop(sym,None)
