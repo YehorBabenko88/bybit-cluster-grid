@@ -1,6 +1,8 @@
 import pytest
 from grid import terminan_gateway as gateway
 
+V4_TWO_HOUR_FIXTURE_PIN = 'c74e4eadb337a9463bf42b0c33e3dc051839e4374301b0b8e19ee71f28a8a032'
+
 
 def test_capabilities_exposes_no_qualified_market_data(monkeypatch):
     monkeypatch.setattr(gateway, 'query', lambda *a: pytest.fail('capabilities must be offline'))
@@ -396,6 +398,58 @@ def _multipin_history(timeframe, start, page_sizes):
     return selection, catalog, raw_pages
 
 
+def test_pinned_v4_disposable_pg18_exact_receipt_and_tampering(monkeypatch):
+    import os
+    from contextlib import contextmanager
+    from grid.provenance import digest
+
+    dsn = os.environ.get('TERMINAN_DISPOSABLE_PG18_DSN')
+    if not dsn:
+        pytest.skip('explicit disposable PostgreSQL 18 DSN required')
+    import psycopg
+    from psycopg.types.json import Jsonb
+
+    request, catalog, raw = _multipin_history('1h', 0, [35, 85])
+    request['schema'] = 'grid.history.selection.v4'
+    rows = [(row['dataset_fingerprint'], row['symbol'], row['start_ms'], Jsonb(row))
+            for page in raw.values() for row in page]
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        assert 180000 <= conn.info.server_version < 190000
+        conn.execute('CREATE TEMP TABLE provenance_minutes ('
+                     'fingerprint text PRIMARY KEY, symbol text, start_ms bigint, record jsonb)')
+        with conn.cursor() as cur:
+            cur.executemany('INSERT INTO provenance_minutes VALUES (%s, %s, %s, %s)', rows)
+
+        @contextmanager
+        def read_connection():
+            with conn.transaction():
+                yield conn
+                assert conn.execute('SHOW transaction_read_only').fetchone() == ('on',)
+                assert conn.execute('SHOW transaction_isolation').fetchone() == ('repeatable read',)
+
+        monkeypatch.setattr(gateway, '_snapshot_catalog', lambda **_: catalog)
+        monkeypatch.setattr(gateway, '_history_connection', read_connection)
+        first = gateway.pinned_history(request)
+        assert first == gateway.pinned_history(request)
+        assert first['schema'] == 'grid.history.snapshot.response.v4'
+        assert first['source_authentication'] == 'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED'
+        snapshot = first['snapshot']
+        assert snapshot['schema'] == 'grid.history.rollup.v3'
+        assert [row['event_start_ms'] for row in snapshot['rows']] == [0, 3600000]
+        assert [row['volume'] for row in snapshot['rows']] == [180, 180]
+        assert snapshot['dataset_fingerprint'] == V4_TWO_HOUR_FIXTURE_PIN == digest({
+            key: value for key, value in snapshot.items() if key != 'dataset_fingerprint'
+        })
+        conn.execute("UPDATE pg_temp.provenance_minutes SET record = record || '{\"symbol\":\"ETHUSDT\"}' "
+                     "WHERE start_ms = 3600000")
+        with pytest.raises(ValueError, match='INTEGRITY'):
+            gateway.pinned_history(request)
+        original = next(row for page in raw.values() for row in page if row['start_ms'] == 3600000)
+        conn.execute('UPDATE pg_temp.provenance_minutes SET record = %s WHERE start_ms = %s',
+                     (Jsonb(original), original['start_ms']))
+        assert gateway.pinned_history(request) == first
+
+
 @pytest.mark.parametrize('version,timeframe,start,pages,width', [
     ('v3', '1h', 0, [60], 60), ('v3', '4h', 0, [120, 120], 240),
     ('v3', '1d', 0, [1440], 1440), ('v3', '1w', 4 * 86400000, [1680] * 6, 10080),
@@ -431,6 +485,8 @@ def test_pinned_multipin_candle_reuses_exact_pages(monkeypatch, version, timefra
     assert snapshot['schema'] == ('grid.history.rollup.v3' if version == 'v4' else 'grid.history.rollup.v2')
     assert [p['snapshot_id'] for p in snapshot['parents']] == request['snapshot_ids']
     assert snapshot['dataset_fingerprint'] == digest({k: v for k, v in snapshot.items() if k != 'dataset_fingerprint'})
+    if version == 'v4' and timeframe == '1h':
+        assert snapshot['dataset_fingerprint'] == V4_TWO_HOUR_FIXTURE_PIN
     flat = [minute for page in raw_pages.values() for minute in page]
     assert len(snapshot['rows']) == len(flat) // width
     for i, row in enumerate(snapshot['rows']):
