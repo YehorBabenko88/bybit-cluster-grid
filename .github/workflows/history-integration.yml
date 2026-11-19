@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12'
+      - name: Bounded Bybit REST leaf regressions (offline)
+        run: python -m unittest discover -s tests/bybit_bounded_pilot -p 'test_leaves.py' -v
       - name: Exact-head synthetic checks
         run: python scripts/history_ci.py tests 'test_history*.py'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
