@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import pytest
 
@@ -10,20 +11,25 @@ class FakeResponse:
         self.status=status
         self.payload=payload
         self.headers=headers or {}
+        self.content=self
+        self.body=json.dumps(payload).encode('utf-8')
     async def __aenter__(self): return self
     async def __aexit__(self,*args): return False
     def raise_for_status(self):
         if self.status>=400:
             import aiohttp
             raise aiohttp.ClientResponseError(None,(),status=self.status)
+    async def read(self,n):
+        part,self.body=self.body[:n],self.body[n:]
+        return part
     async def json(self,content_type=None):
-        return self.payload
+        raise AssertionError('discovery must use bounded response reader')
 
 
 class FakeSession:
     responses=[]
     def __init__(self,*args,**kwargs):
-        self.items=list(self.responses)
+        self.items=self.responses
     async def __aenter__(self): return self
     async def __aexit__(self,*args): return False
     def get(self,*args,**kwargs):
@@ -60,7 +66,7 @@ def test_linear_symbols_fails_closed_on_exchange_error(monkeypatch):
     async def run():
         FakeSession.responses=[FakeResponse(200,{"retCode":10006,"retMsg":"rate limit","result":{}})]
         monkeypatch.setattr(bybit.aiohttp,"ClientSession",FakeSession)
-        with pytest.raises(RuntimeError,match="10006"):
+        with pytest.raises(ValueError,match="invalid or unsuccessful Bybit response"):
             await bybit.linear_symbols("https://example.invalid",max_attempts=1)
     asyncio.run(run())
 

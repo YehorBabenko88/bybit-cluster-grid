@@ -8,8 +8,6 @@ from .bybit import linear_symbols
 from .resources import capacity_score,node_accepts_work
 from .service import prepare_database,bootstrap_logging
 from .instrument_lifecycle import ensure_instrument_schema,reconcile_instruments,purge_retired
-from .strategy_jobs import ensure_strategy_schema,submit_job
-from .strategy_plugins import ensure_plugin_schema,register_plugin,list_plugins
 from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result
 from .update_protocol import ensure_update_schema,note_heartbeat,register_release,start_canary,promote_stable,expired_canaries
 from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent,registered_install_mode,create_enrollment_token
@@ -38,8 +36,6 @@ from .resources import snapshot as resource_snapshot
 from .asyncio_guard import install_asyncio_exception_filter
 from .disk_guard import DiskWatermarks,disk_state,live_collection_allowed
 from .tailscale_provisioning import create_one_time_auth_key,TailscaleProvisioningError
-from .scientific_service import ScientificResearchService
-from .historical_science_import import import_historical_science
 from .system_lifecycle import get_phase,advance_phase,phase_capabilities,PHASES
 
 log=logging.getLogger("coordinator")
@@ -50,7 +46,6 @@ ingest_storage=None
 background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
 ml_orchestrator=None
-scientific_service=None
 coordination_authority=None
 control_leader=None
 control_task=None
@@ -73,6 +68,11 @@ async def coordinated_request_guard(request, call_next):
             await floating_leader_guard(control_leader)()
         except Exception:
             return JSONResponse({'reason': 'COORDINATION_NOT_READY'}, status_code=503)
+    # Grid remains a market-data service.  Legacy strategy execution, paper
+    # simulation, research and experiment endpoints belong to Terminan / Math.
+    # Refuse before their handlers can mutate strategy/science tables.
+    if request.url.path.startswith(('/strategy/', '/scientific/')):
+        return JSONResponse({'reason': 'OWNER_MIGRATION_REQUIRED'}, status_code=503)
     return await call_next(request)
 
 
@@ -773,46 +773,6 @@ async def status(x_grid_token:str=Header(default="")):
     auth(x_grid_token)
     return {"nodes":nodes,"assignments":assignments,"instrument_count":len(instruments)}
 
-@app.get("/scientific/status")
-async def scientific_status(x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    if scientific_service is None:
-        raise HTTPException(503,"scientific research service unavailable")
-    pending=await db.pool.fetchval("SELECT count(*) FROM scientific_outcome_requests WHERE status='PENDING'")
-    counts=await db.pool.fetch("""SELECT status,count(*) n FROM scientific_hypotheses GROUP BY status""")
-    out=scientific_service.status()
-    out["pending_outcomes"]=int(pending or 0)
-    out["hypotheses"]={str(r["status"]):int(r["n"]) for r in counts}
-    mining=await db.pool.fetchrow("""SELECT COALESCE(sum(hypotheses_tested),0) tested,
-      max(last_run_at) last_run_at FROM scientific_mining_families""")
-    last=await db.pool.fetchrow("""SELECT split_key,candidate_count,accepted_count,status,completed_at
-      FROM scientific_mining_runs ORDER BY started_at DESC LIMIT 1""")
-    out["pattern_mining"]={"hypotheses_tested":int(mining["tested"] or 0),
-                           "last_run_at":mining["last_run_at"],
-                           "last":dict(last) if last else None}
-    sim=await db.pool.fetch("""SELECT status,count(*) n FROM scientific_simulation_runs GROUP BY status""")
-    out["simulation_gate"]={str(r["status"]):int(r["n"]) for r in sim}
-    return out
-
-@app.get("/scientific/hypotheses")
-async def scientific_hypotheses(status_filter:str="",limit:int=100,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    limit=max(1,min(500,int(limit)))
-    rows=await db.pool.fetch("""SELECT id,fingerprint,method,pattern,horizon_ms,direction,
-      feature_version,status,research_only,first_seen_at,updated_at,validated_at,rejected_at
-      FROM scientific_hypotheses WHERE ($1='' OR status=$1)
-      ORDER BY updated_at DESC LIMIT $2""",str(status_filter).upper(),limit)
-    return {"hypotheses":[dict(r) for r in rows]}
-
-@app.get("/scientific/hypotheses/{hypothesis_id}/evidence")
-async def scientific_hypothesis_evidence(hypothesis_id:str,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    rows=await db.pool.fetch("""SELECT experiment_key,symbol,regime,split_key,sample_count,
-      mean_return_bps,hit_rate,cost_bps,dataset_cutoff,passed,metrics,created_at
-      FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1::uuid
-      ORDER BY created_at""",hypothesis_id)
-    return {"hypothesis_id":hypothesis_id,"evidence":[dict(r) for r in rows]}
-
 @app.get("/lifecycle")
 async def lifecycle_status(x_grid_token:str=Header(default="")):
     auth(x_grid_token)
@@ -825,60 +785,6 @@ async def lifecycle_advance(target:str,payload:dict|None=None,x_grid_token:str=H
     auth(x_grid_token)
     try:return await advance_phase(db.pool,target,(payload or {}).get("details"))
     except ValueError as e:raise HTTPException(409,str(e))
-
-@app.post("/scientific/history/import")
-async def scientific_history_import(payload:dict,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    phase=await get_phase(db.pool)
-    if phase["phase"] in ("LIVE_LEARNING","PAPER_TRADING"):
-        # Later phases may import additional historical bundles as priors, but
-        # the lifecycle itself must never regress.
-        try:return await import_historical_science(db.pool,payload)
-        except ValueError as e:raise HTTPException(400,str(e))
-    try:result=await import_historical_science(db.pool,payload)
-    except ValueError as e:raise HTTPException(400,str(e))
-    # Verified Strattester handoff is proof that the historical prerequisites
-    # were completed outside Grid. Advance the local lifecycle monotonically.
-    current=(await get_phase(db.pool))["phase"]
-    for target in ("MARKET_HISTORY_SYNC","HISTORICAL_STRATEGY_RESEARCH",
-                   "HISTORICAL_SCIENCE_BOOTSTRAP","GRID_IMPORT"):
-        if current==target:continue
-        if PHASES.index(current)<PHASES.index(target):
-            await advance_phase(db.pool,target,{"historical_science_bundle":result["bundle_id"],
-                                                "handoff_source":"strattester"})
-            current=target
-    return result
-
-@app.get("/scientific/simulations")
-async def scientific_simulations(status_filter:str="",limit:int=100,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    limit=max(1,min(500,int(limit)))
-    rows=await db.pool.fetch("""SELECT r.id,r.hypothesis_id,h.fingerprint,h.pattern,h.horizon_ms,
-      r.simulation_version,r.dataset_cutoff,r.status,r.metrics,r.stress_metrics,r.reason,
-      r.created_at,r.completed_at FROM scientific_simulation_runs r
-      JOIN scientific_hypotheses h ON h.id=r.hypothesis_id
-      WHERE ($1='' OR r.status=$1) ORDER BY r.created_at DESC LIMIT $2""",
-      str(status_filter).upper(),limit)
-    return {"simulations":[dict(r) for r in rows]}
-
-@app.post("/strategy/plugins")
-async def upload_strategy_plugin(payload:dict,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    sha=await register_plugin(db.pool,payload["strategy_name"],payload["strategy_version"],
-                              payload["source_code"],payload.get("metadata"))
-    return {"strategy_name":payload["strategy_name"],"strategy_version":payload["strategy_version"],"sha256":sha}
-
-@app.get("/strategy/plugins")
-async def get_strategy_plugins(x_grid_token:str=Header(default="")):
-    auth(x_grid_token); return {"plugins":await list_plugins(db.pool)}
-
-@app.post("/strategy/jobs")
-async def create_strategy_job(payload:dict,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    jid=await submit_job(db.pool,payload["strategy_name"],payload.get("strategy_version","1"),
-                         payload.get("params"),payload.get("symbols"),payload.get("start_ts"),
-                         payload.get("end_ts"),payload.get("priority",100))
-    return {"job_id":jid,"status":"queued"}
 
 async def rebalance():
     """Assign each live symbol to one eligible healthy collector.
@@ -978,7 +884,6 @@ async def startup():
             asyncio.create_task(retention_scheduler(db.pool,settings)),
             asyncio.create_task(maintenance_scheduler(db.pool,settings)),
             asyncio.create_task(ml_orchestrator.run()),
-            asyncio.create_task(scientific_service.run()),
         ]
 
     # Configuration and independent-fence readiness precede all DB/writer startup.
@@ -1005,10 +910,8 @@ async def startup():
 
 
 async def _prepare_control_services(epoch=None):
-    global ingest_storage, background_tasks, ml_orchestrator, scientific_service
+    global ingest_storage, background_tasks, ml_orchestrator
     await ensure_instrument_schema(db.pool)
-    await ensure_strategy_schema(db.pool)
-    await ensure_plugin_schema(db.pool)
     await ensure_control_schema(db.pool)
     await ensure_update_schema(db.pool)
     await ensure_enrollment_schema(db.pool)
@@ -1017,9 +920,6 @@ async def _prepare_control_services(epoch=None):
     ingest_storage=Storage()
     ingest_storage.pool=db.pool
     await ingest_storage.feature_builder.start(db.pool)
-    scientific_service=ScientificResearchService(db.pool)
-    await scientific_service.start()
-    ingest_storage.scientific=scientific_service
     ingest_storage.derived=__import__('grid.derived_pipeline',fromlist=['DerivedPipeline']).DerivedPipeline(db.pool)
     await ingest_storage.derived.start()
     async def ml_nodes():
@@ -1045,7 +945,7 @@ async def _stop_control_services():
 
 @app.on_event("shutdown")
 async def shutdown(close_database=True):
-    global ingest_storage, background_tasks, ml_orchestrator, scientific_service
+    global ingest_storage, background_tasks, ml_orchestrator
     global control_leader, control_task, coordination_authority
     if close_database and control_leader is not None:
         control_leader.stop()
@@ -1055,8 +955,6 @@ async def shutdown(close_database=True):
         control_leader=None
     if ml_orchestrator is not None:
         ml_orchestrator.stop()
-    if scientific_service is not None:
-        scientific_service.stop()
     tasks = list(background_tasks)
     background_tasks = []
 
@@ -1078,8 +976,7 @@ async def shutdown(close_database=True):
         ingest_storage = None
 
     ml_orchestrator=None
-    scientific_service=None
-
+    
     if close_database:
         if coordination_authority is not None:
             await coordination_authority.close()

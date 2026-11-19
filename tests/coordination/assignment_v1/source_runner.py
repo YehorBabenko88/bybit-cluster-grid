@@ -37,10 +37,11 @@ def main():
  (output/'guard-controls.log').write_bytes(controls.stdout);assert controls.returncode==0,controls.stdout.decode(errors='replace')[-4000:]
  source_controls=json.loads((output/'guard-controls.json').read_bytes());assert source_controls['result']=='PASS' and len(source_controls['cases'])==8
  os.environ['A2_ASSIGNMENT_TEST_SUPPORT']=str(support)
- sys.path.insert(0,str(root));executed=[]
+ sys.path[:0]=[str(root),str(root/'tests/coordination/assignment_v1')];executed=[]
  class Result(unittest.TextTestResult):
   def startTest(self,test):executed.append(test.id());super().startTest(test)
- stream=io.StringIO();result=unittest.TextTestRunner(stream=stream,verbosity=2,resultclass=Result).run(unittest.defaultTestLoader.discover(str(root/'tests/coordination/assignment_v1')))
+ suite=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(name) for name in sorted(UNITS))
+ stream=io.StringIO();result=unittest.TextTestRunner(stream=stream,verbosity=2,resultclass=Result).run(suite)
  (output/'units.log').write_bytes(stream.getvalue().encode());assert result.wasSuccessful() and not result.skipped and len(executed)==11 and set(executed)==UNITS,stream.getvalue()
  command=[sys.executable,'-I','-B',str(root/'tests/coordination/assignment_v1/real_native_binding.py'),'--binary',str(a.binary.absolute()),'--lab-source',str(support/'tests/control_mux/consul_lab.py'),'--scratch',str(scratch),'--output',str(output/'real-native.json')]
  real_run=subprocess.run(command,cwd=root,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=240);(output/'real-native.log').write_bytes(real_run.stdout);assert real_run.returncode==0,real_run.stdout.decode(errors='replace')[-4000:]

@@ -31,7 +31,7 @@ except RegistrationCustodyUnavailable as exc:
         value=json.loads(result.stdout);self.assertEqual(value['status'],mode);return value
     def test_actual_other_process_denied_then_acquires_after_close(self):
         with tempfile.TemporaryDirectory(prefix='a2-root-custody-lock-') as tmp:
-            path=Path(tmp)/'registration.sqlite'
+            path=Path(tmp).resolve()/'registration.sqlite'
             with native.RootRegistrationCustody(Journal(path),original_intent_bytes=self.raw) as owned:
                 owned.retain_original();before=Journal(path).read()
                 denied=self.child(path,'DENIED')
@@ -40,7 +40,7 @@ except RegistrationCustodyUnavailable as exc:
             self.assertIs(self.child(path,'ACQUIRED')['effect_permitted'],False)
     def test_actual_context_close_idempotence_and_original_error_preserved(self):
         with tempfile.TemporaryDirectory(prefix='a2-root-custody-close-') as tmp:
-            path=Path(tmp)/'registration.sqlite';owned=native.RootRegistrationCustody(Journal(path),original_intent_bytes=self.raw)
+            path=Path(tmp).resolve()/'registration.sqlite';owned=native.RootRegistrationCustody(Journal(path),original_intent_bytes=self.raw)
             with self.assertRaisesRegex(RuntimeError,'ORIGINAL_ERROR'):
                 with owned:
                     owned.retain_original()
@@ -55,7 +55,7 @@ except RegistrationCustodyUnavailable as exc:
                 self.assertEqual(len(resumed.read_state()['unresolved_rpc_attempts']),1)
                 with self.assertRaises((ValueError,native.RegistrationCustodyUnavailable)):
                     resumed.begin_rpc(rpc_kind='SESSION_CREATE',rpc_attempt_id=str(uuid.uuid4()),endpoint_sha256='b'*64)
-            failing=native.RootRegistrationCustody(Journal(Path(tmp)/'close-error.sqlite'),original_intent_bytes=self.raw)
+            failing=native.RootRegistrationCustody(Journal(Path(tmp).resolve()/'close-error.sqlite'),original_intent_bytes=self.raw)
             original_close=failing.close;original_error=RuntimeError('PRESERVE_ORIGINAL')
             def close_then_report_failure():original_close();raise OSError('LOCAL_CLOSE_REPORT_UNKNOWN')
             with patch.object(failing,'close',side_effect=close_then_report_failure),self.assertRaises(RuntimeError) as caught:
@@ -65,7 +65,7 @@ except RegistrationCustodyUnavailable as exc:
             self.assertTrue(any('Custody close failure' in note for note in caught.exception.__notes__))
             # UNISSUED format-only local reports; no actual native session is
             # created or claimed by this Journal API-fidelity negative.
-            with native.RootRegistrationCustody(Journal(Path(tmp)/'result-join.sqlite'),original_intent_bytes=self.raw) as joined:
+            with native.RootRegistrationCustody(Journal(Path(tmp).resolve()/'result-join.sqlite'),original_intent_bytes=self.raw) as joined:
                 joined.retain_original();created=str(uuid.uuid4());info=str(uuid.uuid4())
                 sid='12345678-1234-1234-9234-123456789abc'
                 joined.begin_rpc(rpc_kind='SESSION_CREATE',rpc_attempt_id=created,endpoint_sha256='b'*64)
@@ -76,10 +76,10 @@ except RegistrationCustodyUnavailable as exc:
                 joined.finish_rpc(rpc_attempt_id=info,outcome='CONFIRMED',native_session_id=sid)
     def test_actual_foreign_file_mutated_path_and_sidecar_deny_before_append(self):
         with tempfile.TemporaryDirectory(prefix='a2-root-custody-foreign-') as tmp:
-            foreign=Path(tmp)/'foreign.sqlite';Journal(foreign).initialize()
+            foreign=Path(tmp).resolve()/'foreign.sqlite';Journal(foreign).initialize()
             with self.assertRaises(native.RegistrationCustodyUnavailable):native.RootRegistrationCustody(Journal(foreign),original_intent_bytes=self.raw)
             self.assertEqual(Journal(foreign).read(),[])
-            path=Path(tmp)/'owned.sqlite';journal=Journal(path)
+            path=Path(tmp).resolve()/'owned.sqlite';journal=Journal(path)
             with native.RootRegistrationCustody(journal,original_intent_bytes=self.raw) as owned:
                 owned.retain_original();before=Journal(path).read()
                 journal.path=foreign
@@ -90,14 +90,14 @@ except RegistrationCustodyUnavailable as exc:
                     owned.begin_rpc(rpc_kind='SESSION_CREATE',rpc_attempt_id=str(uuid.uuid4()),endpoint_sha256='b'*64)
                 self.assertEqual(len(before),1)
                 sidecar.unlink()  # Only this test's known owned sidecar.
-                os.link(path,Path(tmp)/'unexpected-hardlink.sqlite')
+                os.link(path,Path(tmp).resolve()/'unexpected-hardlink.sqlite')
                 with self.assertRaises(native.RegistrationCustodyUnavailable):owned.read_state()
     def test_failed_context_entry_closes_owned_handles_before_contender(self):
         with tempfile.TemporaryDirectory(prefix='a2-root-custody-enter-') as tmp:
-            path=Path(tmp)/'registration.sqlite';journal=Journal(path)
+            path=Path(tmp).resolve()/'registration.sqlite';journal=Journal(path)
             owned=native.RootRegistrationCustody(journal,original_intent_bytes=self.raw)
             owned.retain_original();before=Journal(path).read();descriptors=(owned._db_fd,owned._lock_fd)
-            journal.path=Path(tmp)/'wrong.sqlite'
+            journal.path=Path(tmp).resolve()/'wrong.sqlite'
             try:
                 with self.assertRaisesRegex(native.RegistrationCustodyUnavailable,'JOURNAL_PATH_CHANGED'):
                     with owned:self.fail('FAILED_ENTRY_BODY_MUST_NOT_RUN')
@@ -108,7 +108,7 @@ except RegistrationCustodyUnavailable as exc:
                 self.child(path,'ACQUIRED')
                 self.assertEqual(Journal(path).read(),before)
             finally:owned.close()
-            path2=Path(tmp)/'close-error.sqlite';second=native.RootRegistrationCustody(Journal(path2),original_intent_bytes=self.raw)
+            path2=Path(tmp).resolve()/'close-error.sqlite';second=native.RootRegistrationCustody(Journal(path2),original_intent_bytes=self.raw)
             second.retain_original();sidecar=path2.with_name(path2.name+'-journal');sidecar.write_bytes(b'owned-test-fault')
             actual_close=second.close
             def close_then_report_failure():actual_close();raise OSError('CLOSE_REPORT_UNKNOWN')
