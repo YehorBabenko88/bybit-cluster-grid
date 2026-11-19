@@ -778,8 +778,9 @@ async def status(x_grid_token:str=Header(default="")):
 @app.get("/scientific/status")
 async def scientific_status(x_grid_token:str=Header(default="")):
     auth(x_grid_token)
-    if scientific_service is None:
-        raise HTTPException(503,"scientific research service unavailable")
+    # Math owns research runtime. Preserve legacy endpoint but never perform
+    # scientific computation or expose old Grid research tables.
+    raise HTTPException(410,"scientific research owned by Math")
     pending=await db.pool.fetchval("SELECT count(*) FROM scientific_outcome_requests WHERE status='PENDING'")
     counts=await db.pool.fetch("""SELECT status,count(*) n FROM scientific_hypotheses GROUP BY status""")
     out=scientific_service.status()
@@ -799,21 +800,12 @@ async def scientific_status(x_grid_token:str=Header(default="")):
 @app.get("/scientific/hypotheses")
 async def scientific_hypotheses(status_filter:str="",limit:int=100,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
-    limit=max(1,min(500,int(limit)))
-    rows=await db.pool.fetch("""SELECT id,fingerprint,method,pattern,horizon_ms,direction,
-      feature_version,status,research_only,first_seen_at,updated_at,validated_at,rejected_at
-      FROM scientific_hypotheses WHERE ($1='' OR status=$1)
-      ORDER BY updated_at DESC LIMIT $2""",str(status_filter).upper(),limit)
-    return {"hypotheses":[dict(r) for r in rows]}
+    raise HTTPException(410,"scientific hypotheses owned by Math")
 
 @app.get("/scientific/hypotheses/{hypothesis_id}/evidence")
 async def scientific_hypothesis_evidence(hypothesis_id:str,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
-    rows=await db.pool.fetch("""SELECT experiment_key,symbol,regime,split_key,sample_count,
-      mean_return_bps,hit_rate,cost_bps,dataset_cutoff,passed,metrics,created_at
-      FROM scientific_hypothesis_evidence WHERE hypothesis_id=$1::uuid
-      ORDER BY created_at""",hypothesis_id)
-    return {"hypothesis_id":hypothesis_id,"evidence":[dict(r) for r in rows]}
+    raise HTTPException(410,"scientific evidence owned by Math")
 
 @app.get("/lifecycle")
 async def lifecycle_status(x_grid_token:str=Header(default="")):
@@ -831,37 +823,12 @@ async def lifecycle_advance(target:str,payload:dict|None=None,x_grid_token:str=H
 @app.post("/scientific/history/import")
 async def scientific_history_import(payload:dict,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
-    phase=await get_phase(db.pool)
-    if phase["phase"] in ("LIVE_LEARNING","PAPER_TRADING"):
-        # Later phases may import additional historical bundles as priors, but
-        # the lifecycle itself must never regress.
-        try:return await import_historical_science(db.pool,payload)
-        except ValueError as e:raise HTTPException(400,str(e))
-    try:result=await import_historical_science(db.pool,payload)
-    except ValueError as e:raise HTTPException(400,str(e))
-    # Verified Strattester handoff is proof that the historical prerequisites
-    # were completed outside Grid. Advance the local lifecycle monotonically.
-    current=(await get_phase(db.pool))["phase"]
-    for target in ("MARKET_HISTORY_SYNC","HISTORICAL_STRATEGY_RESEARCH",
-                   "HISTORICAL_SCIENCE_BOOTSTRAP","GRID_IMPORT"):
-        if current==target:continue
-        if PHASES.index(current)<PHASES.index(target):
-            await advance_phase(db.pool,target,{"historical_science_bundle":result["bundle_id"],
-                                                "handoff_source":"strattester"})
-            current=target
-    return result
+    raise HTTPException(410,"scientific history import owned by Math")
 
 @app.get("/scientific/simulations")
 async def scientific_simulations(status_filter:str="",limit:int=100,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
-    limit=max(1,min(500,int(limit)))
-    rows=await db.pool.fetch("""SELECT r.id,r.hypothesis_id,h.fingerprint,h.pattern,h.horizon_ms,
-      r.simulation_version,r.dataset_cutoff,r.status,r.metrics,r.stress_metrics,r.reason,
-      r.created_at,r.completed_at FROM scientific_simulation_runs r
-      JOIN scientific_hypotheses h ON h.id=r.hypothesis_id
-      WHERE ($1='' OR r.status=$1) ORDER BY r.created_at DESC LIMIT $2""",
-      str(status_filter).upper(),limit)
-    return {"simulations":[dict(r) for r in rows]}
+    raise HTTPException(410,"trade simulations owned by Terminan")
 
 @app.post("/strategy/plugins")
 async def upload_strategy_plugin(payload:dict,x_grid_token:str=Header(default="")):
