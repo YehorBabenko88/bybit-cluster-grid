@@ -1,5 +1,6 @@
 """Malformed active instrument records must not become false delistings."""
 import asyncio
+import json
 import pytest
 from grid.bybit import linear_symbols
 
@@ -7,16 +8,20 @@ from grid.bybit import linear_symbols
 class Response:
     status=200
     headers={}
+    def __init__(self):
+        self.content=self
+        self.body=json.dumps({'retCode':0,'result':{'list':[
+            {'status':'Trading','contractType':'LinearPerpetual','symbol':'BTCUSDT','priceFilter':{'tickSize':'0.1'}},
+            {'status':'Trading','contractType':'LinearPerpetual','symbol':'ETHUSDT','priceFilter':{}}
+        ],'nextPageCursor':''}}).encode('utf-8')
     async def __aenter__(self):return self
     async def __aexit__(self,*args):return False
     def raise_for_status(self):pass
+    async def read(self,n):
+        part,self.body=self.body[:n],self.body[n:]
+        return part
     async def json(self,**kwargs):
-        return {"retCode":0,"result":{"list":[
-            {"status":"Trading","contractType":"LinearPerpetual","symbol":"BTCUSDT",
-             "priceFilter":{"tickSize":"0.1"}},
-            {"status":"Trading","contractType":"LinearPerpetual","symbol":"ETHUSDT",
-             "priceFilter":{}},
-        ],"nextPageCursor":""}}
+        raise AssertionError('unbounded JSON reader must not execute')
 
 
 class Session:
