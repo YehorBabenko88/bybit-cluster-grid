@@ -41,7 +41,7 @@ async def run(monkeypatch,frames,*,sink=None,more_connections=(),clock=None,setu
     def connect(*args, **kwargs):
         connects.append(kwargs)
         if not sockets:
-            raise asyncio.CancelledError
+            pytest.fail('unexpected public-trade reconnect')
         return sockets.pop(0)
     async def online():pass
     async def pause(*args):pass

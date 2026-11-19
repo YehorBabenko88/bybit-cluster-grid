@@ -139,7 +139,8 @@ def test_websocket_collectors_require_subscription_ack_and_stall_timeout(monkeyp
             connections = []
             class Watchdog:
                 def __init__(self, symbols, now, timeout_seconds):
-                    assert symbols == ['BTCUSDT'] and timeout_seconds == 120
+                    if symbols != ['BTCUSDT'] or timeout_seconds != 120:
+                        pytest.fail('unexpected orderbook watchdog configuration')
 
                 def stalled(self, now):
                     watchdog_checks.append(now)
@@ -152,7 +153,7 @@ def test_websocket_collectors_require_subscription_ack_and_stall_timeout(monkeyp
                 connections.append(kwargs)
                 socket = next(sockets, None)
                 if socket is None:
-                    raise asyncio.CancelledError
+                    pytest.fail('unexpected microstructure reconnect')
                 return socket
 
             monkeypatch.setattr(microstructure, 'TopicWatchdog', Watchdog)
