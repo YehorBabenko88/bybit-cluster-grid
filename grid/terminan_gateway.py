@@ -320,6 +320,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
         try:
+            if route=='/internal/v1/history/snapshots/read' and urlsplit(self.path).query:
+                raise ValueError('snapshot route must not include query')
             self.connection.settimeout(3)
             if self.headers.get('Transfer-Encoding'):
                 raise ValueError('chunked requests unavailable')
@@ -349,7 +351,8 @@ class Handler(BaseHTTPRequestHandler):
                 result = accept_handoff(json.loads(body), trusted)
             status = 200
         except ValueError:
-            result,status={'status':'UNAVAILABLE','reason':'INVALID_SNAPSHOT_OR_HANDOFF','execution_authority':False},400
+            reason='INVALID_SNAPSHOT_REQUEST' if route=='/internal/v1/history/snapshots/read' else 'INVALID_HANDOFF_REQUEST'
+            result,status={'status':'UNAVAILABLE','reason':reason,'execution_authority':False},400
         except Exception:
             if route=='/internal/v1/history/snapshots/read':
                 result,status={'status':'UNAVAILABLE','reason':'SOURCE_READ_UNAVAILABLE','execution_authority':False},503
