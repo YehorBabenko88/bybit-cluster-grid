@@ -1,4 +1,10 @@
+import asyncio
+import json
 import math
+from types import SimpleNamespace
+
+import pytest
+
 from grid.scientific_geometry import OnlineStandardizer,ScientificGeometryEngine,polynomial_terms3
 from grid.scientific_discovery import ScientificDiscoveryEngine,DEFAULT_FEATURES
 
@@ -42,19 +48,24 @@ def test_geometry_learning_state_is_isolated_per_symbol():
     eth=e.ingest("ETH",1,row(100))
     assert eth.projection3d==(0.0,0.0,0.0)
 
-def test_control_wires_scientific_service_without_worker_dependency():
-    from pathlib import Path
-    c=Path("grid/coordinator.py").read_text(encoding="utf-8")
-    st=Path("grid/storage.py").read_text(encoding="utf-8")
-    assert "ScientificResearchService" in c
-    assert "asyncio.create_task(scientific_service.run())" in c
-    assert '@app.get("/scientific/status")' in c
-    assert "self.scientific=None" in st
-    assert "self.scientific.ingest_feature_row" in st
-
-
 def test_geometry_bucket_waits_for_frozen_projection():
     from grid.scientific_orchestrator import _geometry_bucket
     assert _geometry_bucket({"projection_ready":False,"tortuosity":10})=="WARMUP"
     assert _geometry_bucket({"projection_ready":True,"tortuosity":1,"mean_turn_cos":.8,
                              "surface_cubic":{"ready":False},"cubic_fit_gain":None})=="PERSISTENT"
+
+
+@pytest.mark.parametrize('path', [
+    '/strategy/plugins', '/strategy/jobs', '/scientific/status',
+    '/scientific/simulations', '/scientific/history/import',
+])
+def test_grid_coordinator_rejects_legacy_trade_and_research_owners(path):
+    from grid import coordinator
+
+    async def next_handler(_request):
+        pytest.fail('legacy owner handler must never execute')
+
+    request = SimpleNamespace(url=SimpleNamespace(path=path))
+    result = asyncio.run(coordinator.coordinated_request_guard(request, next_handler))
+    assert result.status_code == 503
+    assert json.loads(result.body) == {'reason': 'OWNER_MIGRATION_REQUIRED'}

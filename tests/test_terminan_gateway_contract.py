@@ -429,22 +429,3 @@ def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch):
     assert statuses==[200]
     assert observed==[selection]
     assert json.loads(handler.wfile.getvalue())['snapshot']==expected
-
-@pytest.mark.parametrize('path', [
-    '/strategy/plugins', '/strategy/jobs', '/scientific/status',
-    '/scientific/simulations', '/scientific/history/import',
-])
-def test_grid_coordinator_rejects_legacy_trade_and_research_owners(path):
-    import asyncio
-    from types import SimpleNamespace
-    from grid import coordinator
-    called = []
-    async def next_handler(_request):
-        called.append(True)
-        pytest.fail('legacy owner handler must never execute')
-    request = SimpleNamespace(url=SimpleNamespace(path=path))
-    result = asyncio.run(coordinator.coordinated_request_guard(request, next_handler))
-    assert result.status_code == 503
-    import json
-    assert json.loads(result.body) == {'reason': 'OWNER_MIGRATION_REQUIRED'}
-    assert called == []
