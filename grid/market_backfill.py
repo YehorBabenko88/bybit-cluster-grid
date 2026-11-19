@@ -24,15 +24,23 @@ async def claim_backfill(pool):
               WHERE symbol=$1 AND timeframe=$2""",row["symbol"],row["timeframe"])
             return dict(row)
 
-async def fetch_kline_page(base_url,symbol,interval="1",end_ms=None,limit=1000,*,start_ms=None):
+async def fetch_kline_page(base_url,symbol,interval="1",end_ms=None,limit=1000,*,start_ms=None,dataset="candles"):
     """One bounded public REST path for backfill and explicitly ranged reads.
 
     The caller owns pagination and durable state. This function neither writes
     candles nor declares history complete when Bybit returns a short/empty page.
+    Price-series datasets are read-only pages; they must not enter the OHLCV writer.
     """
     from .bybit import _bounded_int, _https_origin, _read_bounded_http_response, _bounded_result
 
     origin=_https_origin(base_url)
+    # Port Strattester's useful public price-series routes into Grid's sole
+    # bounded transport, without adding a second Bybit client or writer.
+    routes={"candles":"kline","mark_price":"mark-price-kline",
+            "index_price":"index-price-kline",
+            "premium_index":"premium-index-price-kline"}
+    if type(dataset) is not str or dataset not in routes:
+        raise ValueError("unsupported public kline dataset")
     _bounded_int(limit,"kline limit",1,1000)
     if end_ms is not None:
         _bounded_int(end_ms,"end_ms",0,2**63-1)
@@ -56,7 +64,7 @@ async def fetch_kline_page(base_url,symbol,interval="1",end_ms=None,limit=1000,*
     async with aiohttp.ClientSession(timeout=timeout,trust_env=False,auto_decompress=False,
                                     cookie_jar=aiohttp.DummyCookieJar(),
                                     headers={"Accept-Encoding":"identity"}) as s:
-        async with s.get(origin+"/v5/market/kline",params=params,allow_redirects=False) as r:
+        async with s.get(origin+"/v5/market/"+routes[dataset],params=params,allow_redirects=False) as r:
             raw=await _read_bounded_http_response(r)
     return _bounded_result(raw)["list"]
 
