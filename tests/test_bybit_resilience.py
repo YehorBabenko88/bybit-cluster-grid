@@ -29,7 +29,7 @@ class FakeResponse:
 class FakeSession:
     responses=[]
     def __init__(self,*args,**kwargs):
-        self.items=list(self.responses)
+        self.items=self.responses
     async def __aenter__(self): return self
     async def __aexit__(self,*args): return False
     def get(self,*args,**kwargs):
