@@ -90,8 +90,10 @@ def snapshot(route,symbol='BTCUSDT',limit=300,before_ms=None):
         rows=query('SELECT extract(epoch from ts)*1000,price,buy_volume,sell_volume,delta,volume FROM footprint_1m WHERE symbol=%s ORDER BY ts DESC,price DESC LIMIT %s',(symbol,limit))
         return {'version':1,'symbol':symbol,'rows':[dict(zip(('t','price','buy','sell','delta','volume'),map(float,r))) for r in rows]}
     if route=='/v1/nodes':
-        rows=query('SELECT node_id,hostname,last_seen,cpu_pct,ram_pct,disk_free,assigned_symbols FROM nodes ORDER BY node_id LIMIT 200')
-        return {'version':1,'nodes':[dict(node_id=r[0],hostname=r[1],last_seen=r[2].isoformat() if r[2] else None,cpu_pct=float(r[3]) if r[3] is not None else None,ram_pct=float(r[4]) if r[4] is not None else None,disk_free_bytes=r[5],assigned_symbols=r[6]) for r in rows]}
+        # Cluster inventory and cross-host orchestration belong to Unified System.
+        # Keep the legacy route non-disclosing until every consumer migrates.
+        return {'version':1,'status':'UNAVAILABLE',
+                'reason':'UNIFIED_SYSTEM_NODE_OWNER','nodes':[]}
     raise KeyError(route)
 
 class Handler(BaseHTTPRequestHandler):
