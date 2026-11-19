@@ -125,6 +125,11 @@ def _snapshot_catalog():
     path=pathlib.Path(raw_path)
     if not path.is_absolute() or path.is_symlink():
         raise RuntimeError('snapshot catalog path unavailable')
+    # POSIX mode bits do not prove Windows NTFS DACL ownership. Until Unified
+    # supplies an independently qualified Windows ACL/identity admission path,
+    # refuse catalog trust rather than silently treating chmod(0600) as proof.
+    if os.name=='nt':
+        raise RuntimeError('WINDOWS_CATALOG_ACL_NOT_QUALIFIED')
     flags=os.O_RDONLY|getattr(os,'O_BINARY',0)|getattr(os,'O_NOFOLLOW',0)
     fd=os.open(path,flags)
     try:
