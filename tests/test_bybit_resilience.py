@@ -66,7 +66,7 @@ def test_linear_symbols_fails_closed_on_exchange_error(monkeypatch):
     async def run():
         FakeSession.responses=[FakeResponse(200,{"retCode":10006,"retMsg":"rate limit","result":{}})]
         monkeypatch.setattr(bybit.aiohttp,"ClientSession",FakeSession)
-        with pytest.raises(RuntimeError,match="10006"):
+        with pytest.raises(ValueError,match="invalid or unsuccessful Bybit response"):
             await bybit.linear_symbols("https://example.invalid",max_attempts=1)
     asyncio.run(run())
 
