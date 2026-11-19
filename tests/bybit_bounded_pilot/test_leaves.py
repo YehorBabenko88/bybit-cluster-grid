@@ -309,3 +309,66 @@ class LeafTests(unittest.TestCase):
         self.assertIn("UPDATE market_backfill_state", sql)
         self.assertEqual(args[2], "queued")
         self.assertEqual(args[5], 119999)
+
+    def test_meta_oi_public_page_preserves_decimal_and_order(self):
+        # Independent Meta parse_oi equivalence: positive OI values sorted by
+        # timestamp with Decimal significance; output is an unverified Grid page.
+        self.response = Response(body=b'{"retCode":0,"result":{"list":['
+            b'{"timestamp":"60000","openInterest":"1234567890123.12345678901234567890"},'
+            b'{"timestamp":"30000","openInterest":"0.00000001"}]}}')
+        rows = complete(self.market_backfill.fetch_open_interest_page(
+            "https://example.invalid", "BTCUSDT", start_ms=0, end_ms=60000, limit=2))
+        self.assertEqual(rows, [
+            {"symbol":"BTCUSDT","timestamp_ms":30000,"open_interest":"1E-8"},
+            {"symbol":"BTCUSDT","timestamp_ms":60000,
+             "open_interest":"1234567890123.12345678901234567890"},
+        ])
+        self.assertEqual(self.requests[0][0],
+                         "https://example.invalid/v5/market/open-interest")
+        self.assertEqual(self.requests[0][1]["params"],
+                         {"category":"linear","symbol":"BTCUSDT","intervalTime":"5min",
+                          "limit":2,"startTime":0,"endTime":60000})
+        self.assertFalse(self.requests[0][1]["allow_redirects"])
+        self.assertFalse(self.sessions[0]["trust_env"])
+        self.assertFalse(self.sessions[0]["auto_decompress"])
+
+    def test_meta_oi_invalid_ranges_before_network(self):
+        for kw in ({"start_ms":True}, {"end_ms":-1}, {"start_ms":2,"end_ms":1},
+                   {"limit":0}, {"limit":201}, {"limit":True},
+                   {"interval":"2m"}, {"symbol":"BTC/USDT"},
+                   {"base_url":"http://example.invalid"}):
+            with self.subTest(kw=kw),self.assertRaises(ValueError):
+                complete(self.market_backfill.fetch_open_interest_page(
+                    kw.pop("base_url","https://example.invalid"),
+                    kw.pop("symbol","BTCUSDT"), **kw))
+        self.assertEqual(self.sessions, [])
+
+    def test_meta_oi_invalid_records_fail_closed(self):
+        for value in ('NaN', 'Infinity', '-1', 'not-a-decimal', ''):
+            self.response = Response(body=(
+                '{"retCode":0,"result":{"list":[{"timestamp":"1000",'
+                '"openInterest":"' + value + '"}]}}').encode())
+            with self.subTest(value=value),self.assertRaises(ValueError):
+                complete(self.market_backfill.fetch_open_interest_page(
+                    "https://example.invalid", "BTCUSDT"))
+        for record in ('{"timestamp":true,"openInterest":"1"}',
+                       '{"timestamp":0,"openInterest":"1"}',
+                       '{"timestamp":"1000","openInterest":1}',
+                       '{"timestamp":"1000"}'):
+            self.response = Response(body=(
+                '{"retCode":0,"result":{"list":[' + record + ']}}').encode())
+            with self.subTest(record=record),self.assertRaises(ValueError):
+                complete(self.market_backfill.fetch_open_interest_page(
+                    "https://example.invalid", "BTCUSDT"))
+
+    def test_meta_oi_overlimit_and_provider_refusal(self):
+        self.response = Response(body=b'{"retCode":0,"result":{"list":['
+            b'{"timestamp":"1000","openInterest":"1"},'
+            b'{"timestamp":"2000","openInterest":"2"}]}}')
+        with self.assertRaises(ValueError):
+            complete(self.market_backfill.fetch_open_interest_page(
+                "https://example.invalid", "BTCUSDT", limit=1))
+        self.response = Response(body=b'{"retCode":10006,"result":{"list":[]}}')
+        with self.assertRaises(ValueError):
+            complete(self.market_backfill.fetch_open_interest_page(
+                "https://example.invalid", "BTCUSDT"))
