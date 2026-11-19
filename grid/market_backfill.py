@@ -97,8 +97,8 @@ async def backfill_symbol(pool,base_url,state,max_pages=50,pause=.08):
         next_end=lo_ms-1
         if launch_ms and lo_ms<=launch_ms:
             complete=True;end_ms=next_end;break
-        if len(rows)<1000:
-            complete=True;end_ms=next_end;break
+        # A short Bybit page is not evidence of history exhaustion.
+        # Advance the cursor and resume until an empty page, launch bound or page budget.
         if end_ms is not None and next_end>=int(end_ms):
             raise RuntimeError(f"OHLCV backfill stalled for {symbol}")
         end_ms=next_end
