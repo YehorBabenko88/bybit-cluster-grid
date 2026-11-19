@@ -346,7 +346,10 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             result,status={'status':'UNAVAILABLE','reason':'INVALID_SNAPSHOT_OR_HANDOFF','execution_authority':False},400
         except Exception:
-            result,status={'status':'UNAVAILABLE','reason':'SOURCE_READ_UNAVAILABLE','execution_authority':False},503
+            if route=='/internal/v1/history/snapshots/read':
+                result,status={'status':'UNAVAILABLE','reason':'SOURCE_READ_UNAVAILABLE','execution_authority':False},503
+            else:
+                result,status={'status':'UNAVAILABLE','reason':'INVALID_HANDOFF_REQUEST','execution_authority':False},400
         data = json.dumps(result,allow_nan=False).encode()
         self.send_response(status)
         self.send_header('Content-Type','application/json')
