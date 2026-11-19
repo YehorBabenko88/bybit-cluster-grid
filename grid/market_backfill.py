@@ -134,7 +134,8 @@ async def recover_stale_backfill_jobs(pool,stale_minutes=30,max_attempts=5):
 async def run_backfill_worker(pool,base_url,stop_event=None,max_pages=50):
     from .data_capabilities import set_capability
     stop_event=stop_event or asyncio.Event();done=chunks=failed=0
-    await recover_stale_backfill_jobs(pool)
+    if not stop_event.is_set():
+        await recover_stale_backfill_jobs(pool)
     while not stop_event.is_set():
         state=await claim_backfill(pool)
         if not state:break
