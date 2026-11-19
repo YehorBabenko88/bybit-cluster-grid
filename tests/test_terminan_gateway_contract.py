@@ -214,3 +214,21 @@ def test_instrument_http_requires_exact_symbol_only(monkeypatch, path):
     handler.do_GET()
     assert statuses == [400]
     assert json.loads(handler.wfile.getvalue())['error'] == 'INVALID_QUERY_OR_ROUTE'
+
+def test_meta_absorption_capabilities_do_not_claim_live_or_cutover(monkeypatch):
+    monkeypatch.setattr(gateway, 'query', lambda *a: pytest.fail('capability discovery must not query market data'))
+    response = gateway.snapshot('/internal/v1/capabilities')
+    caps = response['capabilities']
+    for dataset in ('public_trades', 'orderbook_snapshots', 'open_interest', 'funding_rate'):
+        assert caps[dataset] == 'UNAVAILABLE'
+    assert caps['market_data_coverage'] == 'NOT_ATTESTED'
+    assert caps['replay_cursor'] == 'NOT_ATTESTED'
+    assert response['meta_absorption'] == {
+        'schema': 'grid.meta.dataset-capabilities.v1',
+        'exchange_owner': 'Grid',
+        'database_writer_owner': 'Grid',
+        'history_provenance': 'NOT_ATTESTED',
+        'consumer_cutover': False,
+        'execution_authority': False,
+        'trading_authorized': False,
+    }
