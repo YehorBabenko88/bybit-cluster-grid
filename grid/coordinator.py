@@ -36,7 +36,6 @@ from .resources import snapshot as resource_snapshot
 from .asyncio_guard import install_asyncio_exception_filter
 from .disk_guard import DiskWatermarks,disk_state,live_collection_allowed
 from .tailscale_provisioning import create_one_time_auth_key,TailscaleProvisioningError
-from .historical_science_import import import_historical_science
 from .system_lifecycle import get_phase,advance_phase,phase_capabilities,PHASES
 
 log=logging.getLogger("coordinator")
@@ -47,7 +46,6 @@ ingest_storage=None
 background_tasks=[]
 repair_breaker=RepairCircuitBreaker()
 ml_orchestrator=None
-scientific_service=None
 coordination_authority=None
 control_leader=None
 control_task=None
@@ -775,38 +773,6 @@ async def status(x_grid_token:str=Header(default="")):
     auth(x_grid_token)
     return {"nodes":nodes,"assignments":assignments,"instrument_count":len(instruments)}
 
-@app.get("/scientific/status")
-async def scientific_status(x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    # Math owns research runtime. Preserve legacy endpoint but never perform
-    # scientific computation or expose old Grid research tables.
-    raise HTTPException(410,"scientific research owned by Math")
-    pending=await db.pool.fetchval("SELECT count(*) FROM scientific_outcome_requests WHERE status='PENDING'")
-    counts=await db.pool.fetch("""SELECT status,count(*) n FROM scientific_hypotheses GROUP BY status""")
-    out=scientific_service.status()
-    out["pending_outcomes"]=int(pending or 0)
-    out["hypotheses"]={str(r["status"]):int(r["n"]) for r in counts}
-    mining=await db.pool.fetchrow("""SELECT COALESCE(sum(hypotheses_tested),0) tested,
-      max(last_run_at) last_run_at FROM scientific_mining_families""")
-    last=await db.pool.fetchrow("""SELECT split_key,candidate_count,accepted_count,status,completed_at
-      FROM scientific_mining_runs ORDER BY started_at DESC LIMIT 1""")
-    out["pattern_mining"]={"hypotheses_tested":int(mining["tested"] or 0),
-                           "last_run_at":mining["last_run_at"],
-                           "last":dict(last) if last else None}
-    sim=await db.pool.fetch("""SELECT status,count(*) n FROM scientific_simulation_runs GROUP BY status""")
-    out["simulation_gate"]={str(r["status"]):int(r["n"]) for r in sim}
-    return out
-
-@app.get("/scientific/hypotheses")
-async def scientific_hypotheses(status_filter:str="",limit:int=100,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    raise HTTPException(410,"scientific hypotheses owned by Math")
-
-@app.get("/scientific/hypotheses/{hypothesis_id}/evidence")
-async def scientific_hypothesis_evidence(hypothesis_id:str,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    raise HTTPException(410,"scientific evidence owned by Math")
-
 @app.get("/lifecycle")
 async def lifecycle_status(x_grid_token:str=Header(default="")):
     auth(x_grid_token)
@@ -819,31 +785,6 @@ async def lifecycle_advance(target:str,payload:dict|None=None,x_grid_token:str=H
     auth(x_grid_token)
     try:return await advance_phase(db.pool,target,(payload or {}).get("details"))
     except ValueError as e:raise HTTPException(409,str(e))
-
-@app.post("/scientific/history/import")
-async def scientific_history_import(payload:dict,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    raise HTTPException(410,"scientific history import owned by Math")
-
-@app.get("/scientific/simulations")
-async def scientific_simulations(status_filter:str="",limit:int=100,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    raise HTTPException(410,"trade simulations owned by Terminan")
-
-@app.post("/strategy/plugins")
-async def upload_strategy_plugin(payload:dict,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    raise HTTPException(410,"strategy registration owned by Terminan")
-
-@app.get("/strategy/plugins")
-async def get_strategy_plugins(x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    raise HTTPException(410,"strategy registry owned by Terminan")
-
-@app.post("/strategy/jobs")
-async def create_strategy_job(payload:dict,x_grid_token:str=Header(default="")):
-    auth(x_grid_token)
-    raise HTTPException(410,"strategy execution owned by Terminan")
 
 async def rebalance():
     """Assign each live symbol to one eligible healthy collector.
@@ -969,7 +910,7 @@ async def startup():
 
 
 async def _prepare_control_services(epoch=None):
-    global ingest_storage, background_tasks, ml_orchestrator, scientific_service
+    global ingest_storage, background_tasks, ml_orchestrator
     await ensure_instrument_schema(db.pool)
     await ensure_control_schema(db.pool)
     await ensure_update_schema(db.pool)
@@ -1004,7 +945,7 @@ async def _stop_control_services():
 
 @app.on_event("shutdown")
 async def shutdown(close_database=True):
-    global ingest_storage, background_tasks, ml_orchestrator, scientific_service
+    global ingest_storage, background_tasks, ml_orchestrator
     global control_leader, control_task, coordination_authority
     if close_database and control_leader is not None:
         control_leader.stop()
@@ -1014,8 +955,6 @@ async def shutdown(close_database=True):
         control_leader=None
     if ml_orchestrator is not None:
         ml_orchestrator.stop()
-    if scientific_service is not None:
-        scientific_service.stop()
     tasks = list(background_tasks)
     background_tasks = []
 
@@ -1037,8 +976,7 @@ async def shutdown(close_database=True):
         ingest_storage = None
 
     ml_orchestrator=None
-    scientific_service=None
-
+    
     if close_database:
         if coordination_authority is not None:
             await coordination_authority.close()
