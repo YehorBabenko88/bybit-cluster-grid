@@ -115,6 +115,76 @@ def backfill_state(symbol):
                   reason='QUEUE_STATE_NOT_HISTORY_COMPLETENESS_PROOF')
     return result
 
+def _snapshot_catalog():
+    """Operator-provisioned local policy; never accept catalog trust from HTTP."""
+    import pathlib
+    import stat
+    raw_path=os.environ.get('GRID_PINNED_HISTORY_CATALOG','')
+    if not raw_path or len(raw_path)>2048:
+        raise RuntimeError('snapshot catalog not provisioned')
+    path=pathlib.Path(raw_path)
+    if not path.is_absolute() or path.is_symlink():
+        raise RuntimeError('snapshot catalog path unavailable')
+    flags=os.O_RDONLY|getattr(os,'O_BINARY',0)|getattr(os,'O_NOFOLLOW',0)
+    fd=os.open(path,flags)
+    try:
+        before=os.fstat(fd)
+        if (not stat.S_ISREG(before.st_mode) or not 0<before.st_size<=8388608
+                or before.st_mode & 0o022):
+            raise RuntimeError('snapshot catalog file unavailable')
+        raw=os.read(fd,before.st_size+1)
+        after=os.fstat(fd)
+        if (len(raw)!=before.st_size or len(raw)>8388608 or
+                (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns)!=
+                (after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns)):
+            raise RuntimeError('snapshot catalog changed during read')
+    finally:
+        os.close(fd)
+    def pairs(items):
+        obj={}
+        for k,v in items:
+            if k in obj:raise ValueError('duplicate snapshot catalog key')
+            obj[k]=v
+        return obj
+    catalog=json.loads(raw,object_pairs_hook=pairs,
+                       parse_constant=lambda _: (_ for _ in ()).throw(ValueError('nonfinite catalog')))
+    if type(catalog) is not dict or len(catalog)>10000:
+        raise ValueError('invalid snapshot catalog')
+    return catalog
+
+
+def pinned_history(selection):
+    """Bounded, immutable historical read; source authenticity is EXTERNAL.
+
+    Grid supplies custody and digest checks; Unified supplies authentication
+    and the independently provisioned trust catalog. No live readiness claim.
+    """
+    if (type(selection) is not dict or
+            set(selection)!={'schema','snapshot_id','venue','market_type','symbol','start_ms','end_ms'} or
+            selection.get('schema')!='grid.history.selection.v1' or
+            type(selection.get('snapshot_id')) is not str or
+            re.fullmatch('[0-9a-f]{64}',selection['snapshot_id']) is None or
+            any(type(selection.get(k)) is not str or not selection[k]
+                for k in ('venue','market_type','symbol')) or
+            type(selection.get('start_ms')) is not int or
+            type(selection.get('end_ms')) is not int or
+            selection['start_ms']<0 or selection['end_ms']<=selection['start_ms'] or
+            selection['end_ms']-selection['start_ms']>120000000):
+        raise ValueError('invalid pinned history selection')
+    catalog=_snapshot_catalog()
+    if selection['snapshot_id'] not in catalog:
+        raise ValueError('snapshot not provisioned')
+    from .history_snapshot import select_snapshot
+    import psycopg
+    with psycopg.connect(os.environ['TERMINAN_GRID_DSN'],connect_timeout=3,
+                         options='-c default_transaction_read_only=on -c statement_timeout=3000') as conn:
+        envelope=select_snapshot(conn,selection,catalog)
+    return {'schema':'grid.history.snapshot.response.v1',
+            'status':'PINNED_HISTORICAL_SOURCE_UNATTESTED',
+            'read_only':True,'source_authentication':'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED',
+            'snapshot':envelope,'execution_authority':False,'trading_authorized':False}
+
+
 def qualified_snapshot(route, symbol, limit, before_ms=None):
     """Versioned boundary. Current tables do not carry qualifying provenance."""
     result = {
@@ -239,28 +309,51 @@ class Handler(BaseHTTPRequestHandler):
             timer.join()
 
     def do_POST(self):
-        if urlsplit(self.path).path != '/internal/v1/research-handoffs/validate':
+        route=urlsplit(self.path).path
+        if route not in ('/internal/v1/research-handoffs/validate',
+                         '/internal/v1/history/snapshots/read'):
             self.send_error(404)
             return
         try:
             self.connection.settimeout(3)
+            if self.headers.get('Transfer-Encoding'):
+                raise ValueError('chunked requests unavailable')
             size = int(self.headers.get('Content-Length', '0'))
-            if not 0 < size <= 8388608:
+            limit = 4096 if route=='/internal/v1/history/snapshots/read' else 8388608
+            if not 0 < size <= limit:
                 raise ValueError('bounded request required')
-            from .research_handoff import accept_handoff
-            configured = json.loads(os.environ.get('GRID_TRUSTED_RESEARCH_SOURCES', '[]'))
-            trusted = {(x['identity'], x['source_revision'], x['run_id'], x['completion_receipt']) for x in configured}
-            result = accept_handoff(json.loads(self.rfile.read(size)), trusted)
+            body=self.rfile.read(size)
+            if len(body)!=size:
+                raise ValueError('truncated request')
+            if route=='/internal/v1/history/snapshots/read':
+                if self.headers.get('Content-Type')!='application/json':
+                    raise ValueError('JSON content type required')
+                def unique(pairs):
+                    out={}
+                    for k,v in pairs:
+                        if k in out:raise ValueError('duplicate selection field')
+                        out[k]=v
+                    return out
+                selection=json.loads(body,object_pairs_hook=unique,
+                                     parse_constant=lambda _: (_ for _ in ()).throw(ValueError('nonfinite')))
+                result=pinned_history(selection)
+            else:
+                from .research_handoff import accept_handoff
+                configured = json.loads(os.environ.get('GRID_TRUSTED_RESEARCH_SOURCES', '[]'))
+                trusted = {(x['identity'], x['source_revision'], x['run_id'], x['completion_receipt']) for x in configured}
+                result = accept_handoff(json.loads(body), trusted)
             status = 200
+        except ValueError:
+            result,status={'status':'UNAVAILABLE','reason':'INVALID_SNAPSHOT_OR_HANDOFF','execution_authority':False},400
         except Exception:
-            result, status = {'status':'UNAVAILABLE','reason':'INVALID_HANDOFF_REQUEST','execution_authority':False}, 400
-        body = json.dumps(result,allow_nan=False).encode()
+            result,status={'status':'UNAVAILABLE','reason':'SOURCE_READ_UNAVAILABLE','execution_authority':False},503
+        data = json.dumps(result,allow_nan=False).encode()
         self.send_response(status)
         self.send_header('Content-Type','application/json')
         self.send_header('Cache-Control','no-store')
-        self.send_header('Content-Length',str(len(body)))
+        self.send_header('Content-Length',str(len(data)))
         self.end_headers()
-        self.wfile.write(body)
+        self.wfile.write(data)
 
     def do_GET(self):
         try:
