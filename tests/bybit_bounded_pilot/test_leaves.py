@@ -417,3 +417,25 @@ class LeafTests(unittest.TestCase):
                  "open_interest":str(p.open_interest)} for p in reference])
         finally:
             sys.modules.pop(alias, None)
+
+    def test_live_worker_discovery_uses_one_bounded_reader(self):
+        """The existing Worker entrypoint must consume the canonical page reader."""
+        self.response = Response(body=b'{"retCode":0,"result":{"list":['
+            b'{"symbol":"BTCUSDT","status":"Trading","contractType":"LinearPerpetual",'
+            b'"priceFilter":{"tickSize":"0.1"}}],"nextPageCursor":""}}')
+        rows = complete(self.bybit.linear_symbols("https://example.invalid", max_attempts=1))
+        self.assertEqual([x["symbol"] for x in rows], ["BTCUSDT"])
+        self.assertEqual(len(self.requests), 1)
+        self.assertGreater(len(self.response.reads), 0)
+        self.assertFalse(self.requests[0][1]["allow_redirects"])
+        self.assertFalse(self.sessions[0]["trust_env"])
+        self.assertFalse(self.sessions[0]["auto_decompress"])
+        self.assertEqual(self.sessions[0]["headers"]["Accept-Encoding"], "identity")
+
+    def test_worker_discovery_rejects_invalid_bounded_page_before_registry(self):
+        for payload in (b'not JSON', b'{"retCode":0,"result":{"list":[]}}',
+                        b'{"retCode":0,"result":{"list":[],"nextPageCursor":""}}'):
+            self.response = Response(body=payload)
+            with self.subTest(payload=payload), self.assertRaises((ValueError,RuntimeError)):
+                complete(self.bybit.linear_symbols("https://example.invalid", max_attempts=1))
+        self.assertEqual(len(self.requests), 3)
