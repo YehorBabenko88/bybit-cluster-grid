@@ -174,6 +174,8 @@ async def fetch_funding_page(base_url,symbol,start_ms=None,end_ms=None,limit=200
             stamp=int(stamp)
         if type(stamp) is not int or not 0<stamp<=2**63-1 or stamp in timestamps:
             raise ValueError("invalid or duplicate funding timestamp")
+        if (start_ms is not None and stamp<start_ms) or (end_ms is not None and stamp>end_ms):
+            raise ValueError("funding timestamp outside requested range")
         rate=row.get("fundingRate")
         if type(rate) is not str or not 1<=len(rate)<=80:
             raise ValueError("invalid funding rate representation")
