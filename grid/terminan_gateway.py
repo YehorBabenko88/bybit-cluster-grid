@@ -172,8 +172,13 @@ def pinned_history(selection):
             selection['end_ms']-selection['start_ms']>120000000):
         raise ValueError('invalid pinned history selection')
     catalog=_snapshot_catalog()
-    if selection['snapshot_id'] not in catalog:
+    entry=catalog.get(selection['snapshot_id'])
+    if type(entry) is not dict or type(entry.get('request')) is not dict:
         raise ValueError('snapshot not provisioned')
+    expected=entry['request']
+    for key in ('venue','market_type','symbol','start_ms','end_ms'):
+        if type(selection[key]) is not type(expected.get(key)) or selection[key]!=expected[key]:
+            raise ValueError('snapshot identity or time mismatch')
     from .history_snapshot import select_snapshot
     import psycopg
     with psycopg.connect(os.environ['TERMINAN_GRID_DSN'],connect_timeout=3,
