@@ -70,6 +70,11 @@ async def coordinated_request_guard(request, call_next):
             await floating_leader_guard(control_leader)()
         except Exception:
             return JSONResponse({'reason': 'COORDINATION_NOT_READY'}, status_code=503)
+    # Grid remains a market-data service.  Legacy strategy execution, paper
+    # simulation, research and experiment endpoints belong to Terminan / Math.
+    # Refuse before their handlers can mutate strategy/science tables.
+    if request.url.path.startswith(('/strategy/', '/scientific/')):
+        return JSONResponse({'reason': 'OWNER_MIGRATION_REQUIRED'}, status_code=503)
     return await call_next(request)
 
 
