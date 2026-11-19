@@ -207,15 +207,17 @@ class OwnedWorkerService:
                     self.runner = None
                 except BaseException as error:
                     errors.append(error)
-            if self.task is not None:
-                cancel_requested = not self.task.done()
+            task = self.task
+            if task is not None:
                 try:
-                    if cancel_requested:
-                        self.task.cancel()
-                    outcomes = await asyncio.gather(self.task, return_exceptions=True)
+                    if not task.done():
+                        task.cancel()
+                    outcomes = await asyncio.gather(task, return_exceptions=True)
                     for outcome in outcomes:
                         if isinstance(outcome, BaseException):
-                            if cancel_requested and isinstance(outcome, asyncio.CancelledError):
+                            # An already-cancelled worker is also retired. This
+                            # does not catch cancellation of the close waiter.
+                            if task.cancelled() and isinstance(outcome, asyncio.CancelledError):
                                 continue
                             errors.append(outcome)
                 except BaseException as error:
