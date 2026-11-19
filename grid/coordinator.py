@@ -8,8 +8,6 @@ from .bybit import linear_symbols
 from .resources import capacity_score,node_accepts_work
 from .service import prepare_database,bootstrap_logging
 from .instrument_lifecycle import ensure_instrument_schema,reconcile_instruments,purge_retired
-from .strategy_jobs import ensure_strategy_schema,submit_job
-from .strategy_plugins import ensure_plugin_schema,register_plugin,list_plugins
 from .control_plane import ensure_control_schema,enqueue_command,pending_commands,command_result
 from .update_protocol import ensure_update_schema,note_heartbeat,register_release,start_canary,promote_stable,expired_canaries
 from .enrollment import ensure_enrollment_schema,enroll,authenticate_agent,registered_install_mode,create_enrollment_token
@@ -38,7 +36,6 @@ from .resources import snapshot as resource_snapshot
 from .asyncio_guard import install_asyncio_exception_filter
 from .disk_guard import DiskWatermarks,disk_state,live_collection_allowed
 from .tailscale_provisioning import create_one_time_auth_key,TailscaleProvisioningError
-from .scientific_service import ScientificResearchService
 from .historical_science_import import import_historical_science
 from .system_lifecycle import get_phase,advance_phase,phase_capabilities,PHASES
 
@@ -864,21 +861,17 @@ async def scientific_simulations(status_filter:str="",limit:int=100,x_grid_token
 @app.post("/strategy/plugins")
 async def upload_strategy_plugin(payload:dict,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
-    sha=await register_plugin(db.pool,payload["strategy_name"],payload["strategy_version"],
-                              payload["source_code"],payload.get("metadata"))
-    return {"strategy_name":payload["strategy_name"],"strategy_version":payload["strategy_version"],"sha256":sha}
+    raise HTTPException(410,"strategy registration owned by Terminan")
 
 @app.get("/strategy/plugins")
 async def get_strategy_plugins(x_grid_token:str=Header(default="")):
-    auth(x_grid_token); return {"plugins":await list_plugins(db.pool)}
+    auth(x_grid_token)
+    raise HTTPException(410,"strategy registry owned by Terminan")
 
 @app.post("/strategy/jobs")
 async def create_strategy_job(payload:dict,x_grid_token:str=Header(default="")):
     auth(x_grid_token)
-    jid=await submit_job(db.pool,payload["strategy_name"],payload.get("strategy_version","1"),
-                         payload.get("params"),payload.get("symbols"),payload.get("start_ts"),
-                         payload.get("end_ts"),payload.get("priority",100))
-    return {"job_id":jid,"status":"queued"}
+    raise HTTPException(410,"strategy execution owned by Terminan")
 
 async def rebalance():
     """Assign each live symbol to one eligible healthy collector.
@@ -978,7 +971,6 @@ async def startup():
             asyncio.create_task(retention_scheduler(db.pool,settings)),
             asyncio.create_task(maintenance_scheduler(db.pool,settings)),
             asyncio.create_task(ml_orchestrator.run()),
-            asyncio.create_task(scientific_service.run()),
         ]
 
     # Configuration and independent-fence readiness precede all DB/writer startup.
@@ -1007,8 +999,6 @@ async def startup():
 async def _prepare_control_services(epoch=None):
     global ingest_storage, background_tasks, ml_orchestrator, scientific_service
     await ensure_instrument_schema(db.pool)
-    await ensure_strategy_schema(db.pool)
-    await ensure_plugin_schema(db.pool)
     await ensure_control_schema(db.pool)
     await ensure_update_schema(db.pool)
     await ensure_enrollment_schema(db.pool)
@@ -1017,9 +1007,6 @@ async def _prepare_control_services(epoch=None):
     ingest_storage=Storage()
     ingest_storage.pool=db.pool
     await ingest_storage.feature_builder.start(db.pool)
-    scientific_service=ScientificResearchService(db.pool)
-    await scientific_service.start()
-    ingest_storage.scientific=scientific_service
     ingest_storage.derived=__import__('grid.derived_pipeline',fromlist=['DerivedPipeline']).DerivedPipeline(db.pool)
     await ingest_storage.derived.start()
     async def ml_nodes():
