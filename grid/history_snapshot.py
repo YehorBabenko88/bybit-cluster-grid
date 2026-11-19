@@ -13,6 +13,9 @@ from .provenance import canonical, digest
 TIMEFRAME_MINUTES = {'5m': 5, '15m': 15, '1h': 60}
 MULTIPIN_MINUTES = {'1h': 60, '4h': 240, '1d': 1440, '1w': 10080}
 IDENTITY_FIELDS = ('venue', 'market_type', 'symbol')
+MAX_SEQUENCE_CANDLES = 32
+MAX_SEQUENCE_MINUTES = 2 * MULTIPIN_MINUTES['1w']
+MAX_SEQUENCE_PINS = 16
 
 
 def _candle(window):
@@ -32,22 +35,27 @@ def _candle(window):
 
 
 def plan_multipin(selection, catalog):
-    """Require one aligned candle and a complete ordered list of catalog pages."""
+    """Require complete aligned candles and an ordered list of catalog pages."""
     if set(selection) != {'schema', 'timeframe', 'snapshot_ids', 'start_ms', 'end_ms', *IDENTITY_FIELDS}:
         raise ValueError('MULTIPIN_SCHEMA')
+    if selection['schema'] not in ('grid.history.selection.v3', 'grid.history.selection.v4'):
+        raise ValueError('MULTIPIN_SCHEMA')
+    sequence = selection['schema'] == 'grid.history.selection.v4'
     timeframe = selection['timeframe']
     if type(timeframe) is not str or timeframe not in MULTIPIN_MINUTES:
         raise ValueError('MULTIPIN_TIMEFRAME')
     start, end = selection['start_ms'], selection['end_ms']
     width = MULTIPIN_MINUTES[timeframe] * 60000
     anchor = 4 * 86400000 if timeframe == '1w' else 0  # 1970-01-05 Monday UTC
+    max_span = min(MAX_SEQUENCE_CANDLES * width, MAX_SEQUENCE_MINUTES * 60000) if sequence else width
     if (type(start) is not int or type(end) is not int or not 0 <= start < end <= 2**53 - 1
-            or end - start != width or (start - anchor) % width):
+            or not width <= end - start <= max_span
+            or (start - anchor) % width or (end - anchor) % width):
         raise ValueError('MULTIPIN_ALIGNMENT')
     if any(type(selection[key]) is not str or not selection[key] for key in IDENTITY_FIELDS):
         raise ValueError('MULTIPIN_IDENTITY')
     pins = selection['snapshot_ids']
-    if (type(pins) is not list or not 1 <= len(pins) <= 8
+    if (type(pins) is not list or not 1 <= len(pins) <= (MAX_SEQUENCE_PINS if sequence else 8)
             or any(type(pin) is not str or not re.fullmatch('[0-9a-f]{64}', pin) for pin in pins)
             or len(set(pins)) != len(pins)):
         raise ValueError('MULTIPIN_PINS')
@@ -88,10 +96,13 @@ def read_multipin_rollup(conn, selection, pages, catalog):
         rows.extend(envelope['rows'])
         parents.append({'snapshot_id': page['snapshot_id'], 'dataset_id': envelope['dataset_id'],
                         'dataset_fingerprint': envelope['dataset_fingerprint']})
-    result = {'schema': 'grid.history.rollup.v2', 'request': selection,
+    sequence = selection['schema'] == 'grid.history.selection.v4'
+    minutes = MULTIPIN_MINUTES[selection['timeframe']]
+    result = {'schema': 'grid.history.rollup.v3' if sequence else 'grid.history.rollup.v2', 'request': selection,
               'timeframe': selection['timeframe'], 'source': envelope['source'],
               'units': envelope['request']['units'], 'as_of_ms': envelope['request']['as_of_ms'],
-              'evidence_class': 'HISTORICAL', 'parents': parents, 'rows': [_candle(rows)]}
+              'evidence_class': 'HISTORICAL', 'parents': parents,
+              'rows': [_candle(rows[i:i + minutes]) for i in range(0, len(rows), minutes)]}
     return dict(result, dataset_fingerprint=digest(result))
 
 

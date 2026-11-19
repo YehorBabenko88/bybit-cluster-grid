@@ -396,16 +396,20 @@ def _multipin_history(timeframe, start, page_sizes):
     return selection, catalog, raw_pages
 
 
-@pytest.mark.parametrize('timeframe,start,pages', [
-    ('1h', 0, [60]), ('4h', 0, [120, 120]), ('1d', 0, [1440]),
-    ('1w', 4 * 86400000, [1680] * 6),
+@pytest.mark.parametrize('version,timeframe,start,pages,width', [
+    ('v3', '1h', 0, [60], 60), ('v3', '4h', 0, [120, 120], 240),
+    ('v3', '1d', 0, [1440], 1440), ('v3', '1w', 4 * 86400000, [1680] * 6, 10080),
+    ('v4', '1h', 0, [35, 85], 60), ('v4', '4h', 0, [100, 200, 180], 240),
+    ('v4', '1d', 0, [1200, 1680], 1440), ('v4', '1w', 4 * 86400000, [1680] * 12, 10080),
 ])
-def test_pinned_multipin_candle_reuses_exact_pages(monkeypatch, timeframe, start, pages):
+def test_pinned_multipin_candle_reuses_exact_pages(monkeypatch, version, timeframe, start, pages, width):
     from test_history_snapshot import Connection
     from grid.provenance import canonical, digest
 
     request, catalog, raw_pages = _multipin_history(timeframe, start, pages)
-    assert len(canonical(catalog)) <= 8388608
+    request['schema'] = f'grid.history.selection.{version}'
+    cap = (16 if version == 'v4' else 8) * 1024 * 1024
+    assert len(canonical(catalog)) <= cap
 
     class PagedConnection(Connection):
         def execute(self, sql, params=None):
@@ -414,21 +418,28 @@ def test_pinned_multipin_candle_reuses_exact_pages(monkeypatch, timeframe, start
                 self.rows = raw_pages[params[1]]
 
     conn = PagedConnection([])
-    monkeypatch.setattr(gateway, '_snapshot_catalog', lambda: catalog)
+    def load_catalog(max_bytes=8388608):
+        assert max_bytes == cap
+        return catalog
+    monkeypatch.setattr(gateway, '_snapshot_catalog', load_catalog)
     monkeypatch.setattr(gateway, '_history_connection', lambda: conn)
     result = gateway.pinned_history(request)
-    assert result['schema'] == 'grid.history.snapshot.response.v3'
+    assert result['schema'] == f'grid.history.snapshot.response.{version}'
     assert result['source_authentication'] == 'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED'
     assert result['read_only'] and not result['execution_authority'] and not result['trading_authorized']
     snapshot = result['snapshot']
-    assert snapshot['schema'] == 'grid.history.rollup.v2'
+    assert snapshot['schema'] == ('grid.history.rollup.v3' if version == 'v4' else 'grid.history.rollup.v2')
     assert [p['snapshot_id'] for p in snapshot['parents']] == request['snapshot_ids']
     assert snapshot['dataset_fingerprint'] == digest({k: v for k, v in snapshot.items() if k != 'dataset_fingerprint'})
-    row, = snapshot['rows']
-    assert row['event_start_ms'] == start
-    assert row['event_end_ms'] == row['available_at_ms'] == row['watermark_ms'] == request['end_ms']
-    assert (row['open'], row['high'], row['low'], row['close'], row['volume']) == (
-        100, 102 + (max(pages)-1)*.1, 99, 101 + (pages[-1]-1)*.1, sum(pages)*3)
+    flat = [minute for page in raw_pages.values() for minute in page]
+    assert len(snapshot['rows']) == len(flat) // width
+    for i, row in enumerate(snapshot['rows']):
+        window = flat[i*width:(i+1)*width]
+        assert row['event_start_ms'] == start + i*width*60000
+        assert row['event_end_ms'] == row['available_at_ms'] == row['watermark_ms'] == start + (i+1)*width*60000
+        assert (row['open'], row['high'], row['low'], row['close'], row['volume']) == (
+            window[0]['candle']['open'], max(x['candle']['high'] for x in window),
+            min(x['candle']['low'] for x in window), window[-1]['candle']['close'], width*3)
     assert sum('SET TRANSACTION' in sql for sql, _ in conn.calls) == 1
     assert sum('fingerprint = ANY(%s)' in sql for sql, _ in conn.calls) == len(pages)
     raw_pages[max(raw_pages)].pop()
@@ -436,23 +447,27 @@ def test_pinned_multipin_candle_reuses_exact_pages(monkeypatch, timeframe, start
         gateway.pinned_history(request)
 
 
-def test_pinned_multipin_refuses_incomplete_or_mixed_source_before_db(monkeypatch):
+@pytest.mark.parametrize('version', ['v3', 'v4'])
+def test_pinned_multipin_refuses_incomplete_or_mixed_source_before_db(monkeypatch, version):
     from grid.provenance import digest
 
     selection, catalog, _ = _multipin_history('4h', 0, [120, 120])
+    selection['schema'] = f'grid.history.selection.{version}'
     left, right = selection['snapshot_ids']
     untrusted = catalog[right].copy()
     untrusted['trust'] = dict(untrusted['trust'], epoch='another-epoch')
     alternate = digest(untrusted)
     catalog[alternate] = untrusted
-    monkeypatch.setattr(gateway, '_snapshot_catalog', lambda: catalog)
+    monkeypatch.setattr(gateway, '_snapshot_catalog', lambda **_: catalog)
     monkeypatch.setattr(gateway, '_history_connection', lambda: pytest.fail('invalid page set must not touch DB'))
     for change, reason in [
         ({'start_ms': 60000, 'end_ms': 241*60000}, 'ALIGNMENT'),
         ({'snapshot_ids': [right, left]}, 'CONTINUITY'),
         ({'snapshot_ids': [left]}, 'CONTINUITY'),
         ({'snapshot_ids': [left, left]}, 'PINS'),
+        ({'snapshot_ids': [f'{i:064x}' for i in range(17)]}, 'PINS'),
         ({'snapshot_ids': [left, alternate]}, 'LINEAGE'),
+        ({'end_ms': 240 * 60000 * 33}, 'ALIGNMENT'),
         ({'symbol': 'ETHUSDT'}, 'IDENTITY'),
     ]:
         with pytest.raises(ValueError, match=reason):
@@ -559,7 +574,7 @@ def test_pinned_history_rejects_query_in_post_url(monkeypatch):
     assert json.loads(handler.wfile.getvalue())['reason']=='INVALID_SNAPSHOT_REQUEST'
 
 
-@pytest.mark.parametrize('version', ['v1', 'v2', 'v3'])
+@pytest.mark.parametrize('version', ['v1', 'v2', 'v3', 'v4'])
 def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch, version):
     import io,json
     from types import SimpleNamespace
@@ -567,7 +582,7 @@ def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch, ve
     rows, selection, catalog, expected=snapshot_fixture()
     if version != 'v1':
         selection = dict(selection, schema=f'grid.history.selection.{version}', timeframe='1h')
-    if version == 'v3':
+    if version in ('v3', 'v4'):
         selection['snapshot_ids'] = [selection.pop('snapshot_id')]
     observed=[]
     def selected(req):
@@ -591,5 +606,5 @@ def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch, ve
     handler.do_POST()
     assert statuses==[200]
     assert observed==[selection]
-    assert deadlines == ([40] if version == 'v3' else [])
+    assert deadlines == {'v3': [40], 'v4': [70]}.get(version, [])
     assert json.loads(handler.wfile.getvalue())['snapshot']==expected

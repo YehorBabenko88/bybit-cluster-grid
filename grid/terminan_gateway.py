@@ -115,7 +115,7 @@ def backfill_state(symbol):
                   reason='QUEUE_STATE_NOT_HISTORY_COMPLETENESS_PROOF')
     return result
 
-def _snapshot_catalog():
+def _snapshot_catalog(max_bytes=8388608):
     """Operator-provisioned local policy; never accept catalog trust from HTTP."""
     import pathlib
     import stat
@@ -134,12 +134,12 @@ def _snapshot_catalog():
     fd=os.open(path,flags)
     try:
         before=os.fstat(fd)
-        if (not stat.S_ISREG(before.st_mode) or not 0<before.st_size<=8388608
+        if (not stat.S_ISREG(before.st_mode) or not 0<before.st_size<=max_bytes
                 or before.st_mode & 0o022):
             raise RuntimeError('snapshot catalog file unavailable')
         raw=os.read(fd,before.st_size+1)
         after=os.fstat(fd)
-        if (len(raw)!=before.st_size or len(raw)>8388608 or
+        if (len(raw)!=before.st_size or len(raw)>max_bytes or
                 (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns)!=
                 (after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns)):
             raise RuntimeError('snapshot catalog changed during read')
@@ -182,12 +182,16 @@ def pinned_history(selection):
     )
 
     timeframe = None
-    if type(selection) is dict and selection.get('schema') == 'grid.history.selection.v3':
-        catalog = _snapshot_catalog()
+    schema = selection.get('schema') if type(selection) is dict else None
+    if schema in ('grid.history.selection.v3', 'grid.history.selection.v4'):
+        # Two complete weeks can exceed the single-window catalog size.
+        sequence = schema == 'grid.history.selection.v4'
+        catalog = _snapshot_catalog(max_bytes=16 * 1024 * 1024) if sequence else _snapshot_catalog()
         pages = plan_multipin(selection, catalog)
         with _history_connection() as conn:
-            return _pinned_response('v3', read_multipin_rollup(conn, selection, pages, catalog))
-    if type(selection) is dict and selection.get('schema') == 'grid.history.selection.v2':
+            return _pinned_response('v4' if sequence else 'v3',
+                                    read_multipin_rollup(conn, selection, pages, catalog))
+    if schema == 'grid.history.selection.v2':
         timeframe = selection.get('timeframe')
         if type(timeframe) is not str or timeframe not in TIMEFRAME_MINUTES:
             raise ValueError('invalid history timeframe')
@@ -241,6 +245,7 @@ def qualified_snapshot(route, symbol, limit, before_ms=None):
                                   'immutable_market_snapshots_v1_1': True,
                                   'pinned_historical_rollups_v2': ['5m', '15m', '1h'],
                                   'pinned_historical_rollups_v3': ['1h', '4h', '1d', '1w'],
+                                  'pinned_historical_sequences_v4': ['1h', '4h', '1d', '1w'],
                                   'research_handoff_validation_v1_1': True,
                                   'public_trades': 'UNAVAILABLE',
                                   'orderbook_snapshots': 'UNAVAILABLE',
@@ -388,10 +393,13 @@ class Handler(BaseHTTPRequestHandler):
                     return out
                 selection=json.loads(body,object_pairs_hook=unique,
                                      parse_constant=lambda _: (_ for _ in ()).throw(ValueError('nonfinite')))
-                if (type(selection) is dict and selection.get('schema') == 'grid.history.selection.v3'
-                        and getattr(self, '_deadline', None) is not None):
-                    # Up to eight bounded statements after complete bounded ingress.
-                    self._arm_deadline(40)
+                if type(selection) is dict and getattr(self, '_deadline', None) is not None:
+                    schema = selection.get('schema')
+                    if schema == 'grid.history.selection.v3':
+                        self._arm_deadline(40)
+                    elif schema == 'grid.history.selection.v4':
+                        # Up to sixteen bounded reads after complete bounded ingress.
+                        self._arm_deadline(70)
                 result=pinned_history(selection)
             else:
                 from .research_handoff import accept_handoff
