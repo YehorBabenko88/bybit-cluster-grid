@@ -232,3 +232,32 @@ def test_meta_absorption_capabilities_do_not_claim_live_or_cutover(monkeypatch):
         'execution_authority': False,
         'trading_authorized': False,
     }
+
+@pytest.mark.parametrize('route', [
+    '/internal/v1/trades', '/internal/v1/orderbook', '/internal/v1/open-interest',
+    '/internal/v1/funding', '/internal/v1/mark-price', '/internal/v1/index-price',
+    '/internal/v1/premium-index',
+])
+def test_unqualified_raw_dataset_routes_refuse_source_without_db(monkeypatch, route):
+    monkeypatch.setattr(gateway, 'query', lambda *args: pytest.fail('unqualified dataset must not query DB'))
+    monkeypatch.setattr(gateway, 'immutable_minutes', lambda *args: pytest.fail('unqualified dataset must not read aggregate'))
+    response = gateway.snapshot(route, 'BTCUSDT', 100)
+    assert response['api_version'] == {'major': 1, 'minor': 0}
+    assert response['status'] == 'UNAVAILABLE'
+    assert response['reason'] == 'SOURCE_PROVENANCE_UNAVAILABLE'
+    assert response['source_provenance'] == 'NOT_ATTESTED'
+    assert response['coverage'] == 'NOT_ATTESTED'
+    assert response['sequence'] == 'NOT_ATTESTED'
+    assert response['rows'] == []
+    assert response['execution_authority'] is False
+    assert response['trading_authorized'] is False
+
+@pytest.mark.parametrize('symbol,limit,cursor', [
+    ('../BTC', 1, None), ('BTCUSDT', 0, None),
+    ('BTCUSDT', 1001, None), ('BTCUSDT', True, None),
+    ('BTCUSDT', 1, '-1'), ('BTCUSDT', 1, '99999999999999999'),
+])
+def test_unqualified_raw_dataset_routes_validate_before_io(monkeypatch, symbol, limit, cursor):
+    monkeypatch.setattr(gateway, 'query', lambda *args: pytest.fail('invalid request must not query DB'))
+    with pytest.raises(ValueError):
+        gateway.snapshot('/internal/v1/trades', symbol, limit, cursor)
