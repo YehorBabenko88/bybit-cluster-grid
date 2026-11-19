@@ -233,3 +233,35 @@ class LeafTests(unittest.TestCase):
                 complete(self.market_backfill.fetch_kline_page(
                     "https://example.invalid", "BTCUSDT", dataset=dataset))
         self.assertEqual(self.sessions, [])
+
+    def test_stale_backfill_recovery_only_updates_claim_metadata(self):
+        class Pool:
+            def __init__(self): self.calls = []
+            async def execute(self, statement, *args):
+                self.calls.append((statement, args))
+                return "UPDATE 2"
+        pool = Pool()
+        result = complete(self.market_backfill.recover_stale_backfill_jobs(
+            pool, stale_minutes=15, max_attempts=3))
+        self.assertEqual(result, "UPDATE 2")
+        self.assertEqual(len(pool.calls), 1)
+        sql, args = pool.calls[0]
+        self.assertEqual(args, (15, 3))
+        self.assertIn("UPDATE market_backfill_state", sql)
+        self.assertIn("status='running'", sql)
+        self.assertIn("attempts<$2", sql)
+        self.assertNotIn("DELETE", sql.upper())
+        self.assertNotIn("ohlcv_1m", sql)
+        self.assertNotIn("ON CONFLICT", sql)
+
+    def test_stale_backfill_recovery_rejects_invalid_policy_before_db(self):
+        class Pool:
+            async def execute(self, *_args):
+                raise AssertionError("invalid policy must not touch database")
+        for minutes, attempts in ((0, 1), (1441, 1), (True, 1),
+                                  (1, 0), (1, 101), (1, False),
+                                  (1.5, 2), (1, "2")):
+            with self.subTest(minutes=minutes, attempts=attempts):
+                with self.assertRaises(ValueError):
+                    complete(self.market_backfill.recover_stale_backfill_jobs(
+                        Pool(), stale_minutes=minutes, max_attempts=attempts))
