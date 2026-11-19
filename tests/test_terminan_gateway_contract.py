@@ -63,3 +63,11 @@ def test_disposable_pg18_health(monkeypatch):
     result = gateway.snapshot('/internal/v1/health')
     assert result['database'] == 'READ_ONLY'
     assert result['status'] == 'UNAVAILABLE'
+
+def test_legacy_nodes_route_no_longer_exposes_cluster_inventory(monkeypatch):
+    def forbidden(*_args, **_kwargs):
+        pytest.fail('Grid must not query cross-host node inventory')
+    monkeypatch.setattr(gateway, 'query', forbidden)
+    result = gateway.snapshot('/v1/nodes', 'BTCUSDT', 1)
+    assert result == {'version': 1, 'status': 'UNAVAILABLE',
+                      'reason': 'UNIFIED_SYSTEM_NODE_OWNER', 'nodes': []}
