@@ -39,6 +39,47 @@ def immutable_minutes(symbol, limit, before_ms):
             return [r[0] for r in rows]
 
 
+def backfill_state(symbol):
+    """Informational Grid queue state, never evidence of complete exchange history.
+
+    A pre-existing Grid loopback reader only. Unified owns any remote Gateway,
+    identity, authorization and rate limiting; never publish this listener on LAN.
+    """
+    if type(symbol) is not str or not SYMBOL.fullmatch(symbol):
+        raise ValueError('invalid instrument identity')
+    rows = query("""SELECT status,attempts,next_end_ms,oldest_loaded_ts,newest_loaded_ts
+        FROM market_backfill_state WHERE symbol=%s AND timeframe='1' LIMIT 2""", (symbol,))
+    if len(rows) > 1:
+        raise ValueError('ambiguous Grid backfill state')
+    result = {'api_version': {'major': 1, 'minor': 0},
+              'producer': 'bybit-cluster-grid', 'resource': 'market_backfill_state',
+              'read_only': True, 'symbol': symbol, 'timeframe': '1',
+              'status': 'UNAVAILABLE', 'state': 'UNKNOWN',
+              'history_coverage': 'NOT_ATTESTED', 'source_provenance': 'NOT_ATTESTED',
+              'execution_authority': False, 'trading_authorized': False,
+              'reason': 'NO_GRID_BACKFILL_RECORD'}
+    if not rows:
+        return result
+    from datetime import datetime,timezone
+    state,attempts,cursor,oldest,newest = rows[0]
+    if (type(state) is not str or state not in
+            ('queued','retry','running','done','failed','retired') or
+            type(attempts) is not int or not 0 <= attempts <= 2147483647 or
+            (cursor is not None and
+             (type(cursor) is not int or not -1 <= cursor <= 9223372036854775807))):
+        raise ValueError('invalid Grid backfill state')
+    def utc(value):
+        if value is None:
+            return None
+        if type(value) is not datetime or value.tzinfo is None:
+            raise ValueError('invalid Grid timestamp')
+        return value.astimezone(timezone.utc).isoformat().replace('+00:00','Z')
+    result.update(status='INFORMATIONAL', state=state, attempts=attempts,
+                  next_end_ms=cursor, oldest_loaded_utc=utc(oldest),
+                  newest_loaded_utc=utc(newest),
+                  reason='QUEUE_STATE_NOT_HISTORY_COMPLETENESS_PROOF')
+    return result
+
 def qualified_snapshot(route, symbol, limit, before_ms=None):
     """Versioned boundary. Current tables do not carry qualifying provenance."""
     result = {
@@ -63,6 +104,10 @@ def qualified_snapshot(route, symbol, limit, before_ms=None):
         except Exception:
             pass  # Never return exception text, DSNs or credentials.
         return result
+    if route == '/internal/v1/backfill-state':
+        if before_ms is not None:
+            raise ValueError('backfill state does not accept a cursor')
+        return backfill_state(symbol)
     if route not in ('/internal/v1/candles', '/internal/v1/footprint'):
         raise KeyError('unknown route')
     if not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol):
@@ -146,6 +191,8 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('query too large')
             u=urlsplit(self.path)
             q=parse_qs(u.query,keep_blank_values=True,max_num_fields=3,strict_parsing=True)
+            if u.path == '/internal/v1/backfill-state' and set(q) != {'symbol'}:
+                raise ValueError('explicit symbol required for Grid backfill state')
             if any(k not in ('symbol','limit','before_ms') or len(v)!=1 for k,v in q.items()):
                 raise ValueError('invalid query parameters')
             result=snapshot(u.path,q.get('symbol',['BTCUSDT'])[0],q.get('limit',[300])[0],q.get('before_ms',[None])[0]);status=200
