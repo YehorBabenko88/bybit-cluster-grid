@@ -329,6 +329,12 @@ def test_pinned_history_catalog_rejects_symlink_world_writable_and_duplicate_key
     monkeypatch.setenv('GRID_PINNED_HISTORY_CATALOG',str(p))
     p.write_text('{"x":1,"x":2}',encoding='utf-8')
     p.chmod(0o600)
+    if os.name=='nt':
+        # Portable mode bits cannot establish an NTFS DACL trust boundary.
+        # This is an explicit Windows NO_GO gate, not a skipped test.
+        with pytest.raises(RuntimeError,match='WINDOWS_CATALOG_ACL_NOT_QUALIFIED'):
+            gateway._snapshot_catalog()
+        return
     with pytest.raises(ValueError,match='duplicate'):
         gateway._snapshot_catalog()
     p.write_text('{"x":1}',encoding='utf-8')
