@@ -513,3 +513,15 @@ class LeafTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             complete(self.market_backfill.fetch_funding_page(
                 "https://example.invalid","BTCUSDT"))
+
+    def test_strattester_funding_rejects_outside_requested_range(self):
+        for timestamp in ("999","2001"):
+            self.response=Response(body=(
+                '{"retCode":0,"result":{"list":['
+                '{"symbol":"BTCUSDT","fundingRateTimestamp":"' + timestamp +
+                '","fundingRate":"-0.00001"}]}}').encode())
+            with self.subTest(timestamp=timestamp),self.assertRaisesRegex(
+                    ValueError,"outside requested range"):
+                complete(self.market_backfill.fetch_funding_page(
+                    "https://example.invalid","BTCUSDT",
+                    start_ms=1000,end_ms=2000,limit=1))
