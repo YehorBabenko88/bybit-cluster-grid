@@ -70,6 +70,7 @@ class LeafTests(unittest.TestCase):
         aiohttp.ClientTimeout = lambda **kwargs: kwargs
         aiohttp.DummyCookieJar = lambda: None
         aiohttp.ClientError = RuntimeError
+        aiohttp.ClientResponseError = type("ClientResponseError", (RuntimeError,), {})
         asynchronous = types.ModuleType("asyncio")
         asynchronous.CancelledError = type("CancelledError", (BaseException,), {})
         asynchronous.TimeoutError = TimeoutError
