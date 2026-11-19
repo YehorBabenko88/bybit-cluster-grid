@@ -39,6 +39,48 @@ def immutable_minutes(symbol, limit, before_ms):
             return [r[0] for r in rows]
 
 
+def _utc_text(value):
+    if value is None:
+        return None
+    from datetime import datetime,timezone
+    if type(value) is not datetime or value.tzinfo is None:
+        raise ValueError('invalid Grid timestamp')
+    return value.astimezone(timezone.utc).isoformat().replace('+00:00','Z')
+
+
+def instrument_state(symbol):
+    """Read Grid's saved registry entry; never claim the exchange is live."""
+    if type(symbol) is not str or not SYMBOL.fullmatch(symbol):
+        raise ValueError('invalid instrument identity')
+    rows = query("""SELECT status,contract_type,tick_size,last_seen
+        FROM instruments WHERE symbol=%s LIMIT 2""", (symbol,))
+    if len(rows) > 1:
+        raise ValueError('ambiguous instrument identity')
+    result = {'api_version': {'major': 1, 'minor': 0},
+              'producer': 'bybit-cluster-grid', 'venue': 'Bybit',
+              'market_type': 'linear', 'symbol': symbol,
+              'read_only': True, 'status': 'UNAVAILABLE',
+              'exchange_connection': 'NOT_ATTESTED',
+              'history_coverage': 'NOT_ATTESTED',
+              'source_provenance': 'NOT_ATTESTED',
+              'execution_authority': False, 'trading_authorized': False,
+              'reason': 'NO_GRID_INSTRUMENT_RECORD'}
+    if not rows:
+        return result
+    state,kind,tick,last_seen = rows[0]
+    from decimal import Decimal
+    if (type(state) is not str or state not in ('Trading', 'Retired') or
+            (kind is not None and type(kind) is not str) or
+            (tick is not None and
+             (type(tick) is not Decimal or not tick.is_finite() or tick <= 0))):
+        raise ValueError('invalid Grid instrument record')
+    result.update(status='INFORMATIONAL', recorded_status=state,
+                  contract_type=kind, tick_size=str(tick) if tick is not None else None,
+                  last_seen_utc=_utc_text(last_seen),
+                  reason='REGISTRY_RECORD_NOT_SOURCE_READINESS')
+    return result
+
+
 def backfill_state(symbol):
     """Informational Grid queue state, never evidence of complete exchange history.
 
@@ -60,7 +102,6 @@ def backfill_state(symbol):
               'reason': 'NO_GRID_BACKFILL_RECORD'}
     if not rows:
         return result
-    from datetime import datetime,timezone
     state,attempts,cursor,oldest,newest = rows[0]
     if (type(state) is not str or state not in
             ('queued','retry','running','done','failed','retired') or
@@ -68,15 +109,9 @@ def backfill_state(symbol):
             (cursor is not None and
              (type(cursor) is not int or not -1 <= cursor <= 9223372036854775807))):
         raise ValueError('invalid Grid backfill state')
-    def utc(value):
-        if value is None:
-            return None
-        if type(value) is not datetime or value.tzinfo is None:
-            raise ValueError('invalid Grid timestamp')
-        return value.astimezone(timezone.utc).isoformat().replace('+00:00','Z')
     result.update(status='INFORMATIONAL', state=state, attempts=attempts,
-                  next_end_ms=cursor, oldest_loaded_utc=utc(oldest),
-                  newest_loaded_utc=utc(newest),
+                  next_end_ms=cursor, oldest_loaded_utc=_utc_text(oldest),
+                  newest_loaded_utc=_utc_text(newest),
                   reason='QUEUE_STATE_NOT_HISTORY_COMPLETENESS_PROOF')
     return result
 
@@ -104,6 +139,10 @@ def qualified_snapshot(route, symbol, limit, before_ms=None):
         except Exception:
             pass  # Never return exception text, DSNs or credentials.
         return result
+    if route == '/internal/v1/instrument-state':
+        if before_ms is not None:
+            raise ValueError('instrument state does not accept a cursor')
+        return instrument_state(symbol)
     if route == '/internal/v1/backfill-state':
         if before_ms is not None:
             raise ValueError('backfill state does not accept a cursor')
@@ -191,7 +230,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('query too large')
             u=urlsplit(self.path)
             q=parse_qs(u.query,keep_blank_values=True,max_num_fields=3,strict_parsing=True)
-            if u.path == '/internal/v1/backfill-state' and set(q) != {'symbol'}:
+            if u.path in ('/internal/v1/backfill-state', '/internal/v1/instrument-state') and set(q) != {'symbol'}:
                 raise ValueError('explicit symbol required for Grid backfill state')
             if any(k not in ('symbol','limit','before_ms') or len(v)!=1 for k,v in q.items()):
                 raise ValueError('invalid query parameters')
