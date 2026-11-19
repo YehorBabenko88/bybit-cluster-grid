@@ -372,3 +372,48 @@ class LeafTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             complete(self.market_backfill.fetch_open_interest_page(
                 "https://example.invalid", "BTCUSDT"))
+
+    def test_pinned_meta_parse_oi_same_input_parity(self):
+        """Use exact source from Meta #81; no Meta client, PG or runtime startup."""
+        import hashlib
+        import json
+        import os
+        import subprocess
+        root = os.environ.get("META_OI_SOURCE_DIR")
+        if not root:
+            self.skipTest("cross-repo Meta source checkout required")
+        source_root = pathlib.Path(root)
+        source_path = pathlib.Path("src/meta_analyse/open_interest.py")
+        expected_head = "b49505da42a274f7232fabe5d847c91f7218a0ce"
+        expected_blob = "e63c3480a20b5c9f0487d89e444955839ec8245e"
+        def git(*args):
+            return subprocess.check_output(
+                ["git", "-C", str(source_root), *args], stderr=subprocess.DEVNULL).strip()
+        self.assertEqual(git("rev-parse", "HEAD").decode(), expected_head)
+        self.assertEqual(git("rev-parse", "HEAD:" + source_path.as_posix()).decode(),
+                         expected_blob)
+        original = git("show", "HEAD:" + source_path.as_posix())
+        worktree = (source_root / source_path).read_bytes()
+        self.assertEqual(hashlib.sha256(worktree.replace(b"\\r\\n", b"\\n")).hexdigest(),
+                         hashlib.sha256(original).hexdigest())
+        alias = "_meta_oi_pinned_source_for_grid_parity"
+        spec = importlib.util.spec_from_file_location(alias, source_root / source_path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[alias] = module
+        try:
+            spec.loader.exec_module(module)
+            source_rows = [
+                {"timestamp":"60000","openInterest":"1234567890123.12345678901234567890"},
+                {"timestamp":"30000","openInterest":"0.00000001"},
+                {"timestamp":"45000","openInterest":"0"},
+            ]
+            reference = module.parse_oi("BTCUSDT", source_rows)
+            self.response = Response(body=json.dumps(
+                {"retCode":0,"result":{"list":source_rows}}).encode("utf-8"))
+            actual = complete(self.market_backfill.fetch_open_interest_page(
+                "https://example.invalid", "BTCUSDT", start_ms=0, end_ms=60000, limit=3))
+            self.assertEqual(actual, [
+                {"symbol":p.symbol,"timestamp_ms":p.timestamp_ms,
+                 "open_interest":str(p.open_interest)} for p in reference])
+        finally:
+            sys.modules.pop(alias, None)
