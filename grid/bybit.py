@@ -134,6 +134,14 @@ async def linear_symbols(base_url: str, *, max_attempts: int = 8):
                 if exc.status not in _RETRYABLE_STATUS or attempt==max_attempts:
                     raise
                 delay=min(30.0,2**(attempt-1))
+                raw_hint=exc.headers.get("Retry-After") if exc.headers else None
+                try:
+                    hinted=float(raw_hint) if raw_hint is not None else 0.0
+                except (TypeError,ValueError,OverflowError):
+                    hinted=0.0
+                if not 0.0<=hinted<=30.0:
+                    hinted=0.0
+                delay=max(delay,hinted)
             except (aiohttp.ClientError,asyncio.TimeoutError) as exc:
                 if attempt==max_attempts:
                     raise
