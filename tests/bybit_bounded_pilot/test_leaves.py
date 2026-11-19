@@ -165,3 +165,44 @@ class LeafTests(unittest.TestCase):
             with self.assertRaises((ValueError, TypeError)):
                 complete(self.bybit.fetch_linear_instruments_page("https://example.invalid", limit=limit))
         self.assertEqual(self.sessions, [])
+
+    def test_backfill_without_start_uses_the_same_bounded_reader(self):
+        self.response.body = b'{"retCode":0,"result":{"list":[["0","1","2","1","2","3"]]}}'
+        rows = complete(self.market_backfill.fetch_kline_page(
+            "https://example.invalid", "BTCUSDT", end_ms=0, limit=1))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(self.requests[0][1]["params"],
+                         {"category":"linear","symbol":"BTCUSDT","interval":"1","limit":1,"end":0})
+        self.assertEqual(self.requests[0][0], "https://example.invalid/v5/market/kline")
+        self.assertFalse(self.requests[0][1]["allow_redirects"])
+        self.assertFalse(self.sessions[0]["trust_env"])
+        self.assertFalse(self.sessions[0]["auto_decompress"])
+        self.assertGreater(len(self.response.reads), 0)
+
+    def test_backfill_without_start_rejects_invalid_inputs_before_io(self):
+        cases = [
+            ("http://example.invalid", "BTCUSDT", "1", None, 1, None),
+            ("https://example.invalid/path", "BTCUSDT", "1", None, 1, None),
+            ("https://example.invalid", "../BTC", "1", None, 1, None),
+            ("https://example.invalid", "BTCUSDT", "1", True, 1, None),
+            ("https://example.invalid", "BTCUSDT", "1", -1, 1, None),
+            ("https://example.invalid", "BTCUSDT", "1", None, True, None),
+            ("https://example.invalid", "BTCUSDT", "1", None, 1001, None),
+            ("https://example.invalid", "BTCUSDT", "1", None, 1, 0),
+        ]
+        for url, symbol, interval, end, limit, start in cases:
+            with self.subTest(url=url, symbol=symbol, end=end, limit=limit, start=start):
+                with self.assertRaises(ValueError):
+                    complete(self.market_backfill.fetch_kline_page(
+                        url, symbol, interval, end, limit, start_ms=start))
+        self.assertEqual(self.sessions, [])
+
+    def test_backfill_without_start_rejects_oversized_or_exchange_error(self):
+        self.response.body = b"x" * (1048576 + 1)
+        with self.assertRaises(ValueError):
+            complete(self.market_backfill.fetch_kline_page("https://example.invalid", "BTCUSDT"))
+        self.assertTrue(self.response.reads)
+        self.response = Response(body=b'{"retCode":10006,"result":{"list":[]}}')
+        with self.assertRaises(ValueError):
+            complete(self.market_backfill.fetch_kline_page("https://example.invalid", "BTCUSDT"))
+        self.assertEqual(len(self.requests), 2)
