@@ -441,3 +441,87 @@ class LeafTests(unittest.TestCase):
             with self.subTest(payload=payload), self.assertRaises((ValueError,RuntimeError)):
                 complete(self.bybit.linear_symbols("https://example.invalid", max_attempts=1))
         self.assertEqual(len(self.requests), 3)
+
+    def test_strattester_funding_page_preserves_negative_rate(self):
+        self.response = Response(body=b'{"retCode":0,"result":{"list":['
+            b'{"symbol":"BTCUSDT","fundingRateTimestamp":"2000","fundingRate":"-0.0000012300"},'
+            b'{"symbol":"BTCUSDT","fundingRateTimestamp":"1000","fundingRate":"0.00000000"}]}}')
+        rows = complete(self.market_backfill.fetch_funding_page(
+            "https://example.invalid","BTCUSDT",start_ms=0,end_ms=2000,limit=2))
+        self.assertEqual(rows, [
+            {"symbol":"BTCUSDT","timestamp_ms":1000,"funding_rate":"0E-8"},
+            {"symbol":"BTCUSDT","timestamp_ms":2000,"funding_rate":"-0.0000012300"},
+        ])
+        self.assertEqual(self.requests[0][0],
+                         "https://example.invalid/v5/market/funding/history")
+        self.assertEqual(self.requests[0][1]["params"],
+                         {"category":"linear","symbol":"BTCUSDT","limit":2,
+                          "startTime":0,"endTime":2000})
+        self.assertFalse(self.requests[0][1]["allow_redirects"])
+        self.assertFalse(self.sessions[0]["trust_env"])
+        self.assertFalse(self.sessions[0]["auto_decompress"])
+        self.assertEqual(self.sessions[0]["headers"]["Accept-Encoding"],"identity")
+
+    def test_strattester_funding_invalid_bounds_fail_before_io(self):
+        for options in ({"start_ms":True},{"end_ms":-1},
+                        {"start_ms":2,"end_ms":1},{"limit":False},
+                        {"limit":0},{"limit":201},{"symbol":"../BTC"},
+                        {"base_url":"http://example.invalid"}):
+            with self.subTest(options=options),self.assertRaises(ValueError):
+                kwargs=dict(options)
+                url=kwargs.pop("base_url","https://example.invalid")
+                symbol=kwargs.pop("symbol","BTCUSDT")
+                complete(self.market_backfill.fetch_funding_page(url,symbol,**kwargs))
+        self.assertEqual(self.sessions, [])
+
+    def test_strattester_funding_malformed_or_wrong_instrument_rejected(self):
+        rows=[
+            {"symbol":"ETHUSDT","fundingRateTimestamp":"1000","fundingRate":"0.1"},
+            {"symbol":"BTCUSDT","fundingRateTimestamp":True,"fundingRate":"0.1"},
+            {"symbol":"BTCUSDT","fundingRateTimestamp":"0","fundingRate":"0.1"},
+            {"symbol":"BTCUSDT","fundingRateTimestamp":"1000","fundingRate":"NaN"},
+            {"symbol":"BTCUSDT","fundingRateTimestamp":"1000","fundingRate":"Infinity"},
+            {"symbol":"BTCUSDT","fundingRateTimestamp":"1000","fundingRate":0.1},
+            {"symbol":"BTCUSDT","fundingRateTimestamp":"1000","fundingRate":"bad"},
+        ]
+        import json
+        for row in rows:
+            self.response=Response(body=json.dumps(
+                {"retCode":0,"result":{"list":[row]}}).encode())
+            with self.subTest(row=row),self.assertRaises(ValueError):
+                complete(self.market_backfill.fetch_funding_page(
+                    "https://example.invalid","BTCUSDT"))
+        both=[{"symbol":"BTCUSDT","fundingRateTimestamp":"1000","fundingRate":"0.1"}]*2
+        self.response=Response(body=json.dumps(
+            {"retCode":0,"result":{"list":both}}).encode())
+        with self.assertRaises(ValueError):
+            complete(self.market_backfill.fetch_funding_page(
+                "https://example.invalid","BTCUSDT"))
+
+    def test_strattester_funding_size_and_provider_refusal(self):
+        self.response=Response(body=b'{"retCode":0,"result":{"list":['
+            b'{"symbol":"BTCUSDT","fundingRateTimestamp":"1000","fundingRate":"0.1"},'
+            b'{"symbol":"BTCUSDT","fundingRateTimestamp":"2000","fundingRate":"0.2"}]}}')
+        with self.assertRaises(ValueError):
+            complete(self.market_backfill.fetch_funding_page(
+                "https://example.invalid","BTCUSDT",limit=1))
+        self.response=Response(body=b'{"retCode":10006,"result":{"list":[]}}')
+        with self.assertRaises(ValueError):
+            complete(self.market_backfill.fetch_funding_page(
+                "https://example.invalid","BTCUSDT"))
+        self.response=Response(body=b"x"*(1048576+1))
+        with self.assertRaises(ValueError):
+            complete(self.market_backfill.fetch_funding_page(
+                "https://example.invalid","BTCUSDT"))
+
+    def test_strattester_funding_rejects_outside_requested_range(self):
+        for timestamp in ("999","2001"):
+            self.response=Response(body=(
+                '{"retCode":0,"result":{"list":['
+                '{"symbol":"BTCUSDT","fundingRateTimestamp":"' + timestamp +
+                '","fundingRate":"-0.00001"}]}}').encode())
+            with self.subTest(timestamp=timestamp),self.assertRaisesRegex(
+                    ValueError,"outside requested range"):
+                complete(self.market_backfill.fetch_funding_page(
+                    "https://example.invalid","BTCUSDT",
+                    start_ms=1000,end_ms=2000,limit=1))
