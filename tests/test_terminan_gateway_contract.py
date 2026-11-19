@@ -376,6 +376,28 @@ def test_pinned_snapshot_post_http_requires_valid_explicit_small_json(monkeypatc
         assert response['status']=='UNAVAILABLE'
 
 
+
+def test_pinned_history_rejects_query_in_post_url(monkeypatch):
+    import io, json
+    from types import SimpleNamespace
+    monkeypatch.setattr(gateway,'pinned_history',
+                        lambda *args:pytest.fail('query must fail before snapshot dispatch'))
+    body=b'{}'
+    handler=object.__new__(gateway.Handler)
+    handler.path='/internal/v1/history/snapshots/read?selection=other'
+    handler.headers={'Content-Length':str(len(body)),'Content-Type':'application/json'}
+    handler.rfile=io.BytesIO(body)
+    handler.wfile=io.BytesIO()
+    handler.connection=SimpleNamespace(settimeout=lambda _:None)
+    statuses=[]
+    handler.send_response=lambda code:statuses.append(code)
+    handler.send_header=lambda *args:None
+    handler.end_headers=lambda:None
+    handler.do_POST()
+    assert statuses==[400]
+    assert json.loads(handler.wfile.getvalue())['reason']=='INVALID_SNAPSHOT_REQUEST'
+
+
 def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch):
     import io,json
     from types import SimpleNamespace
