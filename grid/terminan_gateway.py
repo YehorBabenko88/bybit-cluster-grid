@@ -158,15 +158,35 @@ def _snapshot_catalog():
     return catalog
 
 
+def _history_connection():
+    import psycopg
+    return psycopg.connect(os.environ['TERMINAN_GRID_DSN'], connect_timeout=3,
+                           options='-c default_transaction_read_only=on -c statement_timeout=3000')
+
+
+def _pinned_response(version, envelope):
+    return {'schema': f'grid.history.snapshot.response.{version}',
+            'status': 'PINNED_HISTORICAL_SOURCE_UNATTESTED',
+            'read_only': True, 'source_authentication': 'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED',
+            'snapshot': envelope, 'execution_authority': False, 'trading_authorized': False}
+
+
 def pinned_history(selection):
     """Bounded, immutable historical read; source authenticity is EXTERNAL.
 
     Grid supplies custody and digest checks; Unified supplies authentication
     and the independently provisioned trust catalog. No live readiness claim.
     """
-    from .history_snapshot import TIMEFRAME_MINUTES, rollup_snapshot, select_snapshot
+    from .history_snapshot import (
+        TIMEFRAME_MINUTES, plan_multipin, read_multipin_rollup, rollup_snapshot, select_snapshot,
+    )
 
     timeframe = None
+    if type(selection) is dict and selection.get('schema') == 'grid.history.selection.v3':
+        catalog = _snapshot_catalog()
+        pages = plan_multipin(selection, catalog)
+        with _history_connection() as conn:
+            return _pinned_response('v3', read_multipin_rollup(conn, selection, pages, catalog))
     if type(selection) is dict and selection.get('schema') == 'grid.history.selection.v2':
         timeframe = selection.get('timeframe')
         if type(timeframe) is not str or timeframe not in TIMEFRAME_MINUTES:
@@ -201,16 +221,9 @@ def pinned_history(selection):
         trust = entry.get('trust')
         if type(trust) is not dict or trust.get('evidence_class') != 'HISTORICAL':
             raise ValueError('pinned historical source required')
-    import psycopg
-    with psycopg.connect(os.environ['TERMINAN_GRID_DSN'],connect_timeout=3,
-                         options='-c default_transaction_read_only=on -c statement_timeout=3000') as conn:
+    with _history_connection() as conn:
         envelope=select_snapshot(conn,selection,catalog)
-    return {'schema':('grid.history.snapshot.response.v2' if timeframe else
-                      'grid.history.snapshot.response.v1'),
-            'status':'PINNED_HISTORICAL_SOURCE_UNATTESTED',
-            'read_only':True,'source_authentication':'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED',
-            'snapshot':rollup_snapshot(envelope, timeframe) if timeframe else envelope,
-            'execution_authority':False,'trading_authorized':False}
+    return _pinned_response('v2', rollup_snapshot(envelope, timeframe)) if timeframe else _pinned_response('v1', envelope)
 
 
 def qualified_snapshot(route, symbol, limit, before_ms=None):
@@ -227,6 +240,7 @@ def qualified_snapshot(route, symbol, limit, before_ms=None):
                                   'footprint': 'UNAVAILABLE', 'live_l2': False,
                                   'immutable_market_snapshots_v1_1': True,
                                   'pinned_historical_rollups_v2': ['5m', '15m', '1h'],
+                                  'pinned_historical_rollups_v3': ['1h', '4h', '1d', '1w'],
                                   'research_handoff_validation_v1_1': True,
                                   'public_trades': 'UNAVAILABLE',
                                   'orderbook_snapshots': 'UNAVAILABLE',
@@ -322,20 +336,27 @@ class Handler(BaseHTTPRequestHandler):
         # Request lines may contain tokens; never log caller-controlled paths.
         return
 
-    def handle(self):
-        # One absolute deadline covers headers and body, including slow drips.
+    def _arm_deadline(self, seconds):
+        if self._deadline is not None:
+            self._deadline.cancel()
+            self._deadline.join()
         def expire():
             try:self.connection.shutdown(socket.SHUT_RDWR)
             except OSError:pass
-        timer=threading.Timer(3,expire)
-        timer.daemon=True
+        self._deadline = threading.Timer(seconds, expire)
+        self._deadline.daemon = True
+        self._deadline.start()
+
+    def handle(self):
+        # One absolute ingress deadline covers headers and slow body drips.
+        self._deadline = None
         self.connection.settimeout(3)
-        timer.start()
+        self._arm_deadline(3)
         try:
             super().handle()
         finally:
-            timer.cancel()
-            timer.join()
+            self._deadline.cancel()
+            self._deadline.join()
 
     def do_POST(self):
         route=urlsplit(self.path).path
@@ -367,6 +388,10 @@ class Handler(BaseHTTPRequestHandler):
                     return out
                 selection=json.loads(body,object_pairs_hook=unique,
                                      parse_constant=lambda _: (_ for _ in ()).throw(ValueError('nonfinite')))
+                if (type(selection) is dict and selection.get('schema') == 'grid.history.selection.v3'
+                        and getattr(self, '_deadline', None) is not None):
+                    # Up to eight bounded statements after complete bounded ingress.
+                    self._arm_deadline(40)
                 result=pinned_history(selection)
             else:
                 from .research_handoff import accept_handoff
