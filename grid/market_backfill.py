@@ -68,6 +68,66 @@ async def fetch_kline_page(base_url,symbol,interval="1",end_ms=None,limit=1000,*
             raw=await _read_bounded_http_response(r)
     return _bounded_result(raw)["list"]
 
+async def fetch_open_interest_page(base_url,symbol,interval="5min",start_ms=None,
+                                   end_ms=None,limit=200):
+    """One bounded public OI page using Grid's existing Bybit transport.
+
+    Meta Analyse previously owned an independent OI reader and Decimal parser.
+    This is read-only retrieval; page data is not asserted complete or live,
+    and cannot directly write the candle or derivatives tables.
+    """
+    from decimal import Decimal,InvalidOperation
+    from .bybit import _bounded_int,_https_origin,_read_bounded_http_response,_bounded_result
+
+    origin=_https_origin(base_url)
+    if type(symbol) is not str or not 1<=len(symbol)<=64 or not symbol.isascii() or not symbol.isalnum():
+        raise ValueError("invalid OI symbol")
+    if type(interval) is not str or interval not in ("5min","15min","30min","1h","4h","1d"):
+        raise ValueError("unsupported OI interval")
+    _bounded_int(limit,"open interest page limit",1,200)
+    if start_ms is not None:
+        _bounded_int(start_ms,"OI start_ms",0,2**63-1)
+    if end_ms is not None:
+        _bounded_int(end_ms,"OI end_ms",0,2**63-1)
+    if start_ms is not None and end_ms is not None and end_ms<start_ms:
+        raise ValueError("invalid OI time range")
+    params={"category":"linear","symbol":symbol,"intervalTime":interval,"limit":limit}
+    if start_ms is not None:
+        params["startTime"]=start_ms
+    if end_ms is not None:
+        params["endTime"]=end_ms
+    timeout=aiohttp.ClientTimeout(total=30,connect=10,sock_read=30)
+    async with aiohttp.ClientSession(timeout=timeout,trust_env=False,auto_decompress=False,
+                                    cookie_jar=aiohttp.DummyCookieJar(),
+                                    headers={"Accept-Encoding":"identity"}) as s:
+        async with s.get(origin+"/v5/market/open-interest",params=params,allow_redirects=False) as r:
+            raw=await _read_bounded_http_response(r)
+    rows=_bounded_result(raw)["list"]
+    if len(rows)>limit:
+        raise ValueError("open interest page exceeds request limit")
+    parsed=[]
+    for row in rows:
+        if type(row) is not dict:
+            raise ValueError("invalid OI row")
+        ts=row.get("timestamp")
+        if type(ts) is str and 1<=len(ts)<=19 and ts.isascii() and ts.isdecimal():
+            ts=int(ts)
+        if type(ts) is not int or not 0<ts<=2**63-1:
+            raise ValueError("invalid OI timestamp")
+        value=row.get("openInterest")
+        if type(value) is not str or not 1<=len(value)<=80:
+            raise ValueError("invalid OI numeric representation")
+        try:
+            decimal=Decimal(value)
+        except InvalidOperation as exc:
+            raise ValueError("invalid OI decimal") from exc
+        if not decimal.is_finite() or decimal<0:
+            raise ValueError("invalid OI quantity")
+        parsed.append({"symbol":symbol,"timestamp_ms":ts,"open_interest":str(decimal)})
+    parsed.sort(key=lambda x:x["timestamp_ms"])
+    return parsed
+
+
 async def store_kline_page(pool,symbol,rows):
     if not rows:return None
     from datetime import datetime,timezone
