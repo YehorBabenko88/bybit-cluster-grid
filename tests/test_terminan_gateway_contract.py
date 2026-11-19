@@ -261,3 +261,143 @@ def test_unqualified_raw_dataset_routes_validate_before_io(monkeypatch, symbol, 
     monkeypatch.setattr(gateway, 'query', lambda *args: pytest.fail('invalid request must not query DB'))
     with pytest.raises(ValueError):
         gateway.snapshot('/internal/v1/trades', symbol, limit, cursor)
+
+
+def test_pinned_history_reuses_immutable_selection_without_new_store(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from test_history_snapshot import snapshot_fixture, Connection
+    rows, selection, catalog, expected = snapshot_fixture()
+    class ReadOnly(Connection):
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+    conn=ReadOnly(rows)
+    observations=[]
+    def connect(dsn, **kwargs):
+        observations.append((dsn,kwargs))
+        return conn
+    monkeypatch.setenv('TERMINAN_GRID_DSN','test-only-readonly')
+    monkeypatch.setattr(gateway,'_snapshot_catalog',lambda:catalog)
+    monkeypatch.setitem(sys.modules,'psycopg',SimpleNamespace(connect=connect))
+    result=gateway.pinned_history(selection)
+    assert result['schema']=='grid.history.snapshot.response.v1'
+    assert result['read_only'] is True
+    assert result['source_authentication']=='EXTERNAL_NOT_INDEPENDENTLY_VERIFIED'
+    assert result['execution_authority'] is False
+    assert result['trading_authorized'] is False
+    assert result['snapshot']==expected
+    assert len(observations)==1
+    assert observations[0][1]['options'].find('default_transaction_read_only=on')>=0
+    assert 'REPEATABLE READ READ ONLY' in conn.calls[0][0]
+    assert any('fingerprint = ANY(%s)' in sql for sql,_ in conn.calls)
+
+
+def test_pinned_history_requires_independent_catalog_before_db(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from test_history_snapshot import snapshot_fixture
+    rows, selection, catalog, expected = snapshot_fixture()
+    monkeypatch.delenv('GRID_PINNED_HISTORY_CATALOG',raising=False)
+    monkeypatch.setitem(sys.modules,'psycopg',SimpleNamespace(
+        connect=lambda *a,**k:pytest.fail('no catalog means no database connection')))
+    with pytest.raises(RuntimeError):
+        gateway.pinned_history(selection)
+
+
+def test_pinned_history_rejects_unprovisioned_or_changed_selection_without_sql(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from test_history_snapshot import snapshot_fixture
+    rows, selection, catalog, expected=snapshot_fixture()
+    monkeypatch.setattr(gateway,'_snapshot_catalog',lambda:catalog)
+    monkeypatch.setitem(sys.modules,'psycopg',SimpleNamespace(
+        connect=lambda *a,**k:pytest.fail('invalid snapshot must not touch database')))
+    for change in ({'snapshot_id':'f'*64},{'symbol':'ETHUSDT'},
+                   {'start_ms':True},{'end_ms':120000001},
+                   {'schema':'untrusted'}, {'unexpected':1}):
+        req=dict(selection)
+        req.update(change)
+        with pytest.raises(ValueError):
+            gateway.pinned_history(req)
+
+
+def test_pinned_history_catalog_rejects_symlink_world_writable_and_duplicate_keys(monkeypatch,tmp_path):
+    import os
+    from test_history_snapshot import snapshot_fixture
+    rows, selection, catalog, expected=snapshot_fixture()
+    p=tmp_path/'trusted.json'
+    monkeypatch.setenv('GRID_PINNED_HISTORY_CATALOG',str(p))
+    p.write_text('{"x":1,"x":2}',encoding='utf-8')
+    p.chmod(0o600)
+    with pytest.raises(ValueError,match='duplicate'):
+        gateway._snapshot_catalog()
+    p.write_text('{"x":1}',encoding='utf-8')
+    if os.name!='nt':
+        p.chmod(0o666)
+        with pytest.raises(RuntimeError):
+            gateway._snapshot_catalog()
+        p.chmod(0o600)
+    alias=tmp_path/'alias.json'
+    try:alias.symlink_to(p)
+    except (OSError,NotImplementedError):
+        return
+    monkeypatch.setenv('GRID_PINNED_HISTORY_CATALOG',str(alias))
+    with pytest.raises(RuntimeError):
+        gateway._snapshot_catalog()
+
+
+def test_pinned_snapshot_post_http_requires_valid_explicit_small_json(monkeypatch):
+    import io,json
+    from types import SimpleNamespace
+    def request(path,body,headers):
+        handler=object.__new__(gateway.Handler)
+        handler.path=path
+        handler.headers=headers
+        handler.rfile=io.BytesIO(body)
+        handler.wfile=io.BytesIO()
+        handler.connection=SimpleNamespace(settimeout=lambda _:None)
+        statuses=[]
+        handler.send_response=lambda status:statuses.append(status)
+        handler.send_header=lambda *args:None
+        handler.end_headers=lambda:None
+        handler.send_error=lambda status:statuses.append(status)
+        handler.do_POST()
+        return statuses,json.loads(handler.wfile.getvalue() or b'{}')
+    monkeypatch.setattr(gateway,'pinned_history',lambda *a:pytest.fail('invalid request reached trust path'))
+    cases=[
+        (b'{}',{'Content-Length':'2','Content-Type':'text/plain'}),
+        (b'{}',{'Content-Length':'0','Content-Type':'application/json'}),
+        (b'{"a":1,"a":2}',{'Content-Length':'13','Content-Type':'application/json'}),
+        (b'{}',{'Content-Length':'2','Content-Type':'application/json','Transfer-Encoding':'chunked'}),
+    ]
+    for payload, headers in cases:
+        statuses,response=request('/internal/v1/history/snapshots/read',payload,headers)
+        assert statuses==[400]
+        assert response['status']=='UNAVAILABLE'
+
+
+def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch):
+    import io,json
+    from types import SimpleNamespace
+    from test_history_snapshot import snapshot_fixture
+    rows, selection, catalog, expected=snapshot_fixture()
+    observed=[]
+    def selected(req):
+        observed.append(req)
+        return {'status':'PINNED_HISTORICAL_SOURCE_UNATTESTED',
+                'snapshot':expected,'execution_authority':False}
+    monkeypatch.setattr(gateway,'pinned_history',selected)
+    payload=json.dumps(selection).encode('utf-8')
+    handler=object.__new__(gateway.Handler)
+    handler.path='/internal/v1/history/snapshots/read'
+    handler.headers={'Content-Length':str(len(payload)),'Content-Type':'application/json'}
+    handler.rfile=io.BytesIO(payload);handler.wfile=io.BytesIO()
+    handler.connection=SimpleNamespace(settimeout=lambda _:None)
+    statuses=[]
+    handler.send_response=lambda status:statuses.append(status)
+    handler.send_header=lambda *args:None
+    handler.end_headers=lambda:None
+    handler.do_POST()
+    assert statuses==[200]
+    assert observed==[selection]
+    assert json.loads(handler.wfile.getvalue())['snapshot']==expected
