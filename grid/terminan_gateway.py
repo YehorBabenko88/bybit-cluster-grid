@@ -128,7 +128,22 @@ def qualified_snapshot(route, symbol, limit, before_ms=None):
         result['capabilities'] = {'candles': 'UNAVAILABLE',
                                   'footprint': 'UNAVAILABLE', 'live_l2': False,
                                   'immutable_market_snapshots_v1_1': True,
-                                  'research_handoff_validation_v1_1': True}
+                                  'research_handoff_validation_v1_1': True,
+                                  'public_trades': 'UNAVAILABLE',
+                                  'orderbook_snapshots': 'UNAVAILABLE',
+                                  'open_interest': 'UNAVAILABLE',
+                                  'funding_rate': 'UNAVAILABLE',
+                                  'market_data_coverage': 'NOT_ATTESTED',
+                                  'replay_cursor': 'NOT_ATTESTED'}
+        result['meta_absorption'] = {
+            'schema': 'grid.meta.dataset-capabilities.v1',
+            'exchange_owner': 'Grid',
+            'database_writer_owner': 'Grid',
+            'history_provenance': 'NOT_ATTESTED',
+            'consumer_cutover': False,
+            'execution_authority': False,
+            'trading_authorized': False,
+        }
         return result
     if route == '/internal/v1/health':
         result['database'] = 'UNAVAILABLE'
