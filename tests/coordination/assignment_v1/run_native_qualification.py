@@ -28,8 +28,13 @@ def main():
     actual=list(ids(suite));expected=json.loads((script.parent/'NATIVE-EXPECTED-TESTS.json').read_bytes())
     assert len(actual)==len(set(actual))==len(expected)==len(set(expected))==25
     assert sorted(actual)==sorted(expected)
-    r=unittest.TextTestRunner(verbosity=2).run(suite)
+    executed=[]
+    class RecordedResult(unittest.TextTestResult):
+        def stopTest(self,test):
+            super().stopTest(test)
+            executed.append(test.id())
+    r=unittest.TextTestRunner(verbosity=2,resultclass=RecordedResult).run(suite)
     assert guard.inventory(root)==before and guard.inventory(support)==support_before
-    assert r.wasSuccessful() and r.testsRun==25 and not r.skipped
-    print(json.dumps(dict(result='PASS',scope='CONSISTENT_NATIVE_RAW_READ_CAS_FAILOVER_RESTART_ONLY_NOT_ISSUED_GRANT',head=a.expected_head,tree=git(root,'rev-parse','HEAD^{tree}').decode().strip(),support_head='1f6b0b5c231853607f5bec780f1544cd32bf577d',raw_files=len(before),support_raw_files=len(support_before),tests=25,skips=0,exact_unique_ids=True,module_sha256=before['grid/authority_assignment_v1.py'])))
+    assert r.wasSuccessful() and r.testsRun==25 and not r.skipped and sorted(executed)==sorted(expected)
+    print(json.dumps(dict(result='PASS',scope='CONSISTENT_NATIVE_RAW_READ_CAS_FAILOVER_RESTART_ONLY_NOT_ISSUED_GRANT',head=a.expected_head,tree=git(root,'rev-parse','HEAD^{tree}').decode().strip(),support_head='1f6b0b5c231853607f5bec780f1544cd32bf577d',raw_files=len(before),support_raw_files=len(support_before),tests=25,skips=0,exact_unique_ids=True,executed_test_ids=sorted(executed),platform=sys.platform,module_sha256=before['grid/authority_assignment_v1.py'])))
 if __name__=='__main__':main()

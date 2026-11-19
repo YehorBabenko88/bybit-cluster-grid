@@ -26,13 +26,19 @@ def main():
     actual=list(ids(suite));expected=['test_proxy.ProxyIsolationTests.test_actual_owned_client_ignores_captured_proxy_and_reads_real_three_voters',
         'test_proxy.ProxyIsolationTests.test_injected_client_remains_unowned_and_not_closed_by_authority']
     assert len(actual)==len(set(actual))==2 and sorted(actual)==sorted(expected)
-    result=unittest.TextTestRunner(verbosity=2).run(suite)
+    executed=[]
+    class RecordedResult(unittest.TextTestResult):
+        def stopTest(self,test):
+            super().stopTest(test)
+            executed.append(test.id())
+    result=unittest.TextTestRunner(verbosity=2,resultclass=RecordedResult).run(suite)
     assert guard.inventory(root)==before and guard.inventory(support)==support_before
     print(json.dumps(dict(scope='PROXY_PRIMARY_AFTER',head=args.expected_head,source_prepost='PASS',tests_run=result.testsRun,
         failures=len(result.failures),errors=len(result.errors),skips=len(result.skipped))),flush=True)
-    assert result.wasSuccessful() and result.testsRun==2 and not result.skipped
+    assert result.wasSuccessful() and result.testsRun==2 and not result.skipped and sorted(executed)==sorted(expected)
     print(json.dumps(dict(scope='ACTUAL_OWNED_CLIENT_PROXY_FREE_CONSUL_READ_ONLY_NOT_REGISTRATION',result='PASS',head=args.expected_head,
         tree=git(root,'rev-parse','HEAD^{tree}').decode().strip(),grid_raw_files=len(before),support_raw_files=len(support_before),
-        tests=2,skips=0,exact_unique_ids=True,core_sha256=before['grid/coordination.py'],native_registration_writes=0,job_effect_permission=False)))
+        tests=2,skips=0,exact_unique_ids=True,executed_test_ids=sorted(executed),platform=sys.platform,
+        core_sha256=before['grid/coordination.py'],native_registration_writes=0,job_effect_permission=False)))
 
 if __name__=='__main__':main()

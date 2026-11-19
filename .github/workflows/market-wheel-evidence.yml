@@ -29,7 +29,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip wheel --no-deps --wheel-dir dist .
-      - run: python -m pip install --no-index --no-deps --find-links dist unified-grid-market-data
+      - shell: bash
+        run: python -m pip install dist/*.whl
       - run: python -I scripts/check_market_wheel.py --head "${{ env.EXPECTED_HEAD }}" --wheel-dir dist --output grid-wheel.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
