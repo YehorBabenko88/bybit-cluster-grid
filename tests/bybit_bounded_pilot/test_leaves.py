@@ -206,3 +206,30 @@ class LeafTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             complete(self.market_backfill.fetch_kline_page("https://example.invalid", "BTCUSDT"))
         self.assertEqual(len(self.requests), 2)
+
+    def test_unique_strattester_price_series_use_existing_grid_reader(self):
+        # Strattester had separate public Bybit GET methods for these URLs.
+        # Grid must use one bounded session and never manufacture OHLCV writes.
+        routes = {
+            "mark_price":"mark-price-kline",
+            "index_price":"index-price-kline",
+            "premium_index":"premium-index-price-kline",
+        }
+        for dataset, route in routes.items():
+            self.response = Response(body=b'{"retCode":0,"result":{"list":[["0","1","2","1","2"]]}}')
+            result = complete(self.market_backfill.fetch_kline_page(
+                "https://example.invalid", "BTCUSDT", start_ms=0, end_ms=60000,
+                limit=2, dataset=dataset))
+            self.assertEqual(len(result), 1)
+            self.assertEqual(self.requests[-1][0], "https://example.invalid/v5/market/" + route)
+            self.assertEqual(self.requests[-1][1]["params"]["start"], 0)
+            self.assertFalse(self.requests[-1][1]["allow_redirects"])
+            self.assertFalse(self.sessions[-1]["trust_env"])
+        self.assertEqual(len(self.requests), 3)
+
+    def test_price_series_rejects_unknown_dataset_before_io(self):
+        for dataset in ("funding", "open_interest", "", True, None, "candles/../../order"):
+            with self.subTest(dataset=dataset), self.assertRaises(ValueError):
+                complete(self.market_backfill.fetch_kline_page(
+                    "https://example.invalid", "BTCUSDT", dataset=dataset))
+        self.assertEqual(self.sessions, [])
