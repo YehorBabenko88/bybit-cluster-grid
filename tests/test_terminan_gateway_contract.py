@@ -152,3 +152,65 @@ def test_backfill_http_requires_single_explicit_instrument(monkeypatch, path):
     handler.do_GET()
     assert statuses == [400]
     assert json.loads(handler.wfile.getvalue())['error'] == 'INVALID_QUERY_OR_ROUTE'
+
+
+def test_grid_instrument_registry_read_only_not_live(monkeypatch):
+    from datetime import datetime, timezone
+    from decimal import Decimal
+    calls = []
+    def reader(sql, args):
+        calls.append((sql, args))
+        return [('Trading', 'LinearPerpetual', Decimal('0.00010000'),
+                 datetime(2026, 11, 19, tzinfo=timezone.utc))]
+    monkeypatch.setattr(gateway, 'query', reader)
+    result = gateway.snapshot('/internal/v1/instrument-state', 'BTCUSDT')
+    assert calls[0][1] == ('BTCUSDT',)
+    assert 'FROM instruments' in calls[0][0]
+    assert result['recorded_status'] == 'Trading'
+    assert result['status'] == 'INFORMATIONAL'
+    assert result['market_type'] == 'linear'
+    assert result['tick_size'] == '0.00010000'
+    assert result['last_seen_utc'] == '2026-11-19T00:00:00Z'
+    assert result['exchange_connection'] == 'NOT_ATTESTED'
+    assert result['history_coverage'] == 'NOT_ATTESTED'
+    assert result['trading_authorized'] is False
+
+
+def test_grid_instrument_not_found_never_implies_trading(monkeypatch):
+    monkeypatch.setattr(gateway, 'query', lambda *a: [])
+    result = gateway.snapshot('/internal/v1/instrument-state', 'BTCUSDT')
+    assert result['status'] == 'UNAVAILABLE'
+    assert result['exchange_connection'] == 'NOT_ATTESTED'
+
+
+@pytest.mark.parametrize('rows', [
+    [('Active', 'LinearPerpetual', None, None)],
+    [('Trading', 10, None, None)],
+    [('Trading', 'LinearPerpetual', 0.1, None)],
+    [('Trading', 'LinearPerpetual', None, 'not datetime')],
+    [('Trading', 'LinearPerpetual', None, None)] * 2,
+])
+def test_grid_instrument_rejects_ambiguous_or_unqualified_rows(monkeypatch, rows):
+    monkeypatch.setattr(gateway, 'query', lambda *a: rows)
+    with pytest.raises(ValueError):
+        gateway.snapshot('/internal/v1/instrument-state', 'BTCUSDT')
+
+
+@pytest.mark.parametrize('path', [
+    '/internal/v1/instrument-state',
+    '/internal/v1/instrument-state?symbol=BTCUSDT&limit=1',
+    '/internal/v1/instrument-state?symbol=BTCUSDT&before_ms=42',
+])
+def test_instrument_http_requires_exact_symbol_only(monkeypatch, path):
+    import io, json
+    monkeypatch.setattr(gateway, 'snapshot', lambda *a: pytest.fail('must reject before dispatch'))
+    handler = object.__new__(gateway.Handler)
+    handler.path = path
+    handler.wfile = io.BytesIO()
+    statuses = []
+    handler.send_response = lambda status: statuses.append(status)
+    handler.send_header = lambda *a: None
+    handler.end_headers = lambda: None
+    handler.do_GET()
+    assert statuses == [400]
+    assert json.loads(handler.wfile.getvalue())['error'] == 'INVALID_QUERY_OR_ROUTE'
