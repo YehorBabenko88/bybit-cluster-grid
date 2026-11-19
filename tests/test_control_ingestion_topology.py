@@ -108,3 +108,50 @@ def test_coordinator_background_tasks_have_shutdown_lifecycle():
     assert "return_exceptions=True" in shutdown_source
     assert "background_tasks = []" in shutdown_source
     assert "ingest_storage = None" in shutdown_source
+
+
+def test_grid_coordinator_does_not_start_or_expose_scientific_strategy_engines():
+    """Grid retains market-data delivery, not a second strategy or Math backend."""
+    import ast
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parents[1] /
+              "grid" / "coordinator.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    routes = []
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for decorator in node.decorator_list:
+            if (isinstance(decorator, ast.Call) and
+                    isinstance(decorator.func, ast.Attribute) and
+                    isinstance(decorator.func.value, ast.Name) and
+                    decorator.func.value.id == "app" and
+                    decorator.func.attr in ("get", "post", "put", "delete") and
+                    decorator.args and isinstance(decorator.args[0], ast.Constant)):
+                routes.append(decorator.args[0].value)
+
+    assert "/ingest/minute" in routes
+    assert "/ingest/event" in routes
+    assert not any(route.startswith(("/strategy/", "/scientific/"))
+                   for route in routes)
+    # The existing request middleware still denies stale external callers.
+    middleware = next(node for node in tree.body if
+                      isinstance(node, ast.AsyncFunctionDef) and
+                      node.name == "coordinated_request_guard")
+    body = ast.get_source_segment(source, middleware)
+    assert "OWNER_MIGRATION_REQUIRED" in body
+    assert "'/strategy/'" in body and "'/scientific/'" in body
+
+    forbidden = {"ScientificResearchService", "scientific_service",
+                 "ensure_strategy_schema", "ensure_plugin_schema",
+                 "register_plugin", "list_plugins", "submit_job"}
+    names = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
+    assert not forbidden.intersection(names)
+    # Do not resurrect scientific, strategy or simulation table migrations
+    # inside the Grid controller's startup/readiness path.
+    imports = [node.module for node in tree.body
+               if isinstance(node, ast.ImportFrom)]
+    assert "strategy_jobs" not in imports
+    assert "strategy_plugins" not in imports
+    assert "scientific_service" not in imports
