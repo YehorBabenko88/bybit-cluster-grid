@@ -136,6 +136,7 @@ def test_websocket_collectors_require_subscription_ack_and_stall_timeout(monkeyp
         else:
             sockets = iter([Socket([]), Socket([{'op': 'subscribe', 'success': True}]), Socket([])])
             watchdog_checks = []
+            connections = []
             class Watchdog:
                 def __init__(self, symbols, now, timeout_seconds):
                     assert symbols == ['BTCUSDT'] and timeout_seconds == 120
@@ -147,14 +148,21 @@ def test_websocket_collectors_require_subscription_ack_and_stall_timeout(monkeyp
             async def immediate(*args):
                 pass
 
+            def connect(*args, **kwargs):
+                connections.append(kwargs)
+                socket = next(sockets, None)
+                if socket is None:
+                    raise asyncio.CancelledError
+                return socket
+
             monkeypatch.setattr(microstructure, 'TopicWatchdog', Watchdog)
             monkeypatch.setattr(microstructure, 'wait_for_internet', immediate)
-            monkeypatch.setattr(microstructure.websockets, 'connect', lambda *a, **k: next(sockets))
+            monkeypatch.setattr(microstructure.websockets, 'connect', connect)
             monkeypatch.setattr(asyncio, 'sleep', immediate)
             db = DB()
             with pytest.raises(asyncio.CancelledError):
                 await microstructure.MicrostructureCollector(db).run_batch(['BTCUSDT'])
-            assert db.events == [] and len(watchdog_checks) == 1
+            assert db.events == [] and len(watchdog_checks) == 1 and len(connections) == 3
         assert len(timeouts) == 4
         assert all(0 < timeouts[i] <= 15 for i in (0, 1, 3))
         assert timeouts[2] == ready_timeout

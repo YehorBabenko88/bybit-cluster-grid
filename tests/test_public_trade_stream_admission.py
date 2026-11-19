@@ -38,7 +38,11 @@ async def run(monkeypatch,frames,*,sink=None,more_connections=(),clock=None,setu
     clock=clock or [663.]
     sockets=[Socket(frames,clock),*(Socket(items,clock) for items in more_connections)]
     connects=[]
-    def connect(*args,**kwargs):connects.append(kwargs);return sockets.pop(0)
+    def connect(*args, **kwargs):
+        connects.append(kwargs)
+        if not sockets:
+            raise asyncio.CancelledError
+        return sockets.pop(0)
     async def online():pass
     async def pause(*args):pass
     monkeypatch.setattr(module,'wait_for_internet',online)
