@@ -4,9 +4,48 @@ The catalog is trusted operator policy, not a request field or a DB assertion.
 Caller supplies a fresh dedicated read-only connection and owns rollback/close.
 """
 import copy
+import math
 from .history_export import _read_records_postgres, MAX_ROWS, MAX_BYTES
 from .history_export_v11 import export_records_v11
 from .provenance import canonical, digest
+
+TIMEFRAME_MINUTES = {'5m': 5, '15m': 15, '1h': 60}
+
+
+def rollup_snapshot(envelope, timeframe):
+    """Project a verified, contiguous v1.1 minute envelope to UTC candle windows."""
+    minutes = TIMEFRAME_MINUTES[timeframe]
+    rows = envelope['rows']
+    if envelope['evidence_class'] != 'HISTORICAL' or not rows or len(rows) % minutes:
+        raise ValueError('ROLLUP_SOURCE_UNAVAILABLE')
+    candles = []
+    try:
+        for i in range(0, len(rows), minutes):
+            window = rows[i:i + minutes]
+            first, last = window[0], window[-1]
+            candles.append({
+                'event_start_ms': first['event_start_ms'],
+                'event_end_ms': last['event_end_ms'],
+                'open': first['open'], 'close': last['close'],
+                'high': max(row['high'] for row in window),
+                'low': min(row['low'] for row in window),
+                'volume': math.fsum(row['volume'] for row in window),
+                'available_at_ms': max(row['available_at_ms'] for row in window),
+                'watermark_ms': max(row['watermark_ms'] for row in window),
+            })
+    except OverflowError as exc:
+        raise ValueError('ROLLUP_VOLUME') from exc
+    result = {
+        'schema': 'grid.history.rollup.v1',
+        'timeframe': timeframe,
+        'request': envelope['request'],
+        'source': envelope['source'],
+        'evidence_class': envelope['evidence_class'],
+        'parent_dataset_id': envelope['dataset_id'],
+        'parent_dataset_fingerprint': envelope['dataset_fingerprint'],
+        'rows': candles,
+    }
+    return dict(result, dataset_fingerprint=digest(result))
 
 
 def select_snapshot(conn, selection, catalog):

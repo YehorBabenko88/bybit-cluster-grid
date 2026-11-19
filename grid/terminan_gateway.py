@@ -164,6 +164,15 @@ def pinned_history(selection):
     Grid supplies custody and digest checks; Unified supplies authentication
     and the independently provisioned trust catalog. No live readiness claim.
     """
+    from .history_snapshot import TIMEFRAME_MINUTES, rollup_snapshot, select_snapshot
+
+    timeframe = None
+    if type(selection) is dict and selection.get('schema') == 'grid.history.selection.v2':
+        timeframe = selection.get('timeframe')
+        if type(timeframe) is not str or timeframe not in TIMEFRAME_MINUTES:
+            raise ValueError('invalid history timeframe')
+        selection = {k: v for k, v in selection.items() if k != 'timeframe'}
+        selection['schema'] = 'grid.history.selection.v1'
     if (type(selection) is not dict or
             set(selection)!={'schema','snapshot_id','venue','market_type','symbol','start_ms','end_ms'} or
             selection.get('schema')!='grid.history.selection.v1' or
@@ -176,6 +185,10 @@ def pinned_history(selection):
             selection['start_ms']<0 or selection['end_ms']<=selection['start_ms'] or
             selection['end_ms']-selection['start_ms']>120000000):
         raise ValueError('invalid pinned history selection')
+    if timeframe:
+        width = TIMEFRAME_MINUTES[timeframe] * 60000
+        if selection['start_ms'] % width or selection['end_ms'] % width:
+            raise ValueError('incomplete history timeframe windows')
     catalog=_snapshot_catalog()
     entry=catalog.get(selection['snapshot_id'])
     if type(entry) is not dict or type(entry.get('request')) is not dict:
@@ -184,15 +197,20 @@ def pinned_history(selection):
     for key in ('venue','market_type','symbol','start_ms','end_ms'):
         if type(selection[key]) is not type(expected.get(key)) or selection[key]!=expected[key]:
             raise ValueError('snapshot identity or time mismatch')
-    from .history_snapshot import select_snapshot
+    if timeframe:
+        trust = entry.get('trust')
+        if type(trust) is not dict or trust.get('evidence_class') != 'HISTORICAL':
+            raise ValueError('pinned historical source required')
     import psycopg
     with psycopg.connect(os.environ['TERMINAN_GRID_DSN'],connect_timeout=3,
                          options='-c default_transaction_read_only=on -c statement_timeout=3000') as conn:
         envelope=select_snapshot(conn,selection,catalog)
-    return {'schema':'grid.history.snapshot.response.v1',
+    return {'schema':('grid.history.snapshot.response.v2' if timeframe else
+                      'grid.history.snapshot.response.v1'),
             'status':'PINNED_HISTORICAL_SOURCE_UNATTESTED',
             'read_only':True,'source_authentication':'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED',
-            'snapshot':envelope,'execution_authority':False,'trading_authorized':False}
+            'snapshot':rollup_snapshot(envelope, timeframe) if timeframe else envelope,
+            'execution_authority':False,'trading_authorized':False}
 
 
 def qualified_snapshot(route, symbol, limit, before_ms=None):
@@ -208,6 +226,7 @@ def qualified_snapshot(route, symbol, limit, before_ms=None):
         result['capabilities'] = {'candles': 'UNAVAILABLE',
                                   'footprint': 'UNAVAILABLE', 'live_l2': False,
                                   'immutable_market_snapshots_v1_1': True,
+                                  'pinned_historical_rollups_v2': ['5m', '15m', '1h'],
                                   'research_handoff_validation_v1_1': True,
                                   'public_trades': 'UNAVAILABLE',
                                   'orderbook_snapshots': 'UNAVAILABLE',

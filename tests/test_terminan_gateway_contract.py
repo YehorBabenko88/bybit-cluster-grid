@@ -304,6 +304,64 @@ def test_pinned_history_requires_independent_catalog_before_db(monkeypatch):
         gateway.pinned_history(selection)
 
 
+@pytest.mark.parametrize('timeframe,minutes', [('5m', 5), ('15m', 15), ('1h', 60)])
+def test_pinned_history_rollup_binds_exact_minutes(monkeypatch, timeframe, minutes):
+    import sys
+    from types import SimpleNamespace
+    from grid.provenance import digest
+    from test_history_snapshot import Connection, snapshot_fixture
+
+    rows, selection, catalog, parent = snapshot_fixture(120, 'HISTORICAL')
+    conn = Connection(rows)
+    monkeypatch.setenv('TERMINAN_GRID_DSN', 'test-only-readonly')
+    monkeypatch.setattr(gateway, '_snapshot_catalog', lambda: catalog)
+    monkeypatch.setitem(sys.modules, 'psycopg', SimpleNamespace(connect=lambda *a, **k: conn))
+    request = dict(selection, schema='grid.history.selection.v2', timeframe=timeframe)
+    response = gateway.pinned_history(request)
+    assert response['schema'] == 'grid.history.snapshot.response.v2'
+    assert response['source_authentication'] == 'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED'
+    assert response['read_only'] and not response['execution_authority'] and not response['trading_authorized']
+    snapshot = response['snapshot']
+    assert snapshot['timeframe'] == timeframe
+    assert snapshot['parent_dataset_id'] == parent['dataset_id']
+    assert snapshot['parent_dataset_fingerprint'] == parent['dataset_fingerprint']
+    assert snapshot['dataset_fingerprint'] == digest({k: v for k, v in snapshot.items() if k != 'dataset_fingerprint'})
+    assert len(snapshot['rows']) == 120 // minutes
+    assert snapshot['rows'][0] == {
+        'event_start_ms': 0, 'event_end_ms': minutes * 60000,
+        'open': 100, 'high': 102 + (minutes - 1) * .1,
+        'low': 99, 'close': 101 + (minutes - 1) * .1,
+        'volume': 3 * minutes,
+        'available_at_ms': minutes * 60000, 'watermark_ms': minutes * 60000,
+    }
+    assert snapshot['rows'][-1]['event_end_ms'] == selection['end_ms']
+    assert 'REPEATABLE READ READ ONLY' in conn.calls[0][0]
+    rows.pop()
+    with pytest.raises(ValueError, match='SNAPSHOT_REVISIONS'):
+        gateway.pinned_history(request)
+
+
+def test_pinned_rollup_refuses_partial_unknown_or_synthetic_input_before_db(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from test_history_snapshot import snapshot_fixture
+
+    _, selection, catalog, _ = snapshot_fixture(60)
+    monkeypatch.setattr(gateway, '_snapshot_catalog', lambda: catalog)
+    monkeypatch.setitem(sys.modules, 'psycopg', SimpleNamespace(
+        connect=lambda *a, **k: pytest.fail('bad rollup must not access database')))
+    request = dict(selection, schema='grid.history.selection.v2', timeframe='5m')
+    for change, error in [
+        ({'timeframe': '4h'}, 'timeframe'),
+        ({'start_ms': 60000}, 'incomplete'),
+        ({'end_ms': 59 * 60000}, 'incomplete'),
+        ({'snapshot_id': 'f' * 64}, 'not provisioned'),
+        ({}, 'historical source required'),
+    ]:
+        with pytest.raises(ValueError, match=error):
+            gateway.pinned_history(dict(request, **change))
+
+
 def test_pinned_history_rejects_unprovisioned_or_changed_selection_without_sql(monkeypatch):
     import sys
     from types import SimpleNamespace
@@ -404,11 +462,14 @@ def test_pinned_history_rejects_query_in_post_url(monkeypatch):
     assert json.loads(handler.wfile.getvalue())['reason']=='INVALID_SNAPSHOT_REQUEST'
 
 
-def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch):
+@pytest.mark.parametrize('timeframe', [None, '1h'])
+def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch, timeframe):
     import io,json
     from types import SimpleNamespace
     from test_history_snapshot import snapshot_fixture
     rows, selection, catalog, expected=snapshot_fixture()
+    if timeframe:
+        selection = dict(selection, schema='grid.history.selection.v2', timeframe=timeframe)
     observed=[]
     def selected(req):
         observed.append(req)
