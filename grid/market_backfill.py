@@ -113,9 +113,28 @@ async def backfill_symbol(pool,base_url,state,max_pages=50,pause=.08):
       symbol,state.get("timeframe","1"),status,oldest,newest,end_ms)
     return {"symbol":symbol,"oldest":oldest,"newest":newest,"complete":complete,"pages":pages}
 
+async def recover_stale_backfill_jobs(pool,stale_minutes=30,max_attempts=5):
+    """Requeue abandoned claims without assuming any history was completed.
+
+    The caller owns the dedicated Grid pool. This only changes stale Grid
+    scheduler metadata; OHLCV records and other databases remain untouched.
+    """
+    if type(stale_minutes) is not int or not 1<=stale_minutes<=1440:
+        raise ValueError("invalid stale backfill window")
+    if type(max_attempts) is not int or not 1<=max_attempts<=100:
+        raise ValueError("invalid backfill attempt cap")
+    return await pool.execute("""UPDATE market_backfill_state SET
+      status=CASE WHEN attempts<$2 THEN 'retry' ELSE 'failed' END,
+      last_error=COALESCE(last_error,'recovered stale backfill worker'),
+      updated_at=now()
+      WHERE status='running' AND updated_at<now()-($1*interval '1 minute')""",
+      stale_minutes,max_attempts)
+
+
 async def run_backfill_worker(pool,base_url,stop_event=None,max_pages=50):
     from .data_capabilities import set_capability
     stop_event=stop_event or asyncio.Event();done=chunks=failed=0
+    await recover_stale_backfill_jobs(pool)
     while not stop_event.is_set():
         state=await claim_backfill(pool)
         if not state:break
