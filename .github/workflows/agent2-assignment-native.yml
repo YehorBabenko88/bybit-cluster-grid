@@ -60,5 +60,12 @@ jobs:
         if: always()
         with:
           name: agent2-assignment-substrate-${{ matrix.os }}
-          path: .assignment-evidence
+          path: |
+            .assignment-evidence/guard-controls.json
+            .assignment-evidence/guard-controls.log
+            .assignment-evidence/units.log
+            .assignment-evidence/real-native.json
+            .assignment-evidence/real-native.log
+            .assignment-evidence/source-bound.json
+          include-hidden-files: true
           if-no-files-found: error

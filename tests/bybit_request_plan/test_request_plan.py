@@ -182,61 +182,61 @@ MUTATIONS=[
  ('empty_topics',('payload','topics'),[]),
 ]
 for name,path,value in MUTATIONS:
-    def test(self,path=path,value=value):
+    def _case(self,path=path,value=value):
         data=request();target=data
         for key in path[:-1]:target=target[key]
         target[path[-1]]=copy.deepcopy(value)
         with self.assertRaises(PlanFormatError):self.plan(data)
-    setattr(RequestPlanSourceTests,'test_reject_'+name,test)
+    setattr(RequestPlanSourceTests,'test_reject_'+name,_case)
 
 IDENTITY_MUTATIONS=[('category','spot'),('exchange','BYBIT'),('symbol','btcusdt'),
                     ('symbol','BTCUSDT\n'),('symbol','BTC\u00e9USDT'),
                     ('instrument_version','0'),('instrument_version','01'),
                     ('instrument_version','9223372036854775808'),('instrument_version',1)]
 for index,(key,value) in enumerate(IDENTITY_MUTATIONS):
-    def test(self,key=key,value=value):
+    def _case(self,key=key,value=value):
         data=request();data['instruments'][0][key]=value
         with self.assertRaises(PlanFormatError):self.plan(data)
-    setattr(RequestPlanSourceTests,'test_reject_identity_'+str(index),test)
+    setattr(RequestPlanSourceTests,'test_reject_identity_'+str(index),_case)
 
 KLINE_MUTATIONS=[(('interval',),'5'),(('limit',),'0'),(('limit',),'1001'),(('limit',),1000),
                  (('range','start_ms'),'1'),(('range','end_ms'),'0'),
                  (('range','end_ms'),'60060000'),(('range','start_ms'),False),
                  (('range','end_ms'),'253402300800000')]
 for index,(path,value) in enumerate(KLINE_MUTATIONS):
-    def test(self,path=path,value=value):
+    def _case(self,path=path,value=value):
         data=request('kline.1m.v1','historical_backfill',[instrument()],
                      {'interval':'1','range':{'start_ms':'0','end_ms':'120000'},'limit':'1000'})
         target=data['payload']
         for key in path[:-1]:target=target[key]
         target[path[-1]]=value
         with self.assertRaises(PlanFormatError):self.plan(data)
-    setattr(RequestPlanSourceTests,'test_reject_kline_payload_'+str(index),test)
+    setattr(RequestPlanSourceTests,'test_reject_kline_payload_'+str(index),_case)
 
 for index,cursor in enumerate(['', 'x'*1025, True]):
-    def test(self,cursor=cursor):
+    def _case(self,cursor=cursor):
         data=request('instruments.v1','historical_backfill',[],{'limit':'1000','cursor':cursor})
         with self.assertRaises(PlanFormatError):self.plan(data)
-    setattr(RequestPlanSourceTests,'test_reject_catalog_cursor_'+str(index),test)
+    setattr(RequestPlanSourceTests,'test_reject_catalog_cursor_'+str(index),_case)
 
 for key,value in [('authorized',True),('clock_bootstrap',True),('endpoint','https://example.invalid/'),
                   ('credentials','never'),('grant_id','caller'),('scope_id','caller')]:
-    def test(self,key=key,value=value):
+    def _case(self,key=key,value=value):
         data=request();data[key]=value
         with self.assertRaises(PlanFormatError):self.plan(data)
-    setattr(RequestPlanSourceTests,'test_reject_unknown_'+key,test)
+    setattr(RequestPlanSourceTests,'test_reject_unknown_'+key,_case)
 
 for index,raw in enumerate([b'{}',b'[]',b'['*400+b']'*400]):
-    def test(self,raw=raw):
+    def _case(self,raw=raw):
         with self.assertRaises(PlanFormatError):self.plan(raw=raw)
-    setattr(RequestPlanSourceTests,'test_reject_hostile_shape_'+str(index),test)
+    setattr(RequestPlanSourceTests,'test_reject_hostile_shape_'+str(index),_case)
 
 for name,transform in [('trailing_lf',lambda b:b+b'\n'),('leading_space',lambda b:b' '+b),
                        ('duplicate_key',lambda b:b.replace(b'{',b'{"schema":"duplicate",',1)),
                        ('noncanonical_escape',lambda b:b.replace(b'BTCUSDT',b'BTCUSD\\u0054'))]:
-    def test(self,transform=transform):
+    def _case(self,transform=transform):
         with self.assertRaises(PlanFormatError):self.plan(raw=transform(encoded(request())))
-    setattr(RequestPlanSourceTests,'test_reject_encoding_'+name,test)
+    setattr(RequestPlanSourceTests,'test_reject_encoding_'+name,_case)
 
 
 if __name__=='__main__':unittest.main()
