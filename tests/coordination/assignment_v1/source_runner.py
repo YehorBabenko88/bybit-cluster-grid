@@ -37,7 +37,7 @@ def main():
  (output/'guard-controls.log').write_bytes(controls.stdout);assert controls.returncode==0,controls.stdout.decode(errors='replace')[-4000:]
  source_controls=json.loads((output/'guard-controls.json').read_bytes());assert source_controls['result']=='PASS' and len(source_controls['cases'])==8
  os.environ['A2_ASSIGNMENT_TEST_SUPPORT']=str(support)
- sys.path.insert(0,str(root));executed=[]
+ sys.path[:0]=[str(root),str(root/'tests/coordination/assignment_v1')];executed=[]
  class Result(unittest.TextTestResult):
   def startTest(self,test):executed.append(test.id());super().startTest(test)
  suite=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(name) for name in sorted(UNITS))
