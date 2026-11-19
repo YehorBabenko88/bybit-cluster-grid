@@ -43,6 +43,9 @@ jobs:
           - "3.12"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: YehorBabenko88/unified-system
@@ -65,8 +68,16 @@ jobs:
           GRID_SHARED_TOKEN: test-token
           POSTGRES_DSN: postgresql://grid:grid@127.0.0.1:5432/grid
         run: python -c "import grid.config, grid.worker, grid.coordinator, grid.control_plane, grid.enrollment, grid.update_manager"
+      - name: Grid research ownership regression
+        run: python -m pytest -q tests/test_scientific_discovery.py tests/test_control_ingestion_topology.py
       - name: Unit tests
-        run: python -m pytest -q --ignore=upstream
+        # The Agent2 native snapshot and proxy jobs run these cases with their pinned support and Consul.
+        run: >-
+          python -m pytest -q --ignore=upstream
+          --ignore=tests/coordination/assignment_v1/test_bootstrap_guard.py
+          --ignore=tests/coordination/assignment_v1/test_native_job_negative.py
+          --ignore=tests/coordination/assignment_v1/test_native_snapshot.py
+          --ignore=tests/coordination/assignment_v1/proxy_isolation/test_proxy.py
       - name: Enrollment lifecycle integration tests
         run: python -m pytest -q tests/test_enrollment_postgres_integration.py
       - name: ML dispatch lock PostgreSQL integration

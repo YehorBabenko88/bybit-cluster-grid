@@ -61,9 +61,15 @@ jobs:
               finally:await con.close()
           asyncio.run(verify())
           PY
-      - name: Full suite with real disposable database
+      - name: Grid suite with real disposable database
         id: tests
-        run: python -m pytest -q --ignore=upstream --junitxml=mission3-tests.xml
+        # The Agent2 native snapshot and proxy jobs run these cases with their pinned support and Consul.
+        run: >-
+          python -m pytest -q --ignore=upstream --junitxml=mission3-tests.xml
+          --ignore=tests/coordination/assignment_v1/test_bootstrap_guard.py
+          --ignore=tests/coordination/assignment_v1/test_native_job_negative.py
+          --ignore=tests/coordination/assignment_v1/test_native_snapshot.py
+          --ignore=tests/coordination/assignment_v1/proxy_isolation/test_proxy.py
       - name: Record exact source evidence
         if: always()
         shell: python
@@ -120,6 +126,22 @@ jobs:
           def git(root):return subprocess.check_output(['git','-C',root,'rev-parse','HEAD'],text=True).strip()
           assert git('.')==os.environ['EXPECTED_GRID_SHA']
           assert git(os.environ['UNIFIED_SOURCE_ROOT'])=='e0c2ea20aa4f1bd9476d1046e7e4b41f1b12d8e9'
+      - name: Owned worker and WebSocket regressions
+        id: worker_tests
+        if: matrix.shell == 'pwsh'
+        env:
+          GRID_SHARED_TOKEN: test-token
+        run: >-
+          python -m pytest -q tests/test_owned_worker_service.py
+          tests/test_subscription_market_frame_buffer.py
+          tests/test_failure_recovery.py::test_websocket_collectors_require_subscription_ack_and_stall_timeout
+          --junitxml=mission3-worker-tests.xml
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always() && (steps.worker_tests.outcome == 'success' || steps.worker_tests.outcome == 'failure')
+        with:
+          name: mission3-worker-windows-${{ env.EXPECTED_GRID_SHA }}
+          path: mission3-worker-tests.xml
+          if-no-files-found: error
       - name: Disposable deployment-agent source tests (powershell)
         id: tests_powershell
         if: matrix.shell == 'powershell'

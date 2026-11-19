@@ -5,6 +5,7 @@ import subprocess
 import time
 
 import aiohttp
+import pytest
 from aiohttp import web
 from grid import coordinator, worker
 
@@ -71,6 +72,12 @@ def test_owned_worker_health_real_binding_and_control(monkeypatch,tmp_path):
                 await probe(503,False)
         finally:
             await service.close();await control.cleanup()
+        assert service.runner is None
+        assert service.task.cancelled()
+        await service.close()
+        async with aiohttp.ClientSession() as client:
+            with pytest.raises(aiohttp.ClientConnectorError):
+                await client.get(url, headers=headers)
         (root/'owned.txt').write_bytes(b'tampered\n')
         failed=OwnedWorkerService()
         try:
@@ -78,6 +85,55 @@ def test_owned_worker_health_real_binding_and_control(monkeypatch,tmp_path):
         except RuntimeError:pass
         else:raise AssertionError('dirty source accepted')
         assert failed.task is None
+    asyncio.run(scenario())
+
+
+def test_cancelled_close_waiter_does_not_cancel_retirement():
+    from grid.owned_worker_service import OwnedWorkerService
+
+    async def scenario():
+        cleaning = asyncio.Event()
+        release = asyncio.Event()
+
+        class Runner:
+            async def cleanup(self):
+                cleaning.set()
+                await release.wait()
+
+        service = OwnedWorkerService()
+        service.runner = Runner()
+        service.task = asyncio.create_task(asyncio.Event().wait())
+        close_waiter = asyncio.create_task(service.close())
+        try:
+            async with asyncio.timeout(2):
+                await cleaning.wait()
+                close_waiter.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await close_waiter
+        finally:
+            release.set()
+            async with asyncio.timeout(2):
+                await service.close()
+        assert service.runner is None
+        assert service.task.cancelled()
+
+    asyncio.run(scenario())
+
+
+def test_close_still_propagates_actual_worker_failure():
+    from grid.owned_worker_service import OwnedWorkerService
+
+    async def scenario():
+        async def broken_worker():
+            raise RuntimeError('worker failed')
+
+        service = OwnedWorkerService()
+        service.task = asyncio.create_task(broken_worker())
+        await asyncio.gather(service.task, return_exceptions=True)
+        for _ in range(2):
+            with pytest.raises(RuntimeError, match='worker failed'):
+                await service.close()
+
     asyncio.run(scenario())
 
 

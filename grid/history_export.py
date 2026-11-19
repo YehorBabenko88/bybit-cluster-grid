@@ -57,9 +57,10 @@ def export_records(records, request, trust):
         raise ValueError('HISTORY_UNAVAILABLE') from exc
 
 
-def _read_records_postgres(conn, request, *, revisions=None):
+def _read_records_postgres(conn, request, *, revisions=None, continuing=False):
     """Caller supplies a fresh dedicated read-only connection; owns rollback/close.
 
+    A continuing read must use the same transaction configured by the first page.
     Transaction setting fails if caller already issued a query. Oversize records
     are returned as NULL by SQL, so Python never materializes unbounded JSON.
     No credentials, connection or production schema are modified here.
@@ -78,9 +79,10 @@ def _read_records_postgres(conn, request, *, revisions=None):
     if revisions is not None:params.append(revisions)
     params.append(MAX_ROWS+1)
     with conn.cursor() as cur:
-        cur.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-        cur.execute("SET LOCAL statement_timeout = '3000ms'")
-        cur.execute("SET LOCAL lock_timeout = '1000ms'")
+        if not continuing:
+            cur.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+            cur.execute("SET LOCAL statement_timeout = '3000ms'")
+            cur.execute("SET LOCAL lock_timeout = '1000ms'")
         cur.execute("""SELECT CASE WHEN sum(octet_length(record::text)) OVER() <= 8388608
             AND max(octet_length(record::text)) OVER() <= 1048576 THEN record ELSE NULL END
             FROM (SELECT record,start_ms,fingerprint FROM provenance_minutes

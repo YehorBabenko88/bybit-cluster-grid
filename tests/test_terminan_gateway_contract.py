@@ -1,6 +1,8 @@
 import pytest
 from grid import terminan_gateway as gateway
 
+V4_TWO_HOUR_FIXTURE_PIN = 'c74e4eadb337a9463bf42b0c33e3dc051839e4374301b0b8e19ee71f28a8a032'
+
 
 def test_capabilities_exposes_no_qualified_market_data(monkeypatch):
     monkeypatch.setattr(gateway, 'query', lambda *a: pytest.fail('capabilities must be offline'))
@@ -304,6 +306,230 @@ def test_pinned_history_requires_independent_catalog_before_db(monkeypatch):
         gateway.pinned_history(selection)
 
 
+@pytest.mark.parametrize('timeframe,minutes', [('5m', 5), ('15m', 15), ('1h', 60)])
+def test_pinned_history_rollup_binds_exact_minutes(monkeypatch, timeframe, minutes):
+    import sys
+    from types import SimpleNamespace
+    from grid.provenance import digest
+    from test_history_snapshot import Connection, snapshot_fixture
+
+    rows, selection, catalog, parent = snapshot_fixture(120, 'HISTORICAL')
+    conn = Connection(rows)
+    monkeypatch.setenv('TERMINAN_GRID_DSN', 'test-only-readonly')
+    monkeypatch.setattr(gateway, '_snapshot_catalog', lambda: catalog)
+    monkeypatch.setitem(sys.modules, 'psycopg', SimpleNamespace(connect=lambda *a, **k: conn))
+    request = dict(selection, schema='grid.history.selection.v2', timeframe=timeframe)
+    response = gateway.pinned_history(request)
+    assert response['schema'] == 'grid.history.snapshot.response.v2'
+    assert response['source_authentication'] == 'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED'
+    assert response['read_only'] and not response['execution_authority'] and not response['trading_authorized']
+    snapshot = response['snapshot']
+    assert snapshot['timeframe'] == timeframe
+    assert snapshot['parent_dataset_id'] == parent['dataset_id']
+    assert snapshot['parent_dataset_fingerprint'] == parent['dataset_fingerprint']
+    assert snapshot['dataset_fingerprint'] == digest({k: v for k, v in snapshot.items() if k != 'dataset_fingerprint'})
+    assert len(snapshot['rows']) == 120 // minutes
+    assert snapshot['rows'][0] == {
+        'event_start_ms': 0, 'event_end_ms': minutes * 60000,
+        'open': 100, 'high': 102 + (minutes - 1) * .1,
+        'low': 99, 'close': 101 + (minutes - 1) * .1,
+        'volume': 3 * minutes,
+        'available_at_ms': minutes * 60000, 'watermark_ms': minutes * 60000,
+    }
+    assert snapshot['rows'][-1]['event_end_ms'] == selection['end_ms']
+    assert 'REPEATABLE READ READ ONLY' in conn.calls[0][0]
+    rows.pop()
+    with pytest.raises(ValueError, match='SNAPSHOT_REVISIONS'):
+        gateway.pinned_history(request)
+
+
+def test_pinned_rollup_refuses_partial_unknown_or_synthetic_input_before_db(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from test_history_snapshot import snapshot_fixture
+
+    _, selection, catalog, _ = snapshot_fixture(60)
+    monkeypatch.setattr(gateway, '_snapshot_catalog', lambda: catalog)
+    monkeypatch.setitem(sys.modules, 'psycopg', SimpleNamespace(
+        connect=lambda *a, **k: pytest.fail('bad rollup must not access database')))
+    request = dict(selection, schema='grid.history.selection.v2', timeframe='5m')
+    for change, error in [
+        ({'timeframe': '4h'}, 'timeframe'),
+        ({'start_ms': 60000}, 'incomplete'),
+        ({'end_ms': 59 * 60000}, 'incomplete'),
+        ({'snapshot_id': 'f' * 64}, 'not provisioned'),
+        ({}, 'historical source required'),
+    ]:
+        with pytest.raises(ValueError, match=error):
+            gateway.pinned_history(dict(request, **change))
+
+
+def _multipin_history(timeframe, start, page_sizes):
+    from test_history_export import fixture
+    from grid.history_export_v11 import export_records_v11
+    from grid.provenance import digest
+
+    end = start + sum(page_sizes) * 60000
+    cursor = start
+    catalog, raw_pages = {}, {}
+    for size in page_sizes:
+        rows, request, trust = fixture(size)
+        receipts = {}
+        for row in rows:
+            receipt = trust['receipts'][row.pop('dataset_fingerprint')]
+            for key in ('start_ms', 'end_ms', 'source_event_start_ms', 'source_event_end_ms'):
+                row[key] += cursor
+            revision = row['dataset_fingerprint'] = digest(row)
+            receipt.update(fingerprint=revision, evidence_class='HISTORICAL',
+                           available_at_ms=row['end_ms'] + 1, watermark_ms=row['end_ms'] + 1)
+            receipts[revision] = receipt
+        trust.update(evidence_class='HISTORICAL', receipts=receipts,
+                     receipt_pins={key: digest(value) for key, value in receipts.items()})
+        page_end = cursor + size * 60000
+        request.update(start_ms=cursor, end_ms=page_end, as_of_ms=end, max_age_ms=end-cursor)
+        envelope = export_records_v11(rows, request, trust)
+        entry = dict(request=request, trust=trust, revisions=list(receipts),
+                     dataset_id=envelope['dataset_id'], dataset_fingerprint=envelope['dataset_fingerprint'])
+        catalog[digest(entry)] = entry
+        raw_pages[cursor] = rows
+        cursor = page_end
+    selection = dict(schema='grid.history.selection.v3', timeframe=timeframe, snapshot_ids=list(catalog),
+                     venue='bybit', market_type='linear', symbol='BTCUSDT', start_ms=start, end_ms=end)
+    return selection, catalog, raw_pages
+
+
+def test_pinned_v4_disposable_pg18_exact_receipt_and_tampering(monkeypatch):
+    import os
+    from contextlib import contextmanager
+    from grid.provenance import digest
+
+    dsn = os.environ.get('TERMINAN_DISPOSABLE_PG18_DSN')
+    if not dsn:
+        pytest.skip('explicit disposable PostgreSQL 18 DSN required')
+    import psycopg
+    from psycopg.types.json import Jsonb
+
+    request, catalog, raw = _multipin_history('1h', 0, [35, 85])
+    request['schema'] = 'grid.history.selection.v4'
+    rows = [(row['dataset_fingerprint'], row['symbol'], row['start_ms'], Jsonb(row))
+            for page in raw.values() for row in page]
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        assert 180000 <= conn.info.server_version < 190000
+        conn.execute('CREATE TEMP TABLE provenance_minutes ('
+                     'fingerprint text PRIMARY KEY, symbol text, start_ms bigint, record jsonb)')
+        with conn.cursor() as cur:
+            cur.executemany('INSERT INTO provenance_minutes VALUES (%s, %s, %s, %s)', rows)
+
+        @contextmanager
+        def read_connection():
+            with conn.transaction():
+                yield conn
+                assert conn.execute('SHOW transaction_read_only').fetchone() == ('on',)
+                assert conn.execute('SHOW transaction_isolation').fetchone() == ('repeatable read',)
+
+        monkeypatch.setattr(gateway, '_snapshot_catalog', lambda **_: catalog)
+        monkeypatch.setattr(gateway, '_history_connection', read_connection)
+        first = gateway.pinned_history(request)
+        assert first == gateway.pinned_history(request)
+        assert first['schema'] == 'grid.history.snapshot.response.v4'
+        assert first['source_authentication'] == 'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED'
+        snapshot = first['snapshot']
+        assert snapshot['schema'] == 'grid.history.rollup.v3'
+        assert [row['event_start_ms'] for row in snapshot['rows']] == [0, 3600000]
+        assert [row['volume'] for row in snapshot['rows']] == [180, 180]
+        assert snapshot['dataset_fingerprint'] == V4_TWO_HOUR_FIXTURE_PIN == digest({
+            key: value for key, value in snapshot.items() if key != 'dataset_fingerprint'
+        })
+        conn.execute("UPDATE pg_temp.provenance_minutes SET record = record || '{\"symbol\":\"ETHUSDT\"}' "
+                     "WHERE start_ms = 3600000")
+        with pytest.raises(ValueError, match='INTEGRITY'):
+            gateway.pinned_history(request)
+        original = next(row for page in raw.values() for row in page if row['start_ms'] == 3600000)
+        conn.execute('UPDATE pg_temp.provenance_minutes SET record = %s WHERE start_ms = %s',
+                     (Jsonb(original), original['start_ms']))
+        assert gateway.pinned_history(request) == first
+
+
+@pytest.mark.parametrize('version,timeframe,start,pages,width', [
+    ('v3', '1h', 0, [60], 60), ('v3', '4h', 0, [120, 120], 240),
+    ('v3', '1d', 0, [1440], 1440), ('v3', '1w', 4 * 86400000, [1680] * 6, 10080),
+    ('v4', '1h', 0, [35, 85], 60), ('v4', '4h', 0, [100, 200, 180], 240),
+    ('v4', '1d', 0, [1200, 1680], 1440), ('v4', '1w', 4 * 86400000, [1680] * 12, 10080),
+])
+def test_pinned_multipin_candle_reuses_exact_pages(monkeypatch, version, timeframe, start, pages, width):
+    from test_history_snapshot import Connection
+    from grid.provenance import canonical, digest
+
+    request, catalog, raw_pages = _multipin_history(timeframe, start, pages)
+    request['schema'] = f'grid.history.selection.{version}'
+    cap = (16 if version == 'v4' else 8) * 1024 * 1024
+    assert len(canonical(catalog)) <= cap
+
+    class PagedConnection(Connection):
+        def execute(self, sql, params=None):
+            super().execute(sql, params)
+            if params:
+                self.rows = raw_pages[params[1]]
+
+    conn = PagedConnection([])
+    def load_catalog(max_bytes=8388608):
+        assert max_bytes == cap
+        return catalog
+    monkeypatch.setattr(gateway, '_snapshot_catalog', load_catalog)
+    monkeypatch.setattr(gateway, '_history_connection', lambda: conn)
+    result = gateway.pinned_history(request)
+    assert result['schema'] == f'grid.history.snapshot.response.{version}'
+    assert result['source_authentication'] == 'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED'
+    assert result['read_only'] and not result['execution_authority'] and not result['trading_authorized']
+    snapshot = result['snapshot']
+    assert snapshot['schema'] == ('grid.history.rollup.v3' if version == 'v4' else 'grid.history.rollup.v2')
+    assert [p['snapshot_id'] for p in snapshot['parents']] == request['snapshot_ids']
+    assert snapshot['dataset_fingerprint'] == digest({k: v for k, v in snapshot.items() if k != 'dataset_fingerprint'})
+    if version == 'v4' and timeframe == '1h':
+        assert snapshot['dataset_fingerprint'] == V4_TWO_HOUR_FIXTURE_PIN
+    flat = [minute for page in raw_pages.values() for minute in page]
+    assert len(snapshot['rows']) == len(flat) // width
+    for i, row in enumerate(snapshot['rows']):
+        window = flat[i*width:(i+1)*width]
+        assert row['event_start_ms'] == start + i*width*60000
+        assert row['event_end_ms'] == row['available_at_ms'] == row['watermark_ms'] == start + (i+1)*width*60000
+        assert (row['open'], row['high'], row['low'], row['close'], row['volume']) == (
+            window[0]['candle']['open'], max(x['candle']['high'] for x in window),
+            min(x['candle']['low'] for x in window), window[-1]['candle']['close'], width*3)
+    assert sum('SET TRANSACTION' in sql for sql, _ in conn.calls) == 1
+    assert sum('fingerprint = ANY(%s)' in sql for sql, _ in conn.calls) == len(pages)
+    raw_pages[max(raw_pages)].pop()
+    with pytest.raises(ValueError, match='SNAPSHOT_REVISIONS'):
+        gateway.pinned_history(request)
+
+
+@pytest.mark.parametrize('version', ['v3', 'v4'])
+def test_pinned_multipin_refuses_incomplete_or_mixed_source_before_db(monkeypatch, version):
+    from grid.provenance import digest
+
+    selection, catalog, _ = _multipin_history('4h', 0, [120, 120])
+    selection['schema'] = f'grid.history.selection.{version}'
+    left, right = selection['snapshot_ids']
+    untrusted = catalog[right].copy()
+    untrusted['trust'] = dict(untrusted['trust'], epoch='another-epoch')
+    alternate = digest(untrusted)
+    catalog[alternate] = untrusted
+    monkeypatch.setattr(gateway, '_snapshot_catalog', lambda **_: catalog)
+    monkeypatch.setattr(gateway, '_history_connection', lambda: pytest.fail('invalid page set must not touch DB'))
+    for change, reason in [
+        ({'start_ms': 60000, 'end_ms': 241*60000}, 'ALIGNMENT'),
+        ({'snapshot_ids': [right, left]}, 'CONTINUITY'),
+        ({'snapshot_ids': [left]}, 'CONTINUITY'),
+        ({'snapshot_ids': [left, left]}, 'PINS'),
+        ({'snapshot_ids': [f'{i:064x}' for i in range(17)]}, 'PINS'),
+        ({'snapshot_ids': [left, alternate]}, 'LINEAGE'),
+        ({'end_ms': 240 * 60000 * 33}, 'ALIGNMENT'),
+        ({'symbol': 'ETHUSDT'}, 'IDENTITY'),
+    ]:
+        with pytest.raises(ValueError, match=reason):
+            gateway.pinned_history(dict(selection, **change))
+
+
 def test_pinned_history_rejects_unprovisioned_or_changed_selection_without_sql(monkeypatch):
     import sys
     from types import SimpleNamespace
@@ -404,11 +630,16 @@ def test_pinned_history_rejects_query_in_post_url(monkeypatch):
     assert json.loads(handler.wfile.getvalue())['reason']=='INVALID_SNAPSHOT_REQUEST'
 
 
-def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch):
+@pytest.mark.parametrize('version', ['v1', 'v2', 'v3', 'v4'])
+def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch, version):
     import io,json
     from types import SimpleNamespace
     from test_history_snapshot import snapshot_fixture
     rows, selection, catalog, expected=snapshot_fixture()
+    if version != 'v1':
+        selection = dict(selection, schema=f'grid.history.selection.{version}', timeframe='1h')
+    if version in ('v3', 'v4'):
+        selection['snapshot_ids'] = [selection.pop('snapshot_id')]
     observed=[]
     def selected(req):
         observed.append(req)
@@ -421,6 +652,9 @@ def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch):
     handler.headers={'Content-Length':str(len(payload)),'Content-Type':'application/json'}
     handler.rfile=io.BytesIO(payload);handler.wfile=io.BytesIO()
     handler.connection=SimpleNamespace(settimeout=lambda _:None)
+    handler._deadline = object()
+    deadlines = []
+    handler._arm_deadline = deadlines.append
     statuses=[]
     handler.send_response=lambda status:statuses.append(status)
     handler.send_header=lambda *args:None
@@ -428,23 +662,5 @@ def test_pinned_snapshot_post_invokes_existing_read_only_history(monkeypatch):
     handler.do_POST()
     assert statuses==[200]
     assert observed==[selection]
+    assert deadlines == {'v3': [40], 'v4': [70]}.get(version, [])
     assert json.loads(handler.wfile.getvalue())['snapshot']==expected
-
-@pytest.mark.parametrize('path', [
-    '/strategy/plugins', '/strategy/jobs', '/scientific/status',
-    '/scientific/simulations', '/scientific/history/import',
-])
-def test_grid_coordinator_rejects_legacy_trade_and_research_owners(path):
-    import asyncio
-    from types import SimpleNamespace
-    from grid import coordinator
-    called = []
-    async def next_handler(_request):
-        called.append(True)
-        pytest.fail('legacy owner handler must never execute')
-    request = SimpleNamespace(url=SimpleNamespace(path=path))
-    result = asyncio.run(coordinator.coordinated_request_guard(request, next_handler))
-    assert result.status_code == 503
-    import json
-    assert json.loads(result.body) == {'reason': 'OWNER_MIGRATION_REQUIRED'}
-    assert called == []

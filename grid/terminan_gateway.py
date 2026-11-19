@@ -115,7 +115,7 @@ def backfill_state(symbol):
                   reason='QUEUE_STATE_NOT_HISTORY_COMPLETENESS_PROOF')
     return result
 
-def _snapshot_catalog():
+def _snapshot_catalog(max_bytes=8388608):
     """Operator-provisioned local policy; never accept catalog trust from HTTP."""
     import pathlib
     import stat
@@ -134,12 +134,12 @@ def _snapshot_catalog():
     fd=os.open(path,flags)
     try:
         before=os.fstat(fd)
-        if (not stat.S_ISREG(before.st_mode) or not 0<before.st_size<=8388608
+        if (not stat.S_ISREG(before.st_mode) or not 0<before.st_size<=max_bytes
                 or before.st_mode & 0o022):
             raise RuntimeError('snapshot catalog file unavailable')
         raw=os.read(fd,before.st_size+1)
         after=os.fstat(fd)
-        if (len(raw)!=before.st_size or len(raw)>8388608 or
+        if (len(raw)!=before.st_size or len(raw)>max_bytes or
                 (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns)!=
                 (after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns)):
             raise RuntimeError('snapshot catalog changed during read')
@@ -158,12 +158,45 @@ def _snapshot_catalog():
     return catalog
 
 
+def _history_connection():
+    import psycopg
+    return psycopg.connect(os.environ['TERMINAN_GRID_DSN'], connect_timeout=3,
+                           options='-c default_transaction_read_only=on -c statement_timeout=3000')
+
+
+def _pinned_response(version, envelope):
+    return {'schema': f'grid.history.snapshot.response.{version}',
+            'status': 'PINNED_HISTORICAL_SOURCE_UNATTESTED',
+            'read_only': True, 'source_authentication': 'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED',
+            'snapshot': envelope, 'execution_authority': False, 'trading_authorized': False}
+
+
 def pinned_history(selection):
     """Bounded, immutable historical read; source authenticity is EXTERNAL.
 
     Grid supplies custody and digest checks; Unified supplies authentication
     and the independently provisioned trust catalog. No live readiness claim.
     """
+    from .history_snapshot import (
+        TIMEFRAME_MINUTES, plan_multipin, read_multipin_rollup, rollup_snapshot, select_snapshot,
+    )
+
+    timeframe = None
+    schema = selection.get('schema') if type(selection) is dict else None
+    if schema in ('grid.history.selection.v3', 'grid.history.selection.v4'):
+        # Two complete weeks can exceed the single-window catalog size.
+        sequence = schema == 'grid.history.selection.v4'
+        catalog = _snapshot_catalog(max_bytes=16 * 1024 * 1024) if sequence else _snapshot_catalog()
+        pages = plan_multipin(selection, catalog)
+        with _history_connection() as conn:
+            return _pinned_response('v4' if sequence else 'v3',
+                                    read_multipin_rollup(conn, selection, pages, catalog))
+    if schema == 'grid.history.selection.v2':
+        timeframe = selection.get('timeframe')
+        if type(timeframe) is not str or timeframe not in TIMEFRAME_MINUTES:
+            raise ValueError('invalid history timeframe')
+        selection = {k: v for k, v in selection.items() if k != 'timeframe'}
+        selection['schema'] = 'grid.history.selection.v1'
     if (type(selection) is not dict or
             set(selection)!={'schema','snapshot_id','venue','market_type','symbol','start_ms','end_ms'} or
             selection.get('schema')!='grid.history.selection.v1' or
@@ -176,6 +209,10 @@ def pinned_history(selection):
             selection['start_ms']<0 or selection['end_ms']<=selection['start_ms'] or
             selection['end_ms']-selection['start_ms']>120000000):
         raise ValueError('invalid pinned history selection')
+    if timeframe:
+        width = TIMEFRAME_MINUTES[timeframe] * 60000
+        if selection['start_ms'] % width or selection['end_ms'] % width:
+            raise ValueError('incomplete history timeframe windows')
     catalog=_snapshot_catalog()
     entry=catalog.get(selection['snapshot_id'])
     if type(entry) is not dict or type(entry.get('request')) is not dict:
@@ -184,15 +221,13 @@ def pinned_history(selection):
     for key in ('venue','market_type','symbol','start_ms','end_ms'):
         if type(selection[key]) is not type(expected.get(key)) or selection[key]!=expected[key]:
             raise ValueError('snapshot identity or time mismatch')
-    from .history_snapshot import select_snapshot
-    import psycopg
-    with psycopg.connect(os.environ['TERMINAN_GRID_DSN'],connect_timeout=3,
-                         options='-c default_transaction_read_only=on -c statement_timeout=3000') as conn:
+    if timeframe:
+        trust = entry.get('trust')
+        if type(trust) is not dict or trust.get('evidence_class') != 'HISTORICAL':
+            raise ValueError('pinned historical source required')
+    with _history_connection() as conn:
         envelope=select_snapshot(conn,selection,catalog)
-    return {'schema':'grid.history.snapshot.response.v1',
-            'status':'PINNED_HISTORICAL_SOURCE_UNATTESTED',
-            'read_only':True,'source_authentication':'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED',
-            'snapshot':envelope,'execution_authority':False,'trading_authorized':False}
+    return _pinned_response('v2', rollup_snapshot(envelope, timeframe)) if timeframe else _pinned_response('v1', envelope)
 
 
 def qualified_snapshot(route, symbol, limit, before_ms=None):
@@ -208,6 +243,9 @@ def qualified_snapshot(route, symbol, limit, before_ms=None):
         result['capabilities'] = {'candles': 'UNAVAILABLE',
                                   'footprint': 'UNAVAILABLE', 'live_l2': False,
                                   'immutable_market_snapshots_v1_1': True,
+                                  'pinned_historical_rollups_v2': ['5m', '15m', '1h'],
+                                  'pinned_historical_rollups_v3': ['1h', '4h', '1d', '1w'],
+                                  'pinned_historical_sequences_v4': ['1h', '4h', '1d', '1w'],
                                   'research_handoff_validation_v1_1': True,
                                   'public_trades': 'UNAVAILABLE',
                                   'orderbook_snapshots': 'UNAVAILABLE',
@@ -303,20 +341,27 @@ class Handler(BaseHTTPRequestHandler):
         # Request lines may contain tokens; never log caller-controlled paths.
         return
 
-    def handle(self):
-        # One absolute deadline covers headers and body, including slow drips.
+    def _arm_deadline(self, seconds):
+        if self._deadline is not None:
+            self._deadline.cancel()
+            self._deadline.join()
         def expire():
             try:self.connection.shutdown(socket.SHUT_RDWR)
             except OSError:pass
-        timer=threading.Timer(3,expire)
-        timer.daemon=True
+        self._deadline = threading.Timer(seconds, expire)
+        self._deadline.daemon = True
+        self._deadline.start()
+
+    def handle(self):
+        # One absolute ingress deadline covers headers and slow body drips.
+        self._deadline = None
         self.connection.settimeout(3)
-        timer.start()
+        self._arm_deadline(3)
         try:
             super().handle()
         finally:
-            timer.cancel()
-            timer.join()
+            self._deadline.cancel()
+            self._deadline.join()
 
     def do_POST(self):
         route=urlsplit(self.path).path
@@ -348,6 +393,13 @@ class Handler(BaseHTTPRequestHandler):
                     return out
                 selection=json.loads(body,object_pairs_hook=unique,
                                      parse_constant=lambda _: (_ for _ in ()).throw(ValueError('nonfinite')))
+                if type(selection) is dict and getattr(self, '_deadline', None) is not None:
+                    schema = selection.get('schema')
+                    if schema == 'grid.history.selection.v3':
+                        self._arm_deadline(40)
+                    elif schema == 'grid.history.selection.v4':
+                        # Up to sixteen bounded reads after complete bounded ingress.
+                        self._arm_deadline(70)
                 result=pinned_history(selection)
             else:
                 from .research_handoff import accept_handoff

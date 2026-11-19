@@ -1,7 +1,9 @@
 name: Agent2 native snapshot substrate
 on:
+  push:
+    branches: [main, 'mission3/**']
   pull_request:
-    paths: ['grid/authority_assignment_v1.py', 'tests/coordination/assignment_v1/**', 'docs/coordination/assignment-v1/native-job-admission-20261109/**', '.github/workflows/agent2-native-job-admission.yml']
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -19,7 +21,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     env:
-      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         env:

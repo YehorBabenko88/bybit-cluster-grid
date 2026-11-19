@@ -5,8 +5,12 @@ from grid.history_export_v11 import export_records_v11
 from grid.provenance import digest
 
 
-def snapshot_fixture():
-    rows, q, trust = fixture()
+def snapshot_fixture(n=80, evidence_class='SYNTHETIC'):
+    rows, q, trust = fixture(n)
+    trust['evidence_class'] = evidence_class
+    for revision, receipt in trust['receipts'].items():
+        receipt['evidence_class'] = evidence_class
+        trust['receipt_pins'][revision] = digest(receipt)
     envelope = export_records_v11(rows, q, trust)
     entry = {'request': q, 'trust': trust, 'revisions': [r['dataset_fingerprint'] for r in rows],
              'dataset_id': envelope['dataset_id'], 'dataset_fingerprint': envelope['dataset_fingerprint']}

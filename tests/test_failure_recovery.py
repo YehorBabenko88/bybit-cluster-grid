@@ -1,4 +1,5 @@
 import asyncio
+import pytest
 from grid.segment_wal import SegmentWAL
 from grid.write_queue import BoundedWriteQueue
 
@@ -111,20 +112,63 @@ def test_queue_shutdown_is_bounded_when_sink_is_down():
     asyncio.run(run())
 
 
-def test_websocket_collectors_require_subscription_ack_and_stall_timeout():
-    worker=__import__("pathlib").Path("grid/worker.py").read_text(encoding="utf-8")
-    micro=__import__("pathlib").Path("grid/microstructure.py").read_text(encoding="utf-8")
-    assert 'ack.get("success") is not True' in worker
-    assert 'ack_deadline=asyncio.get_running_loop().time()+15' in worker
-    assert 'asyncio.wait_for(ws.recv(),timeout=remaining)' in worker
-    assert 'asyncio.wait_for(ws.recv(),timeout=45)' in worker
-    assert 'ack.get("success") is not True' in micro
-    assert 'ack_deadline=asyncio.get_running_loop().time()+15' in micro
-    assert 'asyncio.wait_for(ws.recv(),timeout=remaining)' in micro
-    assert 'asyncio.wait_for(ws.recv(),timeout=10)' in micro
-    assert 'except asyncio.TimeoutError:' in micro
-    assert 'book_watchdog.stalled(now)' in micro
-    assert 'stalled orderbook topics:' in micro
+@pytest.mark.parametrize('collector,ready_timeout', [('trade', 45), ('micro', 10)])
+def test_websocket_collectors_require_subscription_ack_and_stall_timeout(monkeypatch, collector, ready_timeout):
+    from grid import microstructure
+    from test_preack_buffer_discard_reconnect import DB, Socket
+    from test_public_trade_stream_admission import ACK, run
+
+    async def scenario():
+        timeouts = []
+        real_wait = asyncio.wait_for
+
+        async def observed_wait(awaitable, timeout):
+            timeouts.append(timeout)
+            if len(timeouts) in (1, 3):
+                awaitable.close()
+                raise asyncio.TimeoutError
+            return await real_wait(awaitable, timeout)
+
+        monkeypatch.setattr(asyncio, 'wait_for', observed_wait)
+        if collector == 'trade':
+            sink, connections = await run(monkeypatch, [], more_connections=([ACK], []))
+            assert sink.rows == [] and len(connections) == 3
+        else:
+            sockets = iter([Socket([]), Socket([{'op': 'subscribe', 'success': True}]), Socket([])])
+            watchdog_checks = []
+            connections = []
+            class Watchdog:
+                def __init__(self, symbols, now, timeout_seconds):
+                    if symbols != ['BTCUSDT'] or timeout_seconds != 120:
+                        pytest.fail('unexpected orderbook watchdog configuration')
+
+                def stalled(self, now):
+                    watchdog_checks.append(now)
+                    return ['BTCUSDT']
+
+            async def immediate(*args):
+                pass
+
+            def connect(*args, **kwargs):
+                connections.append(kwargs)
+                socket = next(sockets, None)
+                if socket is None:
+                    pytest.fail('unexpected microstructure reconnect')
+                return socket
+
+            monkeypatch.setattr(microstructure, 'TopicWatchdog', Watchdog)
+            monkeypatch.setattr(microstructure, 'wait_for_internet', immediate)
+            monkeypatch.setattr(microstructure.websockets, 'connect', connect)
+            monkeypatch.setattr(asyncio, 'sleep', immediate)
+            db = DB()
+            with pytest.raises(asyncio.CancelledError):
+                await microstructure.MicrostructureCollector(db).run_batch(['BTCUSDT'])
+            assert db.events == [] and len(watchdog_checks) == 1 and len(connections) == 3
+        assert len(timeouts) == 4
+        assert all(0 < timeouts[i] <= 15 for i in (0, 1, 3))
+        assert timeouts[2] == ready_timeout
+
+    asyncio.run(scenario())
 
 
 def test_power_loss_partial_wal_tail_is_truncated_before_next_append(tmp_path):

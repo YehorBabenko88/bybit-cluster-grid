@@ -1,13 +1,9 @@
 name: Agent2 owned Consul proxy isolation
 on:
   push:
-    branches: [feature/agent2-consul-proxy-isolation-20261109]
+    branches: [main, 'mission3/**', feature/agent2-consul-proxy-isolation-20261109]
   pull_request:
-    paths:
-      - grid/coordination.py
-      - tests/coordination/assignment_v1/proxy_isolation/**
-      - docs/coordination/assignment-v1/CONSUL-PROXY-ISOLATION.md
-      - .github/workflows/agent2-consul-proxy-isolation.yml
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
