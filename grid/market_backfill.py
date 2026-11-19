@@ -128,6 +128,67 @@ async def fetch_open_interest_page(base_url,symbol,interval="5min",start_ms=None
     return parsed
 
 
+async def fetch_funding_page(base_url,symbol,start_ms=None,end_ms=None,limit=200):
+    """One bounded public funding-history page; no trading or database writes.
+
+    Reuses Grid's existing Bybit transport and refuses malformed records before
+    returning any observations. A page never attests completeness, gap coverage
+    or authenticated source receipts; those belong to the versioned read API.
+    """
+    from decimal import Decimal,InvalidOperation
+    from .bybit import _bounded_int,_https_origin,_read_bounded_http_response,_bounded_result
+
+    origin=_https_origin(base_url)
+    if (type(symbol) is not str or not 1<=len(symbol)<=64 or
+            not symbol.isascii() or not symbol.isalnum()):
+        raise ValueError("invalid funding symbol")
+    _bounded_int(limit,"funding history page limit",1,200)
+    if start_ms is not None:
+        _bounded_int(start_ms,"funding start_ms",0,2**63-1)
+    if end_ms is not None:
+        _bounded_int(end_ms,"funding end_ms",0,2**63-1)
+    if start_ms is not None and end_ms is not None and end_ms<start_ms:
+        raise ValueError("invalid funding time range")
+    params={"category":"linear","symbol":symbol,"limit":limit}
+    if start_ms is not None:
+        params["startTime"]=start_ms
+    if end_ms is not None:
+        params["endTime"]=end_ms
+    timeout=aiohttp.ClientTimeout(total=30,connect=10,sock_read=30)
+    async with aiohttp.ClientSession(timeout=timeout,trust_env=False,auto_decompress=False,
+                                    cookie_jar=aiohttp.DummyCookieJar(),
+                                    headers={"Accept-Encoding":"identity"}) as session:
+        async with session.get(origin+"/v5/market/funding/history",
+                               params=params,allow_redirects=False) as response:
+            raw=await _read_bounded_http_response(response)
+    rows=_bounded_result(raw)["list"]
+    if len(rows)>limit:
+        raise ValueError("funding history page exceeds request limit")
+    parsed=[]
+    timestamps=set()
+    for row in rows:
+        if type(row) is not dict or row.get("symbol")!=symbol:
+            raise ValueError("invalid funding instrument identity")
+        stamp=row.get("fundingRateTimestamp")
+        if type(stamp) is str and 1<=len(stamp)<=19 and stamp.isascii() and stamp.isdecimal():
+            stamp=int(stamp)
+        if type(stamp) is not int or not 0<stamp<=2**63-1 or stamp in timestamps:
+            raise ValueError("invalid or duplicate funding timestamp")
+        rate=row.get("fundingRate")
+        if type(rate) is not str or not 1<=len(rate)<=80:
+            raise ValueError("invalid funding rate representation")
+        try:
+            exact=Decimal(rate)
+        except InvalidOperation as exc:
+            raise ValueError("invalid funding decimal") from exc
+        if not exact.is_finite():
+            raise ValueError("nonfinite funding rate")
+        timestamps.add(stamp)
+        parsed.append({"symbol":symbol,"timestamp_ms":stamp,"funding_rate":str(exact)})
+    parsed.sort(key=lambda item:item["timestamp_ms"])
+    return parsed
+
+
 async def store_kline_page(pool,symbol,rows):
     if not rows:return None
     from datetime import datetime,timezone
