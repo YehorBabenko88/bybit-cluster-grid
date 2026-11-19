@@ -393,16 +393,17 @@ class LeafTests(unittest.TestCase):
         self.assertEqual(git("rev-parse", "HEAD").decode(), expected_head)
         self.assertEqual(git("rev-parse", "HEAD:" + source_path.as_posix()).decode(),
                          expected_blob)
+        # Execute the validated raw Git object directly, not a checkout that
+        # may contain a platform-specific filter or line-ending transformation.
+        # HEAD and the exact blob OID were checked above; never trust unpinned
+        # worktree bytes to define the original numerical reference.
         original = git("show", "HEAD:" + source_path.as_posix())
-        worktree = (source_root / source_path).read_bytes()
-        self.assertEqual(hashlib.sha256(worktree.replace(b"\r\n", b"\n")).hexdigest(),
-                         hashlib.sha256(original).hexdigest())
         alias = "_meta_oi_pinned_source_for_grid_parity"
-        spec = importlib.util.spec_from_file_location(alias, source_root / source_path)
-        module = importlib.util.module_from_spec(spec)
+        module = types.ModuleType(alias)
+        module.__file__ = str(source_root / source_path)
         sys.modules[alias] = module
         try:
-            spec.loader.exec_module(module)
+            exec(compile(original, module.__file__, "exec"), module.__dict__)
             source_rows = [
                 {"timestamp":"60000","openInterest":"1234567890123.12345678901234567890"},
                 {"timestamp":"30000","openInterest":"0.00000001"},
