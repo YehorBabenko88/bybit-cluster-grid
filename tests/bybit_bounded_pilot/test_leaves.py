@@ -265,3 +265,47 @@ class LeafTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     complete(self.market_backfill.recover_stale_backfill_jobs(
                         Pool(), stale_minutes=minutes, max_attempts=attempts))
+
+    def test_short_bybit_page_is_not_complete_without_exhaustion(self):
+        """A one-row page must persist its cursor as queued, not mark complete."""
+        from datetime import datetime, timezone
+
+        class Pool:
+            def __init__(self):
+                self.calls = []
+
+            async def execute(self, statement, *args):
+                self.calls.append((statement, args))
+                return "UPDATE 1"
+
+        seen = []
+
+        async def fetch(_url, symbol, interval, end_ms):
+            seen.append((symbol, interval, end_ms))
+            return [["120000", "1", "2", "1", "2", "3"]]
+
+        async def store(_pool, symbol, rows):
+            self.assertEqual(symbol, "BTCUSDT")
+            self.assertEqual(len(rows), 1)
+            stamp = datetime.fromtimestamp(120, timezone.utc)
+            return stamp, stamp
+
+        async def no_sleep(_seconds):
+            return None
+
+        self.market_backfill.fetch_kline_page = fetch
+        self.market_backfill.store_kline_page = store
+        self.market_backfill.asyncio.sleep = no_sleep
+        pool = Pool()
+        result = complete(self.market_backfill.backfill_symbol(
+            pool, "https://example.invalid",
+            {"symbol": "BTCUSDT", "timeframe": "1", "launch_time_ms": 0},
+            max_pages=1, pause=0))
+        self.assertFalse(result["complete"])
+        self.assertEqual(result["pages"], 1)
+        self.assertEqual(seen, [("BTCUSDT", "1", None)])
+        self.assertEqual(len(pool.calls), 1)
+        sql, args = pool.calls[0]
+        self.assertIn("UPDATE market_backfill_state", sql)
+        self.assertEqual(args[2], "queued")
+        self.assertEqual(args[5], 119999)
