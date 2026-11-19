@@ -162,6 +162,29 @@ def qualified_snapshot(route, symbol, limit, before_ms=None):
         if before_ms is not None:
             raise ValueError('backfill state does not accept a cursor')
         return backfill_state(symbol)
+    # Dataset contracts awaiting verified provenance and bounded readback.
+    # Refuse to reinterpret status/aggregate rows as raw trades, L2 or OI.
+    if route in ('/internal/v1/trades', '/internal/v1/orderbook',
+                 '/internal/v1/open-interest', '/internal/v1/funding',
+                 '/internal/v1/mark-price', '/internal/v1/index-price',
+                 '/internal/v1/premium-index'):
+        if type(symbol) is not str or not SYMBOL.fullmatch(symbol):
+            raise ValueError('invalid instrument identity')
+        if isinstance(limit, str) and re.fullmatch(r'[1-9][0-9]{0,3}', limit):
+            limit = int(limit)
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError('invalid dataset page limit')
+        if before_ms is not None:
+            if (type(before_ms) is not str or
+                    re.fullmatch(r'[1-9][0-9]{0,15}', before_ms) is None):
+                raise ValueError('invalid dataset cursor')
+        return dict(result, resource=route.rsplit('/', 1)[-1],
+                    venue='Bybit', market_type='linear', symbol=symbol,
+                    limit=limit, rows=[], next_before_ms=None,
+                    representation='NOT_ATTESTED',
+                    coverage='NOT_ATTESTED', sequence='NOT_ATTESTED',
+                    source_provenance='NOT_ATTESTED',
+                    execution_authority=False, trading_authorized=False)
     if route not in ('/internal/v1/candles', '/internal/v1/footprint'):
         raise KeyError('unknown route')
     if not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol):
