@@ -394,7 +394,7 @@ class LeafTests(unittest.TestCase):
                          expected_blob)
         original = git("show", "HEAD:" + source_path.as_posix())
         worktree = (source_root / source_path).read_bytes()
-        self.assertEqual(hashlib.sha256(worktree.replace(b"\\r\\n", b"\\n")).hexdigest(),
+        self.assertEqual(hashlib.sha256(worktree.replace(b"\r\n", b"\n")).hexdigest(),
                          hashlib.sha256(original).hexdigest())
         alias = "_meta_oi_pinned_source_for_grid_parity"
         spec = importlib.util.spec_from_file_location(alias, source_root / source_path)
