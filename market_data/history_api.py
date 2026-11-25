@@ -1,0 +1,481 @@
+"""Read-only snapshot service for Terminan. No exchange subscriptions or writes.
+
+Run inside the existing Market Data environment with psycopg installed. Bind to loopback.
+Set MARKET_DATA_DSN to a dedicated read-only PostgreSQL role.
+"""
+import json
+import os
+import re
+import socket
+import threading
+import hmac
+from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
+from urllib.parse import urlsplit,parse_qs
+
+SYMBOL=re.compile(r'^[A-Z0-9]{2,30}$')
+
+def query(sql,args=()):
+    import psycopg
+    dsn=os.environ['MARKET_DATA_DSN']
+    with psycopg.connect(dsn,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=3000') as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql,args)
+            return cur.fetchall()
+
+
+def immutable_minutes(symbol, limit, before_ms):
+    import psycopg
+    with psycopg.connect(os.environ['MARKET_DATA_DSN'], connect_timeout=3,
+            options='-c default_transaction_read_only=on -c statement_timeout=3000') as conn:
+        with conn.cursor() as cur:
+            cur.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+            cur.execute("""SELECT CASE WHEN sum(octet_length(record::text)) OVER() <= 8388608
+                    AND max(octet_length(record::text)) OVER() <= 1048576 THEN record ELSE NULL END, versions
+                FROM (SELECT record,count(*) OVER(PARTITION BY start_ms) AS versions,start_ms,fingerprint
+                    FROM provenance_minutes WHERE symbol=%s AND start_ms<%s
+                    ORDER BY start_ms DESC,fingerprint DESC LIMIT %s) page ORDER BY start_ms DESC,fingerprint DESC""", (symbol, before_ms, limit))
+            rows = cur.fetchall()
+            if any(r[0] is None or r[1] != 1 for r in rows):
+                raise ValueError('ambiguous minute revisions')
+            return [r[0] for r in rows]
+
+
+def _utc_text(value):
+    if value is None:
+        return None
+    from datetime import datetime,timezone
+    if type(value) is not datetime or value.tzinfo is None:
+        raise ValueError('invalid Market Data timestamp')
+    return value.astimezone(timezone.utc).isoformat().replace('+00:00','Z')
+
+
+def instrument_state(symbol):
+    """Read Market Data's saved registry entry; never claim the exchange is live."""
+    if type(symbol) is not str or not SYMBOL.fullmatch(symbol):
+        raise ValueError('invalid instrument identity')
+    rows = query("""SELECT status,contract_type,tick_size,last_seen
+        FROM instruments WHERE symbol=%s LIMIT 2""", (symbol,))
+    if len(rows) > 1:
+        raise ValueError('ambiguous instrument identity')
+    result = {'api_version': {'major': 1, 'minor': 0},
+              'producer': 'market_data', 'venue': 'Bybit',
+              'market_type': 'linear', 'symbol': symbol,
+              'read_only': True, 'status': 'UNAVAILABLE',
+              'exchange_connection': 'NOT_ATTESTED',
+              'history_coverage': 'NOT_ATTESTED',
+              'source_provenance': 'NOT_ATTESTED',
+              'execution_authority': False, 'trading_authorized': False,
+              'reason': 'NO_MARKET_DATA_INSTRUMENT_RECORD'}
+    if not rows:
+        return result
+    state,kind,tick,last_seen = rows[0]
+    from decimal import Decimal
+    if (type(state) is not str or state not in ('Trading', 'Retired') or
+            (kind is not None and type(kind) is not str) or
+            (tick is not None and
+             (type(tick) is not Decimal or not tick.is_finite() or tick <= 0))):
+        raise ValueError('invalid Market Data instrument record')
+    result.update(status='INFORMATIONAL', recorded_status=state,
+                  contract_type=kind, tick_size=str(tick) if tick is not None else None,
+                  last_seen_utc=_utc_text(last_seen),
+                  reason='REGISTRY_RECORD_NOT_SOURCE_READINESS')
+    return result
+
+
+def backfill_state(symbol):
+    """Informational Market Data queue state, never evidence of complete exchange history.
+
+    A pre-existing Market Data loopback reader only. Unified owns any remote Gateway,
+    identity, authorization and rate limiting; never publish this listener on LAN.
+    """
+    if type(symbol) is not str or not SYMBOL.fullmatch(symbol):
+        raise ValueError('invalid instrument identity')
+    rows = query("""SELECT status,attempts,next_end_ms,oldest_loaded_ts,newest_loaded_ts
+        FROM market_backfill_state WHERE symbol=%s AND timeframe='1' LIMIT 2""", (symbol,))
+    if len(rows) > 1:
+        raise ValueError('ambiguous Market Data backfill state')
+    result = {'api_version': {'major': 1, 'minor': 0},
+              'producer': 'market_data', 'resource': 'market_backfill_state',
+              'read_only': True, 'symbol': symbol, 'timeframe': '1',
+              'status': 'UNAVAILABLE', 'state': 'UNKNOWN',
+              'history_coverage': 'NOT_ATTESTED', 'source_provenance': 'NOT_ATTESTED',
+              'execution_authority': False, 'trading_authorized': False,
+              'reason': 'NO_MARKET_DATA_BACKFILL_RECORD'}
+    if not rows:
+        return result
+    state,attempts,cursor,oldest,newest = rows[0]
+    if (type(state) is not str or state not in
+            ('queued','retry','running','done','failed','retired') or
+            type(attempts) is not int or not 0 <= attempts <= 2147483647 or
+            (cursor is not None and
+             (type(cursor) is not int or not -1 <= cursor <= 9223372036854775807))):
+        raise ValueError('invalid Market Data backfill state')
+    result.update(status='INFORMATIONAL', state=state, attempts=attempts,
+                  next_end_ms=cursor, oldest_loaded_utc=_utc_text(oldest),
+                  newest_loaded_utc=_utc_text(newest),
+                  reason='QUEUE_STATE_NOT_HISTORY_COMPLETENESS_PROOF')
+    return result
+
+def _snapshot_catalog(max_bytes=8388608):
+    """Operator-provisioned local policy; never accept catalog trust from HTTP."""
+    import pathlib
+    import stat
+    raw_path=os.environ.get('MARKET_DATA_PINNED_HISTORY_CATALOG','')
+    if not raw_path or len(raw_path)>2048:
+        raise RuntimeError('snapshot catalog not provisioned')
+    path=pathlib.Path(raw_path)
+    if not path.is_absolute() or path.is_symlink():
+        raise RuntimeError('snapshot catalog path unavailable')
+    # POSIX mode bits do not prove Windows NTFS DACL ownership. Until Unified
+    # supplies an independently qualified Windows ACL/identity admission path,
+    # refuse catalog trust rather than silently treating chmod(0600) as proof.
+    if os.name=='nt':
+        raise RuntimeError('WINDOWS_CATALOG_ACL_NOT_QUALIFIED')
+    flags=os.O_RDONLY|getattr(os,'O_BINARY',0)|getattr(os,'O_NOFOLLOW',0)
+    fd=os.open(path,flags)
+    try:
+        before=os.fstat(fd)
+        if (not stat.S_ISREG(before.st_mode) or not 0<before.st_size<=max_bytes
+                or before.st_mode & 0o022):
+            raise RuntimeError('snapshot catalog file unavailable')
+        raw=os.read(fd,before.st_size+1)
+        after=os.fstat(fd)
+        if (len(raw)!=before.st_size or len(raw)>max_bytes or
+                (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns)!=
+                (after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns)):
+            raise RuntimeError('snapshot catalog changed during read')
+    finally:
+        os.close(fd)
+    def pairs(items):
+        obj={}
+        for k,v in items:
+            if k in obj:raise ValueError('duplicate snapshot catalog key')
+            obj[k]=v
+        return obj
+    catalog=json.loads(raw,object_pairs_hook=pairs,
+                       parse_constant=lambda _: (_ for _ in ()).throw(ValueError('nonfinite catalog')))
+    if type(catalog) is not dict or len(catalog)>10000:
+        raise ValueError('invalid snapshot catalog')
+    return catalog
+
+
+def _history_connection():
+    import psycopg
+    return psycopg.connect(os.environ['MARKET_DATA_DSN'], connect_timeout=3,
+                           options='-c default_transaction_read_only=on -c statement_timeout=3000')
+
+
+def _pinned_response(version, envelope):
+    return {'schema': f'market_data.history.snapshot.response.{version}',
+            'status': 'PINNED_HISTORICAL_SOURCE_UNATTESTED',
+            'read_only': True, 'source_authentication': 'EXTERNAL_NOT_INDEPENDENTLY_VERIFIED',
+            'snapshot': envelope, 'execution_authority': False, 'trading_authorized': False}
+
+
+def pinned_history(selection):
+    """Bounded, immutable historical read; source authenticity is EXTERNAL.
+
+    Market Data supplies custody and digest checks; Unified supplies authentication
+    and the independently provisioned trust catalog. No live readiness claim.
+    """
+    from .history_snapshot import (
+        TIMEFRAME_MINUTES, plan_multipin, read_multipin_rollup, rollup_snapshot, select_snapshot,
+    )
+
+    timeframe = None
+    schema = selection.get('schema') if type(selection) is dict else None
+    if schema in ('market_data.history.selection.v3', 'market_data.history.selection.v4'):
+        # Two complete weeks can exceed the single-window catalog size.
+        sequence = schema == 'market_data.history.selection.v4'
+        catalog = _snapshot_catalog(max_bytes=16 * 1024 * 1024) if sequence else _snapshot_catalog()
+        pages = plan_multipin(selection, catalog)
+        with _history_connection() as conn:
+            return _pinned_response('v4' if sequence else 'v3',
+                                    read_multipin_rollup(conn, selection, pages, catalog))
+    if schema == 'market_data.history.selection.v2':
+        timeframe = selection.get('timeframe')
+        if type(timeframe) is not str or timeframe not in TIMEFRAME_MINUTES:
+            raise ValueError('invalid history timeframe')
+        selection = {k: v for k, v in selection.items() if k != 'timeframe'}
+        selection['schema'] = 'market_data.history.selection.v1'
+    if (type(selection) is not dict or
+            set(selection)!={'schema','snapshot_id','venue','market_type','symbol','start_ms','end_ms'} or
+            selection.get('schema')!='market_data.history.selection.v1' or
+            type(selection.get('snapshot_id')) is not str or
+            re.fullmatch('[0-9a-f]{64}',selection['snapshot_id']) is None or
+            any(type(selection.get(k)) is not str or not selection[k]
+                for k in ('venue','market_type','symbol')) or
+            type(selection.get('start_ms')) is not int or
+            type(selection.get('end_ms')) is not int or
+            selection['start_ms']<0 or selection['end_ms']<=selection['start_ms'] or
+            selection['end_ms']-selection['start_ms']>120000000):
+        raise ValueError('invalid pinned history selection')
+    if timeframe:
+        width = TIMEFRAME_MINUTES[timeframe] * 60000
+        if selection['start_ms'] % width or selection['end_ms'] % width:
+            raise ValueError('incomplete history timeframe windows')
+    catalog=_snapshot_catalog()
+    entry=catalog.get(selection['snapshot_id'])
+    if type(entry) is not dict or type(entry.get('request')) is not dict:
+        raise ValueError('snapshot not provisioned')
+    expected=entry['request']
+    for key in ('venue','market_type','symbol','start_ms','end_ms'):
+        if type(selection[key]) is not type(expected.get(key)) or selection[key]!=expected[key]:
+            raise ValueError('snapshot identity or time mismatch')
+    if timeframe:
+        trust = entry.get('trust')
+        if type(trust) is not dict or trust.get('evidence_class') != 'HISTORICAL':
+            raise ValueError('pinned historical source required')
+    with _history_connection() as conn:
+        envelope=select_snapshot(conn,selection,catalog)
+    return _pinned_response('v2', rollup_snapshot(envelope, timeframe)) if timeframe else _pinned_response('v1', envelope)
+
+
+def qualified_snapshot(route, symbol, limit, before_ms=None):
+    """Versioned boundary. Current tables do not carry qualifying provenance."""
+    result = {
+        'api_version': {'major': 1, 'minor': 0},
+        'producer': 'market_data', 'read_only': True,
+        'status': 'UNAVAILABLE', 'reason': 'SOURCE_PROVENANCE_UNAVAILABLE',
+        'source': {'market_type': None, 'epoch': None, 'freshness_utc_ms': None,
+                   'release_digest': None, 'identity': None},
+    }
+    if route == '/internal/v1/capabilities':
+        result['capabilities'] = {'candles': 'UNAVAILABLE',
+                                  'footprint': 'UNAVAILABLE', 'live_l2': False,
+                                  'immutable_market_snapshots_v1_1': True,
+                                  'pinned_historical_rollups_v2': ['5m', '15m', '1h'],
+                                  'pinned_historical_rollups_v3': ['1h', '4h', '1d', '1w'],
+                                  'pinned_historical_sequences_v4': ['1h', '4h', '1d', '1w'],
+                                  'public_trades': 'UNAVAILABLE',
+                                  'orderbook_snapshots': 'UNAVAILABLE',
+                                  'open_interest': 'UNAVAILABLE',
+                                  'funding_rate': 'UNAVAILABLE',
+                                  'market_data_coverage': 'NOT_ATTESTED',
+                                  'replay_cursor': 'NOT_ATTESTED'}
+        result['analytics_consumer'] = {
+            'schema': 'market_data.analytics.dataset-capabilities.v1',
+            'exchange_owner': 'market_data',
+            'database_writer_owner': 'market_data',
+            'history_provenance': 'NOT_ATTESTED',
+            'consumer_cutover': False,
+            'execution_authority': False,
+            'trading_authorized': False,
+        }
+        return result
+    if route == '/internal/v1/health':
+        result['database'] = 'UNAVAILABLE'
+        try:
+            rows = query("SELECT current_setting('server_version_num')::int, current_setting('transaction_read_only')")
+            if len(rows) == 1 and rows[0][0] >= 180000 and rows[0][1] == 'on':
+                result['database'] = 'READ_ONLY'
+        except Exception:
+            pass  # Never return exception text, DSNs or credentials.
+        return result
+    if route == '/internal/v1/instrument-state':
+        if before_ms is not None:
+            raise ValueError('instrument state does not accept a cursor')
+        return instrument_state(symbol)
+    if route == '/internal/v1/backfill-state':
+        if before_ms is not None:
+            raise ValueError('backfill state does not accept a cursor')
+        return backfill_state(symbol)
+    # Dataset contracts awaiting verified provenance and bounded readback.
+    # Refuse to reinterpret status/aggregate rows as raw trades, L2 or OI.
+    if route in ('/internal/v1/trades', '/internal/v1/orderbook',
+                 '/internal/v1/open-interest', '/internal/v1/funding',
+                 '/internal/v1/mark-price', '/internal/v1/index-price',
+                 '/internal/v1/premium-index'):
+        if type(symbol) is not str or not SYMBOL.fullmatch(symbol):
+            raise ValueError('invalid instrument identity')
+        if isinstance(limit, str) and re.fullmatch(r'[1-9][0-9]{0,3}', limit):
+            limit = int(limit)
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError('invalid dataset page limit')
+        if before_ms is not None:
+            if (type(before_ms) is not str or
+                    re.fullmatch(r'[1-9][0-9]{0,15}', before_ms) is None):
+                raise ValueError('invalid dataset cursor')
+        return dict(result, resource=route.rsplit('/', 1)[-1],
+                    venue='Bybit', market_type='linear', symbol=symbol,
+                    limit=limit, rows=[], next_before_ms=None,
+                    representation='NOT_ATTESTED',
+                    coverage='NOT_ATTESTED', sequence='NOT_ATTESTED',
+                    source_provenance='NOT_ATTESTED',
+                    execution_authority=False, trading_authorized=False)
+    if route not in ('/internal/v1/candles', '/internal/v1/footprint'):
+        raise KeyError('unknown route')
+    if not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol):
+        raise ValueError('invalid symbol')
+    if isinstance(limit, str) and re.fullmatch(r'[1-9][0-9]{0,3}', limit):
+        limit = int(limit)
+    if type(limit) is not int or not 1 <= limit <= 1000:
+        raise ValueError('limit must be an integer from 1 to 1000')
+    result.update(symbol=symbol, timeframe='1m', rows=[], limit=limit,
+                  representation='historical_aggregate')
+    from .provenance_gateway import read_snapshot
+    return read_snapshot(result, symbol, limit, before_ms, immutable_minutes)
+
+def snapshot(route,symbol='BTCUSDT',limit=300,before_ms=None):
+    if route.startswith('/internal/v1/'):
+        return qualified_snapshot(route, symbol, limit, before_ms)
+    if not SYMBOL.fullmatch(symbol):raise ValueError('invalid symbol')
+    limit=max(1,min(int(limit),1000))
+    if route=='/v1/instruments':
+        return {'version':1,'symbols':[r[0] for r in query('SELECT DISTINCT symbol FROM candles_1m ORDER BY symbol LIMIT 2000')]}
+    if route=='/v1/candles':
+        rows=query('SELECT extract(epoch from ts)*1000,open,high,low,close,buy_volume,sell_volume,delta,trade_count,poc_price FROM candles_1m WHERE symbol=%s ORDER BY ts DESC LIMIT %s',(symbol,limit))
+        return {'version':1,'symbol':symbol,'timeframe':'1m','rows':[dict(zip(('t','o','h','l','c','buy','sell','delta','trades','poc'),map(float,r))) for r in reversed(rows)]}
+    if route=='/v1/footprint':
+        rows=query('SELECT extract(epoch from ts)*1000,price,buy_volume,sell_volume,delta,volume FROM footprint_1m WHERE symbol=%s ORDER BY ts DESC,price DESC LIMIT %s',(symbol,limit))
+        return {'version':1,'symbol':symbol,'rows':[dict(zip(('t','price','buy','sell','delta','volume'),map(float,r))) for r in rows]}
+    if route=='/v1/nodes':
+        # Cluster inventory and cross-host orchestration belong to Unified System.
+        # Keep the legacy route non-disclosing until every consumer migrates.
+        return {'version':1,'status':'UNAVAILABLE',
+                'reason':'UNIFIED_SYSTEM_NODE_OWNER','nodes':[]}
+    raise KeyError(route)
+
+class Handler(BaseHTTPRequestHandler):
+    def _json(self, status, value):
+        data = json.dumps(value, allow_nan=False).encode()
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _managed_request(self):
+        identity = getattr(self.server, 'module_identity', None)
+        if identity is None:
+            return True
+        authorization = self.headers.get_all('Authorization', [])
+        if (len(authorization) != 1 or not authorization[0].isascii()
+                or not hmac.compare_digest(authorization[0], 'Bearer ' + identity['instance_token'])):
+            self._json(401, {'error': 'AUTHORIZATION_REQUIRED'})
+            return False
+        admission = getattr(self.server, 'startup_admission', None)
+        try:
+            if admission is None or admission.require_current() is not True:
+                raise RuntimeError('expired admission')
+        except Exception:
+            self._json(503, {'error': 'CURRENT_ADMISSION_REQUIRED'})
+            return False
+        return True
+
+    def log_message(self, format, *args):
+        # Request lines may contain tokens; never log caller-controlled paths.
+        return
+
+    def _arm_deadline(self, seconds):
+        if self._deadline is not None:
+            self._deadline.cancel()
+            self._deadline.join()
+        def expire():
+            try:self.connection.shutdown(socket.SHUT_RDWR)
+            except OSError:pass
+        self._deadline = threading.Timer(seconds, expire)
+        self._deadline.daemon = True
+        self._deadline.start()
+
+    def handle(self):
+        # One absolute ingress deadline covers headers and slow body drips.
+        self._deadline = None
+        self.connection.settimeout(3)
+        self._arm_deadline(3)
+        try:
+            super().handle()
+        finally:
+            self._deadline.cancel()
+            self._deadline.join()
+
+    def do_POST(self):
+        if not self._managed_request():
+            return
+        route=urlsplit(self.path).path
+        if route != '/internal/v1/history/snapshots/read':
+            self.send_error(404)
+            return
+        try:
+            if urlsplit(self.path).query:
+                raise ValueError('snapshot route must not include query')
+            self.connection.settimeout(3)
+            if self.headers.get('Transfer-Encoding'):
+                raise ValueError('chunked requests unavailable')
+            size = int(self.headers.get('Content-Length', '0'))
+            limit = 4096
+            if not 0 < size <= limit:
+                raise ValueError('bounded request required')
+            body=self.rfile.read(size)
+            if len(body)!=size:
+                raise ValueError('truncated request')
+            if self.headers.get('Content-Type')!='application/json':
+                raise ValueError('JSON content type required')
+            def unique(pairs):
+                out={}
+                for k,v in pairs:
+                    if k in out:raise ValueError('duplicate selection field')
+                    out[k]=v
+                return out
+            selection=json.loads(body,object_pairs_hook=unique,
+                                 parse_constant=lambda _: (_ for _ in ()).throw(ValueError('nonfinite')))
+            if type(selection) is dict and getattr(self, '_deadline', None) is not None:
+                schema = selection.get('schema')
+                if schema == 'market_data.history.selection.v3':
+                    self._arm_deadline(40)
+                elif schema == 'market_data.history.selection.v4':
+                    # Up to sixteen bounded reads after complete bounded ingress.
+                    self._arm_deadline(70)
+            result=pinned_history(selection)
+            status = 200
+        except ValueError:
+            reason='INVALID_SNAPSHOT_REQUEST'
+            result,status={'status':'UNAVAILABLE','reason':reason,'execution_authority':False},400
+        except Exception:
+            result,status={'status':'UNAVAILABLE','reason':'SOURCE_READ_UNAVAILABLE','execution_authority':False},503
+        data = json.dumps(result,allow_nan=False).encode()
+        self.send_response(status)
+        self.send_header('Content-Type','application/json')
+        self.send_header('Cache-Control','no-store')
+        self.send_header('Content-Length',str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        if not self._managed_request():
+            return
+        if self.path == '/health':
+            identity = getattr(self.server, 'module_identity', None)
+            return self._json(200, dict(identity, ready=True)) if identity is not None else self._json(
+                503, {'error': 'MANAGED_IDENTITY_UNAVAILABLE'})
+        try:
+            if len(self.path.encode('utf-8'))>2048:
+                raise ValueError('query too large')
+            u=urlsplit(self.path)
+            q=parse_qs(u.query,keep_blank_values=True,max_num_fields=3,strict_parsing=True)
+            if u.path in ('/internal/v1/backfill-state', '/internal/v1/instrument-state') and set(q) != {'symbol'}:
+                raise ValueError('explicit symbol required for Market Data backfill state')
+            if any(k not in ('symbol','limit','before_ms') or len(v)!=1 for k,v in q.items()):
+                raise ValueError('invalid query parameters')
+            result=snapshot(u.path,q.get('symbol',['BTCUSDT'])[0],q.get('limit',[300])[0],q.get('before_ms',[None])[0]);status=200
+        except (ValueError,KeyError):result={'error':'INVALID_QUERY_OR_ROUTE'};status=400
+        except Exception:result={'error':'source unavailable'};status=503
+        body=json.dumps(result,allow_nan=False).encode()
+        self.send_response(status);self.send_header('Content-Type','application/json');self.send_header('Cache-Control','no-store');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
+
+def main(*, startup_admission=None):
+    from .admission import startup_identity
+    identity = startup_identity(startup_admission)
+    port = int(os.environ.get('MARKET_DATA_PORT', '18766'))
+    if not 1 <= port <= 65535:
+        raise ValueError('invalid read API port')
+    server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
+    server.startup_admission = startup_admission
+    server.module_identity = identity
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
+
+if __name__=='__main__':main()

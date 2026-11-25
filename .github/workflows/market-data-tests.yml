@@ -1,0 +1,119 @@
+name: Canonical Market Data tests (relocated from strattester@3850995)
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+env:
+  SOURCE_DATE_EPOCH: "315532800"
+jobs:
+  pytest:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11','3.12','3.13']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/math
+          ref: 9e6acbd9e12a91189f57234828e31640983af553
+          path: .source/math
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Materialize build inputs from exact Git blobs
+        shell: python
+        run: |
+          import pathlib, runpy
+          materialize = runpy.run_path('scripts/materialize_ci_sources.py')['materialize']
+          materialize(pathlib.Path.cwd(), '${{ github.event.pull_request.head.sha || github.sha }}', ['market_data'])
+          materialize(pathlib.Path('.source/math'), '9e6acbd9e12a91189f57234828e31640983af553', ['python'])
+      - run: python -m pip install --no-deps ./.source/math
+      - run: python -m pip install ".[test]"
+      - name: Run the exact 902-node canonical roster (legacy strattester nodes are not relocated)
+        shell: python
+        run: |
+          import json, sys, pytest
+          roster = json.load(open('scripts/canonical_test_roster.json'))
+          assert len(roster) == 902 and len(set(roster)) == 902
+          sys.exit(pytest.main(['-v', '-p', 'pytest_asyncio.plugin', *roster]))
+      - name: Parse PowerShell scripts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count) {
+              $failed = $true
+              $errors | ForEach-Object {
+                Write-Error "$($_.Extent.File):$($_.Extent.StartLineNumber): $($_.Message)"
+              }
+            }
+          }
+          if ($failed) { exit 1 }
+  frozen-results:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/Terminan
+          ref: fc0bed4937ab5dbb039320aae48e49b01b31bb43
+          path: .source/terminan
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/math
+          ref: 9e6acbd9e12a91189f57234828e31640983af553
+          path: .source/math
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Materialize build inputs from exact Git blobs
+        shell: python
+        run: |
+          import pathlib, runpy
+          materialize = runpy.run_path('scripts/materialize_ci_sources.py')['materialize']
+          materialize(pathlib.Path.cwd(), '${{ github.event.pull_request.head.sha || github.sha }}', ['market_data'])
+          materialize(pathlib.Path('.source/math'), '9e6acbd9e12a91189f57234828e31640983af553', ['python'])
+      - run: python -m pip install --no-deps ./.source/math
+      - run: python -m pip install ".[test]"
+      - name: Materialize canonical historical reader
+        shell: python
+        run: |
+          import pathlib, runpy
+          runpy.run_path('scripts/materialize_ci_sources.py')['materialize'](pathlib.Path('.source/terminan'), 'fc0bed4937ab5dbb039320aae48e49b01b31bb43', ['terminan'])
+      - run: python -I scripts/build_sdk_source_manifest.py .source/terminan .source/math .ci-evidence/sdk-source-manifest.json
+      - run: python -m pip install --no-deps ./.source/terminan
+      - run: python -I -S -B scripts/check_sdk_cache_path_controls.py
+      - run: python -I -S -B scripts/check_test_roster_controls.py
+      - name: Verify SDK controls and historical consumer under fresh startup cache custody
+        shell: python
+        run: |
+          import pathlib, runpy, subprocess, sys, sysconfig
+          root=pathlib.Path.cwd()
+          api=runpy.run_path(str(root/"scripts/sdk_cache_custody.py"))
+          dependencies=sysconfig.get_path("purelib")
+          for name in ("check_sdk_cache_controls.py","check_sdk_origin_controls.py","check_test_framework_controls.py","check_frozen_consumer.py"):
+              with api["fresh_sdk_cache"](source_roots=(root,)) as cache:
+                  command=[sys.executable,"-I","-S","-B","-X","pycache_prefix="+str(cache),str(root/"scripts"/name),str(cache)]
+                  if name in ("check_test_framework_controls.py","check_frozen_consumer.py"):command += ["--dependencies",dependencies]
+                  subprocess.run(command,check=True)

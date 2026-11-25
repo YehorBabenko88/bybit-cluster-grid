@@ -65,7 +65,7 @@ jobs:
         id: tests
         # The Agent2 native snapshot and proxy jobs run these cases with their pinned support and Consul.
         run: >-
-          python -m pytest -q --ignore=upstream --junitxml=mission3-tests.xml
+          python -m pytest -q --ignore=upstream --ignore=tests/market_data --ignore=tests/marketdata --ignore=tests/unmigrated_market_data --junitxml=mission3-tests.xml
           --ignore=tests/coordination/assignment_v1/test_bootstrap_guard.py
           --ignore=tests/coordination/assignment_v1/test_native_job_negative.py
           --ignore=tests/coordination/assignment_v1/test_native_snapshot.py

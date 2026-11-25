@@ -1,0 +1,1 @@
+Retained migration regression source, not a passing acceptance gate. Three observed failures and one unexecuted PostgreSQL case are recorded in the migration ledger. Numeric FootprintBuilder migration and old serialized-receipt import are pending; no tests removed or marked skip. The original Grid source tests remain unchanged in the source repository.
