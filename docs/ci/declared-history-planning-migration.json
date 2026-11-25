@@ -1,0 +1,147 @@
+{
+  "schema": "market_data.declared-history-planning-migration.v1",
+  "base": "a44ce268c39170dfd377b25c75aa3648fcf3476e",
+  "depends_on_range112": false,
+  "original_source_revision": "13998cf87139330dd0406fed00acd148e045e6c4",
+  "original_files": [
+    {
+      "path": "strattester/marketdata/readiness.py",
+      "original_blob": "ebfdddeacdf9e12c57b429195ab845625456b3a4",
+      "retained_blob": "ebfdddeacdf9e12c57b429195ab845625456b3a4",
+      "identical": true
+    },
+    {
+      "path": "strattester/marketdata/sync_engine.py",
+      "original_blob": "8e9cae734f54ebdcbda25659b8f68c9690e13e5e",
+      "retained_blob": "8e9cae734f54ebdcbda25659b8f68c9690e13e5e",
+      "identical": true
+    },
+    {
+      "path": "tests/marketdata/test_history_plan.py",
+      "original_blob": "dd9de8cf02efa51889ec7efda2b36ef598340aec",
+      "retained_blob": "dd9de8cf02efa51889ec7efda2b36ef598340aec",
+      "identical": true
+    },
+    {
+      "path": "tests/marketdata/test_readiness.py",
+      "original_blob": "4694411478281c268d1bcbbbc1e4bb2369ba885f",
+      "retained_blob": "4694411478281c268d1bcbbbc1e4bb2369ba885f",
+      "identical": true
+    }
+  ],
+  "math": {
+    "revision": "e352b98ff619064a9affba35bc9ad08e1ec7fe5b",
+    "kernel_blob": "c9b216f4f2e2cf8a20be0ecfe50f56b28c7ad438",
+    "wheel_sha256": "0de5ea0e482ccc1fd23d541af62b9d4f0d81a493c51656d638efdb3814f1ee6e",
+    "api": "market_math.history_window_ms",
+    "current_cohort_repin": false
+  },
+  "transferred": [
+    {
+      "path": "tests/marketdata/test_history_plan.py",
+      "name": "test_instrument_history_plan_starts_at_launch_and_uses_dataset_cadence"
+    },
+    {
+      "path": "tests/marketdata/test_readiness.py",
+      "name": "test_requirements_skip_explicitly_unsupported_optional_datasets"
+    },
+    {
+      "path": "tests/marketdata/test_readiness.py",
+      "name": "test_supported_optional_datasets_remain_required"
+    },
+    {
+      "path": "tests/marketdata/test_readiness.py",
+      "name": "test_requirements_stop_at_delisting_boundary"
+    },
+    {
+      "path": "tests/marketdata/test_readiness.py",
+      "name": "test_requirements_empty_before_instrument_launch"
+    },
+    {
+      "path": "tests/marketdata/test_readiness.py",
+      "name": "test_zero_delivery_time_does_not_truncate_perpetual_instrument"
+    },
+    {
+      "path": "tests/marketdata/test_readiness.py",
+      "name": "test_dataset_windows_align_to_their_own_sampling_grid"
+    }
+  ],
+  "canonical_api": [
+    "declare_history_instrument",
+    "declared_dataset_requests",
+    "plan_history_requests"
+  ],
+  "preserved_inputs_outputs": [
+    "launch1ms starts1m at60000",
+    "base datasets1m andOI/ratio5m",
+    "explicit unsupported optional datasets omitted",
+    "supported optional datasets requested",
+    "delivery clips requested end",
+    "end beforelaunch yields no sample requests",
+    "zero delivery does not truncate perpetual declaration",
+    "independent minute/5minute/funding8minute grids"
+  ],
+  "conservative_changes": [
+    "unknown requested funding cadence is explicitly unplanned instead of inventing480",
+    "conflicting nonzero delivery/delist declarations refuse",
+    "strict UTC/int/cadence metadata guards are representation budgets, not provider limits"
+  ],
+  "pending_database_functions": [
+    {
+      "name": "test_open_market_store_prefers_existing_local_legacy_data",
+      "assertions_unchanged": true,
+      "assertion_count": 5,
+      "assert_tree_sha256": "97f83f2c79df7dd374f12e73fc8154767c5f66ac930b02b7f5d3391fcb22f2d3",
+      "execution": "NOT_RUN",
+      "status": "RETAINED_DB_ROLE_IMPORTS_LOCAL_PENDING_MIGRATION"
+    },
+    {
+      "name": "test_historical_reader_sees_committed_wal_rows_without_checkpoint",
+      "assertions_unchanged": true,
+      "assertion_count": 5,
+      "assert_tree_sha256": "d56a42f123bb3d22dd25833593fa9f26dc9f637ffa6b8fd4e1c6aaa7a56bfab8",
+      "execution": "NOT_RUN",
+      "status": "RETAINED_DB_ROLE_IMPORTS_LOCAL_PENDING_MIGRATION"
+    },
+    {
+      "name": "test_open_market_store_refuses_creation_without_existing_history",
+      "assertions_unchanged": true,
+      "assertion_count": 1,
+      "assert_tree_sha256": "95d772eb29903f89afb6e4c7efa4979861825d357922f45fb1b4b3b1ae04fe73",
+      "execution": "NOT_RUN",
+      "status": "RETAINED_DB_ROLE_IMPORTS_LOCAL_PENDING_MIGRATION"
+    },
+    {
+      "name": "test_ensure_history_refuses_legacy_writer_without_fetch_or_mutation",
+      "assertions_unchanged": true,
+      "assertion_count": 5,
+      "assert_tree_sha256": "3f3d9c336a903d9ae52385a3681d782d998598e18df5efcc69dda7206335d7e1",
+      "execution": "NOT_RUN",
+      "status": "RETAINED_DB_ROLE_IMPORTS_LOCAL_PENDING_MIGRATION"
+    },
+    {
+      "name": "test_existing_candles_not_promoted_to_source_attested",
+      "assertions_unchanged": true,
+      "assertion_count": 3,
+      "assert_tree_sha256": "e5e4cdc6b53d058bedc61361fab1bd12936be00460fe66dcfd34ab79a0f1967e",
+      "execution": "NOT_RUN",
+      "status": "RETAINED_DB_ROLE_IMPORTS_LOCAL_PENDING_MIGRATION"
+    }
+  ],
+  "counts": {
+    "original_functions": 547,
+    "current113_transferred": 13,
+    "new_planner_original_functions": 7,
+    "remaining_on_this_branch": 527,
+    "independent_range112_original_functions": 4,
+    "remaining_if_both_future_features_adopted": 523
+  },
+  "local_validation": {
+    "targeted_source311": 31,
+    "targeted_source312": 31,
+    "strict_source311": 676,
+    "strict_source312": 676,
+    "no_event_loop_for_targeted_metadata": true,
+    "provider_pg_native": "NOT_RUN"
+  }
+}

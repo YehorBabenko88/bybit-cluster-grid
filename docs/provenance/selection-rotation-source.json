@@ -1,0 +1,22 @@
+{
+  "source_revision": "b1a4d6a41054f0040a88dc80b585380fb6b4f323",
+  "files": {
+    "src/meta_analyse/collector.py": "a38243a7ab3d45d0cb5f599b9a3910b224252ce5",
+    "src/meta_analyse/instruments.py": "a0632e6183288a509b944c462bb12c986f7d2425",
+    "src/meta_analyse/exchange.py": "3bf46d5624be3508636f1b4470e4d0df66de2188",
+    "src/meta_analyse/pipeline.py": "6a43f41136cc4258584b0e572eaa2b706eba044f"
+  },
+  "ported_roles": [
+    "CollectorService.run replacement ordering",
+    "Instrument listing age and exacttick metadata",
+    "BybitPublic.top_volatile contract delegatedMath",
+    "RawPipeline task ownership/canceljoin only"
+  ],
+  "excluded": [
+    "RawStore/MarketStore duplicateSQL",
+    "ExecutionAggregator numerical implementation",
+    "unbounded provider loop/secondHTTPclient"
+  ],
+  "topology_change": "max20single-symbol canonical streams instead2groups10",
+  "native_status": "NOT_RUN"
+}

@@ -1,0 +1,114 @@
+{
+  "base": "a44ce268c39170dfd377b25c75aa3648fcf3476e",
+  "scope": "CI_ONLY_RUNTIME_UNCHANGED",
+  "pytest": "8.3.5",
+  "pytest_asyncio": "0.26.0",
+  "hosted_failures": [
+    136395856651,
+    136395857000,
+    136395862123,
+    136395862601,
+    136395862915,
+    136395862985
+  ],
+  "hosted_versions": {
+    "pytest": "9.2.0",
+    "pytest_asyncio": "1.5.0"
+  },
+  "diagnostic_calibration": "Existing pytest9.1.1 emits SubtestReport duplicate call phases; this does not prove hosted9.2 collection-ID cause",
+  "controls": [
+    {
+      "python": "311",
+      "control": "check_sdk_cache_path_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_test_roster_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_canonical_package_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_sdk_cache_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_sdk_origin_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_test_framework_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_sdk_cache_path_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_test_roster_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_canonical_package_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_sdk_cache_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_sdk_origin_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_test_framework_controls.py",
+      "exit": 0
+    }
+  ],
+  "current_immutable_artifact_cases": [
+    {
+      "python": "311",
+      "exit": 0,
+      "cases": 645
+    },
+    {
+      "python": "312",
+      "exit": 0,
+      "cases": 645
+    }
+  ],
+  "historical_consumer": [
+    {
+      "python": "311",
+      "exit": 0,
+      "cases": 14
+    },
+    {
+      "python": "312",
+      "exit": 0,
+      "cases": 14
+    }
+  ],
+  "warnings": {
+    "canonical645": 279,
+    "historical14": 2
+  },
+  "initial_harness_refusals": "Overstrict sqlite deny and Windows file URI guard refused temporary fixtures; retained private logs, corrected private harness only",
+  "windows_alias": "Six inert controls; no actual DOS8.3/link manipulation or hosted acceptance yet",
+  "legacy": "Eight hosted collection errors including requests; no new runtime dependency, no selector narrowing; NO_GO",
+  "native_provider_pg": "NOT_RUN",
+  "release_status": "NO_GO"
+}

@@ -1,0 +1,61 @@
+{
+  "base": "2ac083bc88724d102f7ef12544c02d42f122bc0a",
+  "review": "ROOT_STATIC_ONLY_NO_EXECUTION",
+  "files": [
+    {
+      "path": "tests/install/test_install_contract.py",
+      "git_base_blob": "83f44972893d7d87f0d6e5a469210b6e4cc50493",
+      "sha256": "c89720ce27fe6146f92c69430c4fda3c5fc3f9cc589eb66b2e28cd15c2f82148"
+    },
+    {
+      "path": "tests/marketdata/test_bybit_client.py",
+      "git_base_blob": "b31442eb73fb63f9163014918a1f07c86ea8cf95",
+      "sha256": "9d802ac211c047550c59ef6c75d78d3201f6d00d5ed1d3cc9c6ff3cfdbebea8a"
+    },
+    {
+      "path": "tests/marketdata/test_process_kill_recovery.py",
+      "git_base_blob": "97c847b7dd5854f64f3454adc49d32bded39ace0",
+      "sha256": "9e3c97947adb6f11fae4d6fb6c90aad15d003cbeceb8c1c3821becbf634c4156"
+    },
+    {
+      "path": "tests/marketdata/test_sync_engine.py",
+      "git_base_blob": "0d8ad130552f28b6d685e97f449c0fbe0e06bc4a",
+      "sha256": "bf4f8028573ee9411ab5e888a75fc6f863e384962d2129618865e7480749f711"
+    },
+    {
+      "path": "tests/runtime/test_service_intent.py",
+      "git_base_blob": "0b0f077b11ebb16b5787d1d6def7aecbc89b4fd1",
+      "sha256": "d6066aecf10d5805b4106bdce829b50b363b9525e3880259f99240ade334f404"
+    },
+    {
+      "path": "tests/runtime/test_service_manager.py",
+      "git_base_blob": "c73376703b211c9acb4a32c7546d38274ef1afdc",
+      "sha256": "eaf378ac5ed27ca7248f45ed5e1466683bb2f7ac627243ec3a82e188ee0e7ebf"
+    },
+    {
+      "path": "tests/test_windows_uninstall_lifecycle.py",
+      "git_base_blob": "cd45d153a40658e294ce9166d662184fa26f8aa3",
+      "sha256": "813a099923ab70e6c1eb201776e3e3aa5c80c2b8a3850a475fe4a8421a9a56e4"
+    },
+    {
+      "path": "tests/unmigrated_market_data/test_source_provenance.py",
+      "git_base_blob": "fcf102930c199d651923978ec8e802f369a45c60",
+      "sha256": "e76c027d9de66e550e1729481b580aa75bbd0aaa8fb53a5aaee484076038d382"
+    }
+  ],
+  "isolation_change": {
+    "path": "tests/runtime/test_service_manager.py",
+    "change": "tmp_path fixture passed as explicit manager root; same assertions preserved",
+    "local_execution": "NOT_RUN"
+  },
+  "findings": [
+    "BybitClient fake responses and explicit Session refusal; no HTTP",
+    "Crash/sync children os._exit with temporary SQLite only",
+    "Smoke child uses fresh disposable root and fake resources; no provider",
+    "Guardian/service runner injection; no actual SCM",
+    "HTTP uses loopback ephemeral only",
+    "PostgreSQL requires explicit DSN not supplied by workflow",
+    "Existing Windows uninstall harness calls PowerShell Bypass only on hosted Windows with fake Get-Service/NSSM; DeleteData not passed",
+    "No local native/process/PowerShell execution authorized by this audit"
+  ]
+}

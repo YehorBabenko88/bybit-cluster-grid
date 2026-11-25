@@ -1,0 +1,89 @@
+name: Canonical Market Data pure source and package
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+env:
+  SOURCE_DATE_EPOCH: '315532800'
+  MARKET_DATA_TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+  PYTHONDONTWRITEBYTECODE: '1'
+jobs:
+  pure:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.MARKET_DATA_TEST_SHA }}
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/math
+          ref: 9e6acbd9e12a91189f57234828e31640983af553
+          path: .source/math
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Build isolated pure wheels and test only inspected fixtures
+        shell: python
+        run: |
+          import os, pathlib, subprocess, sys, tempfile
+          root=pathlib.Path.cwd()
+          subprocess.run([sys.executable,'-I','-B',str(root/'scripts/check_test_roster_controls.py')],check=True)
+          subprocess.run([sys.executable,'-I','-B',str(root/'scripts/check_canonical_package_controls.py')],check=True)
+          def committed_input(owner, source):
+              if source.is_symlink() or not source.resolve(strict=True).is_relative_to(owner.resolve(strict=True)):
+                  raise RuntimeError("build input escapes owned source checkout")
+              relative=source.relative_to(owner).as_posix()
+              committed=subprocess.check_output(['git','--no-replace-objects','-C',str(owner),'cat-file','blob','HEAD:'+relative])
+              working=source.read_bytes()
+              normalized=working.replace(b'\r\n',b'\n')
+              if working!=committed and (normalized!=committed or b'\r' in working.replace(b'\r\n',b'')):
+                  raise RuntimeError('build input differs from committed source')
+              source.write_bytes(committed)
+          for source in [root/'pyproject.toml',root/'MANIFEST.in',root/'README.md',*list((root/'market_data').glob('*.py')),*list((root/'market_data').glob('*.sql'))]:
+              committed_input(root,source)
+          math_root=root/'.source/math'
+          assert subprocess.check_output(['git','-C',str(math_root),'rev-parse','HEAD'],text=True).strip()=='9e6acbd9e12a91189f57234828e31640983af553'
+          assert subprocess.check_output(['git','-C',str(math_root),'rev-parse','HEAD:python/market_math.py'],text=True).strip()=='7d0e45f099b53bd1632d67bd059bc85540105329'
+          for source in [math_root/'pyproject.toml',*list((math_root/'python').glob('*.py'))]:
+              committed_input(math_root,source)
+          assert subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()==os.environ['MARKET_DATA_TEST_SHA']
+          def run(*args, cwd=root):
+              subprocess.run([sys.executable,*map(str,args)],cwd=cwd,check=True)
+          run('-m','pip','install','setuptools>=75,<83','wheel','pytest==8.3.5','pytest-asyncio==0.26.0','aiohttp>=3.10,<4','psycopg[binary]>=3.2,<4','websockets>=15,<16')
+          run('-I','-S','-B',root/'scripts/check_sdk_cache_path_controls.py')
+          run('-I','-c','from setuptools.build_meta import build_wheel,build_sdist; build_wheel(".candidate-dist"); build_sdist(".candidate-dist")')
+          run('-m','pip','wheel','--no-deps','--wheel-dir',root/'.dependency-wheels',root/'.source/math')
+          wheel=next((root/'.dependency-wheels').glob('*.whl'))
+          import json
+          evidence=json.loads(subprocess.check_output([sys.executable,'-I',str(root/'scripts/check_market_package.py'),str(root),str(wheel)],text=True))
+          print(json.dumps(evidence,sort_keys=True))
+          proof=pathlib.Path(os.environ['RUNNER_TEMP'])/'canonical-data-package-proof.json'
+          if proof.exists(): raise RuntimeError('fresh package proof required')
+          proof.write_text(json.dumps(evidence,sort_keys=True,indent=2))
+          import runpy,sysconfig
+          cache_api=runpy.run_path(str(root/'scripts/sdk_cache_custody.py'))
+          with cache_api['fresh_sdk_cache'](source_roots=(root,)) as cache:
+              run('-I','-S','-B','-X','pycache_prefix='+str(cache),root/'scripts/check_test_framework_controls.py',cache,'--dependencies',sysconfig.get_path('purelib'))
+          with cache_api['fresh_sdk_cache'](source_roots=(root,)) as cache:
+              run('-I','-S','-B','-X','pycache_prefix='+str(cache),root/'scripts/run_canonical_tests.py','--cache-root',cache,'--dependencies',sysconfig.get_path('purelib'),'--site',evidence['artifact_site'],'--bindings',proof,'--evidence',pathlib.Path(os.environ['RUNNER_TEMP'])/'canonical-data-tests.json',cwd=pathlib.Path(os.environ['RUNNER_TEMP']))
+          print('PURE_OFFLINE_ONLY=PASS; NATIVE_LIVE_ORIGINAL_DATA=NOT_QUALIFIED')
+
+      - name: Preserve canonical source and exact case evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: canonical-data-${{ matrix.os }}-${{ matrix.python }}-${{ env.MARKET_DATA_TEST_SHA }}
+          path: |
+            ${{ runner.temp }}/canonical-data-package-proof.json
+            ${{ runner.temp }}/canonical-data-tests.json
+          if-no-files-found: error

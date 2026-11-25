@@ -1,0 +1,102 @@
+{
+  "schema": "market_data.ci-historical-consumer-obligations.v1",
+  "base": "2ac083bc88724d102f7ef12544c02d42f122bc0a",
+  "originals": {
+    "integration_test_blob": "ae6cdc95563947f0ec35be1a117f0551cf539a5c",
+    "frozen_import_blob": "943715544c52d513e6307d92d32b5e75642eeee8",
+    "result_fixture_schema_blob": "58955c83156674703c097e29ae9e1401a099a1d9"
+  },
+  "canonical_owner": "terminan",
+  "canonical_restore": "terminan.migration.research_results.restore_frozen_research_results",
+  "orchestration_owner": "unified_system as caller, not a new Data store",
+  "existing_source_pin_scoped": "28f475cd237037837be20af0cf6289150168e70a",
+  "readonly_reopen_api": "terminan.research_archive.ResearchArchive.read_existing(path, source_id)",
+  "cases": [
+    {
+      "name": "six_fields_retry_reopen_backup",
+      "old_count": 1,
+      "preserve": [
+        "source bytes and SHA",
+        "six original values including metrics NaN text",
+        "receipt/table digest and dispositions",
+        "read/reopen",
+        "backup replay"
+      ],
+      "change": "restore once into fresh destination; repeat restore rejects unchanged existing bytes; read/reopen/backup use canonical read-only API or another fresh restore"
+    },
+    {
+      "name": "wrong_hash_and_source_alias",
+      "old_count": 1,
+      "preserve": [
+        "before any destination write",
+        "source/sidecar alias rejection",
+        "original bytes unchanged"
+      ]
+    },
+    {
+      "name": "current_nine_and_staged",
+      "old_count": 1,
+      "preserve": [
+        "original ten staging fields",
+        "STAGED_UNVERIFIED disposition"
+      ],
+      "fixture": "literal historical SQL DDL only, no ResultStore engine"
+    },
+    {
+      "name": "legacy_present_empty_stage",
+      "old_count": 1,
+      "preserve": [
+        "present-empty staging is not absent"
+      ]
+    },
+    {
+      "name": "empty_infinite_zero_real",
+      "old_count": 2,
+      "preserve": [
+        "empty archive",
+        "original SQLite +/-infinity and zero hex",
+        "opaque metrics Infinity text"
+      ]
+    },
+    {
+      "name": "noncanonical_legacy_schema",
+      "old_count": 6,
+      "preserve": [
+        "missing PK",
+        "wrong PK order",
+        "wrong REAL type",
+        "nullable required identity",
+        "nullable metrics",
+        "hidden generated column",
+        "no destination/extra files"
+      ]
+    },
+    {
+      "name": "malformed_modern_staging",
+      "old_count": 1,
+      "preserve": [
+        "staging shape refusal"
+      ],
+      "fixture": "DELETE-mode snapshot to reach schema guard, not accidentally fail WAL header first"
+    },
+    {
+      "name": "live_wal_sidecars",
+      "old_count": 1,
+      "preserve": [
+        "live WAL refused",
+        "source and all sidecars unchanged"
+      ]
+    }
+  ],
+  "total_literal_parameter_cases": 14,
+  "disabled_tests": [],
+  "deleted_legacy_sources": [],
+  "data_account_or_result_store_added": false,
+  "canonical_reader_pin": "28f475cd237037837be20af0cf6289150168e70a",
+  "full_session_aggregate": "OUT_OF_SCOPE_PENDING_ROOT",
+  "validation": {
+    "retained_cases": 14,
+    "source_pass": 14,
+    "artifact_pass": 14
+  }
+}

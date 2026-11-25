@@ -1,0 +1,110 @@
+{
+  "schema": "terminan.original-producer-counterparts.v1",
+  "base": "53bc4d0aa1b7900c6516f5e8ae525fff9c2a7300",
+  "original_data104": "104b8474de7870d52921316d345fb5f027d8dbeb",
+  "current_data": "9d2920d9ee3730e5ddf579ae67e9753de9c39fe5",
+  "source_files": [
+    {
+      "original": "tests/research/test_scalp_entries.py",
+      "archive": "docs/provenance/strategy-entry-transfer/raw/tests__research__test_scalp_entries.py.txt",
+      "sha256": "35e317f2ef99ebf12b6694508c73a36665160f08461fe0f231b6047bfe75a76d"
+    },
+    {
+      "original": "tests/research/test_entry_screening.py",
+      "archive": "docs/provenance/research-screening-transfer/raw/tests__research__test_entry_screening.py.txt",
+      "sha256": "1c42b614b6c05029b8b216e6fd0a64877c0dca5998c9bcb5fa59183cfd90430c"
+    },
+    {
+      "original": "strattester/research/volume_profile.py",
+      "archive": "docs/provenance/original-producer-counterparts/volume_profile.py.source.txt",
+      "sha256": "309e6f08b33a0bf5665e622fc9bd5e020cdb2c7bf305114732796d963c14111a"
+    }
+  ],
+  "counterpart_files": [
+    {
+      "path": "tests/test_strategy_entries.py",
+      "sha256": "486321e5e2654c2ad28cd449796057f42a4ac892536e37d55c9761f82b68d4df"
+    },
+    {
+      "path": "tests/test_continuation_strategy.py",
+      "sha256": "cfa1824dd3aaf2f33a607952f90b9db7be5a5f0dfd2c05eddbeab8c84143713b"
+    },
+    {
+      "path": "tests/test_strategy_catalog.py",
+      "sha256": "2c6c490a25402818f3ce47f4c75a0664c71907083cf8615958400f2875cb9b3b"
+    }
+  ],
+  "roles": [
+    {
+      "id": "tests/research/test_scalp_entries.py::test_sweep_entry_never_precedes_confirmed_event",
+      "role": "producer",
+      "raw_body_sha256": "d61fd66fc1325e7eaaa22d7156208d5e6b6f328e0a2e82ef641d335617f451d1",
+      "counterpart": "<run_path>.StrategyEntryTests.test_original_sweep_waits_for_confirmed_structure_and_uses_reference",
+      "clock_contract": "EXPLICIT_SYNTHETIC_M1_MULTIPLY_CLOCKS_BY_1000",
+      "expected_decision_ms": 120000
+    },
+    {
+      "id": "tests/research/test_scalp_entries.py::test_breakout_bar_is_not_reused_as_retest",
+      "role": "producer",
+      "raw_body_sha256": "20b274056417b43cc86792af7c3856834e672ec5f86539e9ce724fb858ab0aa1",
+      "counterpart": "<run_path>.StrategyEntryTests.test_original_breakout_bar_is_not_reused_as_retest",
+      "clock_contract": "EXPLICIT_SYNTHETIC_M1_MULTIPLY_CLOCKS_BY_1000",
+      "expected_decision_ms": 180000
+    },
+    {
+      "id": "tests/research/test_scalp_entries.py::test_poc_reclaim_uses_only_profile_known_by_decision",
+      "role": "producer",
+      "raw_body_sha256": "783348c1b33296e5913ae77c16cbded0013835b1bfd0bd09e35b4fa8039419f3",
+      "counterpart": "<run_path>.StrategyEntryTests.test_original_profile_reclaim_requires_profile_known_by_decision",
+      "clock_contract": "EXPLICIT_SYNTHETIC_M1_MULTIPLY_CLOCKS_BY_1000",
+      "expected_decision_ms": 120000
+    },
+    {
+      "id": "tests/research/test_scalp_entries.py::test_volatility_entry_waits_for_snapshot_known_at",
+      "role": "producer",
+      "raw_body_sha256": "41ba59a7426ba166e61c00568cdc6e9af1e45f2ff55f31faa3dfa0e4e26dbe16",
+      "counterpart": "<run_path>.ContinuationStrategyTests.test_explicit_late_availability_is_decision_clock",
+      "clock_contract": "RAW_MILLISECONDS_60_PRESERVED",
+      "expected_decision_ms": 120
+    },
+    {
+      "id": "tests/research/test_scalp_entries.py::test_only_implemented_scalps_are_executable",
+      "role": "producer_catalog",
+      "raw_body_sha256": "03e24c26a1a8a213bcdd998c07771c77335e9fbdee2c2a4ab8443505f6171043",
+      "counterparts": [
+        "<run_path>.StrategyCatalogTests.test_only_four_have_research_generators",
+        "<run_path>.StrategyCatalogTests.test_exact_canonical_callables_and_output_contracts",
+        "<run_path>.StrategyCatalogTests.test_resolver_is_closed_and_has_no_dynamic_imports"
+      ]
+    },
+    {
+      "id": "tests/research/test_entry_screening.py::test_spec_only_hypotheses_cannot_enter_executable_ranking",
+      "role": "separate_catalog",
+      "raw_body_sha256": "dece3df6b8271cd22762688c243a33f77740f73ad0bc65f4df9bd539fda0e65b",
+      "counterparts": [
+        "<run_path>.StrategyCatalogTests.test_only_four_have_research_generators",
+        "<run_path>.StrategyCatalogTests.test_exact_canonical_callables_and_output_contracts",
+        "<run_path>.StrategyCatalogTests.test_resolver_is_closed_and_has_no_dynamic_imports"
+      ]
+    }
+  ],
+  "clock_policy": {
+    "fixed_M1": "Only sweep/breakout/profile use declared M1: synthetic fixture clock mapping t->1000*t is an explicit migration decision, not literal equivalence or real-time rewriting. Raw60ms OHLC declared as M1 refuses in generator admission.",
+    "continuation": "Raw60ms body duration supported unchanged; project original OHLC100/104/99/103 to body open100 close103, explicitly discard high104 low99. No M1 claim.",
+    "ordinary_engine": "Separate PaperEngine raw60ms admitted unchanged; no rescale."
+  },
+  "numeric_projection": {
+    "volatility": "event_time->event_start_ms, known_at->available_at_ms; atr_pct->atr_fraction; volume_expansion->volume_ratio; turnover_expansion->turnover_ratio; percentile->atr_percentile; preserve .01,.01,.01,.02,1.5,1.5,.7,HIGH,v.",
+    "profile": "Original VolumeProfileSnapshot(poc100,vah101,val99,known_at120,TRADE_POC,value_area_width2) -> ProfileSummary(100,101,99,120000,TRADE_DISTRIBUTION,2). Sixth2 is value_area_width, never trades. Renamed finite caller-declared summary; no distribution authenticity claim.",
+    "omitted": "Original B default volume100 absent from typed OHLC/body API; strategy uses declared volatility ratios and no fabricated flow. Missing flow remains None instead of legacy delta0."
+  },
+  "catalog": "Explicit four legacy uppercase IDs mapped to canonical v2 IDs in existing closed set/callable/output/refusal tests. RESEARCH_GENERATOR is not execution authority; no aliases or adapters.",
+  "correction": "Earlier outputs/readonly-producer-exact-vectors-1795524483856/report.json incorrectly called profile sixth2 trades. Corrected from exact old and canonical DTO declarations: value_area_width.",
+  "retirement": {
+    "accepted": 44,
+    "remaining": 503,
+    "deduction": 0
+  },
+  "roster": "original_ordinary_signal_roster_v1.json unchanged;374 exact ordered IDs retained",
+  "runtime": "79 Term production payloads unchanged (75 Python files and4 other files); no wheel build"
+}

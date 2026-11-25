@@ -1,1 +1,8 @@
-include market-wheel-modules.txt
+include README.md
+recursive-include market_data *.py *.sql
+prune strattester
+prune service
+prune tests
+prune docs
+prune scripts
+prune .github

@@ -1,0 +1,39 @@
+UNEXPOSED LEGACY-ONLY PROTOTYPE: market_events absent from canonical schema. Frozen snapshot admission NOT_IMPLEMENTED; DO NOT EXECUTE OR ROUTE. Preserved for migration review only.
+
+def read_paper_inputs(conn,request):
+    """Fixed readonly SQL on a fresh caller-owned connection, no ambient DSN."""
+    q=_paper_request(request)
+    status=getattr(getattr(conn,'info',None),'transaction_status',None)
+    if not isinstance(status,int) or isinstance(status,bool) or status!=0:_block('ACTIVE_TRANSACTION')
+    started=time.monotonic()
+    try:
+        with conn.transaction():
+            with conn.cursor() as cur:
+                cur.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+                cur.execute("SET LOCAL statement_timeout = '3000ms'")
+                cur.execute("SET LOCAL lock_timeout = '1000ms'")
+                cur.execute(_PAPER_SQL,(q['symbol'],q['after_id'],EPOCH+timedelta(milliseconds=q['start_ms']),EPOCH+timedelta(milliseconds=q['end_ms']),sorted(PAPER_TYPES),MAX_ROWS+1))
+                rows=cur.fetchall()
+                if len(rows)>MAX_ROWS:_block('ROW_LIMIT')
+                if any(row[0] is None for row in rows):_block('BYTE_LIMIT')
+                if time.monotonic()-started>DEADLINE:_block('DEADLINE')
+                result=export_paper_inputs([row[0]for row in rows],q)
+                if time.monotonic()-started>DEADLINE:_block('DEADLINE')
+        status=getattr(getattr(conn,'info',None),'transaction_status',None)
+        if not isinstance(status,int) or isinstance(status,bool) or status!=0:_block('ACTIVE_TRANSACTION')
+        if time.monotonic()-started>DEADLINE:_block('DEADLINE')
+        return result
+    except ExportBlocked:raise
+    except Exception:raise ExportBlocked('BLOCKED_SOURCE_READ') from None
+
+
+_PAPER_SQL="""SELECT CASE WHEN sum(raw_bytes) OVER()<=8388608
+ AND max(raw_bytes) OVER()<=1048576
+ AND sum(octet_length(record::text)) OVER()<=8388608
+ AND max(octet_length(record::text)) OVER()<=1048576 THEN record ELSE NULL END
+ FROM (SELECT id,octet_length(payload::text) AS raw_bytes,
+ jsonb_build_object('id',id,'symbol',symbol,'source',source,'event_type',event_type,
+ 'event_ts',event_ts,'ingest_ts',ingest_ts,'payload',payload) AS record
+ FROM market_events WHERE symbol=%s AND id>%s
+ AND event_ts>=%s AND event_ts<%s
+ AND event_type=ANY(%s) ORDER BY id LIMIT %s) bounded ORDER BY id"""

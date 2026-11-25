@@ -1,0 +1,65 @@
+{
+  "availability": {
+    "as_of_ms": 2000000,
+    "cut_before_id": null,
+    "mode": "VISIBLE_ID_PREFIX",
+    "scope": "SELECTED_VISIBLE_ROWS_NOT_STREAM_COMPLETENESS",
+    "state": "AVAILABLE"
+  },
+  "availability_basis": "CALLER_DECLARED_ROW_CLOCK_CUT_NOT_COMMIT_OR_PIT",
+  "cursor": 2,
+  "execution_authority": false,
+  "funding_status": "UNAVAILABLE",
+  "output_truncated": false,
+  "payload_hash_basis": "CANONICAL_PERSISTED_JSON_NOT_WIRE_BYTES",
+  "point_in_time_availability": "UNKNOWN",
+  "producer_context_status": "CONSISTENT",
+  "request": {
+    "after_id": 0,
+    "as_of_ms": 2000000,
+    "end_ms": 2000001,
+    "max_age_ms": 10000,
+    "start_ms": 1990000,
+    "symbol": "BTCUSDT"
+  },
+  "rows": [
+    {
+      "event_type": "orderbook_snapshot",
+      "event_us": "1999600000",
+      "id": 2,
+      "ingest_us": "1999700000",
+      "payload": {
+        "_producer_connection": {
+          "category": "linear",
+          "connection_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "endpoint": "wss://stream.bybit.com/v5/public/linear",
+          "schema": "market_data.public-market-connection.v1",
+          "scope": "PRODUCER_DECLARED_LOCAL_CONNECTION_NOT_REMOTE_AUTHENTICATION",
+          "venue": "bybit"
+        },
+        "_quality": {
+          "feeds": {
+            "orderbook": {
+              "status": "available"
+            }
+          },
+          "symbol": "BTCUSDT"
+        },
+        "best_ask": "101",
+        "best_bid": "100",
+        "cts": 1999500,
+        "sequence": 10,
+        "update_id": 20
+      },
+      "payload_sha256": "4161bb5cecf918b82f5e665f5626745d5312efa3b77d3759b79e46d8cc2d0811",
+      "row_sha256": "0982da2c49e34a04a70b4774c7bc37fc388b681307bcd466bd6fb284612916df",
+      "source": "bybit",
+      "symbol": "BTCUSDT"
+    }
+  ],
+  "schema": "market_data.paper-inputs.v2",
+  "sequence_scope": "MONOTONIC_PERSISTED_SAMPLES_NOT_CONTIGUOUS_STREAM",
+  "source_authenticity": "NOT_EVALUATED",
+  "source_completeness": "NOT_EVALUATED",
+  "trading_authorized": false
+}

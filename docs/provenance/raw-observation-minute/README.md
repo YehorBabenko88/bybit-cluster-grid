@@ -1,0 +1,13 @@
+# Pure current-v2 observation window to candidate minutes
+
+materialize_observations_v12 consumes one complete bounded contiguous raw window and explicit source/chain/tick/units/clocks. All original observation/payload bytes are returned. Pending output is an original ordered subset, NOT independently resumable, and the cursor is advisory only: no committed/durable ACK or incremental aggregate checkpoint.
+
+Current PUBLIC_PROVIDER_OBSERVED_UNAUTHENTICATED and SYNTHETIC kinds retain their existing decoder-defined endpoints and source-kind declarations. ARCHIVE and v1 are explicitly unsupported. Full byte/hash/chain/source/validated-frame association precedes parsing; full semantic delivery-key conflicts precede accumulation. Parsing/domain VALIDATION is distinct from FootprintBuilder ACCUMULATION. Exact duplicates preserve first-seen event order; late declared-finalized input refuses.
+
+Existing FootprintBuilder owns all OHLCV, turnover, price bins and POC arithmetic. Existing minute_record_v12 owns the v1.2 codec. No zero fill or price-times-rounded-volume proxy exists. Known gaps/disconnect/resync are preserved and conservatively degrade candidate quality. Incomplete, open, future-event and future-observed raw records remain pending; future receive alone never fails ingestion checks for un-emitted contributors.
+
+Availability uses conservative MAX of contributing declared frame/control receive clocks, explicit finalization availability and separately declared ingestion. Source ingestion must follow emitted dependencies; finalization is compatible with closed-through/as-of. Existing availability_basis stays CALLER_DECLARED_NOT_COMMIT_OR_PIT. These are declarations, not observed commit/PIT or source-authenticity proof. Outputs remain PARTIAL/LOCAL_UNATTESTED with false authority. Backward frame UTC refusal is a limited replay-model rule, not raw-capture corruption inference; monotonic_ns remains a separate diagnostic clock.
+
+No provider, collector/CLI activation, writer, SQL/store/DDL, prepared storage or ACK integration is added. Full current runtime callers are absent: pure helper progress only. Version-isolated immutable storage and atomic raw pending/cursor readback remain future gates. v1.1 bytes, original853 obligations and legacy516 remain; deduction0, NO_GO.
+
+Qualification adds 32 unique canonical selectors after the exact original853 prefix (885 declared total). Actual Data49 plus unchanged Math9ed3 wheel payloads bind SDK52. Local safe qualification executes 104 unique cases in source and actual wheels on Python3.11/3.12, including all32 new cases; the full885 hosted lane is not claimed locally. SDK count and roster controls test refusal boundaries without executing the hosted lane.

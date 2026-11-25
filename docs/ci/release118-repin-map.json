@@ -1,0 +1,36 @@
+{
+  "schema": "market_data.release118-repin.v1",
+  "base_data": "693c6deae2300e49612fc78514fd333aa5d831be",
+  "fixture_delta_only": "320a9800dfce1629ccf6ff3f5610092efbabc447",
+  "fixture_cherry_pick": "db2c3a8",
+  "runtime_policy": "ALL45RUNTIMEFILES_UNCHANGED_FROM116",
+  "data_cases": {
+    "prior": 696,
+    "query": 76,
+    "total": 772
+  },
+  "historical_cases": 14,
+  "repin": {
+    "terminan": {
+      "previous": "75a906d36574bfdc19acd966e79a6c168dc71ad4",
+      "next": "042b075dda0fc8cf6bb829d758632cfa989e8e55",
+      "wheel_sha256": "a3a4a7ef90e5f1ec38818d5b602dc1302d4f4e0e5c5cbe7d53a1355b91b9c005"
+    },
+    "math": {
+      "previous": "e80d622eed7c01b109062b68e750f2b70bcccff7",
+      "next": "e80d622eed7c01b109062b68e750f2b70bcccff7",
+      "wheel_sha256": "58b26dc24cfe7d052c2d2cd176cfba516362df6f2e90ac1b30b6fedce4ad31b2"
+    }
+  },
+  "changed_active_refs": [
+    ".github/workflows/tests.yml",
+    "scripts/build_sdk_source_manifest.py",
+    "scripts/check_frozen_consumer.py"
+  ],
+  "assertions_selectors_roster": "PRESERVED",
+  "lifecycle": "NO_CODE_NO_DDL",
+  "qualification": "EXACT_FINAL_HEAD_RUNS_REQUIRED_AND_REPORTED_SEPARATELY",
+  "native_provider_pg": "NOT_RUN",
+  "hosted": "PENDING",
+  "release_status": "NO_GO"
+}

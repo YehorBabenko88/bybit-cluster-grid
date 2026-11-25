@@ -1,0 +1,96 @@
+{
+  "source_tested": "ce243f429e1af8001e0351cd2d4079dccdfb5d4f",
+  "base_reviewed_ci": "d1ef5e03fed131c55c154496591b28ba7da81e35",
+  "math": "79a919165568a40374b9220cc74a55459666b00f",
+  "math_wheel_sha256": "0de5ea0e482ccc1fd23d541af62b9d4f0d81a493c51656d638efdb3814f1ee6e",
+  "terminan_historical": "75a906d36574bfdc19acd966e79a6c168dc71ad4",
+  "source": [
+    {
+      "python": "311",
+      "cases": 696,
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "cases": 696,
+      "exit": 0
+    }
+  ],
+  "artifact": [
+    {
+      "python": "311",
+      "cases": 696,
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "cases": 696,
+      "exit": 0
+    }
+  ],
+  "historical": [
+    {
+      "python": "311",
+      "cases": 14,
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "cases": 14,
+      "exit": 0
+    }
+  ],
+  "controls": [
+    {
+      "python": "311",
+      "control": "check_test_roster_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_canonical_package_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_sdk_cache_path_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_test_roster_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_canonical_package_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_sdk_cache_path_controls.py",
+      "exit": 0
+    }
+  ],
+  "raw_payload_files": 44,
+  "raw_math_files": 3,
+  "bindings": 47,
+  "wheel_sha256": "a5ad59fda9a3c4101d6f89af99792f0237f3f6ebf278b70900c0704f5d362161",
+  "sdist_sha256": "ff13fc1dc637bbb6e9c0009b0a0b8c6d645852358a1722cd84291b1f5f4085d2",
+  "package": "CLOSED_RAW_GIT_IDENTICAL_RECORD_METADATA_PATH_OWNERSHIP",
+  "cache": "FRESH_I_S_B_X_EMPTY_PRE_POST",
+  "warnings": {
+    "cases696": 279,
+    "historical14": 2
+  },
+  "original_functions": {
+    "total": 547,
+    "current_transferred": 13,
+    "new_planner": 7,
+    "new_range": 4,
+    "remaining": 523
+  },
+  "native_provider_pg": "NOT_RUN",
+  "release_status": "NO_GO",
+  "hosted": "PENDING"
+}

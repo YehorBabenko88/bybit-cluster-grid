@@ -1,0 +1,128 @@
+{
+  "source_tested": "c176fb10225695c5a4327701270617ee12a0c435",
+  "base": "5eeab921c0d1c18a00ddf0d3766807bdbc4abb34",
+  "math": "e80d622eed7c01b109062b68e750f2b70bcccff7",
+  "math_kernel": "056e583a399246dc66942ec1b9310c9f058e013e",
+  "math_wheel_sha256": "58b26dc24cfe7d052c2d2cd176cfba516362df6f2e90ac1b30b6fedce4ad31b2",
+  "terminan_historical": "75a906d36574bfdc19acd966e79a6c168dc71ad4",
+  "source": [
+    {
+      "python": "311",
+      "cases": 772,
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "cases": 772,
+      "exit": 0
+    }
+  ],
+  "artifact": [
+    {
+      "python": "311",
+      "cases": 772,
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "cases": 772,
+      "exit": 0
+    }
+  ],
+  "historical": [
+    {
+      "python": "311",
+      "cases": 14,
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "cases": 14,
+      "exit": 0
+    }
+  ],
+  "controls": [
+    {
+      "python": "311",
+      "control": "check_test_roster_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_canonical_package_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_sdk_cache_path_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_test_roster_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_canonical_package_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_sdk_cache_path_controls.py",
+      "exit": 0
+    }
+  ],
+  "raw_data_files": 45,
+  "raw_math_files": 3,
+  "bindings": 48,
+  "byte_comparison": "RAW_GIT_IDENTICAL",
+  "closed_package_metadata_record": true,
+  "wheel_sha256": "750f9625543f3beb807d432f4123ddcdc89aeb5f3f61213e3d3a71c5f79b12ab",
+  "sdist_sha256": "6ca2cb749fd71336aff2585e877cebc5099ac3891f03c12b8f6b9dd519709ec0",
+  "cache": "FRESH_I_S_B_X_EMPTY_PRE_POST_EXACT_INSTALLED_OWNERSHIP",
+  "warnings": {
+    "pure772": 279,
+    "historical14": 2
+  },
+  "prior_findings": [
+    {
+      "source": "f16fa941bcbeffaf4ed2bbd4af8553ca0dba59d8",
+      "wheel": "8239a85d5ed45de1543397d3cf37a7a0376f7210582dc0935210c27554afba90",
+      "status": "QA_FAIL_P2_JSON_ALLOCATION",
+      "independent_peak_bytes": {
+        "3.11": 11503157,
+        "3.12": 11213711
+      },
+      "original_new_controls": "3FAIL_1PASS",
+      "fixed_source": "c176fb10225695c5a4327701270617ee12a0c435"
+    }
+  ],
+  "preparation_event_cut": "MANDATORY; absent/null/bool/empty REFUSED_BEFORE_MATH",
+  "pure_authority": "NONE; Root alone owns six reads plus seven current checks and generic manifest decoder",
+  "root_roles": {
+    "original_authenticated": 12,
+    "original_owned_store": 3,
+    "https_front": 5,
+    "status": "OWNER_TRANSFER_HOSTED_QUALIFICATION_PENDING"
+  },
+  "original_strattester_functions_remaining": 523,
+  "hosted": "PENDING",
+  "native_provider_pg": "NOT_RUN",
+  "release_status": "NO_GO",
+  "independent_fix_review": {
+    "source": "c176fb10225695c5a4327701270617ee12a0c435",
+    "reviewer": "windows_p0",
+    "scope": "ACTUAL_76_QUERY_CASES_BOTH;48_RAW_GIT_BINDINGS;WHEEL_HASH",
+    "original_peak_bytes": {
+      "3.11": 11503157,
+      "3.12": 11213711
+    },
+    "fixed_peak_bytes": {
+      "3.11": 12605,
+      "3.12": 12512
+    },
+    "status": "P2_CLOSED_SCOPED",
+    "full772": "OWNER_EVIDENCE_ONLY"
+  }
+}

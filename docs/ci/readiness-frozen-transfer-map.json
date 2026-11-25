@@ -1,0 +1,214 @@
+{
+  "schema": "market_data.readiness-frozen-transfer.v2",
+  "base": "14883a946125c7922f21ad8753b09549d3c69bb8",
+  "original_source": "13998cf87139330dd0406fed00acd148e045e6c4",
+  "original_file": "tests/marketdata/test_readiness.py",
+  "original_file_sha256": "bc04545984df31244807e05514786e5352142b0e0e103daa06272a0cfc257189",
+  "runtime_changes": false,
+  "new_store_writer_adapter_client": false,
+  "literal_fixture": "test-only candles ten-column schema; original 0/1 rows preserved without legacy SQLiteMarketStore bootstrap",
+  "roles": [
+    {
+      "name": "test_open_market_store_prefers_existing_local_legacy_data",
+      "status": "NOT_TRANSFERRED",
+      "canonical_api": null,
+      "contract_changes": [],
+      "assertions_preserved_semantically": null,
+      "original13998_line": 14,
+      "base118_line": 16,
+      "base118_assertion_list_matches_original13998": true,
+      "original13998_assertion_units": [
+        {
+          "kind": "assert",
+          "expression": "assert legacy.read_bytes() == before"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert opened.path == legacy"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert opened.store.coverage('BTCUSDT', 'candles', '1m').count == 1"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert opened.store.coverage('BTCUSDT', 'mark_price', '1m').count == 0"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert list(opened.store.iter_public_trade_aggregates('BTCUSDT')) == []"
+        },
+        {
+          "kind": "raises",
+          "expression": "pytest.raises(sqlite3.OperationalError, match='readonly')"
+        },
+        {
+          "kind": "raises",
+          "expression": "pytest.raises(sqlite3.OperationalError, match='readonly')"
+        }
+      ],
+      "candidate_function_line": 27,
+      "candidate_function_ast_changed_from_base118": false
+    },
+    {
+      "name": "test_historical_reader_sees_committed_wal_rows_without_checkpoint",
+      "status": "NOT_TRANSFERRED",
+      "canonical_api": null,
+      "contract_changes": [],
+      "assertions_preserved_semantically": null,
+      "original13998_line": 33,
+      "base118_line": 38,
+      "base118_assertion_list_matches_original13998": true,
+      "original13998_assertion_units": [
+        {
+          "kind": "assert",
+          "expression": "assert writer.execute('PRAGMA journal_mode=WAL').fetchone()[0] == 'wal'"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert quick_check(legacy).ok"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert [path.read_bytes() for path in files] == before"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert opened.store.coverage('BTCUSDT').count == 1"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert row_digest(opened.store.connection) == row_digest(writer)"
+        }
+      ],
+      "candidate_function_line": 49,
+      "candidate_function_ast_changed_from_base118": false
+    },
+    {
+      "name": "test_open_market_store_refuses_creation_without_existing_history",
+      "status": "CANONICAL_EXISTING_API_TRANSFER_CANDIDATE",
+      "canonical_api": "HistoricalMarketReader.open_snapshot",
+      "contract_changes": [
+        "retired implicit app bootstrap/GRID error -> existing explicit-source FileNotFound before sqlite open; no target creation"
+      ],
+      "assertions_preserved_semantically": [
+        "missing-source refusal",
+        "no bybit_1m.sqlite3 creation"
+      ],
+      "original13998_line": 64,
+      "base118_line": 72,
+      "base118_assertion_list_matches_original13998": true,
+      "original13998_assertion_units": [
+        {
+          "kind": "raises",
+          "expression": "pytest.raises(RuntimeError, match='GRID_MARKET_STORE_REQUIRED')"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert not (root / 'data' / 'bybit_1m.sqlite3').exists()"
+        }
+      ],
+      "candidate_function_line": 83,
+      "candidate_function_ast_changed_from_base118": true
+    },
+    {
+      "name": "test_ensure_history_refuses_legacy_writer_without_fetch_or_mutation",
+      "status": "PARTIAL_DATA_READONLY_REGRESSION_ORIGINAL_FULL_ROLE_RETAINED",
+      "canonical_api": null,
+      "contract_changes": [
+        "new empty-snapshot negative covers nofetch/nochanges/count0 only; bulk len1/repair-state/GRID message remain original unchanged"
+      ],
+      "assertions_preserved_semantically": null,
+      "original13998_line": 71,
+      "base118_line": 82,
+      "base118_assertion_list_matches_original13998": true,
+      "original13998_assertion_units": [
+        {
+          "kind": "assert",
+          "expression": "assert len(result) == 1"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert result[0].state is SyncState.REPAIR_REQUIRED"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert result[0].message == 'GRID_ATTESTED_HISTORY_API_REQUIRED'"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert opened.store.connection.total_changes == before"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert opened.store.coverage('BTCUSDT', 'candles', '1m').count == 0"
+        }
+      ],
+      "candidate_function_line": 94,
+      "candidate_function_ast_changed_from_base118": false
+    },
+    {
+      "name": "test_existing_candles_not_promoted_to_source_attested",
+      "status": "CANONICAL_EXISTING_API_TRANSFER_CANDIDATE",
+      "canonical_api": "HistoricalMarketReader.open_snapshot + assess_declared_history_range",
+      "contract_changes": [
+        "retired SyncState.REPAIR_REQUIRED -> NOT_EVALUATED readiness plus UNKNOWN coverage/source/PIT and falseauthority; no repair scheduling asserted"
+      ],
+      "assertions_preserved_semantically": [
+        "no source-attested readiness from one local row",
+        "connection.total_changes unchanged",
+        "coverage.count remains1"
+      ],
+      "original13998_line": 96,
+      "base118_line": 110,
+      "base118_assertion_list_matches_original13998": true,
+      "original13998_assertion_units": [
+        {
+          "kind": "assert",
+          "expression": "assert result[0].state is SyncState.REPAIR_REQUIRED"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert opened.store.connection.total_changes == before"
+        },
+        {
+          "kind": "assert",
+          "expression": "assert opened.store.coverage('BTCUSDT', 'candles', '1m').count == 1"
+        }
+      ],
+      "candidate_function_line": 122,
+      "candidate_function_ast_changed_from_base118": true
+    }
+  ],
+  "new_partial_node": "tests/marketdata/test_readiness.py::test_frozen_empty_history_inspection_is_unqualified_without_fetch_or_mutation",
+  "partial_original_units_unclosed": [
+    "len(result)==1",
+    "SyncState.REPAIR_REQUIRED enum shape",
+    "GRID_ATTESTED_HISTORY_API_REQUIRED message"
+  ],
+  "held_whole_functions_ast_identical": [
+    "test_open_market_store_prefers_existing_local_legacy_data",
+    "test_historical_reader_sees_committed_wal_rows_without_checkpoint",
+    "test_ensure_history_refuses_legacy_writer_without_fetch_or_mutation"
+  ],
+  "counts": {
+    "old_baseline_cases": 772,
+    "new_selected_cases": 3,
+    "candidate_total": 775,
+    "completed_original_functions_candidate": 2,
+    "partial_original_functions": 1,
+    "original_remaining_if_accepted": 521
+  },
+  "scope": "FROZEN_PRIVATE_SQLITE_ONLY_NO_COMMITTED_WAL_OR_IMPLICIT_REPAIR",
+  "execution": "fresh -I-S-B-X, denied child/socket/ctypes, SQLite connections only private temp fixtures",
+  "qualification": "EXACT_FINAL_HEAD_FULL_SOURCE_ARTIFACT_RUNS_REQUIRED",
+  "release_status": "NO_GO",
+  "provenance_field_definitions": {
+    "original13998_line": "function coordinates in original13998 testfile",
+    "base118_line": "function coordinates in base14883a9 BEFOREthistransfer",
+    "base118_assertion_list_matches_original13998": "originalassertion/refusal-list equality againstbase118 ONLY; never claims currentfunctionAST unchanged",
+    "candidate_function_line": "coordinates in candidate testfile (metadata-only commit doesnotchange these)",
+    "candidate_function_ast_changed_from_base118": "actualcompletefunctionAST comparison; roles3/5 true, held1/2/4 false",
+    "original13998_assertion_units": "retainedoriginalexpressions as provenance, not assertionsclaimedbyteidenticalafterretarget"
+  }
+}

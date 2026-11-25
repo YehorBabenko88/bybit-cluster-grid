@@ -1,0 +1,2092 @@
+[
+  {
+    "path": "integration_tests/test_frozen_results.py",
+    "bytes": 8941,
+    "tests": [
+      "test_six_fields_preserved_on_import_retry_and_reopen",
+      "test_wrong_hash_and_source_alias_fail_before_destination_write",
+      "test_current_schema_preserves_staged_results_as_unverified",
+      "test_legacy_with_present_empty_staged_table_is_not_treated_as_absent",
+      "test_native_legacy_receipt_preserves_zero_and_infinite_rows",
+      "test_noncanonical_legacy_schema_refused_without_destination",
+      "test_modern_published_schema_refuses_malformed_staging",
+      "test_wal_database_refused_without_touching_sidecars"
+    ],
+    "imports": [
+      "contextlib",
+      "hashlib",
+      "pytest",
+      "sqlite3",
+      "strattester.persistence.frozen_results",
+      "strattester.persistence.result_store",
+      "terminan.paper_ledger",
+      "terminan.research_archive"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/deploy/test_healthcheck.py",
+    "bytes": 159,
+    "tests": [
+      "test_health_result_is_explicit"
+    ],
+    "imports": [
+      "strattester.deploy.healthcheck"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/deploy/test_updater.py",
+    "bytes": 971,
+    "tests": [
+      "test_stage_excludes_runtime_data",
+      "test_failed_healthcheck_rolls_back"
+    ],
+    "imports": [
+      "pathlib",
+      "strattester.deploy.releases",
+      "strattester.deploy.updater"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/engine/test_checkpoints.py",
+    "bytes": 950,
+    "tests": [
+      "test_checkpoint_roundtrip_and_compatibility",
+      "test_checkpoint_rejects_changed_strategy_or_config",
+      "test_checkpoint_rejects_different_job"
+    ],
+    "imports": [
+      "pytest",
+      "strattester.engine.checkpoints"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/engine/test_distribution.py",
+    "bytes": 1092,
+    "tests": [
+      "test_assignment_is_deterministic",
+      "test_sync_and_backtest_follow_data_locality",
+      "test_unavailable_node_can_be_reassigned"
+    ],
+    "imports": [
+      "strattester.engine.distribution",
+      "strattester.engine.jobs"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/engine/test_executor.py",
+    "bytes": 4313,
+    "tests": [
+      "test_requirements_block_empty_history",
+      "test_executor_streams_candles",
+      "test_executor_accepts_ready_rich_requirements_and_context",
+      "test_executor_respects_requested_time_range",
+      "test_executor_bounds_public_trade_aggregates_to_requested_time_range",
+      "test_context_coverage_is_bounded_to_requested_time_range",
+      "test_requirements_do_not_use_history_outside_requested_window",
+      "test_requirements_reject_internal_gap_even_when_rows_exist"
+    ],
+    "imports": [
+      "pytest",
+      "strattester.engine.executor",
+      "strattester.marketdata.sqlite_store",
+      "strattester.strategies.base"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/engine/test_jobs.py",
+    "bytes": 614,
+    "tests": [
+      "test_stale_running_job_becomes_retryable",
+      "test_worker_disappearance_does_not_mean_complete"
+    ],
+    "imports": [
+      "strattester.engine.jobs",
+      "strattester.persistence.sqlite_state_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/engine/test_resource_manager.py",
+    "bytes": 1141,
+    "tests": [
+      "test_ram_thresholds",
+      "test_low_absolute_disk_blocks",
+      "test_slots_scale_with_cpu_and_leave_headroom",
+      "test_cpu_pressure_reduces_or_pauses_work",
+      "test_ram_can_limit_cpu_parallelism"
+    ],
+    "imports": [
+      "strattester.engine.resource_manager"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/engine/test_scheduler.py",
+    "bytes": 640,
+    "tests": [
+      "test_scheduler_recovers_stale_and_limits_jobs"
+    ],
+    "imports": [
+      "strattester.engine.jobs",
+      "strattester.engine.resource_manager",
+      "strattester.engine.scheduler",
+      "strattester.persistence.sqlite_state_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/engine/test_scheduler_cluster.py",
+    "bytes": 1473,
+    "tests": [
+      "test_node_filter_happens_before_parallel_slot_limit",
+      "test_sync_jobs_are_capped_but_backtests_fill_remaining_slots"
+    ],
+    "imports": [
+      "strattester.engine.jobs",
+      "strattester.engine.resource_manager",
+      "strattester.engine.scheduler",
+      "strattester.persistence.sqlite_state_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/install/test_install_contract.py",
+    "bytes": 1850,
+    "tests": [
+      "test_install_script_preserves_external_runtime_directories",
+      "test_uninstall_requires_explicit_delete_confirmation",
+      "test_install_has_dry_run",
+      "test_legacy_installer_runs_preflight_without_starting_workers",
+      "test_legacy_installer_leaves_service_registration_to_unified",
+      "test_explicit_smoke_uses_and_removes_disposable_state"
+    ],
+    "imports": [
+      "json",
+      "pathlib",
+      "subprocess",
+      "sys"
+    ],
+    "review_calls": [
+      "Path('service/uninstall_windows.ps1').read_text",
+      "subprocess.run"
+    ]
+  },
+  {
+    "path": "tests/marketdata/test_audit.py",
+    "bytes": 1106,
+    "tests": [
+      "test_complete_active_history",
+      "test_unrecoverable_delisted_gap_is_partial",
+      "test_missing_mandatory_dataset_is_insufficient",
+      "test_history_before_listing_is_not_complete"
+    ],
+    "imports": [
+      "strattester.marketdata.audit",
+      "strattester.marketdata.instruments"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_bybit_client.py",
+    "bytes": 2809,
+    "tests": [
+      "test_403_fails_without_retry",
+      "test_429_retries_then_succeeds",
+      "test_5xx_exhaustion_is_retryable",
+      "test_retry_after_is_honored_but_bounded",
+      "test_bybit_rate_limit_retcode_is_retryable",
+      "test_invalid_retry_policy_fails_before_network",
+      "test_legacy_default_client_cannot_create_direct_bybit_session",
+      "test_legacy_explicit_requests_session_is_refused_without_request"
+    ],
+    "imports": [
+      "pytest",
+      "requests",
+      "strattester.marketdata.bybit_client"
+    ],
+    "review_calls": [
+      "requests.Session"
+    ]
+  },
+  {
+    "path": "tests/marketdata/test_configured_store.py",
+    "bytes": 984,
+    "tests": [
+      "test_configured_store_routes_research_reads_after_promotion"
+    ],
+    "imports": [
+      "pathlib",
+      "strattester.config",
+      "strattester.marketdata.sharded_store",
+      "strattester.marketdata.sqlite_store",
+      "strattester.marketdata.store_factory"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_coverage.py",
+    "bytes": 536,
+    "tests": [
+      "test_coverage_detects_internal_gap"
+    ],
+    "imports": [
+      "strattester.marketdata.sqlite_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_discovery.py",
+    "bytes": 1492,
+    "tests": [
+      "test_missing_candidate_is_not_created",
+      "test_valid_db_is_discovered_read_only",
+      "test_invalid_large_file_is_rejected",
+      "test_adoption_never_overwrites_existing_destination"
+    ],
+    "imports": [
+      "pathlib",
+      "sqlite3",
+      "strattester.config",
+      "strattester.marketdata.discovery"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_download_smoke.py",
+    "bytes": 1976,
+    "tests": [
+      "test_candle_smoke_validation_requires_contiguous_unique_rows",
+      "test_candle_smoke_validation_rejects_gap",
+      "test_no_implicit_exchange_client_or_disk_mutation",
+      "test_invalid_grid_source_denied_without_files",
+      "test_legacy_cli_never_downloads"
+    ],
+    "imports": [
+      "strattester.marketdata",
+      "strattester.marketdata.bybit_client",
+      "strattester.marketdata.download_smoke"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_history_plan.py",
+    "bytes": 638,
+    "tests": [
+      "test_instrument_history_plan_starts_at_launch_and_uses_dataset_cadence"
+    ],
+    "imports": [
+      "strattester.marketdata.readiness"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_instruments.py",
+    "bytes": 5370,
+    "tests": [
+      "test_new_symbol_is_ineligible_before_first_seen",
+      "test_disappearance_retains_history_and_marks_delisted",
+      "test_suspension_can_resume_without_erasing_interval",
+      "test_delisted_state_survives_registry_reopen",
+      "test_new_symbol_after_reopen_gets_fresh_active_interval",
+      "test_transient_single_snapshot_absence_does_not_false_delist",
+      "test_missing_confirmation_survives_reboot_before_delist",
+      "test_universe_time_cannot_regress_and_corrupt_intervals",
+      "test_same_snapshot_same_timestamp_is_idempotent_for_missing_confirmation",
+      "test_conflicting_snapshot_same_timestamp_is_rejected",
+      "test_returning_missing_symbol_resets_confirmation_counter",
+      "test_reconcile_rolls_back_entire_snapshot_on_mid_transaction_failure",
+      "test_non_string_symbol_is_rejected_not_stringified"
+    ],
+    "imports": [
+      "pytest",
+      "strattester.marketdata.instruments"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_l2_recorder.py",
+    "bytes": 1268,
+    "tests": [
+      "test_wall_requires_relative_depth_and_persistence",
+      "test_removed_wall_is_marked_spoof_candidate",
+      "test_true_l2_absorption_needs_wall_trade_hits_and_replenishment"
+    ],
+    "imports": [
+      "strattester.marketdata.l2_recorder"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_legacy_store_compat.py",
+    "bytes": 1520,
+    "tests": [
+      "test_store_reuses_legacy_ts_candle_database_without_copy",
+      "test_legacy_store_rejects_non_1m_candle_write"
+    ],
+    "imports": [
+      "sqlite3",
+      "strattester.marketdata.sqlite_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_process_kill_recovery.py",
+    "bytes": 1572,
+    "tests": [
+      "test_os_hard_kill_rolls_back_uncommitted_wal_transaction",
+      "test_os_hard_kill_preserves_committed_wal_transaction"
+    ],
+    "imports": [
+      "__future__",
+      "strattester.marketdata.sqlite_store",
+      "subprocess",
+      "sys",
+      "textwrap"
+    ],
+    "review_calls": [
+      "subprocess.run"
+    ]
+  },
+  {
+    "path": "tests/marketdata/test_public_trade_store.py",
+    "bytes": 743,
+    "tests": [
+      "test_public_trade_aggregates_are_idempotent_and_iterable"
+    ],
+    "imports": [
+      "strattester.marketdata.sqlite_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_readiness.py",
+    "bytes": 8622,
+    "tests": [
+      "test_open_market_store_prefers_existing_local_legacy_data",
+      "test_historical_reader_sees_committed_wal_rows_without_checkpoint",
+      "test_open_market_store_refuses_creation_without_existing_history",
+      "test_ensure_history_refuses_legacy_writer_without_fetch_or_mutation",
+      "test_existing_candles_not_promoted_to_source_attested",
+      "test_requirements_skip_explicitly_unsupported_optional_datasets",
+      "test_supported_optional_datasets_remain_required",
+      "test_requirements_stop_at_delisting_boundary",
+      "test_requirements_empty_before_instrument_launch",
+      "test_zero_delivery_time_does_not_truncate_perpetual_instrument",
+      "test_dataset_windows_align_to_their_own_sampling_grid"
+    ],
+    "imports": [
+      "hashlib",
+      "pathlib",
+      "pytest",
+      "sqlite3",
+      "strattester.marketdata.integrity",
+      "strattester.marketdata.readiness",
+      "strattester.marketdata.sqlite_store",
+      "strattester.marketdata.sync_engine"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_rich_schema.py",
+    "bytes": 990,
+    "tests": [
+      "test_rich_datasets_have_explicit_contracts",
+      "test_schema_contains_rich_history_tables"
+    ],
+    "imports": [
+      "strattester.marketdata.datasets",
+      "strattester.marketdata.schema",
+      "strattester.strategies.base"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_rich_store.py",
+    "bytes": 1306,
+    "tests": [
+      "test_rich_store_upserts_market_price_and_reports_coverage",
+      "test_rich_store_upserts_oi_funding_ratio_idempotently"
+    ],
+    "imports": [
+      "strattester.marketdata.sqlite_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_rich_sync.py",
+    "bytes": 1596,
+    "tests": [
+      "test_rich_history_methods_use_explicit_bybit_endpoints",
+      "test_rich_history_uses_endpoint_specific_parameter_names"
+    ],
+    "imports": [
+      "strattester.marketdata.bybit_client"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_rich_sync_engine.py",
+    "bytes": 1287,
+    "tests": [
+      "test_sync_engine_persists_mark_price_history",
+      "test_sync_engine_persists_open_interest_history"
+    ],
+    "imports": [
+      "strattester.marketdata.sqlite_store",
+      "strattester.marketdata.sync_engine"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_shard_migrator.py",
+    "bytes": 1653,
+    "tests": [
+      "test_migrator_processes_bounded_batches_and_resumes",
+      "test_migrator_pauses_without_touching_manifest_when_disk_reserve_is_low"
+    ],
+    "imports": [
+      "strattester.marketdata.shard_migrator",
+      "strattester.marketdata.sharded_store",
+      "strattester.marketdata.sqlite_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_sharded_store.py",
+    "bytes": 9408,
+    "tests": [
+      "test_symbols_use_independent_sqlite_files",
+      "test_legacy_database_remains_read_fallback_until_shard_has_data",
+      "test_write_batch_cannot_cross_symbol_shards",
+      "test_legacy_symbol_migration_is_validated_before_shard_use",
+      "test_partial_shard_is_never_authoritative_after_restart",
+      "test_migration_resume_is_idempotent_and_promotes_only_after_validation",
+      "test_live_writes_stay_visible_in_legacy_until_promotion",
+      "test_writes_switch_to_shard_only_after_ready",
+      "test_source_growth_during_migration_defers_promotion_and_retry_catches_up",
+      "test_promotion_copies_and_verifies_all_auxiliary_datasets",
+      "test_symbol_with_auxiliary_data_but_no_candles_is_not_promoted_empty",
+      "test_restart_resumes_partial_full_dataset_migration_idempotently",
+      "test_routed_wrapper_close_does_not_destroy_external_legacy_backend"
+    ],
+    "imports": [
+      "pytest",
+      "strattester.marketdata.sharded_store",
+      "strattester.marketdata.sqlite_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_storage_health.py",
+    "bytes": 2003,
+    "tests": [
+      "test_storage_health_accepts_writable_database",
+      "test_storage_health_blocks_when_free_space_threshold_is_impossible",
+      "test_corrupt_database_is_quarantined_not_overwritten",
+      "test_sqlite_footprint_counts_wal_sidecars",
+      "test_safe_checkpoint_refuses_low_headroom_without_touching_db",
+      "test_safe_checkpoint_runs_passive_with_headroom"
+    ],
+    "imports": [
+      "os",
+      "pathlib",
+      "strattester.marketdata.sqlite_store",
+      "strattester.marketdata.storage_health"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_store.py",
+    "bytes": 4779,
+    "tests": [
+      "test_candle_insert_shape_is_ten_columns",
+      "test_duplicate_is_idempotent",
+      "test_complete_record_repairs_incomplete",
+      "test_incomplete_cannot_regress_complete",
+      "test_malformed_candle_rejected",
+      "test_transaction_rolls_back_on_sql_error",
+      "test_generator_failure_rolls_back_whole_candle_batch",
+      "test_two_local_connections_can_write_different_symbols_without_corruption",
+      "test_wal_checkpoint_and_reopen_preserve_integrity",
+      "test_uncommitted_wal_transaction_disappears_after_reopen",
+      "test_committed_wal_data_survives_reopen_without_manual_checkpoint",
+      "test_market_store_close_is_idempotent"
+    ],
+    "imports": [
+      "pytest",
+      "sqlite3",
+      "strattester.marketdata.sqlite_store",
+      "threading"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_store_factory.py",
+    "bytes": 1383,
+    "tests": [
+      "test_factory_uses_shards_without_creating_empty_legacy",
+      "test_factory_preserves_existing_legacy_until_symbol_promotion"
+    ],
+    "imports": [
+      "strattester.marketdata.sharded_store",
+      "strattester.marketdata.sqlite_store",
+      "strattester.marketdata.store_factory"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_sync_contracts.py",
+    "bytes": 1556,
+    "tests": [
+      "test_funding_requirement_uses_client_funding_method",
+      "test_public_trade_aggregate_is_not_silently_faked_from_recent_rest",
+      "test_candle_sync_uses_requested_native_bybit_interval"
+    ],
+    "imports": [
+      "strattester.marketdata.sqlite_store",
+      "strattester.marketdata.sync_engine"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/marketdata/test_sync_engine.py",
+    "bytes": 7706,
+    "tests": [
+      "test_empty_db_syncs_and_overlap_is_harmless",
+      "test_internal_gap_is_repaired",
+      "test_403_degrades_one_requirement",
+      "test_failover_node_repairs_only_missing_local_history",
+      "test_retry_after_interrupted_page_is_idempotent",
+      "test_one_unavailable_dataset_is_isolated_from_other_requirements",
+      "test_empty_exchange_page_never_marks_missing_history_ready",
+      "test_open_interest_timestamp_zero_is_not_replaced_by_fallback",
+      "test_auxiliary_row_without_any_timestamp_is_retryable_not_ready",
+      "test_restart_after_partial_backfill_requests_only_persisted_gap",
+      "test_hard_crash_mid_market_transaction_recovers_wal_without_phantom_page"
+    ],
+    "imports": [
+      "os",
+      "sqlite3",
+      "strattester.marketdata.bybit_client",
+      "strattester.marketdata.sqlite_store",
+      "strattester.marketdata.sync_engine",
+      "subprocess",
+      "sys"
+    ],
+    "review_calls": [
+      "subprocess.run"
+    ]
+  },
+  {
+    "path": "tests/marketdata/test_universe_sync.py",
+    "bytes": 4506,
+    "tests": [
+      "test_bybit_discovers_only_trading_usdt_linear_perpetuals",
+      "test_unverified_grid_universe_cannot_mutate_legacy_registry",
+      "test_legacy_client_is_refused_without_network_or_mutation",
+      "test_reverse_chronological_pages_do_not_skip_middle"
+    ],
+    "imports": [
+      "pytest",
+      "strattester.marketdata.bybit_client",
+      "strattester.marketdata.instruments",
+      "strattester.marketdata.sqlite_store",
+      "strattester.marketdata.sync_engine",
+      "strattester.marketdata.universe_sync"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/persistence/test_postgres_brain_state.py",
+    "bytes": 3952,
+    "tests": [
+      "test_brain_lease_fences_second_holder_until_expiry",
+      "test_stale_epoch_cannot_renew_after_failover",
+      "test_learning_claim_is_exactly_once_per_decision_horizon",
+      "test_same_live_holder_renews_without_epoch_increment",
+      "test_invalid_brain_lease_parameters_fail_closed",
+      "test_immutable_learning_log_is_idempotent_and_detects_collision"
+    ],
+    "imports": [
+      "json",
+      "strattester.persistence.postgres_state_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/persistence/test_postgres_optional.py",
+    "bytes": 266,
+    "tests": [
+      "test_postgres_dependency_is_optional"
+    ],
+    "imports": [
+      "pytest",
+      "strattester.persistence.postgres_state_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/persistence/test_result_store.py",
+    "bytes": 4663,
+    "tests": [
+      "test_result_store_persists_latest_strategy_result",
+      "test_stale_lease_cannot_publish_staged_result",
+      "test_valid_lease_atomically_promotes_staged_result",
+      "test_older_fencing_generation_cannot_overwrite_newer_result",
+      "test_result_store_migrates_legacy_schema_for_fencing",
+      "test_result_records_worker_generation_provenance",
+      "test_generation_validator_can_fence_stale_incarnation",
+      "test_fenced_read_revalidates_authority_after_publication",
+      "test_fenced_read_never_trusts_legacy_unfenced_result",
+      "test_fenced_read_can_skip_stale_newer_row_and_use_valid_older_row"
+    ],
+    "imports": [
+      "sqlite3",
+      "strattester.persistence.result_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/persistence/test_result_store_recovery.py",
+    "bytes": 4140,
+    "tests": [
+      "test_result_write_is_atomic_and_survives_reopen",
+      "test_failed_result_transaction_does_not_replace_previous_result",
+      "test_reboot_never_auto_publishes_stale_staged_result",
+      "test_reboot_can_publish_stage_only_after_full_authority_revalidation",
+      "test_legacy_staged_table_gets_generation_fence_columns",
+      "test_staged_cleanup_is_age_bounded_and_never_deletes_published_results",
+      "test_uncommitted_wal_transaction_disappears_after_crash_like_reopen"
+    ],
+    "imports": [
+      "pytest",
+      "sqlite3",
+      "strattester.persistence.result_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/persistence/test_state_contract.py",
+    "bytes": 1131,
+    "tests": [
+      "test_local_state_contract_and_copy",
+      "test_lease_valid_requires_exact_owner_token_active_state_and_time"
+    ],
+    "imports": [
+      "strattester.engine.jobs",
+      "strattester.persistence.migrate_state",
+      "strattester.persistence.sqlite_state_store"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/regression/test_legacy_28_catalog.py",
+    "bytes": 1661,
+    "tests": [
+      "test_legacy_catalog_contains_exact_28_variants",
+      "test_entry_distance_variants_are_explicit",
+      "test_tp_and_sl_variants_preserve_original_entry_distance",
+      "test_age_and_direction_variants_are_explicit",
+      "test_first_touch_variants_allow_one_entry_per_level"
+    ],
+    "imports": [
+      "strattester.strategies.builtin.legacy_grid"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/regression/test_legacy_engine.py",
+    "bytes": 2236,
+    "tests": [
+      "test_high_level_strict_break_and_tp",
+      "test_stop_rearms_unbroken_level",
+      "test_intrabar_entry_uses_conservative_same_minute_stop",
+      "test_gap_stop_uses_worse_open_fill",
+      "test_reversal_high_can_open_short"
+    ],
+    "imports": [
+      "strattester.strategies.builtin.legacy_grid"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/regression/test_legacy_grid.py",
+    "bytes": 457,
+    "tests": [
+      "test_long_tp_math_includes_both_side_fees",
+      "test_short_sl_math"
+    ],
+    "imports": [
+      "strattester.strategies.builtin.legacy_grid"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/regression/test_legacy_suite_runner.py",
+    "bytes": 1067,
+    "tests": [
+      "test_legacy_suite_replays_history_for_all_28_variants",
+      "test_completed_higher_timeframe_level_is_not_available_early"
+    ],
+    "imports": [
+      "strattester.strategies.builtin.legacy_grid"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/remote/test_tailscale.py",
+    "bytes": 243,
+    "tests": [
+      "test_missing_tailscale_is_optional"
+    ],
+    "imports": [
+      "strattester.remote"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_absorption.py",
+    "bytes": 1082,
+    "tests": [
+      "test_absorption_requires_level_aggression_stall_decay_and_cvd_confirmation",
+      "test_absorption_rejects_when_price_accepts_below_wall"
+    ],
+    "imports": [
+      "strattester.research.absorption"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_adaptive_role_allocator.py",
+    "bytes": 2757,
+    "tests": [
+      "test_best_healthy_capable_node_selected",
+      "test_unhealthy_or_overloaded_nodes_are_excluded",
+      "test_critical_role_prefers_independent_failure_domains",
+      "test_critical_role_reports_insufficient_redundancy",
+      "test_execution_health_fails_closed_for_degraded_critical_role",
+      "test_multi_role_allocation_reserves_capacity",
+      "test_communication_quality_affects_placement",
+      "test_invalid_node_telemetry_is_excluded"
+    ],
+    "imports": [
+      "strattester.research.adaptive_role_allocator"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_agent_communication.py",
+    "bytes": 2760,
+    "tests": [
+      "test_useful_fast_link_reinforces",
+      "test_slow_failed_redundant_link_weakens",
+      "test_neighbors_are_sparse_and_ranked",
+      "test_stigmergic_blackboard_is_bounded",
+      "test_urgent_good_link_prefers_direct_signal",
+      "test_anticipation_does_not_create_dense_mesh",
+      "test_topology_detects_single_link_dominance",
+      "test_route_scoring_unknown_candidate_has_no_side_effect",
+      "test_neighbors_do_not_materialize_candidates",
+      "test_invalid_delivery_numbers_fail_closed"
+    ],
+    "imports": [
+      "strattester.research.agent_communication"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_brain_quorum.py",
+    "bytes": 2136,
+    "tests": [
+      "test_majority_current_holder_can_execute",
+      "test_minority_partition_is_fenced_even_with_valid_looking_lease",
+      "test_stale_epoch_is_fenced_after_failover",
+      "test_non_holder_cannot_execute",
+      "test_expired_lease_is_fenced",
+      "test_two_node_cluster_requires_both_members",
+      "test_old_membership_generation_is_fenced_even_with_majority_and_lease",
+      "test_current_membership_generation_allows_normal_quorum"
+    ],
+    "imports": [
+      "strattester.research.brain_quorum"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_causal.py",
+    "bytes": 700,
+    "tests": [
+      "test_view_hides_features_not_yet_known",
+      "test_feature_rejects_known_before_event",
+      "test_future_append_does_not_change_past_view"
+    ],
+    "imports": [
+      "pytest",
+      "strattester.research.causal"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_credit_assignment.py",
+    "bytes": 1467,
+    "tests": [
+      "test_single_lucky_outcome_cannot_rewire_brain",
+      "test_consistently_positive_oos_evidence_earns_credit",
+      "test_consistently_negative_oos_evidence_loses_credit",
+      "test_noisy_mixed_results_remain_uncertain",
+      "test_counterfactual_regret_is_discounted_not_treated_as_fact"
+    ],
+    "imports": [
+      "strattester.research.credit_assignment",
+      "strattester.research.decision_memory"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_decision_memory.py",
+    "bytes": 2079,
+    "tests": [
+      "test_observation_requires_real_decision",
+      "test_counterfactual_requires_estimator_and_confidence",
+      "test_low_confidence_counterfactual_cannot_create_regret",
+      "test_reliable_counterfactual_reports_bounded_nonnegative_regret",
+      "test_better_realized_action_has_zero_regret",
+      "test_context_history_does_not_mix_regimes"
+    ],
+    "imports": [
+      "strattester.research.decision_memory"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_durable_learning_log.py",
+    "bytes": 1114,
+    "tests": [
+      "test_decode_durable_event_preserves_counterfactual_provenance",
+      "test_corrupt_durable_payload_fails_before_replay"
+    ],
+    "imports": [
+      "hashlib",
+      "json",
+      "strattester.research.decision_memory",
+      "strattester.research.durable_learning_log",
+      "strattester.research.learning_event_log"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_entry_screening.py",
+    "bytes": 1235,
+    "tests": [
+      "test_majority_losing_oos_pattern_is_rejected",
+      "test_stable_oos_pattern_can_survive",
+      "test_spec_only_hypotheses_cannot_enter_executable_ranking"
+    ],
+    "imports": [
+      "strattester.research.entry_screening",
+      "strattester.strategies.builtin.research_common",
+      "strattester.strategies.builtin.research_scalp"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_execution_journal.py",
+    "bytes": 3579,
+    "tests": [
+      "test_market_signal_checks_stop_on_entry_bar",
+      "test_ambiguous_bar_uses_conservative_stop_first",
+      "test_gap_and_costs_are_applied",
+      "test_limit_order_is_not_eligible_before_next_bar",
+      "test_journal_preserves_research_metadata",
+      "test_long_limit_gapped_below_fills_at_better_open",
+      "test_short_limit_gapped_above_fills_at_better_open",
+      "test_take_profit_gap_is_filled_at_target_not_optimistic_open"
+    ],
+    "imports": [
+      "strattester.research.execution",
+      "strattester.research.journal"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_homeostasis.py",
+    "bytes": 3881,
+    "tests": [
+      "test_external_permission_is_required_for_execution",
+      "test_repeated_autonomous_drive_becomes_senescent",
+      "test_low_reliability_strong_signal_is_quarantined",
+      "test_repeated_failures_retire_model",
+      "test_mutation_budget_quarantines_unstable_model",
+      "test_clone_dominance_veto_blocks_single_model_capture",
+      "test_independent_two_sieve_confirmation_can_execute",
+      "test_inhibitory_checkpoint_has_absolute_veto",
+      "test_slow_modulation_cannot_run_away",
+      "test_unhealthy_structural_report_is_independent_veto",
+      "test_healthy_structural_report_does_not_block_execution"
+    ],
+    "imports": [
+      "strattester.research.homeostasis",
+      "strattester.research.neuro_controller",
+      "strattester.research.structural_mathematics"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_hypotheses.py",
+    "bytes": 1231,
+    "tests": [
+      "test_research_hypothesis_families_have_controls_and_ablations",
+      "test_smc_mtf_hypothesis_records_bias_and_entry_timeframes"
+    ],
+    "imports": [
+      "strattester.strategies.builtin.research_levels",
+      "strattester.strategies.builtin.research_poc",
+      "strattester.strategies.builtin.research_smc",
+      "strattester.strategies.builtin.research_volatility"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_learning_event_log.py",
+    "bytes": 2032,
+    "tests": [
+      "test_duplicate_event_is_not_appended_twice",
+      "test_conflicting_duplicate_fails_closed",
+      "test_replay_order_is_deterministic",
+      "test_event_id_is_stable_for_decision_horizon",
+      "test_export_restore_preserves_counterfactuals_and_sequence",
+      "test_restore_rejects_tampered_event_identity"
+    ],
+    "imports": [
+      "strattester.research.decision_memory",
+      "strattester.research.learning_event_log"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_learning_replay.py",
+    "bytes": 2294,
+    "tests": [
+      "test_replay_applies_only_after_boundary",
+      "test_second_replay_is_noop",
+      "test_missing_decision_trace_fails_before_advancing_boundary",
+      "test_late_orphan_event_does_not_partially_apply_earlier_events"
+    ],
+    "imports": [
+      "strattester.research.decision_memory",
+      "strattester.research.learning_event_log",
+      "strattester.research.learning_replay",
+      "strattester.research.organism_controller"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_levels_smc.py",
+    "bytes": 1052,
+    "tests": [
+      "test_completed_level_known_only_after_period_close",
+      "test_swing_high_known_after_right_confirmation",
+      "test_fvg_known_at_third_candle_close"
+    ],
+    "imports": [
+      "strattester.research.levels",
+      "strattester.research.smc"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_microstructure_setups.py",
+    "bytes": 2288,
+    "tests": [
+      "test_absorption_proxy_requires_aggression_without_price_progress",
+      "test_absorption_proxy_rejects_true_breakdown",
+      "test_sweep_reversal_requires_return_through_level_and_sell_aggression",
+      "test_absorption_proxy_does_not_accumulate_stale_aggression"
+    ],
+    "imports": [
+      "strattester.research.microstructure"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_neuro_controller.py",
+    "bytes": 2148,
+    "tests": [
+      "test_subthreshold_evidence_accumulates_then_fires",
+      "test_conflicting_channels_reduce_confidence_and_prevent_false_fire",
+      "test_risk_and_uncertainty_raise_threshold",
+      "test_refractory_gate_blocks_immediate_repeat_decision",
+      "test_sustained_signal_desensitizes_channel",
+      "test_slow_feedback_is_bounded",
+      "test_only_explicit_signed_science_can_drive_brain"
+    ],
+    "imports": [
+      "strattester.research.neuro_controller",
+      "strattester.research.scientific_graph"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_offline_consolidation.py",
+    "bytes": 2538,
+    "tests": [
+      "test_active_channel_is_never_pruned",
+      "test_stale_weak_unconfirmed_channel_decays_but_has_floor",
+      "test_quarantined_channel_can_be_pruned_immediately",
+      "test_native_update_requires_independent_validation",
+      "test_contradiction_blocks_new_native_state"
+    ],
+    "imports": [
+      "strattester.research.credit_assignment",
+      "strattester.research.decision_memory",
+      "strattester.research.homeostasis",
+      "strattester.research.neuro_controller",
+      "strattester.research.offline_consolidation",
+      "strattester.research.stability_landscape",
+      "strattester.research.timescale_memory"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_orderflow.py",
+    "bytes": 928,
+    "tests": [
+      "test_cumulative_delta_is_causal",
+      "test_sell_aggression_decay_detects_falling_pressure",
+      "test_bullish_cvd_divergence_requires_price_not_lower_but_cvd_higher"
+    ],
+    "imports": [
+      "strattester.research.orderflow"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_organism_checkpoint.py",
+    "bytes": 5162,
+    "tests": [
+      "test_checkpoint_roundtrip_restores_adaptive_state",
+      "test_tampered_checkpoint_is_rejected_before_mutation",
+      "test_unsafe_but_rechecksummed_state_is_rejected",
+      "test_late_decode_failure_leaves_live_organism_unchanged",
+      "test_checkpoint_replace_failure_preserves_previous_checkpoint_and_cleans_tmp"
+    ],
+    "imports": [
+      "hashlib",
+      "json",
+      "os",
+      "pytest",
+      "strattester.research.decision_memory",
+      "strattester.research.homeostasis",
+      "strattester.research.organism_checkpoint",
+      "strattester.research.organism_controller",
+      "strattester.research.structural_memory"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_organism_controller.py",
+    "bytes": 3077,
+    "tests": [
+      "test_integrated_controller_can_act_when_all_gates_pass",
+      "test_unhealthy_model_population_blocks_execution",
+      "test_metastable_landscape_vetoes_action",
+      "test_learning_updates_health_and_is_bounded",
+      "test_decision_history_is_bounded_by_query_not_storage"
+    ],
+    "imports": [
+      "strattester.research.homeostasis",
+      "strattester.research.neuro_controller",
+      "strattester.research.organism_controller",
+      "strattester.research.population_guard",
+      "strattester.research.scientific_graph",
+      "strattester.research.stability_landscape"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_organism_learning.py",
+    "bytes": 3347,
+    "tests": [
+      "test_one_outcome_does_not_change_long_term_conductance",
+      "test_repeated_supported_outcomes_eventually_consolidate",
+      "test_noisy_outcomes_do_not_consolidate",
+      "test_regime_memory_is_recorded_during_learning",
+      "test_orphan_outcome_cannot_train_organism",
+      "test_same_outcome_retry_is_applied_only_once",
+      "test_durable_store_blocks_duplicate_across_controller_restart"
+    ],
+    "imports": [
+      "strattester.research.credit_assignment",
+      "strattester.research.decision_memory",
+      "strattester.research.neuro_controller",
+      "strattester.research.organism_controller",
+      "strattester.research.stability_landscape",
+      "strattester.research.timescale_memory"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_organism_network_gates.py",
+    "bytes": 2613,
+    "tests": [
+      "test_unfamiliar_transition_can_fail_closed",
+      "test_familiar_transition_passes_transition_gate",
+      "test_unhealthy_communication_topology_vetoes_execution",
+      "test_communication_gate_can_be_disabled_for_offline_research"
+    ],
+    "imports": [
+      "strattester.research.agent_communication",
+      "strattester.research.homeostasis",
+      "strattester.research.neuro_controller",
+      "strattester.research.organism_controller",
+      "strattester.research.population_guard",
+      "strattester.research.scientific_graph",
+      "strattester.research.structural_state_graph"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_organism_quorum.py",
+    "bytes": 1683,
+    "tests": [
+      "test_minority_partition_forces_hold",
+      "test_current_majority_lease_allows_normal_path"
+    ],
+    "imports": [
+      "strattester.research.brain_quorum",
+      "strattester.research.homeostasis",
+      "strattester.research.neuro_controller",
+      "strattester.research.organism_controller",
+      "strattester.research.population_guard",
+      "strattester.research.scientific_graph"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_organism_recovery.py",
+    "bytes": 2448,
+    "tests": [
+      "test_recovering_topology_blocks_execution_and_is_explainable",
+      "test_healthy_recovered_topology_allows_normal_brain_path",
+      "test_recovery_uncertainty_is_added_to_brain_decision"
+    ],
+    "imports": [
+      "strattester.research.adaptive_role_allocator",
+      "strattester.research.homeostasis",
+      "strattester.research.neuro_controller",
+      "strattester.research.organism_controller",
+      "strattester.research.population_guard",
+      "strattester.research.scientific_graph",
+      "strattester.research.topology_recovery"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_pattern_evaluation.py",
+    "bytes": 1088,
+    "tests": [
+      "test_pattern_evaluator_is_chronological_and_returns_verdict",
+      "test_empty_pattern_never_becomes_keep"
+    ],
+    "imports": [
+      "strattester.research.execution",
+      "strattester.research.pattern_evaluation",
+      "strattester.research.scalp_entries"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_population_guard.py",
+    "bytes": 1356,
+    "tests": [
+      "test_clones_cannot_manufacture_consensus",
+      "test_related_models_are_not_independent_validators",
+      "test_healthy_population_requires_independent_families",
+      "test_mutation_burst_is_detected"
+    ],
+    "imports": [
+      "strattester.research.population_guard"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_portfolio.py",
+    "bytes": 1306,
+    "tests": [
+      "test_one_open_trade_is_enforced_per_instrument_and_strategy",
+      "test_each_strategy_instrument_stream_has_independent_virtual_capital"
+    ],
+    "imports": [
+      "strattester.research.portfolio",
+      "types"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_predictive_communication.py",
+    "bytes": 3409,
+    "tests": [
+      "test_forecast_prepares_agents_for_likely_next_states",
+      "test_unfamiliar_forecast_does_not_preconnect",
+      "test_wrong_prediction_weakens_prepared_links",
+      "test_stigmergic_progress_is_visible_without_direct_message",
+      "test_forecast_hit_does_not_fake_delivery_success",
+      "test_only_agents_for_actual_state_receive_positive_preparation_credit"
+    ],
+    "imports": [
+      "strattester.research.agent_communication",
+      "strattester.research.predictive_communication",
+      "strattester.research.structural_state_graph"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_result_persistence.py",
+    "bytes": 705,
+    "tests": [
+      "test_persist_report_serializes_core_metrics"
+    ],
+    "imports": [
+      "strattester.research.result_persistence",
+      "types"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_runner.py",
+    "bytes": 3667,
+    "tests": [
+      "test_runner_requires_terminan_engine_after_readiness_without_mutation",
+      "test_legacy_client_rejected_before_exchange_calls",
+      "test_partial_history_does_not_become_ready"
+    ],
+    "imports": [
+      "hashlib",
+      "pytest",
+      "strattester.marketdata.sqlite_store",
+      "strattester.research.runner",
+      "strattester.strategies.base"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_same_bar_execution.py",
+    "bytes": 1009,
+    "tests": [
+      "test_limit_entry_cannot_get_free_same_bar_survival",
+      "test_market_entry_checks_same_bar_stop"
+    ],
+    "imports": [
+      "strattester.research.execution"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_scale_execution.py",
+    "bytes": 1807,
+    "tests": [
+      "test_scale_trade_has_two_independent_entry_legs_and_partial_targets",
+      "test_scale_trade_does_not_share_state_between_calls",
+      "test_scale_trade_can_move_stop_after_first_target"
+    ],
+    "imports": [
+      "strattester.research.execution"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_scalp_bootstrap.py",
+    "bytes": 882,
+    "tests": [
+      "test_historical_scalp_contract_never_fabricates_l2",
+      "test_historical_scalp_known_at_is_after_event"
+    ],
+    "imports": [
+      "strattester.research.scalp_bootstrap"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_scalp_entries.py",
+    "bytes": 1980,
+    "tests": [
+      "test_only_implemented_scalps_are_executable",
+      "test_sweep_entry_never_precedes_confirmed_event",
+      "test_breakout_bar_is_not_reused_as_retest",
+      "test_volatility_entry_waits_for_snapshot_known_at",
+      "test_poc_reclaim_uses_only_profile_known_by_decision"
+    ],
+    "imports": [
+      "strattester.research.causal",
+      "strattester.research.scalp_entries",
+      "strattester.research.volatility",
+      "strattester.research.volume_profile",
+      "strattester.strategies.builtin.research_common",
+      "strattester.strategies.builtin.research_scalp"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_scientific_fleet.py",
+    "bytes": 1182,
+    "tests": [
+      "test_healthy_independent_critical_replicas_allow_permission",
+      "test_missing_critical_replica_blocks_permission",
+      "test_external_permission_remains_authoritative"
+    ],
+    "imports": [
+      "strattester.research.adaptive_role_allocator",
+      "strattester.research.scientific_fleet"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_scientific_graph.py",
+    "bytes": 1888,
+    "tests": [
+      "test_graph_requires_existing_upstream",
+      "test_layered_outputs_are_deterministic_and_traceable",
+      "test_robustness_detects_parameter_regime_boundary",
+      "test_meta_pattern_consumes_multiple_model_results",
+      "test_nonlinear_screen_never_claims_chaos"
+    ],
+    "imports": [
+      "strattester.research.scientific_graph"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_smc_hypotheses.py",
+    "bytes": 1206,
+    "tests": [
+      "test_smc_suite_contains_mtf_and_ablation_controls",
+      "test_hypotheses_have_explicit_required_features",
+      "test_custom_timeframe_ladder_is_supported"
+    ],
+    "imports": [
+      "strattester.research.hypotheses"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_smc_structure.py",
+    "bytes": 2070,
+    "tests": [
+      "test_bos_known_only_on_breaking_bar_close",
+      "test_liquidity_sweep_requires_rejection_back_through_level",
+      "test_order_block_is_created_only_after_confirming_bos",
+      "test_same_confirmed_swing_can_break_only_once"
+    ],
+    "imports": [
+      "strattester.research.smc"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_smc_timeframes.py",
+    "bytes": 1352,
+    "tests": [
+      "test_mtf_events_keep_source_timeframe",
+      "test_higher_timeframe_bias_is_only_visible_after_confirmation",
+      "test_lower_tf_entry_can_require_confirmed_higher_tf_bias"
+    ],
+    "imports": [
+      "strattester.research.smc"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_stability_landscape.py",
+    "bytes": 2430,
+    "tests": [
+      "test_native_basin_tolerates_small_perturbation",
+      "test_competing_near_equal_state_is_metastable_and_not_healthy",
+      "test_large_drift_requests_chaperone_recovery",
+      "test_recovery_restores_known_channels_and_quarantines_unknown",
+      "test_native_state_requires_validation",
+      "test_plasticity_requires_repeated_confirmation_and_bounds_change",
+      "test_failed_confirmation_delays_consolidation"
+    ],
+    "imports": [
+      "strattester.research.homeostasis",
+      "strattester.research.neuro_controller",
+      "strattester.research.stability_landscape"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_statistics_reporting.py",
+    "bytes": 1687,
+    "tests": [
+      "test_statistics_compute_core_metrics_drawdown_and_streaks",
+      "test_primary_report_excludes_partial_history",
+      "test_volatility_breakdown_keeps_sample_counts_and_coverage_separate"
+    ],
+    "imports": [
+      "strattester.research.reporting",
+      "strattester.research.statistics",
+      "types"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_structural_mathematics.py",
+    "bytes": 1358,
+    "tests": [
+      "test_invariance_detects_stable_signature_under_transformations",
+      "test_balanced_design_rewards_equal_pair_exposure",
+      "test_temporal_tiling_penalizes_holes_and_overlap",
+      "test_periodic_word_has_less_complexity_than_richer_sequence",
+      "test_rational_approximation_is_bounded_and_interpretable",
+      "test_supervisor_fails_closed_on_structural_collapse"
+    ],
+    "imports": [
+      "strattester.research.structural_mathematics"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_structural_memory.py",
+    "bytes": 2872,
+    "tests": [
+      "test_absolute_noninvariant_values_do_not_change_class",
+      "test_invariant_feature_change_creates_new_class",
+      "test_unfamiliar_structure_is_fail_closed",
+      "test_repeated_reliable_structure_becomes_familiar",
+      "test_low_confidence_history_does_not_authorize_execution",
+      "test_bad_familiar_structure_can_be_vetoed",
+      "test_transition_probabilities_are_empirical_and_directional",
+      "test_missing_declared_invariant_fails_closed",
+      "test_delayed_outcome_does_not_create_transition",
+      "test_duplicate_structural_outcome_is_idempotent"
+    ],
+    "imports": [
+      "strattester.research.structural_memory"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_structural_organism.py",
+    "bytes": 2461,
+    "tests": [
+      "test_novel_structural_class_is_researchable_but_fail_closed_when_required",
+      "test_familiar_reliable_class_can_pass_memory_gate",
+      "test_structural_health_and_memory_are_independent_gates"
+    ],
+    "imports": [
+      "strattester.research.homeostasis",
+      "strattester.research.neuro_controller",
+      "strattester.research.organism_controller",
+      "strattester.research.population_guard",
+      "strattester.research.scientific_graph",
+      "strattester.research.structural_mathematics",
+      "strattester.research.structural_memory"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_structural_state_graph.py",
+    "bytes": 2557,
+    "tests": [
+      "test_graph_learns_directional_transitions",
+      "test_unfamiliar_transition_graph_fails_closed",
+      "test_prediction_requires_familiarity",
+      "test_novel_transition_is_maximally_surprising",
+      "test_delayed_graph_outcome_cannot_rewrite_transition_order",
+      "test_graph_rejects_out_of_order_state_sequence",
+      "test_one_deterministic_transition_is_not_high_confidence",
+      "test_confidence_requires_repeated_transition_evidence",
+      "test_invalid_prior_strength_fails_closed"
+    ],
+    "imports": [
+      "strattester.research.structural_state_graph"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_timescale_memory.py",
+    "bytes": 1376,
+    "tests": [
+      "test_short_memory_reacts_without_becoming_long_term",
+      "test_regime_memories_are_separate",
+      "test_reactive_modifier_is_bounded",
+      "test_long_term_candidate_requires_enough_history",
+      "test_regime_lifetime_disagreement_blocks_consolidation"
+    ],
+    "imports": [
+      "strattester.research.timescale_memory"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_topology_recovery.py",
+    "bytes": 3202,
+    "tests": [
+      "test_startup_requires_stabilization_before_execution",
+      "test_worker_loss_immediately_degrades_and_adds_uncertainty",
+      "test_recovered_node_does_not_immediately_restore_permission",
+      "test_role_is_reallocated_to_independent_live_nodes",
+      "test_stale_heartbeat_cannot_move_clock_backwards",
+      "test_loss_of_noncritical_spare_does_not_permanently_block_execution"
+    ],
+    "imports": [
+      "strattester.research.adaptive_role_allocator",
+      "strattester.research.topology_recovery"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_trade_context.py",
+    "bytes": 1218,
+    "tests": [
+      "test_entry_context_uses_latest_snapshot_known_at_entry",
+      "test_future_context_is_never_attached"
+    ],
+    "imports": [
+      "strattester.research.trade_context",
+      "strattester.research.volatility",
+      "strattester.research.volume_profile"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_validation_resampling.py",
+    "bytes": 1452,
+    "tests": [
+      "test_chronological_split_never_overlaps_or_uses_future",
+      "test_walk_forward_folds_are_chronological",
+      "test_selected_parameters_are_frozen_before_test",
+      "test_bootstrap_expectancy_is_seeded_and_contains_sample_mean",
+      "test_monte_carlo_drawdown_is_seeded"
+    ],
+    "imports": [
+      "strattester.research.resampling",
+      "strattester.research.validation"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_volatility.py",
+    "bytes": 1690,
+    "tests": [
+      "test_observatory_computes_causal_metrics_and_regime",
+      "test_future_rows_cannot_reclassify_old_snapshot",
+      "test_percentile_uses_only_prior_history"
+    ],
+    "imports": [
+      "math",
+      "strattester.research.volatility"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/research/test_volume_profile.py",
+    "bytes": 819,
+    "tests": [
+      "test_trade_profile_labels_true_trade_mode",
+      "test_proxy_profile_is_explicitly_approximate",
+      "test_future_trades_do_not_change_frozen_profile"
+    ],
+    "imports": [
+      "strattester.research.volume_profile"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_background_migration.py",
+    "bytes": 1208,
+    "tests": [
+      "test_background_migration_runs_only_with_normal_resource_headroom",
+      "test_background_migration_pauses_under_cpu_ram_or_disk_pressure"
+    ],
+    "imports": [
+      "strattester.engine.resource_manager",
+      "strattester.runtime.background_migration"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_bootstrap_completion.py",
+    "bytes": 768,
+    "tests": [
+      "test_completion_waits_for_all_terminal_jobs",
+      "test_failed_job_blocks_handoff"
+    ],
+    "imports": [
+      "dataclasses",
+      "pathlib",
+      "strattester.engine.jobs",
+      "strattester.runtime.bootstrap_completion"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_bootstrap_worker.py",
+    "bytes": 860,
+    "tests": [
+      "test_worker_bootstrap_has_durable_state",
+      "test_worker_bootstrap_wires_background_migration_for_existing_market_db"
+    ],
+    "imports": [
+      "strattester.marketdata.sqlite_store",
+      "strattester.runtime.bootstrap_worker"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_cluster_recovery.py",
+    "bytes": 4721,
+    "tests": [
+      "test_expired_job_on_dead_node_moves_and_rebinds_writer_lock",
+      "test_live_lease_on_dead_heartbeat_node_is_deferred_until_lease_expires",
+      "test_completed_job_is_never_reassigned",
+      "test_recovery_is_idempotent_after_first_move",
+      "test_competing_recovery_cas_allows_only_first_snapshot_to_commit",
+      "test_reassigned_expired_job_gets_new_fencing_token_when_reclaimed"
+    ],
+    "imports": [
+      "strattester.engine.distribution",
+      "strattester.engine.jobs",
+      "strattester.persistence.sqlite_state_store",
+      "strattester.runtime.cluster_recovery"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_commissioning.py",
+    "bytes": 1318,
+    "tests": [
+      "test_commissioning_is_strictly_ordered_and_durable",
+      "test_commissioning_cannot_skip_failed_or_missing_stage",
+      "test_production_ready_requires_every_prior_gate"
+    ],
+    "imports": [
+      "pytest",
+      "strattester.runtime.commissioning"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_concurrency_isolation.py",
+    "bytes": 4991,
+    "tests": [
+      "test_two_workers_cannot_claim_same_job",
+      "test_exclusive_resource_prevents_competing_sync_jobs",
+      "test_different_strategy_backtests_do_not_share_trade_state",
+      "test_same_market_writer_is_exclusive_but_backtests_remain_parallel",
+      "test_expired_writer_lease_releases_resource",
+      "test_stale_worker_cannot_complete_after_takeover",
+      "test_live_lease_renewal_prevents_takeover"
+    ],
+    "imports": [
+      "strattester.engine.jobs",
+      "strattester.persistence.sqlite_state_store",
+      "strattester.strategies.builtin.legacy_grid"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_control_status.py",
+    "bytes": 1889,
+    "tests": [
+      "test_control_status_reports_worker_heartbeat_and_tail_logs",
+      "test_stale_heartbeat_is_down",
+      "test_control_status_reports_resources_db_and_recent_errors",
+      "test_results_reads_latest_persistent_metrics"
+    ],
+    "imports": [
+      "json",
+      "pathlib",
+      "sqlite3",
+      "strattester.persistence.result_store",
+      "strattester.runtime.control_status"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_grid_handoff.py",
+    "bytes": 421,
+    "tests": [
+      "test_handoff_requires_science_bundle"
+    ],
+    "imports": [
+      "pathlib",
+      "strattester.runtime.grid_handoff"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_housekeeping.py",
+    "bytes": 1932,
+    "tests": [
+      "test_cleanup_only_allowlisted_stale_files",
+      "test_cleanup_never_deletes_active_path",
+      "test_cleanup_is_bounded",
+      "test_cleanup_does_not_follow_symlink_outside_root",
+      "test_cleanup_preserves_database_wal_logs_and_current_checkpoint"
+    ],
+    "imports": [
+      "os",
+      "pathlib",
+      "strattester.runtime.housekeeping"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_logging.py",
+    "bytes": 390,
+    "tests": [
+      "test_structured_log_contains_context"
+    ],
+    "imports": [
+      "json",
+      "strattester.runtime.logging"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_service_intent.py",
+    "bytes": 4611,
+    "tests": [
+      "test_intentional_stop_survives_guardian_restart",
+      "test_start_clears_the_durable_stop_hold",
+      "test_restart_waits_for_scm_to_report_stopped",
+      "test_failed_stop_is_not_reported_as_success",
+      "test_stop_disables_automatic_boot_until_explicit_start",
+      "test_guardian_cannot_restart_after_a_concurrent_stop_completes"
+    ],
+    "imports": [
+      "pytest",
+      "strattester",
+      "strattester.runtime.service_manager",
+      "threading",
+      "types"
+    ],
+    "review_calls": [
+      "WindowsServiceManager",
+      "WindowsServiceManager(denied, root=tmp_path).stop",
+      "WindowsServiceManager(runner, root=tmp_path).start",
+      "service_guardian.run"
+    ]
+  },
+  {
+    "path": "tests/runtime/test_service_manager.py",
+    "bytes": 480,
+    "tests": [
+      "test_manager_targets_only_worker"
+    ],
+    "imports": [
+      "strattester.runtime.service_manager"
+    ],
+    "review_calls": [
+      "WindowsServiceManager"
+    ]
+  },
+  {
+    "path": "tests/runtime/test_smoke.py",
+    "bytes": 400,
+    "tests": [
+      "test_worker_smoke_completes_and_persists_job",
+      "test_worker_smoke_failure_is_retryable"
+    ],
+    "imports": [
+      "strattester.smoke"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/runtime/test_worker.py",
+    "bytes": 14804,
+    "tests": [
+      "test_one_failure_is_retryable_and_next_job_completes",
+      "test_worker_claims_only_jobs_selected_by_scheduler",
+      "test_retryable_failure_releases_worker_lease",
+      "test_worker_runs_independent_jobs_concurrently",
+      "test_auto_mode_can_use_process_pool_for_picklable_executor",
+      "test_permanent_failure_stops_after_max_attempts",
+      "test_broken_job_does_not_block_other_symbols",
+      "test_cluster_worker_refuses_new_work_when_control_plane_heartbeat_fails",
+      "test_cluster_worker_recovers_after_control_plane_returns",
+      "test_recovered_control_plane_respects_closed_work_schedule",
+      "test_executor_crash_never_marks_job_complete",
+      "test_worker_close_releases_owned_resources_once",
+      "test_process_pool_child_hard_exit_never_completes_job",
+      "test_worker_registers_generation_once_and_sends_it_on_heartbeat",
+      "test_fenced_generation_refuses_new_work",
+      "test_disk_full_is_terminal_and_quarantines_worker_until_cleared",
+      "test_sqlite_disk_full_message_is_resource_exhaustion",
+      "test_generation_loss_during_batch_never_completes_inflight_job"
+    ],
+    "imports": [
+      "errno",
+      "logging",
+      "os",
+      "sqlite3",
+      "strattester.engine.jobs",
+      "strattester.engine.resource_manager",
+      "strattester.engine.scheduler",
+      "strattester.persistence.sqlite_state_store",
+      "strattester.runtime.lifecycle",
+      "strattester.runtime.worker",
+      "threading",
+      "time"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/strategies/test_fingerprint.py",
+    "bytes": 882,
+    "tests": [
+      "test_fingerprint_changes_when_implementation_source_changes",
+      "test_feature_definition_versions_affect_identity"
+    ],
+    "imports": [
+      "strattester.strategies.base"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/strategies/test_registry.py",
+    "bytes": 808,
+    "tests": [
+      "test_duplicate_rejected",
+      "test_enable_disable_preserves_identity",
+      "test_version_changes_result_identity"
+    ],
+    "imports": [
+      "pytest",
+      "strattester.strategies.base",
+      "strattester.strategies.registry"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/telegram/test_commands.py",
+    "bytes": 202,
+    "tests": [
+      "test_confirmation_expires"
+    ],
+    "imports": [
+      "strattester.telegram.commands"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/telegram/test_controller.py",
+    "bytes": 1252,
+    "tests": [
+      "test_unknown_chat_ignored",
+      "test_controller_operates_when_worker_stopped",
+      "test_remove_requires_nonce",
+      "test_logs_command_is_read_only_and_bounded"
+    ],
+    "imports": [
+      "strattester.telegram.commands",
+      "strattester.telegram.controller"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/telegram/test_lifecycle_failures.py",
+    "bytes": 1160,
+    "tests": [
+      "test_lifecycle_failure_returns_error_and_controller_remains_available",
+      "test_locked_service_state_is_reported_without_crashing_controller"
+    ],
+    "imports": [
+      "pytest",
+      "sqlite3",
+      "strattester.telegram.controller"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/telegram/test_poller.py",
+    "bytes": 602,
+    "tests": [
+      "test_poller_advances_offset_and_replies"
+    ],
+    "imports": [
+      "strattester.telegram.poller"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/test_audit_runtime_integrity.py",
+    "bytes": 7498,
+    "tests": [
+      "test_restart_recovers_an_expired_only_queue",
+      "test_scheduler_candidate_does_not_overwrite_a_concurrent_renewal",
+      "test_premium_index_accepts_finite_signed_values",
+      "test_price_klines_reject_nonfinite_values",
+      "test_incomplete_candle_does_not_satisfy_history_or_strategy_readers",
+      "test_migration_does_not_promote_a_stale_corrected_candle",
+      "test_routed_write_waits_for_promotion_then_uses_the_shard",
+      "test_intrabar_limit_fill_cannot_exit_at_an_earlier_opening_gap"
+    ],
+    "imports": [
+      "dataclasses",
+      "logging",
+      "pytest",
+      "strattester.engine.executor",
+      "strattester.engine.jobs",
+      "strattester.engine.resource_manager",
+      "strattester.engine.scheduler",
+      "strattester.marketdata.sharded_store",
+      "strattester.marketdata.sqlite_store",
+      "strattester.persistence.sqlite_state_store",
+      "strattester.research.execution",
+      "strattester.runtime.lifecycle",
+      "strattester.runtime.worker",
+      "threading"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/test_bootstrap.py",
+    "bytes": 1004,
+    "tests": [
+      "test_bootstrap_selects_valid_legacy_without_copying",
+      "test_bootstrap_does_not_create_empty_market_db"
+    ],
+    "imports": [
+      "sqlite3",
+      "strattester.bootstrap"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/test_config.py",
+    "bytes": 592,
+    "tests": [
+      "test_defaults_use_local_directories",
+      "test_repr_redacts_telegram_token"
+    ],
+    "imports": [
+      "pathlib",
+      "strattester.config"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/test_connectivity.py",
+    "bytes": 563,
+    "tests": [
+      "test_connectivity_checks_are_read_only"
+    ],
+    "imports": [
+      "strattester.connectivity"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/test_doctor.py",
+    "bytes": 375,
+    "tests": [
+      "test_doctor_does_not_create_missing_market_db"
+    ],
+    "imports": [
+      "pathlib",
+      "strattester.config",
+      "strattester.doctor"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/test_preflight.py",
+    "bytes": 1035,
+    "tests": [
+      "test_legacy_network_preflight_reports_grid_as_required",
+      "test_preflight_is_non_destructive_and_reports_core_checks",
+      "test_preflight_required_ok_ignores_optional_remote_configuration"
+    ],
+    "imports": [
+      "strattester.preflight"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/test_windows_uninstall_lifecycle.py",
+    "bytes": 1353,
+    "tests": [
+      "test_uninstaller_stops_guardian_before_other_services"
+    ],
+    "imports": [
+      "pathlib",
+      "pytest",
+      "subprocess",
+      "sys"
+    ],
+    "review_calls": [
+      "subprocess.run"
+    ]
+  },
+  {
+    "path": "tests/test_work_schedule.py",
+    "bytes": 2012,
+    "tests": [
+      "test_scheduled_nodes_boundaries_winter_berlin",
+      "test_sunday_is_full_day",
+      "test_saturday_to_sunday_and_sunday_to_monday",
+      "test_dst_uses_europe_berlin_local_clock",
+      "test_draining_does_not_hard_kill_active_work",
+      "test_other_nodes_are_unrestricted"
+    ],
+    "imports": [
+      "datetime",
+      "strattester.runtime.work_schedule"
+    ],
+    "review_calls": []
+  },
+  {
+    "path": "tests/unmigrated_market_data/test_source_provenance.py",
+    "bytes": 11141,
+    "tests": [
+      "test_owner_declaration_and_digest_are_not_completeness_attestation",
+      "test_bad_attestations_fail_closed",
+      "test_restart_has_new_epoch",
+      "test_gateway_integrity_gaps_stale_and_restart",
+      "test_research_handoff_requires_trust_and_never_trades",
+      "test_handoff_adversarial",
+      "test_event_time_ohlc_duplicate_and_late_trades",
+      "test_cancellation_during_snapshot_write_propagates",
+      "test_disposable_pg_immutability_and_idempotency",
+      "test_market_integrity_fail_closed",
+      "test_http_absolute_deadline_closes_slow_header_or_body",
+      "test_real_strattester_producer_export_compatibility",
+      "test_http_invalid_query_does_not_echo_or_log_secret",
+      "test_additive_capabilities_do_not_claim_source_readiness",
+      "test_actual_builder_decimal_tick_rounding_retains_integrity"
+    ],
+    "imports": [
+      "asyncio",
+      "asyncpg",
+      "copy",
+      "http.client",
+      "http.server",
+      "json",
+      "market_data",
+      "market_data.cluster",
+      "market_data.migrations",
+      "market_data.models",
+      "market_data.provenance",
+      "market_data.research_handoff",
+      "os",
+      "pathlib",
+      "pytest",
+      "socket",
+      "threading",
+      "time",
+      "uuid"
+    ],
+    "review_calls": [
+      "socket.create_connection"
+    ]
+  }
+]

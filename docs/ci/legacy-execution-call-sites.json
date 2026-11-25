@@ -1,0 +1,126 @@
+[
+  {
+    "path": "tests/install/test_install_contract.py",
+    "calls": [
+      {
+        "line": 35,
+        "text": "result = subprocess.run("
+      }
+    ]
+  },
+  {
+    "path": "tests/marketdata/test_bybit_client.py",
+    "calls": [
+      {
+        "line": 56,
+        "text": "raise AssertionError(\"Strattester must never create requests.Session\")"
+      },
+      {
+        "line": 64,
+        "text": "session = requests.Session()"
+      }
+    ]
+  },
+  {
+    "path": "tests/marketdata/test_process_kill_recovery.py",
+    "calls": [
+      {
+        "line": 18,
+        "text": "return subprocess.run([sys.executable,'-c',code],capture_output=True,text=True)"
+      }
+    ]
+  },
+  {
+    "path": "tests/marketdata/test_sync_engine.py",
+    "calls": [
+      {
+        "line": 157,
+        "text": "child=subprocess.run([sys.executable,'-c',script,str(db)])"
+      }
+    ]
+  },
+  {
+    "path": "tests/runtime/test_service_intent.py",
+    "calls": [
+      {
+        "line": 7,
+        "text": "from strattester.runtime.service_manager import WindowsServiceManager"
+      },
+      {
+        "line": 15,
+        "text": "manager=WindowsServiceManager(runner,root=tmp_path)"
+      },
+      {
+        "line": 18,
+        "text": "WindowsServiceManager(runner,root=tmp_path)"
+      },
+      {
+        "line": 20,
+        "text": "report=service_guardian.run(tmp_path,repair=True)"
+      },
+      {
+        "line": 34,
+        "text": "first=WindowsServiceManager(runner,root=tmp_path)"
+      },
+      {
+        "line": 36,
+        "text": "WindowsServiceManager(runner,root=tmp_path).start()"
+      },
+      {
+        "line": 38,
+        "text": "report=service_guardian.run(tmp_path,repair=True)"
+      },
+      {
+        "line": 54,
+        "text": "manager=WindowsServiceManager(runner,root=tmp_path,sleep=lambda _:None)"
+      },
+      {
+        "line": 64,
+        "text": "WindowsServiceManager(denied,root=tmp_path).stop()"
+      },
+      {
+        "line": 72,
+        "text": "manager=WindowsServiceManager(runner,root=tmp_path)"
+      },
+      {
+        "line": 105,
+        "text": "manager=WindowsServiceManager(runner,root=tmp_path)"
+      },
+      {
+        "line": 107,
+        "text": "service_guardian.run(tmp_path,repair=True)"
+      }
+    ]
+  },
+  {
+    "path": "tests/runtime/test_service_manager.py",
+    "calls": [
+      {
+        "line": 1,
+        "text": "from strattester.runtime.service_manager import WindowsServiceManager"
+      },
+      {
+        "line": 6,
+        "text": "m=WindowsServiceManager(run);m.stop();m.start()"
+      }
+    ]
+  },
+  {
+    "path": "tests/test_windows_uninstall_lifecycle.py",
+    "calls": [
+      {
+        "line": 18,
+        "text": "result=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command',harness],capture_output=True,text=True,timeout=20)"
+      }
+    ]
+  },
+  {
+    "path": "tests/unmigrated_market_data/test_source_provenance.py",
+    "calls": [
+      {
+        "line": 144,
+        "text": "sock=socket.create_connection(server.server_address,timeout=1)"
+      }
+    ]
+  }
+]

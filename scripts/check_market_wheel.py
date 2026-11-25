@@ -63,7 +63,7 @@ def main():
         raise SystemExit("expected exactly one Grid wheel")
     wheel = wheels[0]
     allowed = set(Path(__file__).resolve().parents[1]
-                  .joinpath("market-wheel-modules.txt").read_text(encoding="utf-8").split())
+                  .joinpath("legacy", "grid-market-wheel", "market-wheel-modules.txt").read_text(encoding="utf-8").split())
     expected_files = {f"grid/{name}.py" for name in allowed} | {"grid/schema.sql"}
     distribution = metadata.distribution(PACKAGE)
     entry, = distribution.entry_points.select(group="console_scripts", name="grid-market-readonly")
