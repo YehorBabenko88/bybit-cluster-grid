@@ -1,0 +1,40 @@
+name: Market Data custody re-anchor (B2 mapping of 18 strattester-custody nodes)
+# Candidate counterparts for the 18 roster nodes that verify strattester repository custody.
+# The 902-node roster lane (market-data-tests.yml) is unchanged and still runs the 18 originals.
+# Stdlib-only nodes; the default checkout of each OS is used on purpose (no end-of-line override).
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  reanchor:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12', '3.13']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install "pytest==8.3.5"
+      - name: Run the 18 re-anchored counterparts and negative controls
+        run: python -m pytest -v -p no:cacheprovider tests/market_data_custody
+      - name: Confirm the 902 roster is unchanged and still lists the 18 originals
+        shell: python
+        run: |
+          import hashlib, json
+          roster = json.load(open('scripts/canonical_test_roster.json'))
+          assert len(roster) == len(set(roster)) == 902
+          assert hashlib.sha256(json.dumps(roster, separators=(',', ':'), ensure_ascii=True).encode('ascii')).hexdigest() == 'd235fb38d3f0d207200af95ada41d1ad58605f663dca317e38aa442d719b6fbe'
+          mapping = json.load(open('docs/market-data-custody-mapping-20261125.json'))
+          originals = [row['source_test_id'] for row in mapping['mappings']]
+          assert len(originals) == len(set(originals)) == 18 and set(originals) <= set(roster)
+          print('roster902 unchanged; 18 originals still in roster')

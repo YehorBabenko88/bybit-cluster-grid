@@ -1,0 +1,729 @@
+{
+ "schema": "grid.market-data-custody-mapping.v1",
+ "date": "2026-11-25",
+ "workstream": "B2 (YehorBabenko88/unified-system#152, MASTER #111)",
+ "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE",
+ "release": "NO_GO",
+ "authority": false,
+ "grid_base": {
+  "pr": 296,
+  "branch": "claude/b1-market-data-relocation-20261125",
+  "head": "bf29f81b238c6236417f0ed9a13feea3dcbb5bec"
+ },
+ "strattester_source": {
+  "commit": "3850995a6c28ed29b05cef4ba067e587d5033453",
+  "ci_runs_on_commit": [
+   "https://github.com/YehorBabenko88/strattester/actions/runs/45411461397",
+   "https://github.com/YehorBabenko88/strattester/actions/runs/45411461080"
+  ]
+ },
+ "evidence": {
+  "ledger": "docs/provenance/market-data-custody-reanchor-20261125/ledger.json",
+  "ledger_sha256": "96be37b294cbd0c7a7ac7dcdfffbeb3058c2e59ff8a70903acaac4ea3e42c2bd",
+  "verifier": "tests/market_data_custody/custody_reanchor.py",
+  "builder": "tests/market_data_custody/build_reanchor_archive.py",
+  "tracer": "tests/market_data_custody/trace_original_reads.py",
+  "paths": 366,
+  "grid_live_paths": 207,
+  "archived_strattester_paths": 159,
+  "archived_objects": {
+   "commit": 3,
+   "tree": 55,
+   "blob": 149
+  },
+  "absence_proofs": 18,
+  "negative_controls": "tests/market_data_custody/test_reanchor_negative_controls.py (11 nodes)",
+  "ci_workflow": ".github/workflows/market-data-custody-reanchor.yml"
+ },
+ "unchanged": {
+  "original_18_nodes": "unchanged, still in scripts/canonical_test_roster.json and still failing in Grid until acceptance",
+  "roster902_ordered_sha256": "d235fb38d3f0d207200af95ada41d1ad58605f663dca317e38aa442d719b6fbe",
+  "gate_scripts": [
+   "scripts/run_canonical_tests.py",
+   "scripts/canonical_test_gate.py"
+  ],
+  "strattester": "untouched; its CI on 3850995 keeps running the originals"
+ },
+ "owners_summary": {
+  "Grid": 18,
+  "Unified System": 0
+ },
+ "mappings": [
+  {
+   "source_test_id": "tests/market_data/test_entry_context_retirement.py::test_original_547_inventory_bytes_and_all_788_baseline_roles_preserved",
+   "source_file_blob": "68f311a11953d74462cbbd986de5a711e1932b60",
+   "source_file_sha256": "da3a48d02de0e1c2b16750564f2d482829a69db1c1873c64babfcab868d92fea",
+   "requirement": "Entry-context retirement (canonical owner Terminan terminan.entry_context.build_entry_context) lost no legacy obligation: every preserved inventory file of the entry-context ledger keeps exact bytes; the legacy inventory has exactly 547 tests; canonical-788 roster and the sha-bound canonical original 791 roster are exact prefixes of the verified historical 898 roster; 898 ids unique; no test_trade_context node in the baseline.",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_entry_context_retirement_grid.py::test_original_547_inventory_bytes_and_all_788_baseline_roles_preserved__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_original_547_inventory_bytes_and_all_788_baseline_roles_preserved (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "Grid canonical-788 roster == Grid roster[:788]",
+     "Grid docs/ci/retained-legacy-test-inventory.json has 547 tests",
+     "no test_trade_context node in the Grid roster",
+     "all 207 live Grid inputs byte-equal to strattester@3850995 blobs (verify())"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_entry_context_retirement_grid.py::test_original_547_inventory_bytes_and_all_788_baseline_roles_preserved__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_entry_context_retirement.py::test_only_unowned_context_source_removed_no_runtime_dependency_or_alias",
+   "source_file_blob": "68f311a11953d74462cbbd986de5a711e1932b60",
+   "source_file_sha256": "da3a48d02de0e1c2b16750564f2d482829a69db1c1873c64babfcab868d92fea",
+   "requirement": "Only the unowned strattester trade_context source and its test were removed; no strattester module refers to trade_context/attach_entry_context; historical custody v1 identity (anchor c05e0ca, six changed baseline archives, legacy ledger unmodified, runtime49); the 45 runtime_baseline hashes; market_data package has no Terminan dependency or import.",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_entry_context_retirement_grid.py::test_only_unowned_context_source_removed_no_runtime_dependency_or_alias__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_only_unowned_context_source_removed_no_runtime_dependency_or_alias (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "trade_context / attach_entry_context text absent from every Grid runtime file (grid, market_data, lab, strategies, installer, run_*.py)",
+     "no import/descriptor of strattester.research.trade_context in Grid runtime",
+     "Grid pyproject packages == [market_data], no terminan dependency",
+     "Grid market_data has no terminan import",
+     "absence of strattester/research/trade_context.py and tests/research/test_trade_context.py proven in the strattester@3850995 tree, the Grid anchor tree and the live Grid checkout"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_entry_context_retirement_grid.py::test_only_unowned_context_source_removed_no_runtime_dependency_or_alias__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_journal_retirement.py::test_journal_metadata_role_has_exact_canonical_owner",
+   "source_file_blob": "55d43682fefc2140a4794bc7262b1fe789f069c9",
+   "source_file_sha256": "127092daf658de9cf51b8403f1538cfba7b593df5813b33cd290652cd5d9d1a1",
+   "requirement": "Journal-metadata role (tests/research/test_execution_journal.py::test_journal_preserves_research_metadata) has exact canonical owner Terminan terminan.research_reporting.build_research_report: sha-pinned ledger; counters 547/43/504 -> 44/503; Math pin 9ed369d in archived pre-repin scripts; prior-accepted chain from screening ledger; preserved inventory and code hashes; archives; roster 897 -> 898 suffix; pre-cut archived test equals original minus the journal function; journal.py absent; no TradeJournal/journal import anywhere in strattester; .gitattributes policies.",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Terminan",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_journal_retirement_grid.py::test_journal_metadata_role_has_exact_canonical_owner__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_journal_metadata_role_has_exact_canonical_owner (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.journal or of the six ordinary-execution modules in Grid runtime",
+     "TradeJournal and the nine ordinary-execution symbols absent from Grid runtime",
+     "Grid journal ledger role owner Terminan / build_research_report"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_journal_retirement_grid.py::test_journal_metadata_role_has_exact_canonical_owner__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_pattern_statistics_bootstrap_retirement.py::test_pattern_chronological_role_is_owned_by_independent_signal_accounts",
+   "source_file_blob": "c77ae868575dcf44ab44c0a6ccaa900c2ff86566",
+   "source_file_sha256": "7a39936e17d01b2ae869d5e7ba71163017142efcd3f4d99bca14dd1e2de59aad",
+   "requirement": "Pattern/statistics/bootstrap source retirement custody, role-specific: chronological pattern evaluation role -> Terminan terminan.research_evaluation.evaluate_research_signals (INDEPENDENT_PER_SIGNAL_V1). Common part: sha-pinned ledger; counters 547/37/510 -> 41/506; prior chain from reporting ledger; six archives; roster 891 -> 895; runtime49/anchor c05e0ca; source modules absent; no forbidden symbol/import in strattester; live strattester tests/research/test_validation_resampling.py equals the archive minus the bootstrap test; .gitattributes policies.",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Terminan",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_pattern_statistics_bootstrap_retirement_grid.py::test_pattern_chronological_role_is_owned_by_independent_signal_accounts__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_pattern_chronological_role_is_owned_by_independent_signal_accounts (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.{pattern_evaluation,statistics,resampling} in Grid runtime",
+     "retired symbols absent from Grid runtime except the declared homonym grid/*.evaluate_trades (6 files, Grid own trading evaluation, see open questions)",
+     "Grid ledger role owner/API == Terminan terminan.research_evaluation.evaluate_research_signals"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "live strattester tests/research/test_validation_resampling.py prefix",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_pattern_statistics_bootstrap_retirement_grid.py::test_pattern_chronological_role_is_owned_by_independent_signal_accounts__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "live strattester tests/research/test_validation_resampling.py prefix",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_pattern_statistics_bootstrap_retirement.py::test_empty_pattern_role_preserves_no_evidence_refusal",
+   "source_file_blob": "c77ae868575dcf44ab44c0a6ccaa900c2ff86566",
+   "source_file_sha256": "7a39936e17d01b2ae869d5e7ba71163017142efcd3f4d99bca14dd1e2de59aad",
+   "requirement": "Pattern/statistics/bootstrap source retirement custody, role-specific: empty-pattern never KEEP role -> Terminan terminan.research_evaluation.evaluate_research_signals (INDEPENDENT_PER_SIGNAL_V1). Common part: sha-pinned ledger; counters 547/37/510 -> 41/506; prior chain from reporting ledger; six archives; roster 891 -> 895; runtime49/anchor c05e0ca; source modules absent; no forbidden symbol/import in strattester; live strattester tests/research/test_validation_resampling.py equals the archive minus the bootstrap test; .gitattributes policies.",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Terminan",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_pattern_statistics_bootstrap_retirement_grid.py::test_empty_pattern_role_preserves_no_evidence_refusal__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_empty_pattern_role_preserves_no_evidence_refusal (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.{pattern_evaluation,statistics,resampling} in Grid runtime",
+     "retired symbols absent from Grid runtime except the declared homonym grid/*.evaluate_trades (6 files, Grid own trading evaluation, see open questions)",
+     "Grid ledger role owner/API == Terminan terminan.research_evaluation.evaluate_research_signals"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "live strattester tests/research/test_validation_resampling.py prefix",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_pattern_statistics_bootstrap_retirement_grid.py::test_empty_pattern_role_preserves_no_evidence_refusal__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "live strattester tests/research/test_validation_resampling.py prefix",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_pattern_statistics_bootstrap_retirement.py::test_statistics_role_is_owned_by_declared_trade_summary",
+   "source_file_blob": "c77ae868575dcf44ab44c0a6ccaa900c2ff86566",
+   "source_file_sha256": "7a39936e17d01b2ae869d5e7ba71163017142efcd3f4d99bca14dd1e2de59aad",
+   "requirement": "Pattern/statistics/bootstrap source retirement custody, role-specific: core statistics/drawdown/streaks role -> Math history_statistics.numeric_trade_summary. Common part: sha-pinned ledger; counters 547/37/510 -> 41/506; prior chain from reporting ledger; six archives; roster 891 -> 895; runtime49/anchor c05e0ca; source modules absent; no forbidden symbol/import in strattester; live strattester tests/research/test_validation_resampling.py equals the archive minus the bootstrap test; .gitattributes policies.",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Math",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_pattern_statistics_bootstrap_retirement_grid.py::test_statistics_role_is_owned_by_declared_trade_summary__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_statistics_role_is_owned_by_declared_trade_summary (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.{pattern_evaluation,statistics,resampling} in Grid runtime",
+     "retired symbols absent from Grid runtime except the declared homonym grid/*.evaluate_trades (6 files, Grid own trading evaluation, see open questions)",
+     "Grid ledger role owner/API == Math history_statistics.numeric_trade_summary"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "live strattester tests/research/test_validation_resampling.py prefix",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_pattern_statistics_bootstrap_retirement_grid.py::test_statistics_role_is_owned_by_declared_trade_summary__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "live strattester tests/research/test_validation_resampling.py prefix",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_pattern_statistics_bootstrap_retirement.py::test_bootstrap_role_is_owned_by_iid_mean_bootstrap",
+   "source_file_blob": "c77ae868575dcf44ab44c0a6ccaa900c2ff86566",
+   "source_file_sha256": "7a39936e17d01b2ae869d5e7ba71163017142efcd3f4d99bca14dd1e2de59aad",
+   "requirement": "Pattern/statistics/bootstrap source retirement custody, role-specific: seeded bootstrap expectancy role -> Math history_statistics.iid_observation_mean_bootstrap. Common part: sha-pinned ledger; counters 547/37/510 -> 41/506; prior chain from reporting ledger; six archives; roster 891 -> 895; runtime49/anchor c05e0ca; source modules absent; no forbidden symbol/import in strattester; live strattester tests/research/test_validation_resampling.py equals the archive minus the bootstrap test; .gitattributes policies.",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Math",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_pattern_statistics_bootstrap_retirement_grid.py::test_bootstrap_role_is_owned_by_iid_mean_bootstrap__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_bootstrap_role_is_owned_by_iid_mean_bootstrap (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.{pattern_evaluation,statistics,resampling} in Grid runtime",
+     "retired symbols absent from Grid runtime except the declared homonym grid/*.evaluate_trades (6 files, Grid own trading evaluation, see open questions)",
+     "Grid ledger role owner/API == Math history_statistics.iid_observation_mean_bootstrap"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "live strattester tests/research/test_validation_resampling.py prefix",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_pattern_statistics_bootstrap_retirement_grid.py::test_bootstrap_role_is_owned_by_iid_mean_bootstrap__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "live strattester tests/research/test_validation_resampling.py prefix",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_reporting_retirement.py::test_reporting_volatility_role_removes_only_duplicate_source_and_preserves_custody",
+   "source_file_blob": "be217a8afcb51dcda131fad23df5a6f3f3b2fd4c",
+   "source_file_sha256": "d5b7931cc359d32f50985644f938fa5c8eb4a25a58e5f97a07b3d344321bbed3",
+   "requirement": "Reporting retirement (primary report excludes partial history; volatility breakdown keeps counts/coverage separate -> Terminan build_research_report): reporting.py absent; no research_report/ResearchReport in strattester; prior chain from scale-mc ledger (35); 547 inventory; roster 889 -> 891; runtime49; .gitattributes policies.",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Terminan",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_reporting_retirement_grid.py::test_reporting_volatility_role_removes_only_duplicate_source_and_preserves_custody__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_reporting_volatility_role_removes_only_duplicate_source_and_preserves_custody (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.reporting in Grid runtime",
+     "research_report/ResearchReport absent from Grid runtime",
+     "Grid reporting ledger canonical_api == terminan.research_reporting.build_research_report"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_reporting_retirement_grid.py::test_reporting_volatility_role_removes_only_duplicate_source_and_preserves_custody__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_runtime_math_lineage.py::test_legacy49_c05_and_math9ed_custody_is_preserved",
+   "source_file_blob": "f615439387d7d4d3db2f7f3e0b9c9078f88afc2f",
+   "source_file_sha256": "a8bc516526dc9bc998e7b918c5ddfa7447d6738bf9f48740a8da18ec1193a0c7",
+   "requirement": "Historical custody: runtime49 of anchor c05e0ca, Math pin 9ed369d, six changed baseline archives, sealed helper sha 9cec6e52; plus ordinary-execution retirement absence and pre-cut archive custody.",
+   "why_it_fails_in_grid": "RETIREMENT_SURVIVOR_PATHSET: verify_retired_execution_absence() requires the 126 strattester/**/*.py production survivors (and tests/test_audit_runtime_integrity.py mixed edit) in the checkout (then LINEAGE_FILE_REQUIRED)",
+   "new_canonical_owner": "Grid",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_runtime_math_lineage_grid.py::test_legacy49_c05_and_math9ed_custody_is_preserved__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_legacy49_c05_and_math9ed_custody_is_preserved (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "Grid scripts/runtime_lineage_custody.py sha 9cec6e52 and ordinary_execution_retirement_custody.py sha 5bbf148b unchanged",
+     "no import/descriptor of the six ordinary-execution modules and no ordinary-execution symbols in Grid runtime"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_runtime_math_lineage_grid.py::test_legacy49_c05_and_math9ed_custody_is_preserved__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_runtime_math_lineage.py::test_current49_single_export_delta_and_mathQ_are_closed",
+   "source_file_blob": "f615439387d7d4d3db2f7f3e0b9c9078f88afc2f",
+   "source_file_sha256": "a8bc516526dc9bc998e7b918c5ddfa7447d6738bf9f48740a8da18ec1193a0c7",
+   "requirement": "Live runtime49 equals historical except exactly market_data/history_export.py; live Math pin is 9e6acbd (MathQ) in build scripts and workflows.",
+   "why_it_fails_in_grid": "RETIREMENT_SURVIVOR_PATHSET: verify_retired_execution_absence() requires the 126 strattester/**/*.py production survivors (and tests/test_audit_runtime_integrity.py mixed edit) in the checkout (then LINEAGE_FILE_REQUIRED)",
+   "new_canonical_owner": "Grid",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_runtime_math_lineage_grid.py::test_current49_single_export_delta_and_mathQ_are_closed__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_current49_single_export_delta_and_mathQ_are_closed (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "Grid live market_data sha256 map == transition.json new_runtime (49 files)",
+     "Grid scripts build_sdk_source_manifest.py/check_frozen_consumer.py pin unified-math-kernels 9e6acbd (AST)",
+     "Grid .github/workflows/market-data-tests.yml == strattester tests.yml with exactly the documented B1 delta, Math pin preserved",
+     "Grid market-data-pure.yml pins 9e6acbd",
+     "no import/descriptor of the six ordinary-execution modules and no ordinary-execution symbols in Grid runtime"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_runtime_math_lineage_grid.py::test_current49_single_export_delta_and_mathQ_are_closed__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_runtime_math_lineage.py::test_runtime_anchor_is_prior_runtime_commit_not_self_reference",
+   "source_file_blob": "f615439387d7d4d3db2f7f3e0b9c9078f88afc2f",
+   "source_file_sha256": "a8bc516526dc9bc998e7b918c5ddfa7447d6738bf9f48740a8da18ec1193a0c7",
+   "requirement": "Live custody v2 runtime anchor (5bb90b8, parent = baseline 9d2920d) is a prior commit, not a self reference; its root/market_data tree objects hash correctly and list exactly the live runtime49 blobs.",
+   "why_it_fails_in_grid": "RETIREMENT_SURVIVOR_PATHSET: verify_retired_execution_absence() requires the 126 strattester/**/*.py production survivors (and tests/test_audit_runtime_integrity.py mixed edit) in the checkout (then LINEAGE_FILE_REQUIRED)",
+   "new_canonical_owner": "Grid",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_runtime_math_lineage_grid.py::test_runtime_anchor_is_prior_runtime_commit_not_self_reference__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_runtime_anchor_is_prior_runtime_commit_not_self_reference (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "Grid anchor bf29f81b (parent bf9cbe89, grandparent = Grid baseline c9ffdaa2) recomputed from archived commit objects",
+     "Grid anchor market_data tree id == CURRENT_RUNTIME.json anchor_market_data_tree (f210ce4) == strattester@3850995 market_data tree",
+     "Grid live market_data (.py/.sql) == Grid anchor tree entries (49)",
+     "no import/descriptor of the six ordinary-execution modules and no ordinary-execution symbols in Grid runtime"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_runtime_math_lineage_grid.py::test_runtime_anchor_is_prior_runtime_commit_not_self_reference__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_runtime_math_lineage.py::test_original898_prefix_and_new_structural_suffix_are_exact",
+   "source_file_blob": "f615439387d7d4d3db2f7f3e0b9c9078f88afc2f",
+   "source_file_sha256": "a8bc516526dc9bc998e7b918c5ddfa7447d6738bf9f48740a8da18ec1193a0c7",
+   "requirement": "Live 902 roster = historical 898 prefix + exactly the four structural runtime-lineage ids.",
+   "why_it_fails_in_grid": "RETIREMENT_SURVIVOR_PATHSET: verify_retired_execution_absence() requires the 126 strattester/**/*.py production survivors (and tests/test_audit_runtime_integrity.py mixed edit) in the checkout (then LINEAGE_FILE_REQUIRED)",
+   "new_canonical_owner": "Grid",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_runtime_math_lineage_grid.py::test_original898_prefix_and_new_structural_suffix_are_exact__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_original898_prefix_and_new_structural_suffix_are_exact (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "Grid roster[:898] == archived historical 898 roster; Grid roster[898:] == the four ids",
+     "no import/descriptor of the six ordinary-execution modules and no ordinary-execution symbols in Grid runtime"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_runtime_math_lineage_grid.py::test_original898_prefix_and_new_structural_suffix_are_exact__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_scale_mc_retirement.py::test_scale_independent_legs_and_partial_targets_are_retired_to_sole_owner",
+   "source_file_blob": "033965b2a52a1b68abe2f952cbb997b10675e11d",
+   "source_file_sha256": "3bc2d5d26104a7ab3e6c33775564da481707f94310c764fd91c6c66e229887e2",
+   "requirement": "Scale/Monte-Carlo source retirement custody, role-specific: scale role: two independent entry legs and partial targets -> Terminan terminan.paper.PaperEngine.execute_scale_plan. Common part: ledger identity/counters 547/31/516 -> 35/512; prior ids sha; 547 inventory; archives; roster 885 prefix of historical 898; runtime49/anchor c05e0ca; pyproject packages == [market_data] without terminan; strattester scale symbols absent; archived execution prefix == pre-cut archive (scale) / resampling archive chain and live test_validation_resampling (MC).",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Terminan",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_scale_mc_retirement_grid.py::test_scale_independent_legs_and_partial_targets_are_retired_to_sole_owner__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_scale_independent_legs_and_partial_targets_are_retired_to_sole_owner (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.{execution,resampling} or ordinary-execution modules in Grid runtime",
+     "scale/MC and ordinary symbols absent from Grid runtime",
+     "Grid has no tests/research directory",
+     "Grid scale-mc ledger role owner/API == Terminan terminan.paper.PaperEngine.execute_scale_plan"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_scale_mc_retirement_grid.py::test_scale_independent_legs_and_partial_targets_are_retired_to_sole_owner__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_scale_mc_retirement.py::test_scale_no_shared_state_role_is_retired_to_sole_owner",
+   "source_file_blob": "033965b2a52a1b68abe2f952cbb997b10675e11d",
+   "source_file_sha256": "3bc2d5d26104a7ab3e6c33775564da481707f94310c764fd91c6c66e229887e2",
+   "requirement": "Scale/Monte-Carlo source retirement custody, role-specific: scale role: no shared state between calls -> Terminan PaperEngine.execute_scale_plan. Common part: ledger identity/counters 547/31/516 -> 35/512; prior ids sha; 547 inventory; archives; roster 885 prefix of historical 898; runtime49/anchor c05e0ca; pyproject packages == [market_data] without terminan; strattester scale symbols absent; archived execution prefix == pre-cut archive (scale) / resampling archive chain and live test_validation_resampling (MC).",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Terminan",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_scale_mc_retirement_grid.py::test_scale_no_shared_state_role_is_retired_to_sole_owner__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_scale_no_shared_state_role_is_retired_to_sole_owner (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.{execution,resampling} or ordinary-execution modules in Grid runtime",
+     "scale/MC and ordinary symbols absent from Grid runtime",
+     "Grid has no tests/research directory",
+     "Grid scale-mc ledger role owner/API == Terminan PaperEngine.execute_scale_plan"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_scale_mc_retirement_grid.py::test_scale_no_shared_state_role_is_retired_to_sole_owner__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_scale_mc_retirement.py::test_scale_move_stop_role_is_retired_to_sole_owner",
+   "source_file_blob": "033965b2a52a1b68abe2f952cbb997b10675e11d",
+   "source_file_sha256": "3bc2d5d26104a7ab3e6c33775564da481707f94310c764fd91c6c66e229887e2",
+   "requirement": "Scale/Monte-Carlo source retirement custody, role-specific: scale role: move stop after first target -> Terminan PaperEngine.execute_scale_plan. Common part: ledger identity/counters 547/31/516 -> 35/512; prior ids sha; 547 inventory; archives; roster 885 prefix of historical 898; runtime49/anchor c05e0ca; pyproject packages == [market_data] without terminan; strattester scale symbols absent; archived execution prefix == pre-cut archive (scale) / resampling archive chain and live test_validation_resampling (MC).",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Terminan",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_scale_mc_retirement_grid.py::test_scale_move_stop_role_is_retired_to_sole_owner__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_scale_move_stop_role_is_retired_to_sole_owner (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.{execution,resampling} or ordinary-execution modules in Grid runtime",
+     "scale/MC and ordinary symbols absent from Grid runtime",
+     "Grid has no tests/research directory",
+     "Grid scale-mc ledger role owner/API == Terminan PaperEngine.execute_scale_plan"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_scale_mc_retirement_grid.py::test_scale_move_stop_role_is_retired_to_sole_owner__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_scale_mc_retirement.py::test_seeded_monte_carlo_role_is_retired_without_changing_other_resampling",
+   "source_file_blob": "033965b2a52a1b68abe2f952cbb997b10675e11d",
+   "source_file_sha256": "3bc2d5d26104a7ab3e6c33775564da481707f94310c764fd91c6c66e229887e2",
+   "requirement": "Scale/Monte-Carlo source retirement custody, role-specific: seeded Monte Carlo drawdown role -> Math history_statistics.permutation_drawdowns (3 canonical ids, 14 MC ids), other resampling unchanged. Common part: ledger identity/counters 547/31/516 -> 35/512; prior ids sha; 547 inventory; archives; roster 885 prefix of historical 898; runtime49/anchor c05e0ca; pyproject packages == [market_data] without terminan; strattester scale symbols absent; archived execution prefix == pre-cut archive (scale) / resampling archive chain and live test_validation_resampling (MC).",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Math",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_scale_mc_retirement_grid.py::test_seeded_monte_carlo_role_is_retired_without_changing_other_resampling__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_seeded_monte_carlo_role_is_retired_without_changing_other_resampling (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.{execution,resampling} or ordinary-execution modules in Grid runtime",
+     "scale/MC and ordinary symbols absent from Grid runtime",
+     "Grid has no tests/research directory",
+     "Grid scale-mc ledger role owner/API == Math history_statistics.permutation_drawdowns"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules",
+     "live strattester tests/research/test_validation_resampling.py prefix"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_scale_mc_retirement_grid.py::test_seeded_monte_carlo_role_is_retired_without_changing_other_resampling__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules",
+     "live strattester tests/research/test_validation_resampling.py prefix"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_screening_retirement.py::test_majority_loss_screening_role_has_exact_canonical_owner",
+   "source_file_blob": "53ea9e405decae4b38baee5570eb90ddabc6b72a",
+   "source_file_sha256": "7477e7e183868ec6289db2632743cbd9c8fd72bbbf8a28eaf4ca8dd0d4128209",
+   "requirement": "Screening source retirement custody, role-specific: majority-losing OOS pattern rejected -> Terminan terminan.strategy_screening.screen_research_pattern. Common part: sha-pinned ledger; counters 547/41/506 -> 43/504; prior chain from pattern ledger; archives; roster 895 -> 897; runtime49; entry_screening.py absent; no screening symbol/import in strattester; pre-cut archived test == original minus two tests; .gitattributes policies.",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Terminan",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_screening_retirement_grid.py::test_majority_loss_screening_role_has_exact_canonical_owner__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_majority_loss_screening_role_has_exact_canonical_owner (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.entry_screening or ordinary-execution modules in Grid runtime",
+     "screening and ordinary symbols absent from Grid runtime",
+     "Grid screening ledger role owner Terminan / screen_research_pattern"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_screening_retirement_grid.py::test_majority_loss_screening_role_has_exact_canonical_owner__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  },
+  {
+   "source_test_id": "tests/market_data/test_screening_retirement.py::test_stable_screening_role_retires_whole_module_and_preserves_catalog",
+   "source_file_blob": "53ea9e405decae4b38baee5570eb90ddabc6b72a",
+   "source_file_sha256": "7477e7e183868ec6289db2632743cbd9c8fd72bbbf8a28eaf4ca8dd0d4128209",
+   "requirement": "Screening source retirement custody, role-specific: stable OOS pattern can survive -> Terminan screen_research_pattern; whole module retired, segment summaries -> summarize_research_segments. Common part: sha-pinned ledger; counters 547/41/506 -> 43/504; prior chain from pattern ledger; archives; roster 895 -> 897; runtime49; entry_screening.py absent; no screening symbol/import in strattester; pre-cut archived test == original minus two tests; .gitattributes policies.",
+   "why_it_fails_in_grid": "LINEAGE_FILE_REQUIRED: verified_contexts() reads transition.json preserved_files that exist only in the strattester tree (30 strattester-only docs such as docs/archive-checkpoint-design.md) and the strattester .github/workflows/tests.yml pin bytes",
+   "new_canonical_owner": "Grid (custody); role owner stays Terminan",
+   "owner_justification": "Grid is the single owner of market_data and of its canonical 902 roster, migration ledgers and provenance archives (relocated byte-identically in PR #296; subtree ids market_data f210ce4, docs/migration 89aa3bd, docs/ci 79db32b, docs/provenance e46b2ef, tests/market_data fd6d577 are identical in strattester@3850995 and Grid bf29f81b). No part concerns installer, PostgreSQL lifecycle, Consul, Gateway or supervisor, so Unified System is not an owner.",
+   "new_test_id": "tests/market_data_custody/test_screening_retirement_grid.py::test_stable_screening_role_retires_whole_module_and_preserves_catalog__grid",
+   "preserved_coverage": {
+    "reexecuted_original": "The unchanged original function test_stable_screening_role_retires_whole_module_and_preserves_catalog (same Git blob in Grid and strattester@3850995) is executed with ROOT = closed verification root built from 366 paths proven against strattester@3850995 (207 live Grid paths also proven against Grid anchor bf29f81b); every original assertion and custody-helper check runs unmodified.",
+    "grid_live_assertions": [
+     "Grid roster: original node still present; roster is exactly 902 nodes with ordered sha256 d235fb38... (same constant as scripts/check_test_roster_controls.py)",
+     "no import/descriptor of strattester.research.entry_screening or ordinary-execution modules in Grid runtime",
+     "screening and ordinary symbols absent from Grid runtime",
+     "Grid screening ledger role owner Terminan / screen_research_pattern"
+    ],
+    "strattester_structure_now_archived_evidence": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ]
+   },
+   "retirement_proposal": {
+    "retire_now": false,
+    "proposal": "After owner/GPT acceptance: replace this original in the Grid roster by tests/market_data_custody/test_screening_retirement_grid.py::test_stable_screening_role_retires_whole_module_and_preserves_catalog__grid through an explicit roster custody transition; the original keeps running in strattester CI on 3850995.",
+    "purely_strattester_sub_requirements": [
+     "strattester .github/workflows/tests.yml exact pin bytes (verified_contexts LINEAGE_LIVE_PIN_BYTES)",
+     "30 strattester-only docs in transition.json preserved_files (docs/archive-*.md, docs/superpowers/*, ...)",
+     "strattester .gitattributes prefix sha256 and eol policy lines (strattester checkout policy)",
+     "strattester/**/*.py survivor pathset/bytes and tests/test_audit_runtime_integrity.py mixed-edit bytes (verify_retired_execution_absence)",
+     "AST/text scan of the live strattester/ package for retired symbols/modules"
+    ],
+    "justification": "These sub-assertions check the layout/bytes of the strattester repository itself, which is not and will not be part of the Grid tree; in the counterpart they are still executed, but against archived strattester@3850995 bytes whose Git object ids are recomputed, so they become archived evidence instead of a live-checkout requirement."
+   },
+   "status": "CANDIDATE_PENDING_OWNER_AND_GPT_ACCEPTANCE"
+  }
+ ]
+}
