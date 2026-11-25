@@ -1,0 +1,145 @@
+{
+  "schema": "market_data.turnover-history-foundation.v1",
+  "sourceHead": "622e99dcd169d471279b5d38204d29a01eaf8647",
+  "mathHead": "9ed369ddd41ae32c4b3a9434f0b29d6dcf51154f",
+  "sources": [
+    {
+      "path": "market_data/footprint_state.py",
+      "blob": "892737e508d1b889db2cfeac34d97bdc7e6bdb2c",
+      "sha256": "569e7cfa5bae145d51c45f002a2eafcaebfa4e249da1c7dcc6ab16769b63d945",
+      "bytes": 7165,
+      "archive": "raw/market_data__footprint_state.py.txt"
+    },
+    {
+      "path": "market_data/provenance.py",
+      "blob": "b06b31cf693bf9907d81ef64f706dfd3622afed9",
+      "sha256": "3e677b54221e008578e070e1dc49d1def006cd80ac67b2b157399a5bf66962e6",
+      "bytes": 4086,
+      "archive": "raw/market_data__provenance.py.txt"
+    },
+    {
+      "path": "market_data/history_export.py",
+      "blob": "28435a9b01342e7f9439e3866ef6d05d6b828180",
+      "sha256": "f3f4c994dd4ef3bb58d80fe5fd76f2f95c6353ff13861238e9571a4112db5cc0",
+      "bytes": 6409,
+      "archive": "raw/market_data__history_export.py.txt"
+    },
+    {
+      "path": "market_data/history_export_v11.py",
+      "blob": "2aa6211f7be5129a33ba6a4328370600b12048a4",
+      "sha256": "56f2c9726dfd2061100bd8ec6c25f079293aeb261e4bb9871198cf497eb5ae77",
+      "bytes": 2362,
+      "archive": "raw/market_data__history_export_v11.py.txt"
+    }
+  ],
+  "numericOwner": [
+    "market_math.wall_notional",
+    "market_math.exact_sum",
+    "market_math.lossless_nonnegative_binary64_valid",
+    "market_math.candle_ohlcv_turnover_valid",
+    "market_math.executed_notional_consistent"
+  ],
+  "producerChanges": "Exact actual price*quantity notional and accumulated quote amount staged by Math before any bucket or dedup/OHLC mutation",
+  "newPureAPIs": [
+    "market_data.provenance.minute_record_v12",
+    "market_data.history_export_v12.export_records_v12"
+  ],
+  "recordVersion": {
+    "major": 1,
+    "minor": 2
+  },
+  "requestSchema": "market_data.history.request.v1.2",
+  "trustSchema": "market_data.history.trust.v1.2",
+  "receiptSchema": "market_data.history.receipt.v1.2",
+  "historySchema": "market_data.history.v1.2",
+  "datasetSchema": "market_data.dataset.v1.2",
+  "newUnits": {
+    "price": "EXPLICIT_QUOTE/EXPLICIT_BASE",
+    "volume": "EXPLICIT_BASE",
+    "turnover": "EXPLICIT_QUOTE"
+  },
+  "availability": "Explicit caller declaration required, equal record/receipt; never event-end or ingestion fallback",
+  "turnoverBasis": "EXECUTED_TRADE_PRICE_TIMES_QUANTITY_SUM",
+  "financialEncoding": "FINITE_BINARY64_DTO_FROM_EXACT_DECIMAL_ACCUMULATION",
+  "legacyGoldenDigests": {
+    "v1": "28e6c51bb944bd925b997aad0bd1d4249277ab03baa0015ce4aa9d6a094c2f68",
+    "v11": "719fa403c754f0cb2d658d79b69269ccc30392ae09fa3a145bec61921fd77a07",
+    "row_keys": [
+      "available_at_ms",
+      "close",
+      "event_end_ms",
+      "event_start_ms",
+      "high",
+      "low",
+      "open",
+      "revision",
+      "source_event_end_ms",
+      "source_event_start_ms",
+      "source_receipt_hash",
+      "volume",
+      "watermark_ms"
+    ]
+  },
+  "legacyRecordAndExportBytes": "UNCHANGED_FOR_IDENTICAL_LEGACY_INPUTS",
+  "immutableStoredRecords": "NOT_READ_NOT_MODIFIED_NOT_RECONSTRUCTED",
+  "sharedCore": [
+    "provenance._minute_record_base",
+    "history_export._export_records",
+    "history_export_v11._timed_rows",
+    "history_export_v11._dataset_content"
+  ],
+  "heldGates": [
+    "Active raw collector to FootprintBuilder/minute writer lineage: no non-test call sites at source622",
+    "Versioned persistence/writer and existing provenance_minutes schema compatibility",
+    "Independently provisioned authenticated receipts and availability/PIT qualification",
+    "Snapshot catalog versioning/new revision receipt dataset pins",
+    "Turnover-preserving versioned rollups; existing _candle drops turnover",
+    "provenance_gateway exact API1.1 reader",
+    "Term analytics.market_history strict13-field1.1/two-unit bridge and levels rollup v1-v3",
+    "Bybit ohlcv_1m.turnover backfill lineage remains separate, not a repair source",
+    "Overall historical source/consumer acceptance"
+  ],
+  "oldSourcesOrConsumersRemoved": false,
+  "legacyDeclaredTestFunctions": 547,
+  "remainingDeclaredLegacyTestFunctions": 516,
+  "retirementDeduction": 0,
+  "countUnit": "DECLARED_TEST_FUNCTIONS_NOT_FILES",
+  "sourceAuthentication": "NOT_EVALUATED",
+  "executionAuthority": false,
+  "tradingAuthorized": false,
+  "release": "NO_GO",
+  "independentFollowup": {
+    "base": "0f0736e83b49aac88785c539282f9ec025b42ad3",
+    "fixed": [
+      "Resealed boolean start and ingestion clocks refused by exact clock identities",
+      "Foreign metaclass equality cannot run during literal/container/numeric refusal"
+    ],
+    "scopedTestsEachPython": 43,
+    "remainingP1": "RESOLVED_BY_PUBLIC_MATH_OWNER_ZERO_NONZERO_CONSISTENCY_ONLY",
+    "publication": "UNPUBLISHED_CANDIDATE_AWAITS_INDEPENDENT_QA"
+  },
+  "canonicalRoster": {
+    "original": 791,
+    "appended": 33,
+    "total": 824,
+    "oldCasesRemoved": 0,
+    "originalBlob": "44325478a6700d9db5a8cac0811392d53a55abc9",
+    "originalRawSha256": "b6c09367a3157c5ae4db3cd6985a48f27d34210e329237560b1e404547942d73",
+    "originalArchive": "raw/scripts__canonical_test_roster.json.txt",
+    "inverse": "Remove all33 appended IDs; original791 IDs retained in order; exact original bytes preserved in raw archive"
+  },
+  "payload": {
+    "data": 47,
+    "math": 3,
+    "total": 50
+  },
+  "tradeSnapshot": {
+    "contract": "Exact canonical market_data.public_trades.Trade, exact literal identity/time/side and plain Decimal amounts captured before first Math call; no original rereads",
+    "constructorConversions": "Existing Trade owner still converts admitted string/int/Decimal amounts to plain Decimal",
+    "allDataCallsites": "All existing builder test callsites use canonical Trade; no active producer callsite exists",
+    "rootSdkCallsites": "Rootdaca tests/four_owner/test_sdk_contracts.py imports canonical Trade",
+    "legacyLifecycleFunctionsEachPython": 5,
+    "legacyLifecycleMethod": "Exact function AST with minimal pytest.raises fixture, no framework/native widening",
+    "normalOutputs": "Existing normal constructor vectors and legacy golden hashes unchanged"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "schema": "market_data.legacy-obligation-bundle.v1",
+  "base": "b4ada83ee64814f7264c392f01047a1953766f63",
+  "functions": [
+    {
+      "old": "tests/marketdata/test_rich_sync.py::test_rich_history_methods_use_explicit_bybit_endpoints",
+      "new": "same nodeid",
+      "preserved": [
+        "all six exact endpoint paths and original order"
+      ],
+      "apis": [
+        "fetch_kline_page(mark_price/index_price/premium_index)",
+        "fetch_open_interest_page",
+        "fetch_funding_page",
+        "fetch_long_short_ratio_page"
+      ],
+      "fixture_change": "fake requests-style client replaced fake bounded aiohttp byte stream; actual canonical reader functions execute"
+    },
+    {
+      "old": "tests/marketdata/test_rich_sync.py::test_rich_history_uses_endpoint_specific_parameter_names",
+      "new": "same nodeid",
+      "preserved": [
+        "mark start/end/interval",
+        "no mark startTime",
+        "OI startTime/endTime/intervalTime",
+        "ratio startTime/endTime/period"
+      ],
+      "fixture_change": "same existing canonical readers, fake transport only"
+    },
+    {
+      "old": "tests/marketdata/test_coverage.py::test_coverage_detects_internal_gap",
+      "new": "same nodeid",
+      "preserved": [
+        "earliest0/latest180000/count3",
+        "single gap120000..120000"
+      ],
+      "api": "HistoricalMarketReader.open_snapshot.coverage",
+      "fixture_change": "test-only literal historical SQLite replaces retired mutable store; source byte and sidecar preservation added"
+    }
+  ],
+  "counts": {
+    "baseline_declared_functions": 547,
+    "already_migrated_frozen_functions": 8,
+    "this_bundle_retained_functions": 3,
+    "unmigrated_functions": 536,
+    "new_boundary_cases": 12
+  },
+  "nonclaims": [
+    "No canonical account-ratio numeric qualification or normalized SQL table",
+    "No provider authenticity/PIT/completeness",
+    "No real provider/PG/native/process-kill test",
+    "Full broad suite ownership migration remains NO_GO"
+  ],
+  "source_reference": {
+    "legacy_client_blob": "c836ecf236aa96e9fe613bdc6757858ec6f36a4f"
+  }
+}

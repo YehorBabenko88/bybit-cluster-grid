@@ -8,6 +8,7 @@ Base: `YehorBabenko88/bybit-cluster-grid@c9ffdaa2af52c4d55871a48655a77a0c669da80
 ## Byte-identical from strattester (git archive of the source commit)
 `pyproject.toml`, `MANIFEST.in`, `README.md`, `market_data/`, `scripts/` (17 custody/roster scripts),
 `tests/market_data/`, `tests/unmigrated_market_data/`, `integration_tests/`, `docs/market-data-consolidation.md`,
+`docs/migration/`, `docs/ci/`, `docs/provenance/` (transfer ledgers and rosters read by the retirement tests),
 and the five roster files of `tests/marketdata/` (audit, coverage, history_plan, readiness, rich_sync).
 Workflow `market-data-pure.yml` is verbatim. `market-data-tests.yml` = strattester `tests.yml`, except
 the pytest step runs the exact 902-node roster instead of the whole legacy strattester suite.

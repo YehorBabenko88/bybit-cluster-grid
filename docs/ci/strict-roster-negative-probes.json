@@ -1,0 +1,42 @@
+[
+  {
+    "source": "original106",
+    "mode": "skip",
+    "returned": 0
+  },
+  {
+    "source": "strict_followup",
+    "mode": "skip",
+    "returned": 1
+  },
+  {
+    "source": "original106",
+    "mode": "xfail",
+    "returned": 0
+  },
+  {
+    "source": "strict_followup",
+    "mode": "xfail",
+    "returned": 1
+  },
+  {
+    "source": "original106",
+    "mode": "xpass",
+    "returned": 0
+  },
+  {
+    "source": "strict_followup",
+    "mode": "xpass",
+    "returned": 1
+  },
+  {
+    "source": "original106",
+    "mode": "deselect",
+    "returned": 0
+  },
+  {
+    "source": "strict_followup",
+    "mode": "deselect",
+    "returned": 1
+  }
+]

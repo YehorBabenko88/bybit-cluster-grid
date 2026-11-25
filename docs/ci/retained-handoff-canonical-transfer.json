@@ -1,0 +1,39 @@
+{
+  "schema": "market_data.retained-handoff-test-transfer.v1",
+  "base": "c92373563f16d2a6e0fc5ca0de31e75da4cc7dcf",
+  "historical_fixture": {
+    "original_repository": "YehorBabenko88/bybit-cluster-grid",
+    "source_commit": "32e899c613fb7dc1690de6ac14ed220d7849c909",
+    "original_path": "tests/fixtures/strattester-owned-export.synthetic.json",
+    "existing_path": "tests/market_data/fixtures/legacy-experiment-export.synthetic.json",
+    "committed_raw_sha256": "70a0ed567ca82cb5273911c59611248c4e45a382a9f6c35e60cdab5d7f1793a3",
+    "raw_git_identical": true,
+    "modified": false
+  },
+  "roles": [
+    {
+      "original": "test_research_handoff_requires_trust_and_never_trades",
+      "canonical": "test_research_handoff_requires_trust_and_never_trades",
+      "original_assertions_preserved": 3,
+      "change": "synthetic handoff setup declares canonical terminan producer; original trust/nontrading/refusal assertions unchanged"
+    },
+    {
+      "original": "test_real_strattester_producer_export_compatibility",
+      "canonical": "test_canonical_handoff_preserves_frozen_source_and_rejects_forgery",
+      "original_assertions_preserved": 3,
+      "additional_assertions": [
+        "old producer is unavailable",
+        "source bytes unchanged"
+      ],
+      "change": "explicit existing frozen fixture path; private synthetic canonical projection resealed using existing market_data.provenance.digest, no trusted live producer claim"
+    }
+  ],
+  "skipped_existing_role": {
+    "name": "test_disposable_pg_immutability_and_idempotency",
+    "reason": "explicit disposable PG18 required; TERMINAN_DISPOSABLE_PG18_DSN not supplied",
+    "status": "NOT_RUN",
+    "legacy_migration": 47
+  },
+  "runtime_changes": [],
+  "aliases": []
+}

@@ -43,7 +43,7 @@ jobs:
           import json, sys, pytest
           roster = json.load(open('scripts/canonical_test_roster.json'))
           assert len(roster) == 902 and len(set(roster)) == 902
-          sys.exit(pytest.main(['-v', '-p', 'pytest_asyncio.plugin', *roster]))
+          sys.exit(pytest.main(['-v', *roster]))
       - name: Parse PowerShell scripts
         if: runner.os == 'Windows'
         shell: pwsh

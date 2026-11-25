@@ -1,0 +1,57 @@
+{
+  "source": "8042142bedc19718249f6de7519e382de3a1ed78",
+  "canonical_owner": "terminan",
+  "target_api": "terminan.research_import.validate_research_import",
+  "status": "TERM_FC0_INDEPENDENT_ACCEPTED_ROOT_8DE_RETARGET_PROVED_FINAL_DATA_QA_PENDING",
+  "files": {
+    "market_data/research_handoff.py": {
+      "archive": "market_data__research_handoff.py.txt",
+      "sha256": "71bffbcadb6e2a3e05d30de22d4f23d3b50e7bce3842ec5198acd305946a5da1",
+      "bytes": 2993
+    },
+    "tests/unmigrated_market_data/test_source_provenance.py": {
+      "archive": "tests__unmigrated_market_data__test_source_provenance.py.txt",
+      "sha256": "db44e0d619deddca4daa9f9173e4bf36b434f8c1a752ca94a9bd3b8dc3725709",
+      "bytes": 11596
+    },
+    "tests/market_data/test_canonical_handoff.py": {
+      "archive": "tests__market_data__test_canonical_handoff.py.txt",
+      "sha256": "9a7e03b2d4991d87c0023867cfe39ca20bf070a896ed9f134d7e7f85f6bb1c9d",
+      "bytes": 1429
+    },
+    "tests/market_data/fixtures/legacy-experiment-export.synthetic.json": {
+      "archive": "tests__market_data__fixtures__legacy-experiment-export.synthetic.json.txt",
+      "sha256": "70a0ed567ca82cb5273911c59611248c4e45a382a9f6c35e60cdab5d7f1793a3",
+      "bytes": 1936
+    }
+  },
+  "roles": [
+    {
+      "old": "test_research_handoff_requires_trust_and_never_trades",
+      "assertions": 3,
+      "target": "Term pure research import trust/nontrading"
+    },
+    {
+      "old": "test_handoff_adversarial",
+      "assertions_per_case": 1,
+      "cases": 4,
+      "target": "Term pure research import malformed variants"
+    },
+    {
+      "old": "test_canonical_handoff_preserves_frozen_source_and_rejects_forgery",
+      "original_assertions": 3,
+      "added_assertions": 2,
+      "target": "Term frozen source/trust/forgery"
+    },
+    {
+      "old": "test_canonical_producer_acceptance_and_old_identity_refusal_preserve_source",
+      "target": "Term retired namespace/immutable source/falseauthority"
+    }
+  ],
+  "dependency_proof": {
+    "terminan": "fc0bed4937ab5dbb039320aae48e49b01b31bb43",
+    "math": "b3cb935aee7d6569d6fd0cfaff70ea9b9e5f0df3",
+    "root": "8de7749524d5be405f92334f76283b077f2c44db",
+    "term_independent_review": "https://github.com/YehorBabenko88/Terminan/pull/123#issuecomment-7049074048"
+  }
+}

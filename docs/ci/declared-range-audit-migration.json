@@ -1,0 +1,48 @@
+{
+  "schema": "market_data.declared-range-migration.v1",
+  "base": "286aeae3f40e0fce55c22354568ae2f6928cdbc5",
+  "original_source_blob": "757af473eef0145ded163d6363d11e930106ba25",
+  "original_tests_blob": "1433fd5957981d0ea33b4faa9a0b67f0df4fd95c",
+  "new_api": "market_data.history_range_audit.assess_declared_history_range",
+  "decisions": [
+    {
+      "test": "test_complete_active_history",
+      "original": "COMPLETE_HISTORY from min/max only",
+      "canonical": "BOUNDARIES_PRESENT, coverageUNKNOWN, readinessNOT_EVALUATED",
+      "change": "Conservative correction: two endpoints do not prove absence of internal gaps or provider completeness"
+    },
+    {
+      "test": "test_unrecoverable_delisted_gap_is_partial",
+      "original": "PARTIAL_HISTORY",
+      "canonical": "UNRECOVERABLE_PARTIAL_RANGE, coverageUNKNOWN",
+      "preserved": "same declared required100..300 available150..250 DELISTED recoverableFalse"
+    },
+    {
+      "test": "test_missing_mandatory_dataset_is_insufficient",
+      "original": "INSUFFICIENT_HISTORY",
+      "canonical": "INSUFFICIENT_RANGE, coverageUNKNOWN",
+      "preserved": "both available boundariesNone"
+    },
+    {
+      "test": "test_history_before_listing_is_not_complete",
+      "original": "INSUFFICIENT_HISTORY",
+      "canonical": "INSUFFICIENT_RANGE, coverageUNKNOWN",
+      "preserved": "required100..300 listing200 available200..300"
+    }
+  ],
+  "qualification": {
+    "clock_codec": "existing timestamp_codec.epoch_milliseconds, exactint nonbool UTC bounds",
+    "numeric_formula_owner": "none added; clock/lifecycle comparisons only",
+    "no_source_authentication": true,
+    "no_readiness": true,
+    "no_download_completion_inference": true,
+    "actual_reader_gap_test": "tests/marketdata/test_coverage.py unchanged"
+  },
+  "counts": {
+    "retained_original_functions": 4,
+    "new_cases": 16,
+    "range_cases": 20,
+    "previous_transferred_functions": 13,
+    "remaining_original_functions": 530
+  }
+}

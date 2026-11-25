@@ -1,0 +1,865 @@
+{
+  "schema": "market_data.ordinary-producer-retirement.v1",
+  "baseline": "71cd99876107a7c1a378c32077dba15cf1bdc4a0",
+  "qualified_owner": "92b30fd3364b2c0e8eb05b2592193cf126b86d2d",
+  "status": "SOURCE_CUT_CANDIDATE_NOT_ACCEPTED_RETIREMENT",
+  "original_total": 547,
+  "accepted_before": 44,
+  "remaining_before": 503,
+  "roles": [
+    {
+      "original_id": "tests/research/test_execution_journal.py::test_market_signal_checks_stop_on_entry_bar",
+      "canonical_ids": [
+        "tests/test_signal_execution.py::SignalExecutionTests::test_market_fill_checks_same_bar_stop_and_target"
+      ],
+      "role": "ordinary",
+      "parameter_cases": 1,
+      "original_body_sha256": "d477a685e2d35973fc47ea4cc73df75292d0918e2227d53a5c78fa23b6fcf9a0",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_LF"
+    },
+    {
+      "original_id": "tests/research/test_same_bar_execution.py::test_market_entry_checks_same_bar_stop",
+      "canonical_ids": [
+        "tests/test_signal_execution.py::SignalExecutionTests::test_market_fill_checks_same_bar_stop_and_target"
+      ],
+      "role": "ordinary",
+      "parameter_cases": 1,
+      "original_body_sha256": "9e80f1bed67ebe43250befe5ff1a922393c6ba7b565d2eedb29cedba7f1c5be4",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_LF"
+    },
+    {
+      "original_id": "tests/research/test_execution_journal.py::test_ambiguous_bar_uses_conservative_stop_first",
+      "canonical_ids": [
+        "tests/test_signal_execution.py::SignalExecutionTests::test_default_stop_first_and_explicit_optimistic_policy_are_distinct"
+      ],
+      "role": "ordinary",
+      "parameter_cases": 1,
+      "original_body_sha256": "76ee704903b107b96a494efe8345f05a507fd712267190f067fff6b6bb5b3b1f",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_LF"
+    },
+    {
+      "original_id": "tests/research/test_same_bar_execution.py::test_limit_entry_cannot_get_free_same_bar_survival",
+      "canonical_ids": [
+        "tests/test_signal_execution.py::SignalExecutionTests::test_intrabar_pre_entry_wick_cannot_grant_default_profit"
+      ],
+      "role": "ordinary",
+      "parameter_cases": 1,
+      "original_body_sha256": "c3eb98a96ae7a48f5d6e073ea383c65540846f352a816c4130465013b28189e8",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_LF"
+    },
+    {
+      "original_id": "tests/test_audit_runtime_integrity.py::test_intrabar_limit_fill_cannot_exit_at_an_earlier_opening_gap",
+      "canonical_ids": [
+        "tests/test_signal_execution.py::SignalExecutionTests::test_intrabar_pre_entry_wick_cannot_grant_default_profit"
+      ],
+      "role": "ordinary",
+      "parameter_cases": 2,
+      "original_body_sha256": "9abab380a0471e17ea4462753533c369baeab8239f2e2d0da6629c647e6c30a6",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_LF"
+    },
+    {
+      "original_id": "tests/research/test_execution_journal.py::test_long_limit_gapped_below_fills_at_better_open",
+      "canonical_ids": [
+        "tests/test_signal_execution.py::SignalExecutionTests::test_opening_gap_order_and_conservative_target_price"
+      ],
+      "role": "ordinary",
+      "parameter_cases": 1,
+      "original_body_sha256": "5164667edee39165fab1d01784baf82bd1fa0c7b6cc9646a749a9bc9ef23b690",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_LF"
+    },
+    {
+      "original_id": "tests/research/test_execution_journal.py::test_take_profit_gap_is_filled_at_target_not_optimistic_open",
+      "canonical_ids": [
+        "tests/test_signal_execution.py::SignalExecutionTests::test_opening_gap_order_and_conservative_target_price"
+      ],
+      "role": "ordinary",
+      "parameter_cases": 1,
+      "original_body_sha256": "a5fb3f944e5d7211c77dd02799ca45a897e9379c864528286b54addedcc3cb63",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_LF"
+    },
+    {
+      "original_id": "tests/research/test_execution_journal.py::test_limit_order_is_not_eligible_before_next_bar",
+      "canonical_ids": [
+        "tests/test_signal_execution.py::SignalExecutionTests::test_predecision_wicks_and_limit_availability_do_not_leak"
+      ],
+      "role": "ordinary",
+      "parameter_cases": 1,
+      "original_body_sha256": "014bb14500305c430b6f1eaee602e07eb5eaca2f3cf37c303636681e9d2abf3f",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_LF"
+    },
+    {
+      "original_id": "tests/research/test_execution_journal.py::test_gap_and_costs_are_applied",
+      "canonical_ids": [
+        "tests/test_signal_execution.py::SignalExecutionTests::test_full_batch_and_owner_refusal_leave_engine_unchanged"
+      ],
+      "role": "ordinary",
+      "parameter_cases": 1,
+      "original_body_sha256": "de795a9371adc6739de9f2852f586359a307c506f74a640e83fdd9f2c06626ee",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_LF"
+    },
+    {
+      "original_id": "tests/research/test_execution_journal.py::test_short_limit_gapped_above_fills_at_better_open",
+      "canonical_ids": [
+        "tests/test_signal_execution.py::SignalExecutionTests::test_nonaligned_limit_decision_uses_next_bar_boundary_for_both_sides"
+      ],
+      "role": "ordinary",
+      "parameter_cases": 1,
+      "original_body_sha256": "7612428c7826af3f7e6c555afe0312e34c276636a36dd9f7765a17acaebceac0",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_LF"
+    },
+    {
+      "original_id": "tests/research/test_scalp_entries.py::test_sweep_entry_never_precedes_confirmed_event",
+      "canonical_ids": [
+        "tests/test_strategy_entries.py::StrategyEntryTests::test_original_sweep_waits_for_confirmed_structure_and_uses_reference"
+      ],
+      "role": "producer",
+      "parameter_cases": 1,
+      "clock_contract": "EXPLICIT_SYNTHETIC_M1_MULTIPLY_CLOCKS_BY_1000",
+      "original_body_sha256": "d61fd66fc1325e7eaaa22d7156208d5e6b6f328e0a2e82ef641d335617f451d1",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_WITH_TERMINAL_LF"
+    },
+    {
+      "original_id": "tests/research/test_scalp_entries.py::test_breakout_bar_is_not_reused_as_retest",
+      "canonical_ids": [
+        "tests/test_strategy_entries.py::StrategyEntryTests::test_original_breakout_bar_is_not_reused_as_retest"
+      ],
+      "role": "producer",
+      "parameter_cases": 1,
+      "clock_contract": "EXPLICIT_SYNTHETIC_M1_MULTIPLY_CLOCKS_BY_1000",
+      "original_body_sha256": "20b274056417b43cc86792af7c3856834e672ec5f86539e9ce724fb858ab0aa1",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_WITH_TERMINAL_LF"
+    },
+    {
+      "original_id": "tests/research/test_scalp_entries.py::test_poc_reclaim_uses_only_profile_known_by_decision",
+      "canonical_ids": [
+        "tests/test_strategy_entries.py::StrategyEntryTests::test_original_profile_reclaim_requires_profile_known_by_decision"
+      ],
+      "role": "producer",
+      "parameter_cases": 1,
+      "clock_contract": "EXPLICIT_SYNTHETIC_M1_MULTIPLY_CLOCKS_BY_1000",
+      "original_body_sha256": "783348c1b33296e5913ae77c16cbded0013835b1bfd0bd09e35b4fa8039419f3",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_WITH_TERMINAL_LF"
+    },
+    {
+      "original_id": "tests/research/test_scalp_entries.py::test_volatility_entry_waits_for_snapshot_known_at",
+      "canonical_ids": [
+        "tests/test_continuation_strategy.py::ContinuationStrategyTests::test_explicit_late_availability_is_decision_clock"
+      ],
+      "role": "producer",
+      "parameter_cases": 1,
+      "clock_contract": "RAW_MILLISECONDS_60_PRESERVED",
+      "original_body_sha256": "41ba59a7426ba166e61c00568cdc6e9af1e45f2ff55f31faa3dfa0e4e26dbe16",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_WITH_TERMINAL_LF"
+    },
+    {
+      "original_id": "tests/research/test_scalp_entries.py::test_only_implemented_scalps_are_executable",
+      "canonical_ids": [
+        "tests/test_strategy_catalog.py::StrategyCatalogTests::test_only_four_have_research_generators",
+        "tests/test_strategy_catalog.py::StrategyCatalogTests::test_exact_canonical_callables_and_output_contracts",
+        "tests/test_strategy_catalog.py::StrategyCatalogTests::test_resolver_is_closed_and_has_no_dynamic_imports"
+      ],
+      "role": "producer_catalog",
+      "parameter_cases": 1,
+      "clock_contract": "EXPLICIT_CATALOG_MIGRATION",
+      "original_body_sha256": "03e24c26a1a8a213bcdd998c07771c77335e9fbdee2c2a4ab8443505f6171043",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_WITH_TERMINAL_LF"
+    },
+    {
+      "original_id": "tests/research/test_entry_screening.py::test_spec_only_hypotheses_cannot_enter_executable_ranking",
+      "canonical_ids": [
+        "tests/test_strategy_catalog.py::StrategyCatalogTests::test_only_four_have_research_generators",
+        "tests/test_strategy_catalog.py::StrategyCatalogTests::test_exact_canonical_callables_and_output_contracts",
+        "tests/test_strategy_catalog.py::StrategyCatalogTests::test_resolver_is_closed_and_has_no_dynamic_imports"
+      ],
+      "role": "separate_catalog",
+      "parameter_cases": 1,
+      "clock_contract": "EXPLICIT_CATALOG_MIGRATION",
+      "original_body_sha256": "dece3df6b8271cd22762688c243a33f77740f73ad0bc65f4df9bd539fda0e65b",
+      "body_hash_encoding": "AST_SOURCE_SEGMENT_WITH_TERMINAL_LF"
+    }
+  ],
+  "conditional_after_publication_independent_QA_current_Data14": {
+    "accepted": 60,
+    "remaining": 487
+  },
+  "archives": {
+    "tests/research/test_execution_journal.py": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/tests__research__test_execution_journal.py.txt",
+      "sha256": "b80af0835b745df466bef24f8f246fec4436279096f347e8fb47b7693561bde6",
+      "bytes": 2867,
+      "blob": "c2c5a02d5a4e5809ad3ce1a495c6aae797ab62a1"
+    },
+    "tests/research/test_same_bar_execution.py": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/tests__research__test_same_bar_execution.py.txt",
+      "sha256": "667c74b617ef087942b3e7b167429bff1189fac5169f227b46f672e618f5352c",
+      "bytes": 989,
+      "blob": "be0dbfa157819f6fad2eb8679e254e1e9dba1f63"
+    },
+    "tests/test_audit_runtime_integrity.py": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/tests__test_audit_runtime_integrity.py.txt",
+      "sha256": "afe57f847b804ee0a8e326f84aeb9d92ac01f87bc2ca2c15c3fe743cc9abf442",
+      "bytes": 7315,
+      "blob": "baf90ed5d6ee432b5118091f5bd3196e05d418b8"
+    },
+    "tests/research/test_scalp_entries.py": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/tests__research__test_scalp_entries.py.txt",
+      "sha256": "35e317f2ef99ebf12b6694508c73a36665160f08461fe0f231b6047bfe75a76d",
+      "bytes": 1942,
+      "blob": "079c89f5bf6ab6f6d2f295a1a68ad21d718451f6"
+    },
+    "tests/research/test_entry_screening.py": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/tests__research__test_entry_screening.py.txt",
+      "sha256": "d5f7e0963bd6dd8f0b282ea37d9eb6cea3ec0367621a33459aeb39ddc258c36c",
+      "bytes": 486,
+      "blob": "f94d47ab269119c794162f2fd6d85aad71f648c9"
+    },
+    "strattester/research/execution.py": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/strattester__research__execution.py.txt",
+      "sha256": "47154908f325ef7b99c26e79f4184ccfb66756ed1998810a27d1a7f54de550a5",
+      "bytes": 4515,
+      "blob": "6d91b8c2f96936338660d73ba3f2e4a17c5f5bde"
+    },
+    "strattester/research/scalp_entries.py": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/strattester__research__scalp_entries.py.txt",
+      "sha256": "fcc39f27efe6730eaa85329dcab6160b838c0b2229e8a1ec58443f582218b24b",
+      "bytes": 5468,
+      "blob": "533904ce3b28f5d9d69f5bfc72efda168f6674ee"
+    },
+    "strattester/strategies/builtin/research_scalp.py": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/strattester__strategies__builtin__research_scalp.py.txt",
+      "sha256": "32a0bf1d43b710dcff70d8f3572543b293dcf1151012c0d75e42de7fd8edee17",
+      "bytes": 1847,
+      "blob": "47ee2fb1611ee21cb85f8d4f8204f6ec25d6dd2f"
+    },
+    "tests/market_data/test_scale_mc_retirement.py": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/tests__market_data__test_scale_mc_retirement.py.txt",
+      "sha256": "73f8fc0509b479c4bc89eee638fab4bbca17fc10336bde70040b2d808180f211",
+      "bytes": 8670,
+      "blob": "70c08162d30bb9c42bdb0468a7c87a925ca88718"
+    },
+    "tests/market_data/test_journal_retirement.py": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/tests__market_data__test_journal_retirement.py.txt",
+      "sha256": "3af68c3cbf9e203018fe0e36fb477be3ae911adf863da07506b5c80226b5e9b6",
+      "bytes": 11946,
+      "blob": "96b974ff90baa4ac8db484af307feeb84d913315"
+    },
+    "tests/market_data/test_screening_retirement.py": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/tests__market_data__test_screening_retirement.py.txt",
+      "sha256": "e9b7a67c2ec689febc12a4e68f9e83cef12b0cd104700547dd78809285d027ae",
+      "bytes": 10405,
+      "blob": "fccf19f9a63b75105c245069e57b6a2d07e869c8"
+    },
+    "scripts/canonical_test_roster.json": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/scripts__canonical_test_roster.json.txt",
+      "sha256": "68e46125a1612f5e699dd3894d83abb2e4601732df96199864c32e20f55d48a3",
+      "bytes": 106553,
+      "blob": "abc68beabe46087519272128116b3862979f3abf"
+    }
+  },
+  "owner_contracts": {
+    "tests/original_ordinary_signal_roster_v1.json": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/Term92b__tests__original_ordinary_signal_roster_v1.json.txt",
+      "sha256": "c481e32a848103b34084cf926ff176053ce44e55ef0d89e75b1f0b8ba6f7bb28",
+      "bytes": 39837
+    },
+    "tests/original_producer_counterparts_v1.json": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/Term92b__tests__original_producer_counterparts_v1.json.txt",
+      "sha256": "356df139058f03c8187c0efc4297385544c4c9188e3e803c939b5b46e1c58f86",
+      "bytes": 6426
+    }
+  },
+  "gate_evidence": {
+    "TermHosted": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/TermHosted.receipt.json.txt",
+      "sha256": "1ecc3f136906fce2c3faa3252893ee38d87792029f7794bb145c0383e628c672",
+      "bytes": 3362
+    },
+    "DataHosted": {
+      "archive": "docs/migration/ordinary-producer-retirement/raw/DataHosted.receipt.json.txt",
+      "sha256": "1d5d2d40c4deec017f69b86fd1c28c4dc1de9fcb030f4a266c4851f7c31ea1d1",
+      "bytes": 3090
+    }
+  },
+  "deleted_paths": [
+    "strattester/research/execution.py",
+    "strattester/research/scalp_entries.py",
+    "strattester/strategies/builtin/research_scalp.py",
+    "tests/research/test_execution_journal.py",
+    "tests/research/test_same_bar_execution.py",
+    "tests/research/test_scalp_entries.py",
+    "tests/research/test_entry_screening.py"
+  ],
+  "mixed_edit": {
+    "path": "tests/test_audit_runtime_integrity.py",
+    "old_sha256": "afe57f847b804ee0a8e326f84aeb9d92ac01f87bc2ca2c15c3fe743cc9abf442",
+    "new_sha256": "9cb8aef48b8358b16cfb1b615297c9daa97d2a2d5f02a4c25fab17a10b966c2c",
+    "decorator_start": 6746,
+    "removed_import": "from strattester.research.execution import ExecutionPolicy, Signal, simulate_trade\n",
+    "retained_test_count": 7
+  },
+  "production_survivors": {
+    "strattester/__init__.py": "20c8e430ededc2143396e553a3c67aac4ec483ef54efdfcb18a31cb162ca0646",
+    "strattester/bootstrap.py": "5f2ab5429e021201b4738e49f443a4549212e3282e77613f11a3c2d28be8e40f",
+    "strattester/config.py": "5987eb9d9696dc5c61ffd023e3dc1f185bddcd31d235e883ae8e03f65f3472f5",
+    "strattester/connectivity.py": "2959c2f11a16eb253a0ca7a2230e5554d9c8e476580e6b377df8e5e369149532",
+    "strattester/deploy/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strattester/deploy/healthcheck.py": "d29c02918ff95ef5f0452fac1de9e749cded7259dd8c9f8d0f73c1dfe1aa0184",
+    "strattester/deploy/releases.py": "3062f1a0ff39ec1290891109cf924e740e4a21fc3b824a7c2951e9ff17ddd5e4",
+    "strattester/deploy/updater.py": "026fed528b32effbacc4da420a72900bbe9ec9ea6505af791b16e05e8bea91b2",
+    "strattester/doctor.py": "72d92c1ec07843fe66871a047a6cd88cbd695762632eecc13ffdc3c5c0b782d4",
+    "strattester/doctor_cli.py": "b5b0aba80c44b44acdde068c0e6b017b3efb48dc203f5c302c930d84f50db7d3",
+    "strattester/engine/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strattester/engine/checkpoints.py": "b43bae1658f9ca0eccecaa078918062978fab2b5b021453913f2f2a70b132ef7",
+    "strattester/engine/distribution.py": "47594d2e1fd9a2f64ab4c5aeb82e854bcb8fd2f57b4b14b18904cd50d3019b99",
+    "strattester/engine/executor.py": "5aba8430e112678ac83bf9e569aaa2a5a5108becba8da75aa5a97998225a2ae4",
+    "strattester/engine/jobs.py": "c911c979a0735e6df4a78e9a2290c0e749cd313a28bf35c1c56fdf716d6ad5b7",
+    "strattester/engine/resource_manager.py": "3009c6b799b5a16b5451631443867f4ac37ed5a312cb7d1f27c458cad3465c85",
+    "strattester/engine/scheduler.py": "51ecab20fc10ec7b5d5208fc1ee0aadb93eb2ac80bc91780f6d503b21f04b444",
+    "strattester/marketdata/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strattester/marketdata/audit.py": "6c189c2f67edced0132390a69ad57bccfbb678c1731e7e0c078e0972580d096f",
+    "strattester/marketdata/bybit_client.py": "2b7d4c2c97bb7d7aad90f92f55cbede9b5c5b47f5465433794cecbc41cb12e0d",
+    "strattester/marketdata/coverage.py": "f556a72a5bb72099f1234994931d108e3bbc55c0d2a2337be7a02648cc9c0879",
+    "strattester/marketdata/datasets.py": "869442061fae50715a803717839477b2bfd1279d10417253ae6ccfa18a6bfb41",
+    "strattester/marketdata/discovery.py": "a75446772e37f8de00a0314ed2ce22a903671a05077e533bd177e546a87344d7",
+    "strattester/marketdata/download_smoke.py": "9b456915b5b2c31230fd643e23fe16e3a3ceeefbef4da903b2a055a1cd6691f7",
+    "strattester/marketdata/download_smoke_cli.py": "b4cb99db841efec0c164920a94696272c3e8252756db95270104d86d8d6c325f",
+    "strattester/marketdata/instruments.py": "c9a20f78842e901237aca250d9542aa54ae0d6f3a353e12a576cf807a0938a86",
+    "strattester/marketdata/integrity.py": "370b08ccca2c425e5766b6b5d5863892a6995d913b60efbd6a7265b59d45eb36",
+    "strattester/marketdata/l2_recorder.py": "df0955226c290dcc6a58093d025e2a60400557ff6c7bf69fa4a925f20cfe0358",
+    "strattester/marketdata/migrations/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strattester/marketdata/readiness.py": "4f50d591cb41dd42254b015470eef32494679c44fa948cae3b32a285948d35f2",
+    "strattester/marketdata/schema.py": "4f1dc03d3c445cf87940b9228b7acfdd64a4cda68b50352ff1e46083a2e23175",
+    "strattester/marketdata/shard_manifest.py": "b0e6f41a99c798ccc29dd6b202aff39556ff6c989c34ff9cab425e19aef5d3c0",
+    "strattester/marketdata/shard_migrator.py": "f4efd4b684cab84a55bc4a91e1c59d7a406b6d0760f8262b83651695ba90abaa",
+    "strattester/marketdata/sharded_store.py": "ae252efc71b548fcf97b6e768aa58849716e9b86a02bf2dcfb4fbba2b4b2a0d8",
+    "strattester/marketdata/sqlite_store.py": "6fdc84e531efec13a0ff3d052233af8ae607bb254a6be81df4a9099f23172a25",
+    "strattester/marketdata/storage_health.py": "878170dba0358f135662904f61d3eaf8b276c541269662d848be152121be6703",
+    "strattester/marketdata/store_factory.py": "4752110ab78bfe6a8935943aa469c2afd08098503a0bbbaa3d2072d2507a9974",
+    "strattester/marketdata/sync_engine.py": "497ccd9845c5f8ad5e35c7280bae061623e3ba5c3fec326b1ee9d50deee8c209",
+    "strattester/marketdata/universe_sync.py": "bda421c605a6c05275ab4f331a03b7f0909f379ffe19401746fe378a2ac79a79",
+    "strattester/persistence/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strattester/persistence/frozen_results.py": "0e1f06ed2b964699840b6e4ba46bec050a770c9c88f975441e7cc140843b71e2",
+    "strattester/persistence/migrate_state.py": "6991e6ccc020d2b8637315a0b4b1768646b47ec9af06c831de6339fca80debec",
+    "strattester/persistence/postgres_state_store.py": "e41495d737c22884e92fc7d0c7eeef1ddf87bed464419ec4e5ea0a60e91117d3",
+    "strattester/persistence/result_store.py": "41cbed94f11e8bee9eba8b37b449992286067ffbf029077d3471dca9427d1c62",
+    "strattester/persistence/sqlite_state_store.py": "d8cb134f96370e49e755885d2ec3c0f569bd1428119883aa6e29d20bc87e4a8d",
+    "strattester/persistence/state_store.py": "05f05094ab7588662bd92dc6b81efeb6d5a35f39f9ed4bd3f486262aea648472",
+    "strattester/preflight.py": "d3f2dabecb3ad6e6c92b3beea0950725dbe04701b46324a8c30e3df8214110fa",
+    "strattester/preflight_cli.py": "e3832ff999e177a746b7b028900d059acb3eb7bd38f045f1095414170d216a2a",
+    "strattester/remote/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strattester/remote/tailscale.py": "f14f2ff22c6e52a49a55a88f748762a75fadfdd99c850f0fa4be8a10a3ddd1d3",
+    "strattester/research/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strattester/research/absorption.py": "e0d1be7eb97358fd30433927123fa47dbe741d62c03da01b0274900cd8a64efe",
+    "strattester/research/adaptive_role_allocator.py": "6901c8114beb31c3eeab20bce7d058a6f9181e1489d5907aea42cbdbe701a8e9",
+    "strattester/research/agent_communication.py": "083b7dfe6b7860bcf859af101405bf3725e1eccb8347bd18cb2d38ddb765be29",
+    "strattester/research/brain_quorum.py": "68833404c5bbbc787b5fe7eba9bbdbd89c33b04ed77009b3eba8c8fb405b6c6f",
+    "strattester/research/causal.py": "64770a180b5f23a3396d55f01e0765cff4d6c3175e989bab367b8ee538c0c9b2",
+    "strattester/research/credit_assignment.py": "1ae1e647ef24b399c07274db78b59952a7b9df29e8228fc49f42b84eb3149829",
+    "strattester/research/decision_memory.py": "0ccbf4f26c0dd2fab7be4b1751901c47fdafbda1c7cd29d5b29488ff3564235b",
+    "strattester/research/durable_learning_log.py": "de7bb458ef6c15093a48d22b7e0f6c389e36905c099afbb6a5a07f337c7e3841",
+    "strattester/research/homeostasis.py": "c5be8b74d8ad0f10f43ed8d16d93cb077ec065fba48e7185d2755ca3e3010784",
+    "strattester/research/hypotheses.py": "e0a225bd3c98ad2989b2f958c53bacb9c6b27886664aad19eb16fbcd864119d8",
+    "strattester/research/learning_event_log.py": "dfc6e3fefecec52669de6d2b454aaff9712c1b3a5294a05d4b971bc7b8e365df",
+    "strattester/research/learning_journal.py": "52ed759c83a0bd9ed192052506df3d84438460a1f96cc6d0a74f21d8ecf946a5",
+    "strattester/research/learning_replay.py": "bdae5f3d2efb9df366114c5ffbc61f937b8b502fc3492e09cd6ca487a333d3fa",
+    "strattester/research/levels.py": "28ac4a71f3606c0609ad871142bb2127c5f012af91142654635c2b80a2f8ef13",
+    "strattester/research/microstructure.py": "cf1520639aa15c22f17fb77e41c6011e64d160c8cba7769c8386dd0af4ab5aa6",
+    "strattester/research/neuro_controller.py": "0d28c5ac5d28562274eeaf845abb5321913e076204a20ca08d22f914289b29f3",
+    "strattester/research/offline_consolidation.py": "0af16436ccd5e61633a30e1e244c30e7aebe535adb236ec069eca8b5f24e2cb8",
+    "strattester/research/orderflow.py": "09835670b6e2fe09006b6f4975798b79da65d7c4a49d13d88baf0c2743e7368e",
+    "strattester/research/organism_checkpoint.py": "f3b66e261182ab1a4f5d8a7f4e77a64e5768b8dc81ab5f60be08501b41c80dd4",
+    "strattester/research/organism_controller.py": "63982b1252c9a015d9283c5a478da1f3a001ed6e48bd639c591365a64a37492b",
+    "strattester/research/population_guard.py": "a3111468951c42f2a2a00398b097cac7ed6087d820ea140b346ac8a4e35f05bb",
+    "strattester/research/portfolio.py": "6f056669fdf9a5887814f31a7d405e0134bb654cb3164e775589ef0bc2d6e964",
+    "strattester/research/predictive_communication.py": "79b76e949aa7f326a11ff3a5784111dc91651d6544c1386dcf2cfaec5c31ed3a",
+    "strattester/research/result_persistence.py": "b2a86a54f91f4b86604a9d67cda837be7aad1efe83d93699c88acf2e8598daeb",
+    "strattester/research/runner.py": "abe8b8de6674cb9a51e454f0e9b82868d2ad74945766c85e6eda0c8d57318aa9",
+    "strattester/research/scalp_bootstrap.py": "0811e34287d0a751f7bdd58c120c5807a25c438c8572ab881cf7aeadc2fbd94a",
+    "strattester/research/scientific_bootstrap.py": "ec8fe532884949606302e5f4f798ca3d63d5f8b11cef80d5d4a024880ff6d64a",
+    "strattester/research/scientific_fleet.py": "ad5825a0ac6ed91a6641a04e31df823881c6957e1c4cdae9facb534ee1135ef7",
+    "strattester/research/scientific_graph.py": "ed9becbd96bd3878ed8dfe0e0ffd76ae9024cc2ae2c9d41972b9d1f356b80408",
+    "strattester/research/smc.py": "de9909d17fd5df5590e1f7ea322c346879d847d95a10d86b64e3237ee6dfcf16",
+    "strattester/research/stability_landscape.py": "887a8ac4d74be1c7e9049ac1916e6f64723215b625cf08c9aed5a885372c01aa",
+    "strattester/research/structural_mathematics.py": "c1d8b42bc38e008a04a499d30291ad8f746afb1a602120f08fbb83f8b2b7316e",
+    "strattester/research/structural_memory.py": "31f3a0ebe13a4210e32cf6c3cf9e291012bb0bc369ff4528b41e085d2efaf879",
+    "strattester/research/structural_state_graph.py": "43e58ece732aa66245b15443b4ac15c86ebbfddcc177d7a95b9865ed55198728",
+    "strattester/research/timescale_memory.py": "d1560be2606aa0aec268c966e3d0b7165e6f172d89813630c203780f608c2237",
+    "strattester/research/topology_recovery.py": "f8379184f247457bb95247cb7346a2533dc7f5a56271bfe8d2871a68ae9e71e0",
+    "strattester/research/validation.py": "5672b0e0b9809228ff5dfc5d0b3ffd3b6fa476e099fab29318b1a44144215816",
+    "strattester/research/volatility.py": "631953eb924e0368041e9d152643c08686c07201fa135def9c22368df69094ab",
+    "strattester/research/volume_profile.py": "309e6f08b33a0bf5665e622fc9bd5e020cdb2c7bf305114732796d963c14111a",
+    "strattester/runtime/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strattester/runtime/background_migration.py": "6e3ebc657a08abbc5b7438527494189541cca90f726ac63de1bee46fc7b65928",
+    "strattester/runtime/bootstrap_completion.py": "73ec3e4c9d6b9b2a2e2d420db474fcafae6c8be5c9f85fe5e361454c6f803598",
+    "strattester/runtime/bootstrap_worker.py": "2b286404672c820d64065a8f1948c53685db7b9900a789b84a741e5be98dc724",
+    "strattester/runtime/cluster_recovery.py": "8cb328d463ae516f0bb25ca1ad0be632ae481e24e4f4d227e744a2804b020125",
+    "strattester/runtime/commissioning.py": "645a5cfdc8da83dbaf7bfbafd3c8d07edfbe0217f4d5b022a56a9cbd6e2496a0",
+    "strattester/runtime/control_status.py": "e2675868c95af8dc35bf5c4525f6f4face98df5049bdc97448100a28b01b8b58",
+    "strattester/runtime/grid_handoff.py": "bf76181e9ead87744dbce419223e7d2d57b739c8e22accfbf49ca13348a16b3b",
+    "strattester/runtime/housekeeping.py": "ed3e08a3c9a02e62c3f16c50cc8b197533c4d8d5bb82c54f44a949dbded0f6b6",
+    "strattester/runtime/lifecycle.py": "275caaeca9216a75ad08c21c467938af1d0d089e512d66af0c1215394de83e80",
+    "strattester/runtime/logging.py": "df447a8dc5da9b734f194b2315c6ba5954697fc526a563eb41c4b2b78e26015e",
+    "strattester/runtime/phase_manifest.py": "7baa99b6ca3f1e760e01837d94a397a3da5c9c8bd90078164ef4234dbb761193",
+    "strattester/runtime/service_intent.py": "3b932b718be218a07f47cefe3508ec89f23c2a076ac904aaa031ac67fc2c6845",
+    "strattester/runtime/service_manager.py": "9382b9441ab47b0a9cd27a75ac2e9a40457b01d87c80b9adb18f1a01870be6d0",
+    "strattester/runtime/system_resources.py": "3e1375f0eb46924bc42bb61f49b80407025aed70ec8f16b4741810e18830c682",
+    "strattester/runtime/work_schedule.py": "dc88989c549462ff15891914a8f578d04e6c2d2313379bb242459f4002247d51",
+    "strattester/runtime/worker.py": "e011867084720829dcd79f4b35c57bbfc31f8741a96814cf44fbc238c9dfe893",
+    "strattester/service_controller.py": "2c6329ce3e64a698160b26fc3f10c0a0d52e7e728aa8e81e9a4313f7ec4da59b",
+    "strattester/service_guardian.py": "57ff0c970dfd2ee82c728d46d34d6c0536c5f9dcefe4540accdd6d30046e90dd",
+    "strattester/service_worker.py": "24d9f0e4ffc88a15544431e3be1ecbac61dc67295044dc166150b1f5be8ae22e",
+    "strattester/smoke.py": "09a617db026b13f3f2a23f3e963b8722854e3f01c01e3f1b62b69586d8576bb2",
+    "strattester/smoke_cli.py": "96e835dfac3df994befda09157f70bad61f2704e0519bbbadb5db850f35ddc3a",
+    "strattester/strategies/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strattester/strategies/base.py": "b983ab2bb1ffdd25cfd15d73535491a6bfae00d8ad9af7401b1f168941838712",
+    "strattester/strategies/builtin/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strattester/strategies/builtin/legacy_grid.py": "366e784cd317ef2c7c7d90ca8796854af06350615c9e7edaed836bb22e2f7ad0",
+    "strattester/strategies/builtin/research_common.py": "e7d00984261715ce5a118d6da186f9be529acf2b3f90cd7f5fcaf0d24bce79f9",
+    "strattester/strategies/builtin/research_levels.py": "d86fdb30fe05b324222c95723bc470e3ed6d0ab3c12905e8cf8770b8ffb46fb0",
+    "strattester/strategies/builtin/research_poc.py": "dfaa52221dfb10f3d1ba6182a28803ecf55fe482d100e11cdfdf816a42b6c3ef",
+    "strattester/strategies/builtin/research_smc.py": "cc950fbafbf04ff82cd98cb96f57b1f0afe65c32061706f40cd8f17a00c2ad61",
+    "strattester/strategies/builtin/research_volatility.py": "ab85e69c198aedcaec3574d392fbceb2167c4781420155f23c0c3b4f70f55ba5",
+    "strattester/strategies/registry.py": "86ed5bbde3806bd27ca95ff6750ff3c24db4c8b6a7def37ecfc62f8351bdce25",
+    "strattester/telegram/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "strattester/telegram/commands.py": "82af2acfc6712509b6aab419043119f66f12f5b0a5007c439cfa216e87d16248",
+    "strattester/telegram/controller.py": "cb1a8e5d4a9d1e979a6cc742aeb236bcda5b431a70f1ce5dd4d5b6a5ae2fdb31",
+    "strattester/telegram/poller.py": "92e071421be745abb4082dbb72fc23f1dab1905d11d8697b87126a1ac61b0b19"
+  },
+  "preserved_docs": {
+    "docs/archive-checkpoint-design.md": "2436635e925c46cb45b2775009d4c1dfe36359ed44e97a65bdfa82d8d72347c2",
+    "docs/archive-content-ingestion.md": "571e96d723d137322f873b05b3e24b532a56d41792f1c013b91d6d5ed93553d4",
+    "docs/archive-transfer-map.md": "e3f3f413b82ac5a192c3d8700b676c700ea473a35461cda810ec77cd91923a78",
+    "docs/archive-unqualified-cases.json": "6485877e821637499992a3d803455e41688754028c75442f6947cc0e9f506091",
+    "docs/ci/bounded-backfill-invocation.md": "3b1bd62b4c645564a8108a2d547092ed9e38b25b799adcaba5b9c2fdf752160e",
+    "docs/ci/cancelled-disconnect-identity-boundary.md": "9514dc715b5e6e1f292e7faf36947477eadb5a249350f76bd0e66c015f104218",
+    "docs/ci/canonical-release-gates.md": "c00f1194d16395bc259ea6d23c47dde4f620e14d8bb3774fbeafaaa866f3441d",
+    "docs/ci/collector-cancellation-priority.md": "ced45258184762473cceef6a659fcea4ed7eb878538ef31b43656ef9727b2884",
+    "docs/ci/consumer-repair-plan.md": "6ab0f46750bf06ec6733d1e24af41cdbd2b0a42f6a0374a1a96346eef7db6cbd",
+    "docs/ci/data-endpoint-coverage-bundle.json": "133ac91f61ec4390d834121b5b803518e2f18d0a0d6764a8a1262d1e2498befc",
+    "docs/ci/data-endpoint-coverage-bundle.md": "f9882ab41c668c477d3dc3b4385d6545f5e09c9473e1e9eb5def8ca0a9075702",
+    "docs/ci/declared-history-combined-evidence.json": "32b151a0415c221886544369a5acc019213c6b420004a0223b42f23ba77d1bfe",
+    "docs/ci/declared-history-combined.md": "cc62eb334a3ff7ea9e69d8c156aa14bacfe1910a48c3d1c5077b541b5397e11a",
+    "docs/ci/declared-history-planning-migration.json": "1615decaabf878fa239f1d98993df7328ebdd58f256b3f432b6c83eb0b3cf6a7",
+    "docs/ci/declared-history-planning.md": "21a083a59ca32f46a32cac7f9967bb952864f517d12fc196f1ba3af67163f1a0",
+    "docs/ci/declared-range-audit-migration.json": "f33071bad72bc87db846b1573cc7de4c989efc9386258b1f5fa6018bb31fa380",
+    "docs/ci/declared-range-audit.md": "dd8587a252d5fa1758dd56947099ae2c8a11f70f74a1bdc804c1a3c87605feda",
+    "docs/ci/exact-sdk-origin-controls.json": "0cad83d7ff7dfff4ad4dca30cd9a16499f10282504a967830a49cfd4aee250cd",
+    "docs/ci/exact-sdk-source-origin.md": "5e756e68c11e61864932afcdcee84246e0b60475305206653c7a7b0ce6b6ff0f",
+    "docs/ci/four-owner-legacy-obligations.json": "ebb9a9e5b56932e14c1f74986c355b6c9c828df26cb035c98cb0c8349f1427d0",
+    "docs/ci/frozen-consumer-obligations.json": "08af4c8f0a7e480fdc0deb857ac906f4c66d522f53795ce55c8bd445e92d9fcb",
+    "docs/ci/gateway-query-boundary-plan.md": "a149b8abfa5f020d34df664172f79c0a3fe86e8109598fad7e7d1ad7fbece692",
+    "docs/ci/gateway-query-evidence.json": "8404c590964787b751ae4da2fa0e88bd689d94164fc1fd792f26ea49b89c5b65",
+    "docs/ci/gateway-query-new-fixture-hashes.json": "0a76ef89b4439af48291a37435970fc51954fbf638d5654a7d2037a64b59e270",
+    "docs/ci/gateway-query-ownership-map.json": "ab404d71f8f6d39e51ffcc3cfc11fdfaa0bd7ef36546fd0fbbfc904837fc5523",
+    "docs/ci/inert-fixture-source-path-evidence.json": "e66dc591f12d81f222622f2e2ca1b4a429a73d4dc37ead36f5c13e9e9991839f",
+    "docs/ci/inert-fixture-source-path.md": "8e9bcaedff9250cb813b7353cd54c48bf3720d64f91497948cbd971ea1cfb8e4",
+    "docs/ci/legacy-callsite-static-review.json": "7ab386df43d987526f8b33e6daaf63e4db1e4bc522d8280fbb31dd86bbbcd00f",
+    "docs/ci/legacy-execution-call-sites.json": "bbf6912f1b11dae7f983ecf5a2ec20a43756130e5175259a5e58bae855b35a7c",
+    "docs/ci/prepared-capture-schema.md": "253f77259d270519f186123f203ac923b4ed7319645a3929628787fa99c804b1",
+    "docs/ci/readiness-frozen-transfer-map.json": "dcddc0686e40a695eb1efb148177b10051f5a561e5aa1ae647dd39cc9f2f628b",
+    "docs/ci/readiness-frozen-transfer.md": "d87106275e03b5d14d570af3b2a41fa46603b3a93d6e103a7f01412d3e88bc05",
+    "docs/ci/release118-candidate.md": "56d7cc01296953b5bb3c3b8e60a374d265e6fdb3ee61cbd2f372b87468c57878",
+    "docs/ci/release118-repin-map.json": "7a5a5843f8d469c0ea9860f2cca60fc589d0c4a16a06109ce636e8d48811307b",
+    "docs/ci/retained-handoff-canonical-transfer.json": "7438dfa4c2094d440eaae30f7554cf4127d041ad46a154a050cd447ae04fc38a",
+    "docs/ci/retained-legacy-test-inventory.json": "f9868f6ef7b29936f056446896e39d3f1fc602a37096f97b8759479d60e73df9",
+    "docs/ci/retained-provenance-function-map.json": "33fda41a7ec3505a4b3e380c55bd9a37ff0ec5ee2aabe61948f8a31744eeadfb",
+    "docs/ci/retained-provenance-test-retarget.md": "ae27c8cb15bc3e90dc02d9e689a85182299834dca9a9f3dbf891d3d23d1bee8b",
+    "docs/ci/reviewed-test-stack-evidence.json": "a38a40b85d399137a95e3cc0adbebf0e3963444542afab1e0346b76619396b93",
+    "docs/ci/reviewed-test-stack.md": "5023d72b2b2f6fd62fa25ac17c51879c6b9cbcc61b292653a3c6a63fd0a8883a",
+    "docs/ci/sdk-cache-custody.md": "5e53c8aec07491be8a478a826beb619ddb4ea1dee578f7ab0ab7bedc4c0726be",
+    "docs/ci/strict-frozen-roster.md": "5349cb554ad98eb9918360d9948968405471bdeaad5d62cf84bbb7f988ae449d",
+    "docs/ci/strict-roster-negative-probes.json": "53efa19dcc6168bae9c6322096bb6a6a014a26051eee325b9c87b344f1e57b72",
+    "docs/ci/term115-consumer-proof.json": "c82c9f1dd34d5df5dfcc66b3a806a69471a2c4b7a1066d5f2d58d1f4cdc5ab8f",
+    "docs/commissioning.md": "3f44b95aad3d2806c7a75b0019d3d32c03a59c124124224b5966d5e68c9f089d",
+    "docs/database-migration.md": "0eef1f298d37a29179c9f6ff50514a1b78c13149dd0be5fbf554d363ad3d74f5",
+    "docs/exact-metadata-codecs.md": "aa122941090c972823a1699bd27989c18bf93744fece7c669df882e10ce707f7",
+    "docs/exact-metadata-storage-plan.json": "2a86600c97a4a87264d066f2d19b3d596b5da181ae20c25d8f925820c0f1454d",
+    "docs/exact-trade-delivery.md": "c9ffccbeedbaf1c8def3428241c68889ab8fa0a5d571b333545aababb713c290",
+    "docs/install-windows.md": "c694a4f94077a0bed5a682d76e05a2947cd1fde3417beb654d15a19c9da126d0",
+    "docs/market-data-consolidation.md": "5153b35b8895f847e75d14bfcd476f2c7b3f1c0d6771d5905cd2d7dc16eb5f72",
+    "docs/market-data-transfer-manifest.json": "09c578beda091222c98553f59acb5cf3ca01a17ef84dc13f1054282694376718",
+    "docs/migration/entry-context-retirement/README.md": "a08cbfbfa820ce92c444a0bd307f28313851f2415e9206875346402d00e6b772",
+    "docs/migration/entry-context-retirement/canonical-788-roster.json": "a4c0ae9ff1876a3ebeea4a1f898d390179a0c119141403b549dc1ce2b5ff1732",
+    "docs/migration/entry-context-retirement/transfer-ledger.json": "02005d84cdd85edb64d2fb7428fae6d47c81c91a1320eb2a45a157ecf26c994d",
+    "docs/migration/journal-retirement/README.md": "a8a8a3786cc4cb79cb10ca2252d4c6126ffe1e1f762d8431f898c54511c13498",
+    "docs/migration/journal-retirement/canonical-897-roster.json": "bc1630041f9e60421cb713b52df38bef3f6d947ecc649ee24028b901d1ed0362",
+    "docs/migration/journal-retirement/raw/strattester__research__journal.py.txt": "fb11dbeeddf728d2350ca779ec6eec1bdbfc51145acf740dbec40e188834c035",
+    "docs/migration/journal-retirement/raw/tests__research__test_execution_journal.py.txt": "36e8feef44ce246d3fe3ddcd5c07f135fb131fdd596a78426ddbad2a6df8d823",
+    "docs/migration/journal-retirement/transfer-ledger.json": "9ab3af5294fb8f40d24bd166021dd07f191507192ad20ed00263f544289ee324",
+    "docs/migration/pattern-statistics-bootstrap-retirement/README.md": "18cdbf57fa9c8265f2802042754f85d2ca8f7186ee973661284537fbf009e06c",
+    "docs/migration/pattern-statistics-bootstrap-retirement/canonical-891-roster.json": "e2f41ad7ada4f806a2ce95e561c8fda59216d9ee467cf9b70a6ba89afb6637a1",
+    "docs/migration/pattern-statistics-bootstrap-retirement/raw/strattester__research__pattern_evaluation.py.txt": "dae7ec661950dd4b2b4ba0d567be8981e4ec0163825916825acbe61036173709",
+    "docs/migration/pattern-statistics-bootstrap-retirement/raw/strattester__research__resampling.py.txt": "4d80e652e63646e2cd6dcdf870472584ca61c9b936a619de3a4ad010e2ae4d5b",
+    "docs/migration/pattern-statistics-bootstrap-retirement/raw/strattester__research__statistics.py.txt": "dc5a03194c57d1f0c6151462787b0836490aa157a5b4f1c65988c70e60b6269e",
+    "docs/migration/pattern-statistics-bootstrap-retirement/raw/tests__research__test_pattern_evaluation.py.txt": "36f7d34194e660d70bfb31c257cbb204f43f731aceb29b7c155602626005f1c6",
+    "docs/migration/pattern-statistics-bootstrap-retirement/raw/tests__research__test_statistics_reporting.py.txt": "9a404f3c1460e4f85d700e0cb4c80f0fc2d43d772f92b1629676f26dee4ba0ac",
+    "docs/migration/pattern-statistics-bootstrap-retirement/raw/tests__research__test_validation_resampling.py.txt": "4d22060095ce2c3f5bfe782f0bebb10520b7940a2df255d7247713c445f7e215",
+    "docs/migration/pattern-statistics-bootstrap-retirement/transfer-ledger.json": "3b2ddef46c7001b271a446a098fb5dae26ef5f9e34524710819451aceaf421f6",
+    "docs/migration/reporting-retirement/canonical-889-roster.json": "c1bf1dce6aa6d294019ba3c05b479544b167551222fcd7df5bdf963e26c569b2",
+    "docs/migration/reporting-retirement/raw/strattester__research__reporting.py.txt": "251bbbe7d14e6c711abbf532afe2f8c7a03b21e9e4eb6d11fe2cc6e718622089",
+    "docs/migration/reporting-retirement/raw/tests__research__test_statistics_reporting.py.txt": "2cfddb71a8925ec5989ed666e341b760cefb60a57cef39ea8949afcc58b5473a",
+    "docs/migration/reporting-retirement/transfer-ledger.json": "2b746b67eda7332e838fdb28a373f016d337c5a57cff0080d0ff7ba93e95181f",
+    "docs/migration/scale-mc-retirement/README.md": "15943405e86320c245dff2aa4bc88d4e7c11e2e0cb6e1fd0b73732523ee25f42",
+    "docs/migration/scale-mc-retirement/canonical-885-roster.json": "54d05cd7478e865fabaae25a828ae3f4d9b6aad28b358f77c23eb878b3169e64",
+    "docs/migration/scale-mc-retirement/raw/strattester__research__execution.py.txt": "99c1a3a7907b0481c0f2a4f239fb6808f137834b39fffaf7885ef60f66246832",
+    "docs/migration/scale-mc-retirement/raw/strattester__research__resampling.py.txt": "795b77b9e68d0265813645d48c277f379d0e1c6e27cbf33524d1a41c4cceef21",
+    "docs/migration/scale-mc-retirement/raw/tests__research__test_scale_execution.py.txt": "c4b2c3dd70f42a8f7e0926d8e1f4c8599fcd3531a39f92af8f3306e9d4839d96",
+    "docs/migration/scale-mc-retirement/raw/tests__research__test_validation_resampling.py.txt": "abebf46ae3a067f011e7732d7c674c949cc842a292cf648aa56e9e90c9bd5a71",
+    "docs/migration/scale-mc-retirement/transfer-ledger.json": "293f94b9bf4146e7d3046c1a0ff35e8b1a89ca7c87ff168ac7504060da2a6477",
+    "docs/migration/screening-retirement/README.md": "f5c68e568d6abb7015d4eb5dda7b741147bfe85ee2420906806ce105d6c7fd9c",
+    "docs/migration/screening-retirement/canonical-895-roster.json": "079c5fc28c4e719f2e197c58940fc4f053772074bc086e1a57ef51046c1ed5c3",
+    "docs/migration/screening-retirement/raw/strattester__research__entry_screening.py.txt": "59dad642d23ababafa1dd7ad9dac0c93474613f96f3c8b1f56f9a0866977f51e",
+    "docs/migration/screening-retirement/raw/tests__research__test_entry_screening.py.txt": "1c42b614b6c05029b8b216e6fd0a64877c0dca5998c9bcb5fa59183cfd90430c",
+    "docs/migration/screening-retirement/transfer-ledger.json": "d842a60c01943b574be1e8be85e3abba9a5e0ff1746aaa1d2bce3314aa78d6c1",
+    "docs/orderbook-transfer-plan.md": "b9eefc5da6406ff232115e12d52a48e9493ef14847b24f4b3236ca18d88c9ba1",
+    "docs/paper-funding-row-assessment.md": "a9e69b006740c7adc36878d75aeeab35f39c9bdf59ffd9788ed30f60286545f8",
+    "docs/paper-inputs-bounds-review.md": "61bf736775b2803cd6857a967c7ca8cde14d60f36e55d0ec503a922a44b532a4",
+    "docs/paper-inputs-obligations.json": "a67b3d131adb275dfb8efa167d1b6f8bb9cb7b427035f413bfd668bd6371fa91",
+    "docs/paper-inputs-protocol.md": "2f5779442cae22d8b9b975ffacefbb3fe35436495f23c4ce2f04814b0c114c39",
+    "docs/provenance/legacy-paper-projection.txt": "ecad7d88f73867f21e15c7631af3006d50f30825a19f5c7a84a1e36127681f33",
+    "docs/provenance/legacy-reader-cases.txt": "a4c8949beac397ae7d544402c7e36fc329fd32905ca56338ab7bf1f9371b2c33",
+    "docs/provenance/meta-rotation-source/collector.py.txt": "8df9c6eff45d6b4933bc79e9da01ae40f008165b37854a7d4f13c4498b6925e0",
+    "docs/provenance/meta-rotation-source/exchange.py.txt": "67dfe8ac28fd0c86f99905a60c46e804ac31a4875eafc919ca6215bffd55fa4a",
+    "docs/provenance/meta-rotation-source/instruments.py.txt": "6fa5b3b6bb780e4c23f03046bdfe8f88e482c5ddc33329b566ebde51ea74e628",
+    "docs/provenance/meta-rotation-source/pipeline.py.txt": "229473e74c7e87b969d4374247b66900844540af57459e9d78afad00994d76f7",
+    "docs/provenance/meta-rotation-source/raw-byte-receipt.json": "9caf766f600d0bd958304eda695b58365a2a19ffc616f56264afa56ff71bc8f3",
+    "docs/provenance/meta-rotation-source/test_exchange.py.txt": "54ebb37b8a7a7816bbf7c44deb4c1391a4c39ad68b6239ebff9ed542f2b92c4c",
+    "docs/provenance/raw-observation-minute/README.md": "5ae4b9818c873740c14c14d67f1407bd4cc13a9e4409fb0012201a51b56e3b67",
+    "docs/provenance/raw-observation-minute/SOURCE.json": "e898f7c72c449eeb1e62c2618b075babe94014424e677d81c0e11303b342edac",
+    "docs/provenance/raw-observation-minute/design.md": "911bc5301e14c152408c1aebaad792bc83418b2db0beeedad123cc556f01f0e5",
+    "docs/provenance/raw-observation-minute/plan.md": "189c40fbc63dfa0c6280650fa69b8c75debc48d484a222ba253b2eeb27c101bc",
+    "docs/provenance/research-owner-transfer/README.md": "b9e9c880a19401a898a556fe26088778b4cf6f64fa1aee59fabcbe80b3fd337c",
+    "docs/provenance/research-owner-transfer/baseline775-roster.json": "c9705069cd6851600f847a67c847f43607e5dbef6dc7898b483216299fb44d33",
+    "docs/provenance/research-owner-transfer/manifest.json": "2226c70a0ffcb922fc5fc31e2c049a06eba4abb282a70d7a29e6fde7ca589d44",
+    "docs/provenance/research-owner-transfer/market_data__research_handoff.py.txt": "71bffbcadb6e2a3e05d30de22d4f23d3b50e7bce3842ec5198acd305946a5da1",
+    "docs/provenance/research-owner-transfer/original-ast-roles.json": "5d6cc55f6d8075667582dc0c415e6455e363aeeac41c896b52a677e8279ddb1a",
+    "docs/provenance/research-owner-transfer/tests__market_data__fixtures__legacy-experiment-export.synthetic.json.txt": "70a0ed567ca82cb5273911c59611248c4e45a382a9f6c35e60cdab5d7f1793a3",
+    "docs/provenance/research-owner-transfer/tests__market_data__test_canonical_handoff.py.txt": "9a7e03b2d4991d87c0023867cfe39ca20bf070a896ed9f134d7e7f85f6bb1c9d",
+    "docs/provenance/research-owner-transfer/tests__unmigrated_market_data__test_source_provenance.py.txt": "db44e0d619deddca4daa9f9173e4bf36b434f8c1a752ca94a9bd3b8dc3725709",
+    "docs/provenance/runtime-math-reanchor/raw/.github__workflows__market-data-pure.yml.txt": "0b4a90d86d5ec4e60864e53d5500959c8e1b011d14e112489cfad4e4fb8148ff",
+    "docs/provenance/runtime-math-reanchor/raw/.github__workflows__tests.yml.txt": "7c19aaa2fff7dac5e79a0fffe491eff55f4d6e39a1f74a34b566559cdb8a5d9a",
+    "docs/provenance/runtime-math-reanchor/raw/Mathnew__history_statistics.py.txt": "eef7dd8c252e68783d60b6236a437942df99995fae714a9fa0ca117b58e54cef",
+    "docs/provenance/runtime-math-reanchor/raw/Mathnew__market_compute_api.py.txt": "0fa992f10bd4b1d827d1d90bc8503528673a311163418db9f21abc1b0ea6b438",
+    "docs/provenance/runtime-math-reanchor/raw/Mathnew__market_math.py.txt": "ce636ca7533a6cc5c252cd2375f94db1bd3e5b4d972bccbd015380deb8244214",
+    "docs/provenance/runtime-math-reanchor/raw/Mathold__history_statistics.py.txt": "17c33415686db9cf56f200028dd84248e58c0dab1af0c1a9276b310aaf7aac6b",
+    "docs/provenance/runtime-math-reanchor/raw/Mathold__market_compute_api.py.txt": "0fa992f10bd4b1d827d1d90bc8503528673a311163418db9f21abc1b0ea6b438",
+    "docs/provenance/runtime-math-reanchor/raw/Mathold__market_math.py.txt": "6510a0b97b7184d668060c9c2a54fefe6ea422a238b7cc8fbad9a41c281c396b",
+    "docs/provenance/runtime-math-reanchor/raw/RHO.commit.hex.txt": "1507f901a81baf2d857690c7e0945a17687b8f992acdd35a334aa8dad43d7f81",
+    "docs/provenance/runtime-math-reanchor/raw/RHO.market_data.tree.hex.txt": "3c6c118145ca54444458e7ea2c06dd7793393a6ff998903bf0c6e329adc6a957",
+    "docs/provenance/runtime-math-reanchor/raw/RHO.tree.hex.txt": "1ed21af8632a0ff6c6bd266ed7d4e28e2289d89e324942023943e334d5b26e21",
+    "docs/provenance/runtime-math-reanchor/raw/docs__provenance__turnover-history-foundation__CURRENT_RUNTIME.json.txt": "9e660866b6849fde36da5037c7e1b1a7eb7126b85c216b0ce7209fa9577150ea",
+    "docs/provenance/runtime-math-reanchor/raw/market_data__history_export.py.txt": "07fe0e8956cfa74965778056142f0492efe518077bbd75eed0b926842595cef8",
+    "docs/provenance/runtime-math-reanchor/raw/scripts__build_sdk_source_manifest.py.txt": "e7989804db242993df230e8ccc9ed9dce53ceaa02282febb5d68ba4e58bdb1c8",
+    "docs/provenance/runtime-math-reanchor/raw/scripts__canonical_test_roster.json.txt": "419357ce0d96c91fbccec1d2e476f916fd7f01a5999b98120ebe19999ffa1b70",
+    "docs/provenance/runtime-math-reanchor/raw/scripts__check_frozen_consumer.py.txt": "ca25fdaa974e56059a750601c1a409544a00f7942e384ca3c604e36f1fe055be",
+    "docs/provenance/runtime-math-reanchor/transition.json": "3ebb58eeed6047516db33418982133605f7bd3e7a3f5b1699114b57f616bd3b0",
+    "docs/provenance/selection-rotation-source.json": "d6d6be410f21e76d1e9cdbbf6047d9e44494f45e00ed1ad9a151181b7f4c3def",
+    "docs/provenance/ticker-field-original-cases.txt": "7f0f5a2b1f0d63884b20b07c0ec5832efce96b4391f0c7d3b5c010adcb597254",
+    "docs/provenance/ticker-source-map.json": "3dc3bde365d1088d71aea13290c7466a8da3c486f2f89d8e0b19a1e27d3b1bbb",
+    "docs/provenance/turnover-history-foundation/.gitattributes": "3224179d0cc7d6f4ebe9e5088097a6d01756d5afe9969d91b28ae1f5a7ebd03e",
+    "docs/provenance/turnover-history-foundation/CONSUMER_V12_PLAN.md": "1994e6d14774116e99f78ef55dbd50a17a840c29cd8da277d730faad5e4133ef",
+    "docs/provenance/turnover-history-foundation/CURRENT_RUNTIME.json": "99245b99f3ef98d6acea304c45bba7d5691e71eaff03b4507cd220637a390927",
+    "docs/provenance/turnover-history-foundation/README.md": "f716dbcb3e69307ae44bfedeff1360a5facf5930150e225685fc700ccbfbe489",
+    "docs/provenance/turnover-history-foundation/SOURCE.json": "422dcfa085494166df1a1e7fa495c519df995f7b54e593f6058e9ac859c292e4",
+    "docs/provenance/turnover-history-foundation/raw/market_data__footprint_state.py.txt": "569e7cfa5bae145d51c45f002a2eafcaebfa4e249da1c7dcc6ab16769b63d945",
+    "docs/provenance/turnover-history-foundation/raw/market_data__history_export.py.txt": "f3f4c994dd4ef3bb58d80fe5fd76f2f95c6353ff13861238e9571a4112db5cc0",
+    "docs/provenance/turnover-history-foundation/raw/market_data__history_export_v11.py.txt": "56f2c9726dfd2061100bd8ec6c25f079293aeb261e4bb9871198cf497eb5ae77",
+    "docs/provenance/turnover-history-foundation/raw/market_data__history_snapshot.py.txt": "58647d7112c924bc5ae301002ee795a1b786d31dcf764dfaa41b75e522c4c6ef",
+    "docs/provenance/turnover-history-foundation/raw/market_data__numeric_dto.py.txt": "0bd39c34b4d5f6f31fdec60111e9a2174b87b06b8a2c418a88a392a318246a6d",
+    "docs/provenance/turnover-history-foundation/raw/market_data__provenance.py.txt": "3e677b54221e008578e070e1dc49d1def006cd80ac67b2b157399a5bf66962e6",
+    "docs/provenance/turnover-history-foundation/raw/scripts__canonical_test_roster.json.txt": "b6c09367a3157c5ae4db3cd6985a48f27d34210e329237560b1e404547942d73",
+    "docs/recovery.md": "015ddc996488485ebd44fd5b0a8c2de0c37f75abae767317b0f94aef83539902",
+    "docs/remote-administration.md": "3eea345bd92700f943c120ed86bcd031485daac43cb5339105a188d2d4250a19",
+    "docs/rotation-overlap-uncertainty-review.md": "b3ccacc4b8a42b37686cc2da8e0064fc9c9e0ce371e47356fad5a6d5fc16f76f",
+    "docs/selection-rotation-design.md": "a4a6e36a2f75c480b6f226d137ee6de020a1ee93342cdc4af8268d45f22f2019",
+    "docs/strategy-development.md": "6539b90476ab02facc24f5b33543f950beeb2f11035659c5082e0e550959aa4a",
+    "docs/superpowers/plans/2026-10-01-research-engine-implementation.md": "7047020126b125bdb114cf516983f349a3ea83e0998f80d3eea9545e8cdf1236",
+    "docs/superpowers/plans/2026-10-01-strattester-standalone-implementation.md": "e509e9d9943a1e4682873081df00081f42b2875a2f8c01c84d3a5971b274a875",
+    "docs/superpowers/specs/2026-10-01-research-engine-design.md": "2452d060a0cb995397872e77ae15e5dd7b9a1e2570bf6d760839c1f8c9401ba3",
+    "docs/superpowers/specs/2026-10-01-strattester-architecture-design.md": "d11b9a3873ea936c5d59294e15565186c5d9896738e2b34942be5f7d0dcabae5",
+    "docs/synthetic-collector-transfer.md": "25098b23bf907d0ddd48ae257e8ab02391e95178a756606b5af336ee9c022e52",
+    "docs/ticker-acquisition-design.md": "49b5f5df4db99d68971619bda402742b66b192936137513382791897e84f19f6",
+    "docs/ticker-obligations.json": "e00dbe063a9617714c3807b56d7e83b9bab46c13c56363f2724d2861c9ef73f0",
+    "docs/unified-release-issue86-owner-audit-20261119.md": "a05b34e58a6ecf71ce65db07e7509e5b2cff8b89668e912a6325a2caa68d463b"
+  },
+  "generic_families": [
+    {
+      "path": "strattester/strategies/builtin/research_common.py",
+      "sha256": "e7d00984261715ce5a118d6da186f9be529acf2b3f90cd7f5fcaf0d24bce79f9",
+      "bytes": 682
+    },
+    {
+      "path": "strattester/strategies/builtin/research_levels.py",
+      "sha256": "d86fdb30fe05b324222c95723bc470e3ed6d0ab3c12905e8cf8770b8ffb46fb0",
+      "bytes": 427
+    },
+    {
+      "path": "strattester/strategies/builtin/research_poc.py",
+      "sha256": "dfaa52221dfb10f3d1ba6182a28803ecf55fe482d100e11cdfdf816a42b6c3ef",
+      "bytes": 399
+    },
+    {
+      "path": "strattester/strategies/builtin/research_smc.py",
+      "sha256": "cc950fbafbf04ff82cd98cb96f57b1f0afe65c32061706f40cd8f17a00c2ad61",
+      "bytes": 1040
+    },
+    {
+      "path": "strattester/strategies/builtin/research_volatility.py",
+      "sha256": "ab85e69c198aedcaec3574d392fbceb2167c4781420155f23c0c3b4f70f55ba5",
+      "bytes": 367
+    }
+  ],
+  "canonical_roster_sha256": "68e46125a1612f5e699dd3894d83abb2e4601732df96199864c32e20f55d48a3",
+  "canonical_count": 902,
+  "runtime49": {
+    "market_data/__init__.py": {
+      "mode": "100644",
+      "blob": "3dc1f76bc69e3f559bee6253b24fc93acee9e1f9",
+      "sha256": "91447944015cec709e8aa7655f7e9d64e1e4508e7023a57fe3746911c0fc6fed"
+    },
+    "market_data/admission.py": {
+      "mode": "100644",
+      "blob": "de1a1e04e9e64171f5908b811028cfbf789232a4",
+      "sha256": "02df5b4b4ad625b4ae3742cc02e307ae6024326833563ff385805df132a4fa96"
+    },
+    "market_data/archive_day_boundary.py": {
+      "mode": "100644",
+      "blob": "abcbdf6fa84df82aa9d4794069b28703b6c5b046",
+      "sha256": "aab562382a9a66a7951593f7921075bf98b3297c0baee9aba23c5e02b1b79c12"
+    },
+    "market_data/archive_file_lock.py": {
+      "mode": "100644",
+      "blob": "d4b3949b1c8445f8cd1113a43ea210c96d6db9af",
+      "sha256": "95f54888ea4713dc2e77649d36383780d38733c64423ca31cf9e328a8a755dcb"
+    },
+    "market_data/archive_import.py": {
+      "mode": "100644",
+      "blob": "ee433b1519d736bfde474b0ac65330d8bef46211",
+      "sha256": "9e9c7b248b511445b0192b61c033a30069552331152bf32a4320e167631e2e68"
+    },
+    "market_data/archive_ingestion.py": {
+      "mode": "100644",
+      "blob": "8fb18cf0541dd0536f879404d0ae581d3fa3f70d",
+      "sha256": "5f03ce60beb7be4cdedc32c5551fad55a17ade36009d824c89ec70b976eccae2"
+    },
+    "market_data/archive_partial_state.py": {
+      "mode": "100644",
+      "blob": "9b78c468d46305307ccc49960592fc2991c86eb6",
+      "sha256": "61cb7841fc496d34fbb08edde1eda3cd9f320334bba6c7a7235c31d737c5e1a2"
+    },
+    "market_data/archive_resumable_download.py": {
+      "mode": "100644",
+      "blob": "a82511c5ea7d4a7e0a9b83e5e3a21e3628c25406",
+      "sha256": "dd096a393e70e2c8d967f1de9d2c157acdeede8b69ab7a77458421cc9594b2cb"
+    },
+    "market_data/archive_resume.py": {
+      "mode": "100644",
+      "blob": "cc82b8f392ba0ac48d7480840566da1d33156d68",
+      "sha256": "9b20d5543211d6853e815475f7c8247e227964c06994ac9efba8eea39ce1d72a"
+    },
+    "market_data/bybit.py": {
+      "mode": "100644",
+      "blob": "84f9e38f8b09b7699ae118429b8b732e1b61fb10",
+      "sha256": "ccf57d85e836a653a20db3228a67fa5cbebe8d222a4adf963f2c074a487ed61a"
+    },
+    "market_data/bybit_archive_audit.py": {
+      "mode": "100644",
+      "blob": "37945ff87630ca5687a734e0e24cbc0ef12b7d09",
+      "sha256": "d22eee17e84b913f50329f54fffd27b2400fe07f467ff330f27b3c6f00aa1581"
+    },
+    "market_data/bybit_archive_download.py": {
+      "mode": "100644",
+      "blob": "0005a1c80633c3c71ac49a767f9b0a807abbe582",
+      "sha256": "3599d7d3f58b7f717fb0d65720cd50ef9a2bc813c3e538597ba1124c2726fdb7"
+    },
+    "market_data/bybit_archive_plan.py": {
+      "mode": "100644",
+      "blob": "6a4e7327073406389b678a285e0f3b38913a603b",
+      "sha256": "808dfe1d914145ceffaae08cf3c486853055af36599d7445aa75cce001e246c0"
+    },
+    "market_data/capture_schema.sql": {
+      "mode": "100644",
+      "blob": "a7d941bace1bd3587222fac8442ba49dd09bc3ec",
+      "sha256": "81ed2eee67f5287f6760eca6e45930901395fa1a6685f993287dac413dfe1a7f"
+    },
+    "market_data/capture_store.py": {
+      "mode": "100644",
+      "blob": "0f25d4fad7f6b38c8eff1931510f492400cc49a1",
+      "sha256": "3e9d3a8d755ac61afc91c60f53bbae6670eb705cab847de33e52d9fa29b92a02"
+    },
+    "market_data/cli.py": {
+      "mode": "100644",
+      "blob": "96c6785d61bc8e0b9298418eb02f1c02970158ac",
+      "sha256": "0804d5ea95c359909c05e8bcf82eddbb53a44b86227f03d62d2d597e03764554"
+    },
+    "market_data/collector.py": {
+      "mode": "100644",
+      "blob": "bbb59d2c6c7d05da38f9ce17fd77d4d42d6c92b8",
+      "sha256": "93d01468e66fe488ffd268082a675596a32085acc3d1e73df060504ea138f938"
+    },
+    "market_data/data_capabilities.py": {
+      "mode": "100644",
+      "blob": "235ad7d37dded1c1ea969dbd7a40d49a9b27084e",
+      "sha256": "1a03d544d0c7ab3186955965291ae60abd506eec13130b19bac90f75698bcfca"
+    },
+    "market_data/footprint_state.py": {
+      "mode": "100644",
+      "blob": "5f0f6fe94133a0672f0f4b465396e6f4186ac79d",
+      "sha256": "a1b83afdf81513ce237fe2e9aad14ee1b836f786f40d79d0b8609163b9efe85d"
+    },
+    "market_data/gateway_query.py": {
+      "mode": "100644",
+      "blob": "cd54424df636ea7e31ccde8d256e65ff844d5090",
+      "sha256": "6218ebeefcbfb77b2f1ee40475666137f9682cb30e13a0e1a8ae4f98e67d6d3d"
+    },
+    "market_data/historical_capture.py": {
+      "mode": "100644",
+      "blob": "c2bb88b88ac9334a0e9a0a7eeab22ef4c27303e1",
+      "sha256": "51595ebf147aee19444d5d387bc77234ec7541be4b8472735d55b2d2b77b280b"
+    },
+    "market_data/history_api.py": {
+      "mode": "100644",
+      "blob": "d38210cc3b64a7a3e440a81508eb4b0f98331619",
+      "sha256": "fce3921ab21d4d50134fe8fdc1abcaa73bf6fa0bc9a3352742e7e6d3cafd151b"
+    },
+    "market_data/history_contract.py": {
+      "mode": "100644",
+      "blob": "94621b78f456a46da71b960d1f07fb4111be90b7",
+      "sha256": "c17c9348c92f1fbe66c7be9c004df1fb69a989774bc2d89f8e6b0559e33e2b7c"
+    },
+    "market_data/history_export.py": {
+      "mode": "100644",
+      "blob": "ce56073ad477b93d262e1826b2c29da0d7db46a5",
+      "sha256": "a87dbc404ffd387cc089b15b5ec1f87f97a6510c6e6a3a604ff9d9718c5e43b6"
+    },
+    "market_data/history_export_v11.py": {
+      "mode": "100644",
+      "blob": "9387a063d580ec7f0f15a880dce9da115fe39b2e",
+      "sha256": "6c8bffde29c5f8197beeb32f5bb3ee2271d0f4588639526b52d94f73c52480b2"
+    },
+    "market_data/history_export_v12.py": {
+      "mode": "100644",
+      "blob": "178f8b2f44f529c91dbf662753e3f89b349ef499",
+      "sha256": "8aaa99bc1fdb2bc93fb0ef70df7ce51b70947bc87a09ed9255a8f64a3cddd2bb"
+    },
+    "market_data/history_parallel.py": {
+      "mode": "100644",
+      "blob": "708bdbeb2916088a40c09fba6ecf95f622a7e5e1",
+      "sha256": "426786b722db1c6a964e19fe668ce4a43e92c46c94a314acc1ea2c2c6793487f"
+    },
+    "market_data/history_planning.py": {
+      "mode": "100644",
+      "blob": "23ba5997e3a00ec3784d6131edf4ae03b4582c81",
+      "sha256": "2647e87533b10b1ad2ff00b2ec74034c55493c5cb15b65141b1b1a0366b1e530"
+    },
+    "market_data/history_range_audit.py": {
+      "mode": "100644",
+      "blob": "2bbf6e28032a3640b4bf2ea353f669ff74ef9b30",
+      "sha256": "5f07c9993b67113bf441b1600395365a451117aee99a94444132bc1074a2b799"
+    },
+    "market_data/history_snapshot.py": {
+      "mode": "100644",
+      "blob": "0f5ed9022494ca9c6f16a4b6af0ce5e48207403b",
+      "sha256": "e9d537481d39bd92dc11a2216ccc10030676bb7d0ca17f789855bc3105f456ea"
+    },
+    "market_data/history_snapshot_v12.py": {
+      "mode": "100644",
+      "blob": "49bba50d5067c0659a4f2bd685dcd13e977a97b1",
+      "sha256": "d174dc313d66be2c07a885971a238ee1955284992642bbc959ee23226ced2eef"
+    },
+    "market_data/market_backfill.py": {
+      "mode": "100644",
+      "blob": "e9a055c02483a35325328ef9fa0d08291edbca74",
+      "sha256": "36aa515cbb19ecbf02b884a6b233210b6f4ed01dece175d20029583281ef8110"
+    },
+    "market_data/numeric_dto.py": {
+      "mode": "100644",
+      "blob": "0ece11763280bb943073e37dcc33ed759dc8f6f5",
+      "sha256": "f0a9725fdb73574647d7153ae9437d94a756068ba6f9b57beaf60d1b82553030"
+    },
+    "market_data/observation_materializer.py": {
+      "mode": "100644",
+      "blob": "493f6db54329d52679c80f4fda6d625260ab20f4",
+      "sha256": "8c3294b162f0101df47575b549d266189235b38fc333713adef5c1ec41a4c2fe"
+    },
+    "market_data/orderbook.py": {
+      "mode": "100644",
+      "blob": "e122b18b31ebfc1f08a1e9581cd4d33f1ec4d1f4",
+      "sha256": "668f8cd1fbfac4429c53aaa3e3215cefd4e7939ab209cb8dc8906a574ad8df09"
+    },
+    "market_data/orderbook_stream.py": {
+      "mode": "100644",
+      "blob": "eb8497cbf31908ab0c0441de63be7a75f9f6919c",
+      "sha256": "4f6ed8b1e58b2ebf473287d43ff715d51bea8e18730f2bee94a0f8fa690d5258"
+    },
+    "market_data/paper_inputs.py": {
+      "mode": "100644",
+      "blob": "270f1447fc3bbab026f09fc202fefb273575a8f8",
+      "sha256": "08361e7c4ca2d60977807a68f8828aaa2b102750f0cb3764cdfb0e5f0c46d8ab"
+    },
+    "market_data/provenance.py": {
+      "mode": "100644",
+      "blob": "f54f725bfed4daf09b3563e958612b543725f70e",
+      "sha256": "5305da8d5c712756022123512d4e90c39ba6cbdc00bbf792a910c036e3345749"
+    },
+    "market_data/provenance_gateway.py": {
+      "mode": "100644",
+      "blob": "bb07e479f9c50a895032e5df6d17e34c97c99ab0",
+      "sha256": "9cdd43a86b49dd07882ae913f11b16b435f489091173b0861c0891b61c3f59e5"
+    },
+    "market_data/public_trades.py": {
+      "mode": "100644",
+      "blob": "fc7c25853f0fdb005c7a6b6f97847074ecc05856",
+      "sha256": "513e028ecf10e95eff6bf9223c6cd6bf76715aa144db7bee6de72a2779502216"
+    },
+    "market_data/raw_capture.py": {
+      "mode": "100644",
+      "blob": "3307cf5b6e83587650e3422b35f80fcbce5259e0",
+      "sha256": "3f1430206f677c9485a62e60e389908de4b27b68e39e865885b84a804a3b28a1"
+    },
+    "market_data/schema.sql": {
+      "mode": "100644",
+      "blob": "80aa43d5d53309a505268c1e11df7c267abc06af",
+      "sha256": "8ce552a00a805ce32be6592ae1983b568c0529693b157f8df58cd0925d65e495"
+    },
+    "market_data/segment_wal.py": {
+      "mode": "100644",
+      "blob": "e6df641120952b3e4a398299db16022e65546a78",
+      "sha256": "22bb9b0c1fcfd63e1b7e95f09f51cc7df8098687c0955cdcba9233da86c4baa6"
+    },
+    "market_data/selection_rotation.py": {
+      "mode": "100644",
+      "blob": "55d8ca853d2a5bb6d5c33e2eb13e977ae3b9698d",
+      "sha256": "59ceaa9cb3331b94d68eb20abb9d1c793357f0ca2edfb08ab641a6db3294e078"
+    },
+    "market_data/sqlite_history.py": {
+      "mode": "100644",
+      "blob": "412531ad99d47f0ac89acde568fed53abe6f7816",
+      "sha256": "9d9e8e3442a659599e1d37f80a94e20a4f906cf106a0f8435e862531bb0195d0"
+    },
+    "market_data/synthetic_collector.py": {
+      "mode": "100644",
+      "blob": "36a85b6007a74ebb1b66d91bae3322ac2b20c32f",
+      "sha256": "bd62494ebbc55a63b995673104c5860067ad2db1d4896e97d0e212c4beec86f9"
+    },
+    "market_data/ticker_acquisition.py": {
+      "mode": "100644",
+      "blob": "95b6838dd2c13478a968cd4d78be6c82df843896",
+      "sha256": "42777df3546a26a9c1ede15a1dbc5695b3cf06893ae2da3b381fc261356724bd"
+    },
+    "market_data/timestamp_codec.py": {
+      "mode": "100644",
+      "blob": "8ff1a39a067c9a3caa9a068125a585ee508eb7b0",
+      "sha256": "9663b635878d57d1d738e4d301645626a1cc7862b626be53b3e7a123a2d60a98"
+    },
+    "market_data/write_queue.py": {
+      "mode": "100644",
+      "blob": "d916ad9b123b5e2304ce2ef9f8df6f18a156295b",
+      "sha256": "13a7e695d52ee6c8603866e24b15edfd65777584e8c03ba855e7d56888106700"
+    }
+  },
+  "MathQ": "9e6acbd9e12a91189f57234828e31640983af553",
+  "helper9cec": "9cec6e527a0fc80d845452e1bdbdd50962625ecf7bbb5c1e931eeb0f47e63e72",
+  "authority": false,
+  "release": "NO_GO"
+}

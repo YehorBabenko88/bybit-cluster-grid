@@ -1,0 +1,21 @@
+{
+  "source_revision": "204897c9f3f6ccaf33ae6d02415b97d0049d7e1e",
+  "path": "grid/microstructure.py",
+  "blob": "092b5e9a913a44e479cbe7ca7dabd6c635276d17",
+  "migrated": [
+    "TICKER_FIELDS",
+    "_ticker_field_observations",
+    "run_batch ticker delta/reconnect lifecycle"
+  ],
+  "excluded": [
+    "MicroEventStorage/insert_event writer",
+    "L2 analytics/wall/velocity",
+    "topic watchdog engine",
+    "unbounded mixed transport"
+  ],
+  "contract": "market_data.ticker-state.v1",
+  "raw_schema": "market_data.raw-capture-observation.v2",
+  "numeric_owner": "market_math.paper_input_numeric_integrity",
+  "nonfunding_numeric_status": "UNVALIDATED",
+  "native_status": "NOT_RUN"
+}

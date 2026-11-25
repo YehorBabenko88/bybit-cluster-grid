@@ -1,0 +1,189 @@
+{
+  "base": "3dfb8232c4bd2cb2140edc9150fd51075b37bc00",
+  "source_blob": "fcf102930c199d651923978ec8e802f369a45c60",
+  "functions": [
+    {
+      "name": "test_owner_declaration_and_digest_are_not_completeness_attestation",
+      "assert_count": 3,
+      "assert_tree_sha256": "1b95954945174aba87f595c99f8594d11efd2cd85cfb122fddb59a36d5fbc49f",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "PURE_CASES_PASS",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_bad_attestations_fail_closed",
+      "assert_count": 1,
+      "assert_tree_sha256": "42a028abbc6f3803ac988fae58cbd17da69c48b69f1afaa51b107f2131a13f88",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "PURE_CASES_PASS",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_restart_has_new_epoch",
+      "assert_count": 1,
+      "assert_tree_sha256": "f49466fd1265d9bccdff429d829bd23bc800aaab99febd59b0f315d602512a79",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "PURE_CASES_PASS",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_gateway_integrity_gaps_stale_and_restart",
+      "assert_count": 5,
+      "assert_tree_sha256": "921fb25d67d05f7e8acd21f55fca3b944b5bd1958a106e02109afd199f5bc89d",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "PURE_CASES_PASS",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_research_handoff_requires_trust_and_never_trades",
+      "assert_count": 3,
+      "assert_tree_sha256": "78591f2e0bdd96e809733f6eb649edb8c1da336b2d752e6d4c9d2184476de959",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "terminan",
+        "unified_system"
+      ],
+      "local_evidence": "OWNERSHIP_PENDING_NOT_RUN",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_handoff_adversarial",
+      "assert_count": 1,
+      "assert_tree_sha256": "6f04b644084fdbfb1a4a4830696d3ec4cebdd30a992d82e7c57a7ef86c6c51f2",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "terminan",
+        "unified_system"
+      ],
+      "local_evidence": "OWNERSHIP_PENDING_NOT_RUN",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_event_time_ohlc_duplicate_and_late_trades",
+      "assert_count": 5,
+      "assert_tree_sha256": "c4c238e4cbb847ad2f19b470fe7097a7812d0735221518e1a9d47945cec062bc",
+      "assertions_unchanged": true,
+      "function_changed": true,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "PURE_CASES_PASS",
+      "migration": "RETARGETED_CANONICAL_FOOTPRINT_AND_EXACT_TRADE"
+    },
+    {
+      "name": "test_cancellation_during_snapshot_write_propagates",
+      "assert_count": 0,
+      "assert_tree_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "EXISTING_ASYNC_CASE_NOT_RUN_NO_LOOP_CREATED",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_disposable_pg_immutability_and_idempotency",
+      "assert_count": 3,
+      "assert_tree_sha256": "d6e6f0042d8f923ea5450d446a5e37e6baf6546865a09ad317089b55fde9b231",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "POSTGRESQL_NOT_RUN",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_market_integrity_fail_closed",
+      "assert_count": 1,
+      "assert_tree_sha256": "ef77147d45889d0c89e9b104d27d954ad593a7bacaa90a0752b3cd2b39f879ca",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "PURE_CASES_PASS",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_http_absolute_deadline_closes_slow_header_or_body",
+      "assert_count": 1,
+      "assert_tree_sha256": "581fe16c0444ce4d0c32a9bba17f64148f608d00a708edafc0005128906384f6",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "HTTP_NOT_RUN",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_real_strattester_producer_export_compatibility",
+      "assert_count": 3,
+      "assert_tree_sha256": "f86227ddc502d091506c53fa04faaaed432ab1576868bbe92fa6f2c3122c8872",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "terminan",
+        "unified_system"
+      ],
+      "local_evidence": "OWNERSHIP_PENDING_NOT_RUN",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_http_invalid_query_does_not_echo_or_log_secret",
+      "assert_count": 3,
+      "assert_tree_sha256": "4306ef6f68e300c0f24eac81db3831de2df8e382305724e76cef9dd8a8f0b35f",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "HTTP_NOT_RUN",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_additive_capabilities_do_not_claim_source_readiness",
+      "assert_count": 4,
+      "assert_tree_sha256": "cb462e1585a60e30310692a6fa2705468f293fba842d926bb8b9fcd96267f0dc",
+      "assertions_unchanged": true,
+      "function_changed": false,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "PURE_CASES_PASS",
+      "migration": "ALREADY_CANONICAL_OR_OWNER_PENDING_UNCHANGED"
+    },
+    {
+      "name": "test_actual_builder_decimal_tick_rounding_retains_integrity",
+      "assert_count": 1,
+      "assert_tree_sha256": "b94ffddeb5e7405de5c7817968b0dc48365726cf3c089545d970f954bb9fbdbc",
+      "assertions_unchanged": true,
+      "function_changed": true,
+      "owners": [
+        "market_data"
+      ],
+      "local_evidence": "PURE_CASES_PASS",
+      "migration": "RETARGETED_CANONICAL_FOOTPRINT_AND_EXACT_TRADE"
+    }
+  ]
+}

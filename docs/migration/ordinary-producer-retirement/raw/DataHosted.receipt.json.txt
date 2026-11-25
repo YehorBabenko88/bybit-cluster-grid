@@ -1,0 +1,102 @@
+{
+  "schema": "independent.data71cd.exact-head.hosted-qualification.v1",
+  "head": "71cd99876107a7c1a378c32077dba15cf1bdc4a0",
+  "status": "ACCEPTED_SCOPED_CURRENT14_AND_FOUR_OFFICIAL_JSON_NOT_GLOBAL_RELEASE",
+  "requiredJobs": {
+    "total": 14,
+    "success": 14,
+    "failure": 0,
+    "cancelled": 0,
+    "pending": 0,
+    "attempt": 1
+  },
+  "runs": [
+    {
+      "id": 45405333249,
+      "event": "pull_request",
+      "name": "tests"
+    },
+    {
+      "id": 45405333160,
+      "event": "pull_request",
+      "name": "Canonical Market Data pure source and package"
+    }
+  ],
+  "actualCheckout": {
+    "Data": "EXACT71cd_ALL14_FULLSHA_LOGGED",
+    "Math": "EXACT9e6_ALL14_FULLSHA_LOGGED",
+    "frozenTerm": "RETAINEDfc0_NOTCURRENT_TERMQUALIFICATION",
+    "syntheticPRMerge": "8bdf5650fc05ba81d6674ed722e0d7bb67707c8d",
+    "headTree": "dce6ad1e185aa9474947b41ec1077237e66d2364",
+    "mergeTree": "dce6ad1e185aa9474947b41ec1077237e66d2364",
+    "treeEqual": true,
+    "actualSyntheticMergeCheckout": false,
+    "pushRuns": "NONE; workflowpushrestrictedmain; observedrunsPR"
+  },
+  "counts": {
+    "canonical": {
+      "cells": 4,
+      "passedEach": 902,
+      "skippedEach": 0,
+      "errorsEach": 0,
+      "officialJSONHeadAndRosterExact": true
+    },
+    "frozen": {
+      "cells": 4,
+      "passedEach": 14,
+      "skippedEach": 0
+    },
+    "general": {
+      "cells": 6,
+      "Linux3": {
+        "passedEach": 1420,
+        "skippedEach": 2
+      },
+      "Windows3": {
+        "passedEach": 1421,
+        "skippedEach": 1
+      },
+      "scope": "GENERAL_SUCCESS_WITH_EXPLICIT_SKIPS; notzero-skipmandatoryproof"
+    }
+  },
+  "officialArtifacts": {
+    "ZIPs": 4,
+    "JSONMembers": 8,
+    "APIHeadSizeDigestAndActualZIPVerified": true,
+    "guardedParser311312": true,
+    "parserOutputsByteIdentical": true,
+    "strict4ContentClosure": true,
+    "all52ReportedRawBindingsExactOwnNew49AndMathQ3": true,
+    "reportedBuildSHA256BoundActualLogs": true,
+    "actualHostWheelContainers": 0,
+    "actualHostFull576RawSourceSnapshots": 0,
+    "limits": "OfficialJSONreports raw52/package/RECORD flags; noactual hostedwheelZIP orfullsourcebytes contained"
+  },
+  "fixedParentFailures": {
+    "parent": "7999e124e7d46c633af174bf89a314bea25517e6",
+    "negativeReceipt": "C:/Users/Administrator/Documents/Codex/2026-11-19/files-pasted-by-the-user-unified/outputs/hosted-data7999-1795526708936/receipt-negative.json",
+    "negativeSHA256": "3bf50955d463c47e4389c9a2d1de9dfcdd24ec5d4479a6b02c6f16a7cb9cb8ba",
+    "preserved": true,
+    "generalMissingHelperImport": "Freshgeneral6successful; no7collectionerrors",
+    "Windows18CustodyFailures": "FreshWindowscanonicalboth902pass"
+  },
+  "effects": {
+    "rerun": 0,
+    "dispatch": 0,
+    "sourceEdits": 0,
+    "publicationByObserver": 0,
+    "localProductTests": 0,
+    "localBuild": 0,
+    "SQL": 0,
+    "native": 0
+  },
+  "globalRelease": "NO_GO",
+  "sourceAuthentication": "NOT_EVALUATED",
+  "executionAuthority": false,
+  "tradingAuthorized": false,
+  "counter": {
+    "accepted": 44,
+    "remaining": 503,
+    "deduction": 0
+  }
+}

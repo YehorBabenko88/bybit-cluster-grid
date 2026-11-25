@@ -1,0 +1,5 @@
+# Strict retained historical consumer gate
+
+Followup to106: a bare pytest exit0 could mean14 skips/xfails or a deselected obligation. The runner now loads the exact reviewed14-nodeid roster and requires each node to emit one passed setup, call and teardown report. It refuses skipped/xfail/xpass outcomes, collection skips/errors, deselection, missing/unexpected/duplicate nodes and missing/duplicate phase reports. Both the pytest exit code and explicit guard acceptance must pass. Original test assertions and selector are unchanged.
+
+Validation: actual installed Term115/Math212 consumer14PASS; one positive and11 controlled report-level negatives PASS. Actual pytest controls show original106 returns0 for allskip/allxfail/allxpass/deselection, while this followup returns1 for each. Controlled mutations are in-memory pytest plugins; original test files are unchanged. Source runtime remains identical104. No local native/provider/PostgreSQL/service/process-kill tests. The full547 legacy obligation migration remains NO_GO.
