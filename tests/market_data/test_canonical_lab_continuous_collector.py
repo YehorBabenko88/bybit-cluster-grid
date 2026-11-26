@@ -153,7 +153,7 @@ class Boundaries(unittest.TestCase):
     def test_readonly_status_not_sufficient_to_reconcile_pending(self):
         c,t,w,j,a=self.make(journal=Journal(pending=pending()))
         asyncio.run(c.begin())
-        with self.assertRaisesRegex(CollectorRejected,"E_NATIVE_WRITER_NOT_ADMITTED"):
+        with self.assertRaisesRegex(CollectorRejected,"RECOVERY_REQUIRES_FRESH_ROOT_COHORT"):
             asyncio.run(c.reconcile_after_restart(fresh_authority=Authority(),fresh_grant=None))
         self.assertEqual(c.pending["content_id"],"c"*64)
         self.assertEqual(w.calls,0)
@@ -183,10 +183,31 @@ class Boundaries(unittest.TestCase):
             asyncio.run(c.begin())
         self.assertEqual(w.calls,0)
 
+    def test_in_place_rebind_is_rejected_before_touching_old_backend(self):
+        j=Journal(pending=pending())
+        c,t,w,j,a=self.make(journal=j)
+        asyncio.run(c.begin())
+        calls_before=list(j.calls)
+        with self.assertRaisesRegex(CollectorRejected,"RECOVERY_REQUIRES_FRESH_ROOT_COHORT"):
+            asyncio.run(c.reconcile_after_restart(fresh_authority=Authority(),fresh_grant=object()))
+        self.assertEqual(j.calls,calls_before)
+        self.assertIs(c.journal,j)
+        self.assertIs(c.authority,a)
+        self.assertEqual(w.calls,0)
+
+    def test_new_instance_recovery_requires_true_extinction_types(self):
+        c,t,w,j,a=self.make(journal=Journal(pending=pending()))
+        asyncio.run(c.begin())
+        with self.assertRaisesRegex(CollectorRejected,"ROOT_EXTINCTION_WITNESS_NOT_AVAILABLE"):
+            asyncio.run(c.recover_durable_pending(
+                previous_generation=1,previous_epoch="a"*64,
+                old_backend_extinct=True,old_process_extinct=True))
+        self.assertIsNotNone(c.pending)
+        self.assertNotIn("clear",j.calls)
     def test_restart_without_trusted_e_capability_never_clears_pending(self):
         c,t,w,j,a=self.make(journal=Journal(pending=pending()))
         asyncio.run(c.begin())
-        with self.assertRaisesRegex(CollectorRejected,"E_ASYNC_AUTHORITY_REQUIRED"):
+        with self.assertRaisesRegex(CollectorRejected,"RECOVERY_REQUIRES_FRESH_ROOT_COHORT"):
             asyncio.run(c.reconcile_after_restart(fresh_authority=None,fresh_grant=None))
         self.assertIsNotNone(c.pending)
         self.assertNotIn("clear",j.calls)
