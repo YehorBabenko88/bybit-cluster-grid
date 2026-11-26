@@ -78,9 +78,10 @@ class CanonicalLabMinuteWriter:
               "FENCE_NATIVE_ADMISSION_REQUIRED")
         _deny(getattr(native_admission,"lab_only",None) is True,
               "FENCE_NATIVE_LAB_SCOPE_REQUIRED")
-        # A caller-provided boolean/duck-typed object is not native authority.
-        # This contract accepts only C/E's private trusted LAB admission type,
-        # once that owner supplies it; until then the runtime remains NO_GO.
+        # LAB-only test protocol, NOT native authorization: a caller can
+        # forge these flags. Root/E must separately enforce a genuine lease
+        # and old-process quiescence; C's SQL fence is the write boundary.
+        # No production service may treat this shape check as permission.
         _deny(getattr(native_admission,"trusted_root_authority",None) is True,
               "FENCE_TRUSTED_ROOT_AUTHORITY_REQUIRED")
         self._connection=connection
