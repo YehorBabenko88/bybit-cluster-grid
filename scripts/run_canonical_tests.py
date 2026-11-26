@@ -5,7 +5,7 @@ CACHE_API=runpy.run_path(str(pathlib.Path(__file__).with_name('sdk_cache_custody
 
 def verify(site,bindings,custody):
     CACHE_API['verify_sdk_cache'](custody)
-    owners={'market_data':'market_data','market_math':'unified-math-kernels','market_compute_api':'unified-math-kernels','history_statistics':'unified-math-kernels'}
+    owners={'market_data':'market-data','market_data_v2':'market-data','grid':'market-data','market_math':'unified-math-kernels','market_compute_api':'unified-math-kernels','history_statistics':'unified-math-kernels'}
     for relative,digest in bindings.items():
         path=site/relative
         if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=digest:
@@ -16,14 +16,21 @@ def verify(site,bindings,custody):
         if len(members)!=1 or pathlib.Path(distribution.locate_file(members[0])).resolve(strict=True)!=path.resolve(strict=True):
             raise AssertionError('wheel file not exactly located by named distribution: '+relative)
     for name,module in tuple(sys.modules.items()):
-        if name!='market_data' and not name.startswith('market_data.') and name not in owners:continue
+        if (not name.startswith(('market_data.','market_data_v2.','grid.'))
+                and name not in owners):continue
+        if name=='grid' or name.startswith('grid.'):
+            allowed={'grid','grid.canonical_lab_continuous_collector',
+                     'grid.c_lab_journal_adapter','grid.canonical_lab_fenced_writer',
+                     'grid.c_async_fenced_writer'}
+            if name not in allowed:
+                raise AssertionError('unapproved historical Grid runtime imported: '+name)
         origin=pathlib.Path(module.__file__).resolve(strict=True)
         if not origin.is_relative_to(site):raise AssertionError('canonical module source fallback: '+name)
         CACHE_API['verify_module_cache'](custody,module,origin)
         relative=origin.relative_to(site).as_posix()
         if relative not in bindings or module.__spec__ is None or pathlib.Path(module.__spec__.origin).resolve(strict=True)!=origin:
             raise AssertionError('unapproved canonical module origin: '+name)
-    for retired in ('grid','strattester','meta_analyse','market_profile_math'):
+    for retired in ('strattester','meta_analyse','market_profile_math'):
         if importlib.util.find_spec(retired) is not None:raise AssertionError('retired package fallback visible: '+retired)
 
 def main(argv=None):
@@ -39,7 +46,12 @@ def main(argv=None):
     site=pathlib.Path(args.site).resolve(strict=True);output=pathlib.Path(args.evidence).absolute()
     if output.exists() or output.resolve().is_relative_to(root):raise ValueError('fresh external evidence required')
     bindings=json.loads(pathlib.Path(args.bindings).read_text())['bindings']
-    if len(bindings)!=52:raise ValueError('exact49Data+3Math wheel bindings required')
+    if len(bindings)!=60:raise ValueError('exact49Data+3v2+5Grid+3Math wheel bindings required')
+    grid={name for name in bindings if name.startswith('grid/')}
+    if grid != {'grid/__init__.py','grid/canonical_lab_continuous_collector.py',
+                'grid/c_lab_journal_adapter.py','grid/canonical_lab_fenced_writer.py',
+                'grid/c_async_fenced_writer.py'}:
+        raise ValueError('B9e0 Grid LAB source closure mismatch')
     Guard=runpy.run_path(str(root/'scripts/canonical_test_gate.py'))['StrictTestRoster']
     sys.path[:0]=[str(site),str(dependencies),str(root/'scripts'),str(root/'tests/market_data'),str(root/'tests/marketdata')]
     os.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD']='1'
