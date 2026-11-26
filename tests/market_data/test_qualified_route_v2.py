@@ -142,7 +142,32 @@ class QualifiedReadRouteTests(unittest.TestCase):
         with patch.dict(os.environ,{},clear=True):
             with patch("market_data_v2.read_api.ThreadingHTTPServer",side_effect=AssertionError("must not bind")):
                 with self.assertRaisesRegex(RuntimeError,"managed Root admission"):
-                    route.main(startup_admission=None)
+                    route.main(["serve"],startup_admission=None)
+
+    def test_root_launcher_abi_explicit_serve_and_current_source(self):
+        import os
+        import market_data_v2.read_api as route
+        vars={
+            "UNIFIED_MODULE_ID":"market_data",
+            "UNIFIED_MODULE_VERSION":"0.2.0-candidate",
+            "UNIFIED_RELEASE_ID":"synthetic-release",
+            "UNIFIED_INSTANCE_TOKEN":"b"*64,
+            "MARKET_DATA_PORT":"18888",
+        }
+        admission=Admission((True,))
+        fake_server=SimpleNamespace(serve_forever=lambda:None,server_close=lambda:None)
+        with patch.dict(os.environ,vars,clear=True):
+            with patch("market_data_v2.read_api.ThreadingHTTPServer",return_value=fake_server) as factory:
+                result=route.main(["serve"],startup_admission=admission)
+                self.assertIsNone(result)
+                self.assertEqual(factory.call_args.args[0],("127.0.0.1",18888))
+                self.assertIs(factory.call_args.args[1],Handler)
+                self.assertIs(fake_server.startup_admission,admission)
+                self.assertEqual(fake_server.module_identity["instance_token"],"b"*64)
+                self.assertEqual(admission.calls,1)
+        with patch("market_data_v2.read_api.ThreadingHTTPServer",side_effect=AssertionError("invalid args must not bind")):
+            with self.assertRaisesRegex(ValueError,"ROOT_MANAGED_V2_SERVE_ARGUMENTS_REQUIRED"):
+                route.main(None,startup_admission=admission)
 
     def test_no_real_network_transport_or_writer_in_route_source(self):
         import inspect
