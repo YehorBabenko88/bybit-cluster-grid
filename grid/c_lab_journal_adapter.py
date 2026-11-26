@@ -5,11 +5,12 @@ called exclusively through the already owner-validated C object and identity.
 This adapter cannot admit native writes; it is inert until Root/E binds a true
 revocable owner authority to its lifecycle (not available in Round10).
 """
+import asyncio
 from inspect import isawaitable
 from .canonical_lab_continuous_collector import CollectorRejected,_identity,_need
 
 class COwnedLabJournal:
-    def __init__(self, *, c_module, pg, identity, generation, backend_pid, stream_id):
+    def __init__(self, *, c_module, pg, identity, generation, backend_pid, stream_id, owner_executor):
         required=("read_lab_pending","read_lab_checkpoint","append_lab_pending",
                   "read_committed_lab_minute","commit_verified_lab_cursor",
                   "clear_verified_lab_pending","verify_existing_lab_checkpoint")
@@ -19,18 +20,29 @@ class COwnedLabJournal:
               and type(backend_pid) is int and backend_pid>1,
               "C_OWNER_GENERATION_BACKEND_REQUIRED")
         _need(type(stream_id) is str and stream_id,"C_STREAM_REQUIRED")
+        _need(callable(getattr(owner_executor,"run_c",None)), "ROOT_BOUNDED_C_EXECUTOR_REQUIRED")
         self.c=c_module;self.pg=pg;self.identity=identity
         self.generation=generation;self.backend_pid=backend_pid;self.stream_id=stream_id
+        self.owner_executor=owner_executor
+        self._serialization=asyncio.Lock()
+        self._uncertain=False
 
     async def _call(self,method,**values):
-        # Sync PG commands are owned by C, not B. No async loop blocking
-        # should occur in service mode: Root must supply a dedicated executor
-        # and an asynchronously adapted C facade before native use.
-        fn=getattr(self.c,method)
-        result=fn(self.pg,**values)
-        if isawaitable(result):
-            raise CollectorRejected("C_SYNC_OWNER_FACADE_REQUIRED")
-        return result
+        """Use ONLY Root-owned bounded executor, never block event loop.
+
+        Cancellation, timeout or unknown completion permanently poisons this
+        adapter. Only a fresh C/E backend can reconcile durable pending.
+        """
+        _need(not self._uncertain,"C_OWNER_SESSION_UNCERTAIN")
+        async with self._serialization:
+            _need(not self._uncertain,"C_OWNER_SESSION_UNCERTAIN")
+            try:
+                result=self.owner_executor.run_c(method,getattr(self.c,method),self.pg,**values)
+                _need(isawaitable(result),"ROOT_ASYNC_C_EXECUTOR_REQUIRED")
+                return await result
+            except BaseException:
+                self._uncertain=True
+                raise
 
     def _scope(self):
         return dict(identity=self.identity,generation=self.generation,
@@ -110,6 +122,9 @@ class COwnedLabJournal:
 
     async def clear_pending(self,minute):
         # This C function itself rechecks committed checkpoint/active owner.
+        evidence=await self.exact_existing_checkpoint(minute)
+        _need(evidence["state"]=="EXACT_ALREADY_ACKNOWLEDGED",
+              "C_PENDING_CLEAR_REQUIRES_EXACT_CHECKPOINT")
         result=await self._call("clear_verified_lab_pending",**self._scope(),
                                 stream_id=self.stream_id)
         _need(result is True,"C_PENDING_CLEAR_UNVERIFIED")
