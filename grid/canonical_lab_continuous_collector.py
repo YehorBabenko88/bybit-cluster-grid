@@ -262,8 +262,8 @@ class ContinuousLabCollector:
         The E/Root-owned types are checked strictly. Until E exposes both
         proof classes, recovery is disabled rather than trusting duck typing.
         """
-        from unified_system.lab_writer_authority import LabWriterGrant
         try:
+            from unified_system.lab_writer_authority import LabWriterGrant
             from unified_system.lab_writer_revoke import RootBackendExtinction, RootProcessExtinction
         except ImportError as exc:
             raise CollectorRejected("ROOT_EXTINCTION_WITNESS_NOT_AVAILABLE") from exc
