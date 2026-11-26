@@ -1,0 +1,41 @@
+name: GPT B qualified provenance read contract (inert)
+on:
+  pull_request:
+  push:
+    branches: ['gpt/b-qualified-provenance-read-v1-20261126']
+permissions:
+  contents: read
+jobs:
+  read-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12', '3.13']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/math
+          ref: 9e6acbd9e12a91189f57234828e31640983af553
+          path: .source/math
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Confirm immutable Math checkout
+        shell: python
+        run: |
+          import pathlib, subprocess
+          root=pathlib.Path('.source/math')
+          assert subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip() == '9e6acbd9e12a91189f57234828e31640983af553'
+      - name: Install exact Math and pytest without credentials
+        run: |
+          python -m pip install --no-deps ./.source/math
+          python -m pip install pytest==8.3.5
+      - name: Verify 12 independent positive/negative cases
+        run: python -m pytest -v --strict-markers -p no:cacheprovider tests/market_data/test_qualified_read_contract.py
