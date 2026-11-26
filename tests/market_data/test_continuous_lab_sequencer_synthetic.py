@@ -124,16 +124,16 @@ class Tests(unittest.TestCase):
                          ("unified_system.lab_writer_authority",self.oldm)):
             if old is None:sys.modules.pop(name,None)
             else:sys.modules[name]=old
-    def _authority(self,epoch="a"*64):
+    def _authority(self,epoch="a"*64,generation=1):
         s=self.S("unified.lab-root-writer-authority.v1",
-                 "ISOLATED_LAB_ONLY",epoch,1,
+                 "ISOLATED_LAB_ONLY",epoch,generation,
                  "READ_ONLY_REVALIDATED_NOT_NATIVE")
         return types.SimpleNamespace(check=lambda: self._check(s))
     async def _check(self,status):return status
-    def collector(self,epoch="a"*64):
+    def collector(self,epoch="a"*64,generation=1):
         return ContinuousLabCollector(transport=self.transport,
             writer_factory=self.factory,journal=self.j,
-            authority=self._authority(epoch),
+            authority=self._authority(epoch,generation),
             writer_grant=self.Grant(epoch))
     def test_one_minute_commit_and_dedup(self):
         async def run():
@@ -165,7 +165,7 @@ class Tests(unittest.TestCase):
         asyncio.run(run())
     def test_short_backfill_leaves_tail_and_retry(self):
         async def run():
-            c=self.collector(max_retry=2) if False else self.collector()
+            c=self.collector()
             await c.begin()
             await c.deliver(record(BASE),content_id=cid(1))
             await c.deliver(record(BASE+180000),content_id=cid(4))
@@ -186,10 +186,10 @@ class Tests(unittest.TestCase):
             self.assertEqual(c.state,"HALTED")
             self.assertIsNotNone(self.j.outstanding)
             self.factory.mode=None
-            fresh=self.collector(epoch="b"*64)
+            fresh=self.collector(epoch="b"*64,generation=2)
             self.assertEqual(await fresh.begin(),"RECOVERY_REQUIRED")
             self.assertEqual(await fresh.reconcile_after_restart(
-                fresh_authority=self._authority("b"*64),
+                fresh_authority=self._authority("b"*64,2),
                 fresh_grant=self.Grant("b"*64)),"RECOVERED_BY_EXACT_ROW")
             self.assertEqual(self.factory.calls,1)
             self.assertIsNone(self.j.outstanding)
