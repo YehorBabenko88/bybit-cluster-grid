@@ -115,8 +115,10 @@ class ContinuousLabCollector:
         self._lock=asyncio.Lock()
         self._journal_generation=None
         self._journal_backend_pid=None
+        self._stop_requested=False
 
     async def _guard(self,*,write):
+        _need(not self._stop_requested,"COLLECTOR_STOP_LATCHED")
         try:
             status=await _await(self.authority.check())
             from unified_system.lab_writer_authority import LabAuthorityStatus
@@ -141,6 +143,7 @@ class ContinuousLabCollector:
                       and grant_status is self.writer_grant
                       and grant_status.epoch==self._epoch,
                       "E_NATIVE_WRITER_NOT_ADMITTED")
+            _need(not self._stop_requested,"COLLECTOR_STOP_LATCHED")
             return status
         except asyncio.CancelledError:
             self.state="HALTED";self.last_error="OWNER_CANCELLED"
@@ -177,7 +180,11 @@ class ContinuousLabCollector:
                 raise
 
     def stop(self):
-        self.state="HALTED" if self.pending is not None or self.tail is not None else "STOPPED"
+        # Immediate local fail-closed latch, even if one executor SQL operation
+        # is in flight. Physical PG/OS/Consul revocation remains E/C-owned.
+        self._stop_requested=True
+        self.state="HALTED"
+        self.last_error="COLLECTOR_STOP_REQUESTED"
 
     async def _commit(self,minute):
         self.pending=minute
@@ -216,6 +223,7 @@ class ContinuousLabCollector:
             self.state="HALTED"
             if self.last_error is None:self.last_error="WRITE_OR_COMMIT_UNCERTAIN"
             raise
+        _need(not self._stop_requested,"COLLECTOR_STOP_LATCHED")
         self.pending=None;self.state="READY";self.attempts=0
         return "COMMITTED"
 
@@ -283,6 +291,7 @@ class ContinuousLabCollector:
             if evidence["state"]=="EXACT_ALREADY_ACKNOWLEDGED":
                 await self._guard(write=True)
                 await _await(self.journal.clear_pending(minute))
+                _need(not self._stop_requested,"COLLECTOR_STOP_LATCHED")
                 self.pending=None
                 self.state="READY"
                 return "CURSOR_ALREADY_ACKNOWLEDGED"
@@ -301,6 +310,7 @@ class ContinuousLabCollector:
                   "CURSOR_NOT_VERIFIED")
             await self._guard(write=True)
             await _await(self.journal.clear_pending(minute))
+            _need(not self._stop_requested,"COLLECTOR_STOP_LATCHED")
             self.pending=None
             self.state="READY"
             return "RECOVERED_BY_EXACT_ROW"
