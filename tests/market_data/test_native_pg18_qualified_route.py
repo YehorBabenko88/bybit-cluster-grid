@@ -24,7 +24,6 @@ from unittest.mock import patch
 from market_data.provenance import minute_record, producer, digest, canonical
 from market_data_v2.read_api import Handler, ROUTE, qualified_snapshot
 
-GRID_SHA="f57781a947af138a2099bebe553b89c3c5ee726e"
 C_SHA="dcedaa870b5b8de566ff7bfa03182e3a43d19db5"
 MATH_SHA="9e6acbd9e12a91189f57234828e31640983af553"
 _SHA40=re.compile(r"[0-9a-f]{40}\Z")
@@ -42,7 +41,11 @@ class CurrentAdmission:
 
 
 def require_owned_sources():
-    expected={"GRID_SOURCE_ROOT":GRID_SHA,"LAB_C_ROOT":C_SHA,"LAB_MATH_ROOT":MATH_SHA}
+    grid_sha=os.environ.get("LAB_GRID_SHA")
+    if not grid_sha or not re.fullmatch(r"[0-9a-f]{40}",grid_sha):
+        raise RuntimeError("NATIVE_PG_GRID_SHA_MISSING")
+    expected={"GRID_SOURCE_ROOT":grid_sha,"LAB_C_ROOT":C_SHA,
+              "LAB_MATH_REPO":MATH_SHA}
     for variable,sha in expected.items():
         directory=os.environ.get(variable)
         if not directory:
