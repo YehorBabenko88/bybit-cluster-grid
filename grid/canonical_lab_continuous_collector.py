@@ -157,8 +157,11 @@ class ContinuousLabCollector:
             self._journal_generation=getattr(self.journal,'generation',None)
             self._journal_backend_pid=getattr(self.journal,'backend_pid',None)
             if self._journal_generation is not None:
-                _need(self._journal_generation==status.generation,
-                      'JOURNAL_GENERATION_OWNER_MISMATCH')
+                _need(type(self._journal_generation) is int
+                      and self._journal_generation==status.generation
+                      and type(self._journal_backend_pid) is int
+                      and self._journal_backend_pid>1,
+                      'JOURNAL_OWNER_BACKEND_MISMATCH')
             try:
                 self.pending=await _await(self.journal.pending())
                 if self.pending is not None:
