@@ -8,6 +8,8 @@ After any unknown outcome the wrapper is permanently unusable.
 """
 from .canonical_lab_continuous_collector import CollectorRejected, _need
 from .canonical_lab_fenced_writer import CanonicalLabMinuteWriter
+from market_data.provenance import digest
+from market_data_v2.qualified_read_contract import validate_minute
 
 class AsyncCanonicalFencedWriter:
     __slots__=("_writer","_executor","_used","_poisoned")
@@ -25,6 +27,14 @@ class AsyncCanonicalFencedWriter:
     async def write(self, record, *, content_id):
         _need(not self._used and not self._poisoned,
               "C_FENCED_WRITER_ALREADY_USED_OR_UNCERTAIN")
+        try:
+            item=validate_minute(record,symbol=record["symbol"],before_ms=2**63-1)
+            _need(type(content_id) is str and content_id==digest(item),
+                  "CANONICAL_CONTENT_ID_REQUIRED")
+        except CollectorRejected:
+            raise
+        except Exception as exc:
+            raise CollectorRejected("CANONICAL_MINUTE_REQUIRED") from exc
         self._used=True
         try:
             # Exactly one SQL call path: existing C-owned SECURITY DEFINER
@@ -35,6 +45,8 @@ class AsyncCanonicalFencedWriter:
             _need(type(receipt) is dict
                   and receipt.get("schema")=="market-data.c-fenced-write-result.v1"
                   and receipt.get("status")=="LOCAL_COMMIT_RETURNED"
+                  and receipt.get("content_id")==content_id
+                  and receipt.get("fingerprint")==item["dataset_fingerprint"]
                   and receipt.get("execution_authority") is False
                   and receipt.get("trading_authorized") is False,
                   "C_FENCED_WRITER_RECEIPT_UNQUALIFIED")
