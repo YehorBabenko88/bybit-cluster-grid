@@ -37,6 +37,17 @@ def _identity(value):
     _need(type(cid) is str and _SHA.fullmatch(cid) is not None,"INVALID_CONTENT_ID")
     return symbol,start,fp,cid
 
+def _durable_pending(value):
+    _identity(value)
+    _need(type(value.get('generation')) is int and 0<value['generation']<2**63
+          and type(value.get('token')) is int and 0<value['token']<2**63,
+          'PENDING_OWNER_GENERATION_INVALID')
+    for name in ('source_sha256','schema_sha256'):
+        digest=value.get(name)
+        _need(type(digest) is str and _SHA.fullmatch(digest) is not None,
+              'PENDING_SOURCE_PIN_INVALID')
+    return value
+
 @dataclass(frozen=True)
 class Minute:
     symbol: str
@@ -141,7 +152,7 @@ class ContinuousLabCollector:
             try:
                 self.pending=await _await(self.journal.pending())
                 if self.pending is not None:
-                    _identity(self.pending)
+                    _durable_pending(self.pending)
                     self.state="HALTED";self.last_error="DURABLE_PENDING_RECONCILIATION_REQUIRED"
                     return "RECOVERY_REQUIRED"
                 checkpoint=await _await(self.journal.checkpoint())
@@ -216,10 +227,14 @@ class ContinuousLabCollector:
             _need(callable(getattr(fresh_authority,"check",None)),"E_ASYNC_AUTHORITY_REQUIRED")
             # Must rebind to a separately issued Root epoch and C backend; an
             # in-memory grant change by itself cannot grant either.
+            _durable_pending(self.pending)
+            previous_generation=self.pending['generation']
             self.authority=fresh_authority
             self.writer_grant=fresh_grant
             self._epoch=None
-            await self._guard(write=True)
+            new_status=await self._guard(write=True)
+            _need(new_status.generation>previous_generation,
+                  'RECOVERY_REQUIRES_NEW_C_GENERATION')
             minute=self.pending
             if type(minute) is dict:
                 symbol,start,fp,cid=_identity(minute)
@@ -282,7 +297,9 @@ class ContinuousLabCollector:
                 return result
             except BaseException:
                 self.attempts+=1
-                if self.state=="WRITING":self.state="HALTED"
+                if self.state=="WRITING" or self.attempts>self.max_retry:
+                    self.state="HALTED"
+                    self.last_error="GAP_RETRY_EXHAUSTED_OR_COMMIT_UNCERTAIN"
                 elif self.state!="HALTED":self.state="GAP"
                 raise
 
