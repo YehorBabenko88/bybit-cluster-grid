@@ -130,8 +130,10 @@ class NativePG18GridRead(unittest.TestCase):
                 shutil.rmtree(self.root)
 
     def start_pg(self):
-        self.pg=self.LabPostgres(os.environ["LAB_POSTGRES_BIN"],self.root,
-                                min_major=18).initialize().start().provision(self.schema())
+        # Retain owner identity even if init/start fails: cleanup must never
+        # delete a live or foreign postmaster tree by accident.
+        self.pg=self.LabPostgres(os.environ["LAB_POSTGRES_BIN"],self.root,min_major=18)
+        self.pg.initialize().start().provision(self.schema())
         if self.pg.major!=18 or self.pg.port==5432:
             raise AssertionError("NATIVE_PG_UNSAFE_VERSION_OR_PORT")
         witness=self.pg.provenance_storage_witness()
