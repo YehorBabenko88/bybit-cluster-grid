@@ -89,11 +89,17 @@ class ContinuousLabCollector:
             raise CollectorRejected("AUTHORITY_REVOKED")
 
     def begin(self):
-        _need(self.state=="STOPPED","ALREADY_ACTIVE")
+        _need(self.state=="STOPPED" and self.pending is None,
+              "PENDING_REQUIRES_OWNER_RECONCILIATION")
         self._authorized()
         self.state="READY"
 
     def stop(self):
+        # Never erase the recovery state after an uncertain write or a gap.
+        if self.pending is not None:
+            self.state="HALTED"
+            self.last_error="PENDING_REQUIRES_OWNER_RECONCILIATION"
+            return
         self.state="STOPPED"
 
     def deliver(self,record,*,content_id):
