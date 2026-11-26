@@ -214,15 +214,19 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
             self.assertEqual(c.calls,[])
 
     def test_async_sealed_grant_cannot_be_misread_as_sync_true(self):
-        """Legacy B ABI cannot accidentally consume an E coroutine as True."""
+        """A awaitable E-style check cannot be mistaken for synchronous True."""
+        class SealedAwaitable:
+            def __await__(self):
+                yield
+                return self
         class AsyncGrant:
             lab_only = True
             trusted_root_authority = True
             def __init__(self):
                 self.calls = 0
-            async def require_current(self):
+            def require_current(self):
                 self.calls += 1
-                return self
+                return SealedAwaitable()
         c = Connection()
         auth = AsyncGrant()
         w = writer(c, auth)
@@ -230,9 +234,9 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
                 FencedWriterRejected, "FENCE_NATIVE_ADMISSION_REVOKED"):
             w.write(record(), content_id="c" * 64)
         self.assertEqual(c.calls, [])
-        self.assertEqual(auth.calls, 0)
-        # No coroutine is awaited. This is legacy ABI rejection only;
-        # it is not the future trusted synchronous operation permit.
+        self.assertEqual(auth.calls, 1)
+        # The awaitable is never executed or accepted as native permission.
+        # This is legacy ABI rejection, not a trusted operation grant.
 
     def test_replayed_legacy_writer_never_second_insert(self):
         c = Connection()
