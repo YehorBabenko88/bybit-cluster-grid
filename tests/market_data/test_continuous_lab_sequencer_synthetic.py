@@ -37,6 +37,8 @@ class Journal:
         self.clear_calls=0
         self.lose_cas_ack=False
         self.lose_clear_ack=False
+        self.write_started=None
+        self.write_release=None
     async def checkpoint(self):return self.cursor
     async def pending(self):return self.outstanding
     async def append_pending(self,m):
@@ -81,6 +83,9 @@ class Writer:
         key=(self.m.symbol,self.m.start_ms,self.m.fingerprint,content_id)
         if key in self.j.written:raise RuntimeError("UNIQUE_KEY_NOT_ACK")
         self.j.written[key]=record
+        if self.mode=="delayed_commit_ack":
+            self.j.write_started.set()
+            await self.j.write_release.wait()
         if self.mode=="lost_write_ack":raise TimeoutError("UNKNOWN_COMMIT")
         if self.mode=="cancel_write":raise asyncio.CancelledError()
         return {"status":"LOCAL_COMMIT_RETURNED",
@@ -229,6 +234,26 @@ class Tests(unittest.TestCase):
             self.assertEqual(self.j.cursor["start_ms"],BASE+120000)
             self.assertEqual(self.factory.calls,3)
             self.assertEqual(c.state,"READY")
+        asyncio.run(run())
+    def test_stop_during_committed_sql_ack_never_reopens_old_collector(self):
+        async def run():
+            self.j.write_started=asyncio.Event()
+            self.j.write_release=asyncio.Event()
+            self.factory.mode="delayed_commit_ack"
+            c=self.collector()
+            await c.begin()
+            active=asyncio.create_task(c.deliver(record(BASE),content_id=cid(1)))
+            await asyncio.wait_for(self.j.write_started.wait(),1.0)
+            c.stop()
+            self.assertEqual(c.state,"HALTED")
+            self.j.write_release.set()
+            with self.assertRaisesRegex(CollectorRejected,"COLLECTOR_STOP_LATCHED"):
+                await active
+            self.assertEqual(c.state,"HALTED")
+            self.assertTrue(c._stop_requested)
+            self.assertIsNotNone(self.j.outstanding)
+            self.assertEqual(self.j.cas_calls,0)
+            self.assertEqual(self.factory.calls,1)
         asyncio.run(run())
     def test_cancel_write_halts_with_pending(self):
         async def run():
