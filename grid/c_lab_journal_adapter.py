@@ -72,7 +72,7 @@ class COwnedLabJournal:
         result=await self._call("read_committed_lab_minute",
                                **self._scope(),**self._key(minute))
         _need(type(result) is dict
-              and result.get("schema")=="lab-pg-immutable-readback.v1"
+              and result.get("schema")=="lab-pg-committed-readback.v1"
               and result.get("status") in ("MATCH","MISSING","CONFLICT")
               and result.get("native_admitted") is False,
               "C_READBACK_UNQUALIFIED")
