@@ -11,6 +11,7 @@ transparent reconnect or advisory-lock bypass. Unknown commit outcome is fatal.
 """
 import re
 import uuid
+from datetime import datetime, timezone
 
 from market_data.provenance import canonical
 from market_data_v2.qualified_read_contract import validate_minute
@@ -50,13 +51,23 @@ def _sha64(value):
     return value
 
 
+def _root_operation_permit_type():
+    """Resolve only E's actual Root-owned type; Grid never issues capabilities."""
+    try:
+        from unified_system.lab_writer_authority import LabWriterOperationPermit
+    except ImportError as exc:
+        raise FencedWriterRejected("FENCE_E_ROOT_OPERATION_PERMIT_UNAVAILABLE") from exc
+    return LabWriterOperationPermit
+
+
 class CanonicalLabMinuteWriter:
     """One-shot owner-bound connection; no pool and no process orchestration."""
 
     def __init__(self, connection, *, owner, namespace, generation, token,
                  session_id, instance_id, node_incarnation_id,
                  source_sha256, schema_sha256, native_admission,
-                 bound_backend_pid):
+                 bound_backend_pid, executor=None, operation_id=None,
+                 package_identity=None, bound_backend_start=None):
         _deny(type(owner) is str and _OWNER.fullmatch(owner) is not None,
               "FENCE_OWNER_REQUIRED")
         _deny(type(namespace) is str and len(namespace)<=200
@@ -74,33 +85,49 @@ class CanonicalLabMinuteWriter:
               "FENCE_PSYCOG_CONNECTION_REQUIRED")
         _deny(callable(getattr(connection,"rollback",None)),
               "FENCE_TRANSACTION_BOUNDARY_REQUIRED")
-        _deny(callable(getattr(native_admission,"require_current",None)),
-              "FENCE_NATIVE_ADMISSION_REQUIRED")
-        _deny(getattr(native_admission,"lab_only",None) is True,
-              "FENCE_NATIVE_LAB_SCOPE_REQUIRED")
-        # LAB-only test protocol, NOT native authorization: a caller can
-        # forge these flags. Root/E must separately enforce a genuine lease
-        # and old-process quiescence; C's SQL fence is the write boundary.
-        # No production service may treat this shape check as permission.
-        _deny(getattr(native_admission,"trusted_root_authority",None) is True,
-              "FENCE_TRUSTED_ROOT_AUTHORITY_REQUIRED")
+        # No caller-supplied True, lab_only, or trusted_root_authority flags.
+        # The E Root issuer currently DENIES permit issuance until verified
+        # installed-wheel attestation exists. A Python type is not an OS
+        # security boundary: E/A own the protected process and C owns SQL.
+        _deny(type(native_admission) is _root_operation_permit_type(),
+              "FENCE_E_ROOT_OPERATION_PERMIT_REQUIRED")
+        _deny(executor is not None and type(operation_id) is str
+              and re.fullmatch(r"[0-9a-f]{32}", operation_id) is not None,
+              "FENCE_OPERATION_ID_REQUIRED")
+        _deny(type(package_identity) is str
+              and _SHA64.fullmatch(package_identity) is not None,
+              "FENCE_INSTALLED_PACKAGE_IDENTITY_REQUIRED")
+        _deny(type(bound_backend_start) is str and bound_backend_start,
+              "FENCE_BACKEND_START_REQUIRED")
+        try:
+            start=datetime.fromisoformat(bound_backend_start.replace("Z","+00:00"))
+        except ValueError as exc:
+            raise FencedWriterRejected("FENCE_BACKEND_START_REQUIRED") from exc
+        _deny(start.tzinfo is not None,
+              "FENCE_BACKEND_START_REQUIRED")
         self._connection=connection
         self._authority=native_admission
         self._pid=bound_backend_pid
+        self._executor=executor
+        self._operation_id=operation_id
+        self._package_identity=package_identity
+        self._backend_start=bound_backend_start
         self._params=(owner,namespace,generation,token,_uuid4(session_id),
                       _uuid4(instance_id),_uuid4(node_incarnation_id),
                       _sha64(source_sha256),_sha64(schema_sha256))
         self._closed=False
         self._used=False
 
-    def _current(self):
+    def _permit_args(self, content_id):
+        return dict(executor=self._executor,operation_id=self._operation_id,
+                    content_id=content_id,package_identity=self._package_identity,
+                    entrypoint="grid.canonical_lab_fenced_writer",
+                    backend_pid=self._pid,backend_start=self._backend_start)
+
+    def _current(self,content_id):
         _deny(not self._closed and not self._used,"FENCE_WRITER_ALREADY_USED")
         _deny(self._connection.closed is False,"FENCE_CONNECTION_CLOSED")
-        try:
-            current=self._authority.require_current()
-        except Exception as exc:
-            raise FencedWriterRejected("FENCE_NATIVE_ADMISSION_REVOKED") from exc
-        _deny(current is True,"FENCE_NATIVE_ADMISSION_REVOKED")
+        self._current_after_start(content_id)
 
     def write(self, record, *, content_id):
         """One transaction; a lost ACK is *not* evidence of a failed commit.
@@ -109,9 +136,9 @@ class CanonicalLabMinuteWriter:
         validates owner/namespace/generation/token/session/instance/backend
         identity under a PostgreSQL row lock and refuses old or other backends.
         """
-        self._current()
         _deny(type(content_id) is str and _SHA64.fullmatch(content_id) is not None,
               "FENCE_CONTENT_ID_REQUIRED")
+        self._current(content_id)
         try:
             item=validate_minute(record,symbol=record["symbol"],before_ms=2**63-1)
         except Exception as exc:
@@ -138,15 +165,29 @@ class CanonicalLabMinuteWriter:
             # last admission check both precede transaction completion.
             with self._connection.transaction():
                 with self._connection.cursor() as cursor:
-                    cursor.execute("SELECT pg_backend_pid()")
+                    cursor.execute(
+                        "SELECT pg_backend_pid(), backend_start::text "
+                        "FROM pg_catalog.pg_stat_activity "
+                        "WHERE pid=pg_backend_pid() AND usename=session_user")
                     observed=cursor.fetchone()
-                    _deny(type(observed) in (tuple,list) and len(observed)==1
-                          and type(observed[0]) is int and observed[0]==self._pid,
+                    _deny(type(observed) in (tuple,list) and len(observed)==2
+                          and type(observed[0]) is int and observed[0]==self._pid
+                          and type(observed[1]) is str,
                           "FENCE_BACKEND_CHANGED")
-                    self._current_after_start()
+                    try:
+                        actual=datetime.fromisoformat(observed[1].replace(" ","T"))
+                        expected=datetime.fromisoformat(
+                            self._backend_start.replace("Z","+00:00"))
+                    except ValueError as exc:
+                        raise FencedWriterRejected("FENCE_BACKEND_START_CHANGED") from exc
+                    _deny(actual.tzinfo is not None and
+                          actual.astimezone(timezone.utc)==
+                          expected.astimezone(timezone.utc),
+                          "FENCE_BACKEND_START_CHANGED")
+                    self._current_after_start(content_id)
                     cursor.execute(_SQL,(*self._params,item["dataset_fingerprint"],
                                          content_id,item["symbol"],item["start_ms"],payload))
-                    self._current_after_start()
+                    self._consume_after_sql(content_id)
             return {"schema":"market-data.c-fenced-write-result.v1",
                     "status":"LOCAL_COMMIT_RETURNED","fingerprint":item["dataset_fingerprint"],
                     "storage_immutability":"NOT_ATTESTED",
@@ -161,17 +202,26 @@ class CanonicalLabMinuteWriter:
                 pass
             raise
 
-    def _current_after_start(self):
+    def _current_after_start(self,content_id):
         try:
-            _deny(self._authority.require_current() is True,
-                  "FENCE_NATIVE_ADMISSION_REVOKED")
-        except Exception as exc:
-            raise FencedWriterRejected("FENCE_NATIVE_ADMISSION_REVOKED") from exc
+            accepted=self._authority.require_current(**self._permit_args(content_id))
+        except BaseException as exc:
+            raise FencedWriterRejected("FENCE_E_OPERATION_REVOKED") from exc
+        _deny(accepted is self._authority,"FENCE_E_OPERATION_REVOKED")
+
+    def _consume_after_sql(self,content_id):
+        # The same Root permit must be consumed before the transaction exits;
+        # the SQL row fence is still the final durable write barrier.
+        try:
+            accepted=self._authority.consume(**self._permit_args(content_id))
+        except BaseException as exc:
+            raise FencedWriterRejected("FENCE_E_OPERATION_CONSUME_DENIED") from exc
+        _deny(accepted is self._authority,"FENCE_E_OPERATION_CONSUME_DENIED")
 
 
 def fenced_writer_abi():
     return {"resource_id":_FENCE_RESOURCE,"fence_schema":_FENCE_SCHEMA,
             "sql_function":"public.lab_fenced_insert",
             "postgresql_backend_bound":True,"single_use":True,
-            "native_admission":"REQUIRED_EXTERNAL_TRUSTED_ROOT",
+            "native_admission":"E_ROOT_ISSUED_ONE_USE_OPERATION_PERMIT",
             "lab_only":True,"trading_authorized":False}
