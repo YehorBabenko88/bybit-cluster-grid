@@ -231,7 +231,7 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
 
     def test_revoke_after_function_before_commit_rolls_back(self):
         c=Connection();a=Admission(True,True,False)
-        with self.assertRaisesRegex(FencedWriterRejected,"FENCE_E_OPERATION_REVOKED"):
+        with self.assertRaisesRegex(FencedWriterRejected,"FENCE_E_OPERATION_CONSUME_DENIED"):
             writer(c,a).write(record(),content_id=digest(record()))
         self.assertEqual(len([sql for sql,_ in c.calls if "lab_fenced_insert" in sql]),1)
         self.assertEqual(c.calls[-1][0],"ROLLBACK")
