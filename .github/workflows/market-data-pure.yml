@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: YehorBabenko88/unified-system
-          ref: f6b36c814dd5612df164db28cf43139822bb886e
+          ref: 8b639bc6b8adab477ca22ec4f69d6c5b867dc33a
           path: .source/f-qualification
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -92,7 +92,7 @@ jobs:
           import os, pathlib, subprocess, sys
           root=pathlib.Path.cwd()
           f=root/'.source/f-qualification'
-          expected='f6b36c814dd5612df164db28cf43139822bb886e'
+          expected='8b639bc6b8adab477ca22ec4f69d6c5b867dc33a'
           assert subprocess.check_output(['git','-C',str(f),'rev-parse','HEAD'],text=True).strip()==expected
           wheels=list((root/'.candidate-dist').glob('market_data-*.whl'))
           sdists=list((root/'.candidate-dist').glob('market_data-*.tar.gz'))
