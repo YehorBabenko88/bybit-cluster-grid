@@ -6,7 +6,7 @@ C remains the exclusive owner of SQL, durable checkpoint and backend.
 """
 import asyncio
 from dataclasses import dataclass
-from inspect import isawaitable
+from inspect import isawaitable, iscoroutinefunction
 import re
 
 _SHA=re.compile(r"[0-9a-f]{64}\Z")
@@ -96,6 +96,9 @@ class ContinuousLabCollector:
         _need(type(max_retry) is int and 0<=max_retry<=16,"RETRY_BOUND_REQUIRED")
         _need(getattr(journal,"stream_id",stream_id)==stream_id,"STREAM_JOURNAL_MISMATCH")
         self.transport=transport
+        _need(iscoroutinefunction(writer_factory) or
+              iscoroutinefunction(getattr(writer_factory,"__call__",None)),
+              "ROOT_ASYNC_WRITER_FACTORY_REQUIRED")
         self.writer_factory=writer_factory
         self.journal=journal
         self.authority=authority
@@ -176,6 +179,8 @@ class ContinuousLabCollector:
             # Writer is C-fenced one-shot, provided only by Root. An unknown
             # COMMIT outcome stops this instance. No insert retry.
             writer=await _await(self.writer_factory(minute))
+            _need(iscoroutinefunction(getattr(writer,"write",None)),
+                  "ROOT_ASYNC_FENCED_WRITER_REQUIRED")
             await self._guard(write=True)
             receipt=await _await(writer.write(minute.payload,content_id=minute.content_id))
             _need(type(receipt) is dict and receipt.get("status")=="LOCAL_COMMIT_RETURNED"
