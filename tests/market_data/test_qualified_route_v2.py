@@ -136,6 +136,14 @@ class QualifiedReadRouteTests(unittest.TestCase):
                 handler.do_GET()
             self.assertEqual(handler.out[0][0],400)
 
+    def test_unmanaged_v2_entrypoint_rejected_before_socket_bind(self):
+        import os
+        import market_data_v2.read_api as route
+        with patch.dict(os.environ,{},clear=True):
+            with patch("market_data_v2.read_api.ThreadingHTTPServer",side_effect=AssertionError("must not bind")):
+                with self.assertRaisesRegex(RuntimeError,"managed Root admission"):
+                    route.main(startup_admission=None)
+
     def test_no_real_network_transport_or_writer_in_route_source(self):
         import inspect
         import market_data_v2.read_api as route
