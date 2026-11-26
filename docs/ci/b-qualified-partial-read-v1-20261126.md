@@ -1,146 +1,142 @@
-# Grid B / C / D: qualified PARTIAL read contract v1 (candidate)
+# B / ROUND 3 — managed Market Data v2 qualified PARTIAL read
 
-**Status: CONTRACT CANDIDATE, NO_GO.** PR #300, stacked on Grid B #299.
-The sole validator now lives at `market_data_v2/qualified_read_contract.py`; the
-historical `grid/qualified_read_contract.py` is only a compatibility import alias.
-The additive `market_data_v2` SDK is distributed with the *existing* Market Data
-wheel, not with a new exchange client or an independent service. It
-does **not** alter the immutable 49-module `market_data` v1.1 package or sealed
-902-node test roster. An independent approved SDK re-anchor and consumer switch
-must precede canonical distribution or production route activation.
+**Candidate only — CODE NO_GO / PRODUCTION NO_GO.** Existing draft
+[Grid PR #300](https://github.com/YehorBabenko88/bybit-cluster-grid/pull/300)
+is stacked on draft #299. No merge or live activation.
 
-## Separation of evidence
+## Explicit compatibility and source ownership
 
-- `record_integrity=VERIFIED` means exact deterministic SHA256 and closed
-  source-record shape/Math-domain validation succeeded on supplied read rows.
-  It does **not** authenticate the exchange, Bybit origin or trusted machine.
-- `source_authenticity=NOT_INDEPENDENTLY_ATTESTED`, always.
-  `source_identity_verified=True` inside an earlier record is merely the
-  producer's admitted callback equality check; hashes are not signatures.
-- `exchange_completeness=NOT_ATTESTED` and `coverage.missing_minutes`
-  represent only the selected minute interval, not all possible Bybit trades.
-- `quality_attestation=NOT_INDEPENDENTLY_ATTESTED` is independent of both
-  hash/Math integrity and coverage. `source_declared_quality` contains exactly
-  the source-declared status labels (potentially `INVALID`).
-- `immutable=False`, `storage_immutability=NOT_ATTESTED`:
-  a pure validator cannot establish PostgreSQL role/trigger/WAL custody.
-  Agent C must produce a separately trusted, scoped database receipt.
-- `execution_authority=False`, `trading_authorized=False` always. D can
-  show explicitly labeled provisional data but must not automatically enable
-  a paper strategy or real trading based on `PARTIAL` alone.
+- Historical canonical Data49 `market_data/*` source files and original sealed
+  902-node roster are **byte-unmodified**. The 884 Grid + 18 Strattester
+  exact-node test split remains an independently mandatory gate in #299.
+- New additive `market_data_v2` is packaged in the **same** `market-data`
+  wheel, now **`0.2.0.dev0` candidate**, with no second Bybit transport,
+  writer, database, supervisor or HTTP listener. The legacy
+  `grid/qualified_read_contract.py` has only a short import alias; the
+  **single** validator is `market_data_v2.qualified_read_contract`.
+- Existing `market_data.cli`, `market_data.history_api` and v1.1 routes
+  remain untouched. v2 must be explicitly selected in Root's protected
+  manifest; there is **no fallback or automatic change** to v1 deployment.
 
-## Candidate payload fields
+## Managed-only GET route
 
-`schema=market_data.qualified-read-envelope.v1`,
-`api_version={major:1,minor:1}`, `producer=market_data`,
-`symbol`, `timeframe=1m`, `status`, `reason`,
-`record_integrity`, `source_authenticity`, `exchange_completeness`,
-`source_declared_quality`, `quality_attestation`, `coverage`,
-`freshness_utc_ms`, `source_revision`, `producer_epoch`,
-`dataset_fingerprint`, `rows`, `immutable`, `storage_immutability`,
-`execution_authority`, `trading_authorized`.
+`GET /internal/v2/candles/qualified?symbol=BTCUSDT&limit=1[&before_ms=...]`
 
-Accepted result states:
+Query uses closed fields and one value each, exact uppercase symbol, page size
+1–1000 and optional positive int64 millisecond cursor. Missing fields,
+duplicates, noncanonical decimals, extra keys and malformed syntax fail
+without querying PostgreSQL. Bytes bounded at ingress; response ≤8 MiB.
 
-- `PARTIAL / EXCHANGE_COMPLETENESS_UNATTESTED`: all supplied source minute
-  records are structurally/Math valid, no requested-minute gap, same source
-  epoch, and latest event clock within the 120-second freshness window.
-  Exchange-wide coverage and independent origin still unknown.
-- `GAP / MISSING_MINUTES_OR_EPOCH_CHANGE`: missing intervals or divergent
-  epoch/source identity/revision. Rows remain read-only for diagnostics.
-- `STALE / FRESHNESS_WATERMARK_EXPIRED`: as-of clock exceeds last provider
-  event by more than 120 seconds. Rows diagnostic only.
-- `UNAVAILABLE / SOURCE_PROVENANCE_UNAVAILABLE`: at least one source record
-  itself is `UNAVAILABLE`; envelope rows empty.
-- Any malformed, rehashed false completeness, forged authority, malformed
-  epoch, duplicate revision, invalid OHLC/footprint, future event/ingestion
-  clock, nonfinite amount or symbol mismatch: hard rejection
-  `ProvenanceReadError` (no qualified envelope).
+Entrypoint: `market_data_v2.read_api.main(['serve'], startup_admission=source)`,
+compatible with Root `service_module_runtime.py::serve_module`'s existing
+`module.main(arguments, startup_admission=source)` invocation.
+Only a Root-approved, version/source-pinned manifest may select this module
+**instead of** old `market_data.cli`; B does not alter Root's selector.
 
-**Important integration blocker:** Grid legacy `grid/provenance.py` writes
-`producer=bybit-cluster-grid`, while canonical
-`market_data/provenance.py` writes `producer=market_data`.
-The new contract accepts **only canonical** market_data v1.1 records.
-C's lab PostgreSQL migration 47 may use legacy Grid fixtures; these must
-not be relabeled or rehashed to claim canonical provenance. Agree on an
-explicit, source-bound migration/reader adapter and canonical writer first.
+The replacement handler extends the historical `history_api.Handler`, uses
+the **same loopback socket/port**, and preserves historical v1 routes.
+Unmanaged invocation is rejected **before bind**. Required at each request:
+valid private `Bearer UNIFIED_INSTANCE_TOKEN`, current Root
+`startup_identity` and `require_current()` checked at ingress, immediately
+before PostgreSQL read and again before response publication. C still owns
+isolated database lifecycle and SQL reader/writer grants. No route invokes
+Bybit, opens a writer, starts a new service or trades.
 
-## C and D acceptance requests
+Canonical source read uses `market_data.history_api.immutable_minutes`
+(`READ ONLY REPEATABLE READ` SQL on `provenance_minutes`) and records
+created by `market_data.provenance.minute_record` with
+`producer='market_data'`. Legacy `producer='bybit-cluster-grid'` is
+rejected **even if the record is rehashed**; no migration by relabeling.
 
-C: pin the actual canonical Grid migration SHA, verify read-only PostgreSQL
-18 role and source-row immutable receipt separately, protect write grants,
-prove duplicate revisions and corrupt hash refusal, and return exact source
-schema/provenance receipt without untrusted status promotion.
+## Versioned DTO and evidence boundaries
 
-D: accept a qualified `PARTIAL` **read/chart receipt** only under the
-explicit contract, check source/content/availability and separate trusted
-storage witness, and require independently approved strategy-level conditions
-to authorize synthetic paper simulation. Reject `GAP`, `STALE`,
-`UNAVAILABLE`, tampered and unsupported data for strategy input.
-No production trading credentials or exchanges used in the test suite.
+Published exact structural schema:
+`docs/contracts/qualified-read-envelope-v1.schema.json`.
+Published isolated synthetic producer fixture:
+`scripts/qualified_read_v2_fixture.py`.
 
-CI is an inert Linux/Windows Python 3.11–3.13 matrix pinned to
-Math `9e6acbd9e12a91189f57234828e31640983af553`. Its
-14 test methods use synthetic fixtures and never open a network connection,
-create PostgreSQL services or trade. A queued workflow is **not** a PASS.
+- Outer `schema='market_data.qualified-read-envelope.v1'`,
+  `api_version={major:2,minor:0}`; individual source rows remain v1.1.
+- `read_only=True`, `record_integrity=VERIFIED` only for closed shape,
+  canonical SHA256 and canonical Math OHLC/footprint validation.
+- `source_authenticity=NOT_INDEPENDENTLY_ATTESTED` despite current
+  Root transport identity; public-provider authenticity is separate.
+- `quality_attestation=NOT_INDEPENDENTLY_ATTESTED`,
+  `source_declared_quality` is an explicitly **untrusted** source label.
+- `exchange_completeness=NOT_ATTESTED`; interval
+  `coverage.expected_minutes/observed_minutes/missing_minutes` is
+  **not** exchange-wide trade completeness or backtest authorization.
+- `storage_immutability=NOT_ATTESTED`, `immutable=False` always.
+  C's `lab-postgres-custody.v1` role/trigger witness is an independent,
+  owner-only, LAB-scoped value **outside the untrusted HTTP record**.
+  It must not be promoted by caller-supplied JSON or made to prove Bybit.
+- `execution_authority=False`, `trading_authorized=False`,
+  `paper_admitted=False` for **every** status.
 
-## Round 3 additive managed HTTP route / SDK (not yet qualified E2E)
+A validated, fresh continuous interval produces
+`PARTIAL/EXCHANGE_COMPLETENESS_UNATTESTED`, **never AVAILABLE**.
+Missing minutes or epoch/identity/revision changes produce
+`GAP/MISSING_MINUTES_OR_EPOCH_CHANGE`; expired source event watermark
+produces `STALE/FRESHNESS_WATERMARK_EXPIRED`; unavailable source records
+or empty storage produce `UNAVAILABLE/SOURCE_PROVENANCE_UNAVAILABLE`.
+Duplicate minute revisions, invalid row fingerprints, forged
+completeness/authority, malformed clock, future events/ingestion,
+invalid OHLC/levels or unbounded quality reasons are rejected.
 
-- **New route:** `GET /internal/v2/candles/qualified?symbol=BTCUSDT&limit=1[&before_ms=...]`.
-  Query parameters have closed keys, strictly numeric bounded page size 1–1000,
-  timestamp cursor in positive int64, and no implicit symbol or limit default.
-  This uses canonical Data49 `market_data.history_api.immutable_minutes`
-  (PostgreSQL READ ONLY repeatable-read query) and the same canonical
-  `market_data.provenance.minute_record` record bytes. No Grid legacy producer
-  alias is accepted.
-- **Authenticated managed entrypoint:**
-  `market_data_v2.read_api.main(startup_admission=RootProvidedAdmission)`
-  replaces the existing `market_data.history_api.main` handler on the **same
-  loopback port**. It subclasses that handler to preserve all old v1 paths and
-  ingress limits, requires a current `UNIFIED_MODULE_ID=market_data` startup
-  admission and the exact `Bearer UNIFIED_INSTANCE_TOKEN` before SQL read,
-  then rechecks admission both immediately before and after the read.
-  Its advertised console script rejects unmanaged startup. Root E owns the
-  process/service handoff and must prove **old listener quiescence before launch**.
-  No server instance was started by this PR or by this report.
-- **Response:** `schema=market_data.qualified-read-envelope.v1`, outer
-  `api_version={major:2,minor:0}`, inner source-records remain v1.1.
-  `read_only=True`, `paper_admitted=False`, `execution_authority=False`,
-  `trading_authorized=False`, `storage_immutability=NOT_ATTESTED`, always.
-  Unknown row -> `UNAVAILABLE` with empty array. A genuine observed record
-  may be `PARTIAL` but **never** `AVAILABLE`. A malformed source is HTTP
-  503, not a 400 blamed on the caller; invalid query syntax is HTTP 400.
-  No source payload, bearer, DSN or exception text is exposed in error replies.
-- **Compatibility:** no v1.1 bytes in `market_data/*` were edited; existing
-  sealed 902-node roster remains unchanged. A separately tested, additive
-  `market_data_v2` SDK package is included by the existing `market-data`
-  wheel with a distinct opt-in entrypoint. Existing v1 routes are **not
-  automatically retargeted**. D must explicitly consume new DTO and perform
-  its own Root-admitted read/chart validation. C must independently attest
-  PostgreSQL row custody, proper producer and non-bypassable writer fencing.
-- **Hosted CI contract:** Linux/Windows, Python 3.11/3.12/3.13 with pinned
-  Math `9e6acbd9e12a91189f57234828e31640983af553`, tests the
-  actual new wheel `python -I` import and both the existing 14 contract test
-  methods and 10 read-route/revocation cases. This is synthetic and does not
-  prove physical PG18, Bybit provider identity, legacy worker exclusion,
-  source-wheel bootstrap or production availability.
+HTTP 400 is reserved for malformed request/query; integrity/SQL failures
+return HTTP 503 with constant redacted errors. No DSN, raw exception,
+secret, token or market source data appears in error responses.
 
-### Exact C / D / E handoff questions
+## Test contract / exact scope (not yet CI-accepted)
 
-1. **C**: please pin canonical PostgreSQL `provenance_minutes` migration and
-   writer/reader role, report current schema identity and enforced resource-side
-   fencing token (monotone, non-bypassable by old `grid` writer). Supply a
-   verified PG18 owner-only read receipt; avoid translating the legacy
-   `bybit-cluster-grid` producer to canonical `market_data` by rehashing.
-2. **D**: please implement a strict `market_data.qualified-read-envelope.v1`
-   adapter alongside the existing v1.1 adapter **after reviewing this DTO**,
-   gated by the same Root-managed capability. Preserve chart-only `PARTIAL`
-   with distinct source/quality/coverage, never authorize paper trading.
-3. **E**: please nominate the current Root-approved exact artifact + source pin
-   and startup exclusion DTO; call **only** v2 replacement entrypoint after
-   confirmed quiescent original listener, legacy WS/REST writers, and C's DB
-   resource fence. Do not simply set `MARKET_DATA_PROVENANCE_READ=1` on old v1.
+- `tests/market_data/test_qualified_read_contract.py`: **15** authored
+  canonical provenance, freshness, epoch, gaps, source-quality and tamper
+  positive/negative methods.
+- `tests/market_data/test_qualified_route_v2.py`: **12** authored actual
+  canonical producer to read response, in-memory managed HTTP handler,
+  bearer, pre/post Root revocation, mismatched producer, no-socket
+  unmanaged/argv refusal and Root launcher ABI tests.
+- `tests/market_data/test_qualified_read_schema_v2.py`: **4** authored
+  JSON Schema + fixture validation and forged-status/witness/authority
+  negative methods.
+- `.github/workflows/gpt-b-qualified-read-contract.yml` runs all **31**
+  methods on Linux/Windows × Python 3.11/3.12/3.13, pins Math
+  `9e6acbd9e12a91189f57234828e31640983af553`, builds the actual
+  candidate wheel, and imports it in `python -I` with exact metadata
+  version `0.2.0.dev0`. Until exact-HEAD jobs complete, none of these
+  authored test counts is a PASS claim.
 
-**No user database, service, source seal, current market listener, or trading
-state was modified. CODE NO_GO / PRODUCTION NO_GO until positive/negative
-cross-repository and native acceptance.**
+## B / C / D / E dependencies before activation
+
+1. **C**: independently prove canonical source-generated `market_data`
+   producer rows in isolated PG18, guarded read role and
+   `lab-postgres-custody.v1` role/trigger receipt. A role/trigger
+   immutability witness is **not** a transactional single-writer fence;
+   current INSERT-only role still permits two writer sessions to INSERT.
+   Owner-enforced monotone generation/fencing on **each** write is required
+   before a live collector can start.
+2. **D**: use exact v2 route/DTO in the managed `MarketDataReadClient`,
+   preserve v1.1 separately (no fallback/downgrade), validate rows again via
+   canonical Math, show only provisional chart/receipt. New v2 client work
+   exists in Terminan draft #126, but the D cross-repository CI must be
+   repinned to the **current** B SHA and green on its exact D head.
+   `PARTIAL` is not an authorization to run paper strategies.
+3. **E**: Root owns the one Consul session authority, native service/port,
+   release manifest and process quiescence proof. E's protected entrypoint
+   selection must be a separately reviewed explicit source re-anchor to
+   `market_data_v2.read_api`, **never** an implicit alias. It must reject
+   old v1 listener, legacy Grid worker/Bybit REST and writer activity,
+   UNKNOWN process state, stolen/reused incarnation and C's missing
+   DB-side writer fence before starting any new producer.
+4. **B**: continuous WS/trades/L2/ticker/OI/funding migration remains
+   unadmitted. Existing bounded `market_data.collector`,
+   `orderbook_stream`, `ticker_acquisition` and legacy
+   `grid/worker.py` must not be simultaneously activated. No unique
+   preexisting behavior is removed before parity, crash/reconnect,
+   backfill and exact-head CI evidence.
+
+The published v2 synthetic/inert contract **does not** prove physical
+PostgreSQL 18, six-node service exclusion, current Bybit origin, continuous
+collector, market completeness, source-wheel bootstrap or any production
+readiness. No existing user DB, services, market data, real trades,
+Claude/Codex, main branch or native release configuration were modified.
