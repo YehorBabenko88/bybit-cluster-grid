@@ -177,7 +177,7 @@ class Tests(unittest.TestCase):
             self.transport.pages=[(record(BASE+60000),cid(2)),(record(BASE+120000),cid(3))]
             self.assertEqual(await c.recover_gap(),"COMMITTED")
         asyncio.run(run())
-    def test_unknown_commit_recovers_from_fresh_process_without_rewrite(self):
+    def test_unknown_commit_old_collector_cannot_rebind_journal(self):
         async def run():
             c=self.collector();await c.begin()
             self.factory.mode="lost_write_ack"
@@ -185,27 +185,24 @@ class Tests(unittest.TestCase):
                 await c.deliver(record(BASE),content_id=cid(1))
             self.assertEqual(c.state,"HALTED")
             self.assertIsNotNone(self.j.outstanding)
-            self.factory.mode=None
-            fresh=self.collector(epoch="b"*64,generation=2)
-            self.assertEqual(await fresh.begin(),"RECOVERY_REQUIRED")
-            self.assertEqual(await fresh.reconcile_after_restart(
-                fresh_authority=self._authority("b"*64,2),
-                fresh_grant=self.Grant("b"*64)),"RECOVERED_BY_EXACT_ROW")
+            with self.assertRaisesRegex(CollectorRejected,"RECOVERY_REQUIRES_FRESH_ROOT_COHORT"):
+                await c.reconcile_after_restart(
+                    fresh_authority=self._authority("b"*64,2),
+                    fresh_grant=self.Grant("b"*64))
             self.assertEqual(self.factory.calls,1)
-            self.assertIsNone(self.j.outstanding)
+            self.assertIsNotNone(self.j.outstanding)
         asyncio.run(run())
-    def test_lost_cas_ack_uses_exact_existing_without_repeating_cas(self):
+    def test_lost_cas_ack_is_not_replayed_on_old_journal(self):
         async def run():
             c=self.collector();await c.begin()
             self.j.lose_cas_ack=True
             with self.assertRaises(TimeoutError):
                 await c.deliver(record(BASE),content_id=cid(1))
             self.assertEqual(self.j.cas_calls,1)
-            fresh=self.collector(epoch="b"*64)
-            await fresh.begin()
-            self.assertEqual(await fresh.reconcile_after_restart(
-                fresh_authority=self._authority("b"*64),
-                fresh_grant=self.Grant("b"*64)),"CURSOR_ALREADY_ACKNOWLEDGED")
+            with self.assertRaisesRegex(CollectorRejected,"RECOVERY_REQUIRES_FRESH_ROOT_COHORT"):
+                await c.reconcile_after_restart(
+                    fresh_authority=self._authority("b"*64,2),
+                    fresh_grant=self.Grant("b"*64))
             self.assertEqual(self.j.cas_calls,1)
             self.assertEqual(self.factory.calls,1)
         asyncio.run(run())
