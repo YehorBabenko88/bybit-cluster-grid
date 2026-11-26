@@ -120,9 +120,8 @@ class CanonicalLabMinuteWriter:
         # Fail closed before C's SECURITY DEFINER function is invoked.
         transaction_status=getattr(getattr(self._connection,"info",None),
                                    "transaction_status",None)
-        if transaction_status is not None:
-            _deny(type(transaction_status) is int and transaction_status==0,
-                  "FENCE_CONNECTION_NOT_IDLE")
+        _deny(type(transaction_status) is int and transaction_status==0,
+              "FENCE_CONNECTION_NOT_IDLE")
         # The caller may not reuse this writer instance after a failed/unknown
         # transaction. New authority must come from the C/E resource owner.
         self._used=True
