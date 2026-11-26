@@ -136,7 +136,9 @@ def inspect(root: Path, wheel: Path, sdist: Path, math_wheel: Path, ftool: Path)
         assert qualified["installed_bytes_match"] is True
         assert qualified["installed_record_verified"] is True
         assert qualified["source_bytes_match"] is True
-        assert qualified["all_installed_bytes_authenticated"] is True
+        assert qualified["all_installed_bytes_authenticated"] is False
+        # F truthfully refuses authenticated release/import closure.
+        assert qualified["unhashed_install_auxiliary_count"] == 0
         assert qualified["writer_admitted"] is False
         assert qualified["release_authenticated"] is False
 
