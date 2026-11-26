@@ -49,7 +49,7 @@ class Transport:
 
 class Writer:
     def __init__(self):self.calls=0
-    def __call__(self,*args):self.calls+=1;raise AssertionError("NO_WRITE_GRANT")
+    async def __call__(self,*args):self.calls+=1;raise AssertionError("NO_WRITE_GRANT")
 
 def pending():
     return dict(symbol="BTCUSDT",start_ms=60000,fingerprint="b"*64,
