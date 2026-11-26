@@ -21,6 +21,14 @@ market-data-qualified-read-v2 = "market_data_v2.read_api:main"
 
 [tool.setuptools]
 packages = ["market_data", "market_data_v2"]
+# Exactly four B-owned LAB runtime modules, not the legacy grid package.
+# setuptools dotted py-modules includes grid/__init__.py as required parent.
+py-modules = [
+    "grid.canonical_lab_continuous_collector",
+    "grid.c_lab_journal_adapter",
+    "grid.canonical_lab_fenced_writer",
+    "grid.c_async_fenced_writer",
+]
 include-package-data = false
 
 [tool.setuptools.package-data]
