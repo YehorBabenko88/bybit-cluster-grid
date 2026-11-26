@@ -226,51 +226,74 @@ class ContinuousLabCollector:
                     return "GAP"
             return await self._commit(minute)
 
-    async def reconcile_after_restart(self,*,fresh_authority,fresh_grant):
+    async def reconcile_after_restart(self,*,fresh_authority=None,fresh_grant=None):
+        """Never rebind a stale backend, journal or owner in the same instance.
+
+        The Root supervisor must build a NEW collector+PG journal+executor+
+        writer factory under a NEW C generation/E epoch after old backend and
+        OS process extinction has been independently established. Calling
+        this legacy method never changes state or grants permissions.
+        """
+        raise CollectorRejected("RECOVERY_REQUIRES_FRESH_ROOT_COHORT")
+
+    async def recover_durable_pending(self, *, previous_generation, previous_epoch,
+                                      old_backend_extinct, old_process_extinct):
+        """New-instance exact readback reconciliation; no writer or CAS replay.
+
+        `old_*_extinct` are Root-only receipts, not caller boolean flags.
+        The E/Root-owned types are checked strictly. Until E exposes both
+        proof classes, recovery is disabled rather than trusting duck typing.
+        """
+        from unified_system.lab_writer_authority import LabWriterGrant
+        try:
+            from unified_system.lab_writer_revoke import RootBackendExtinction, RootProcessExtinction
+        except ImportError as exc:
+            raise CollectorRejected("ROOT_EXTINCTION_WITNESS_NOT_AVAILABLE") from exc
         async with self._lock:
-            _need(self.state=="HALTED" and self.pending is not None,"NO_DURABLE_PENDING")
-            _need(callable(getattr(fresh_authority,"check",None)),"E_ASYNC_AUTHORITY_REQUIRED")
-            # Must rebind to a separately issued Root epoch and C backend; an
-            # in-memory grant change by itself cannot grant either.
+            _need(self.state=="HALTED" and type(self.pending) is dict,
+                  "DURABLE_PENDING_REQUIRED")
+            _need(type(previous_generation) is int and previous_generation>0
+                  and type(previous_epoch) is str and _SHA.fullmatch(previous_epoch) is not None,
+                  "PREVIOUS_ROOT_IDENTITY_INVALID")
+            _need(type(old_backend_extinct) is RootBackendExtinction
+                  and type(old_process_extinct) is RootProcessExtinction,
+                  "ROOT_EXTINCTION_WITNESS_REQUIRED")
+            _need(type(self.writer_grant) is LabWriterGrant,
+                  "E_NATIVE_WRITER_NOT_ADMITTED")
+            status=await self._guard(write=True)
+            _need(status.generation>previous_generation
+                  and status.epoch!=previous_epoch,
+                  "ROOT_GENERATION_EPOCH_NOT_ROTATED")
             _durable_pending(self.pending)
-            previous_generation=self.pending['generation']
-            self.authority=fresh_authority
-            self.writer_grant=fresh_grant
-            self._epoch=None
-            new_status=await self._guard(write=True)
-            _need(new_status.generation>previous_generation,
-                  'RECOVERY_REQUIRES_NEW_C_GENERATION')
-            minute=self.pending
-            if type(minute) is dict:
-                symbol,start,fp,cid=_identity(minute)
-                minute=Minute(symbol,start,fp,cid,{})
+            _need(self.pending["generation"]==previous_generation,
+                  "PENDING_OLD_GENERATION_MISMATCH")
+            sym,start,fp,cid=_identity(self.pending)
+            minute=Minute(sym,start,fp,cid,{})
             evidence=await _await(self.journal.exact_existing_checkpoint(minute))
             if evidence["state"]=="EXACT_ALREADY_ACKNOWLEDGED":
                 await self._guard(write=True)
                 await _await(self.journal.clear_pending(minute))
-                self.pending=None;self.state="READY"
+                self.pending=None
+                self.state="READY"
                 return "CURSOR_ALREADY_ACKNOWLEDGED"
-            if evidence["state"]!="UNRESOLVED":
-                raise CollectorRejected("INVALID_RECOVERY_EVIDENCE")
-            readback=await _await(self.journal.readback(minute))
-            if readback["status"]!="MATCH":
-                self.state="HALTED"
-                raise CollectorRejected("UNKNOWN_COMMIT_UNRESOLVED")
+            _need(evidence["state"]=="UNRESOLVED","EXACT_CURSOR_PROOF_INVALID")
+            row=await _await(self.journal.readback(minute))
+            _need(type(row) is dict and row.get("status")=="MATCH",
+                  "UNKNOWN_COMMIT_UNRESOLVED")
             await self._guard(write=True)
-            # This is the only first CAS after a positive committed-row
-            # readback. If its ACK is lost, never automatically replay.
             try:
                 await _await(self.journal.commit_cursor(minute))
             except BaseException:
                 self.state="HALTED";self.last_error="CURSOR_ACK_UNCERTAIN"
                 raise
             proof=await _await(self.journal.exact_existing_checkpoint(minute))
-            _need(proof["state"]=="EXACT_ALREADY_ACKNOWLEDGED","CURSOR_NOT_VERIFIED")
+            _need(proof["state"]=="EXACT_ALREADY_ACKNOWLEDGED",
+                  "CURSOR_NOT_VERIFIED")
             await self._guard(write=True)
             await _await(self.journal.clear_pending(minute))
-            self.pending=None;self.state="READY"
+            self.pending=None
+            self.state="READY"
             return "RECOVERED_BY_EXACT_ROW"
-
     async def recover_gap(self):
         async with self._lock:
             _need(self.state=="GAP" and self.tail is not None,"NO_GAP")
