@@ -222,6 +222,13 @@ class ContinuousLabCollector:
                 raise
             await self._guard(write=True)
             await _await(self.journal.clear_pending(minute))
+            # The original B factory cannot request another E permit until
+            # C confirms the old SQL row, durable cursor and pending cleanup.
+            # A stop/cancel/unknown ACK leaves the factory permanently latched.
+            from .c_async_fenced_writer import RootCanonicalWriterFactory
+            if type(self.writer_factory) is RootCanonicalWriterFactory:
+                await self._guard(write=True)
+                self.writer_factory.complete_confirmed(minute)
         except BaseException:
             self.state="HALTED"
             if self.last_error is None:self.last_error="WRITE_OR_COMMIT_UNCERTAIN"
