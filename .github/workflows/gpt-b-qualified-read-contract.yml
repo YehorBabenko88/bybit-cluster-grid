@@ -37,5 +37,5 @@ jobs:
         run: |
           python -m pip install --no-deps ./.source/math
           python -m pip install pytest==8.3.5
-      - name: Verify 12 independent positive/negative cases
+      - name: Run fourteen independent positive/negative cases
         run: python -m pytest -v --strict-markers -p no:cacheprovider tests/market_data/test_qualified_read_contract.py
