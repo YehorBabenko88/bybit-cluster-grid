@@ -213,6 +213,39 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
                 writer(c).write(r,content_id="c"*64)
             self.assertEqual(c.calls,[])
 
+    def test_async_sealed_grant_cannot_be_misread_as_sync_true(self):
+        """Legacy B ABI cannot accidentally consume an E coroutine as True."""
+        class AsyncGrant:
+            lab_only = True
+            trusted_root_authority = True
+            def __init__(self):
+                self.calls = 0
+            async def require_current(self):
+                self.calls += 1
+                return self
+        c = Connection()
+        auth = AsyncGrant()
+        w = writer(c, auth)
+        with self.assertRaisesRegex(
+                FencedWriterRejected, "FENCE_NATIVE_ADMISSION_REVOKED"):
+            w.write(record(), content_id="c" * 64)
+        self.assertEqual(c.calls, [])
+        self.assertEqual(auth.calls, 0)
+        # No coroutine is awaited. This is legacy ABI rejection only;
+        # it is not the future trusted synchronous operation permit.
+
+    def test_replayed_legacy_writer_never_second_insert(self):
+        c = Connection()
+        w = writer(c, Admission())
+        self.assertEqual(
+            w.write(record(), content_id="c" * 64)["status"],
+            "LOCAL_COMMIT_RETURNED")
+        with self.assertRaisesRegex(
+                FencedWriterRejected, "FENCE_WRITER_ALREADY_USED"):
+            w.write(record(), content_id="c" * 64)
+        self.assertEqual(sum(
+            "lab_fenced_insert" in sql for sql, _ in c.calls), 1)
+
     def test_literal_fence_abi_never_claims_native_or_trade_authority(self):
         details=fenced_writer_abi()
         self.assertEqual(details["sql_function"],"public.lab_fenced_insert")
