@@ -9,11 +9,10 @@ Every INSERT calls the exact C-owned SECURITY DEFINER function on the SAME
 already-bound backend. No direct INSERT fallback, conflict-ignore, auto-retry,
 transparent reconnect or advisory-lock bypass. Unknown commit outcome is fatal.
 """
-import hashlib
 import re
 import uuid
 
-from market_data.provenance import canonical, digest
+from market_data.provenance import canonical
 from market_data_v2.qualified_read_contract import validate_minute
 
 _SHA64=re.compile(r"[0-9a-f]{64}\Z")
@@ -67,9 +66,11 @@ class CanonicalLabMinuteWriter:
               and type(token) is int and 0<token<2**63,"FENCE_GENERATION_REQUIRED")
         _deny(type(bound_backend_pid) is int and 0<bound_backend_pid<2**31,
               "FENCE_BACKEND_PID_REQUIRED")
-        _deny(getattr(connection,"closed",True) is False,
-              "FENCE_CONNECTION_CLOSED")
-        _deny(callable(getattr(connection,"cursor",None)),
+        _deny(getattr(connection,"closed",True) is False
+              and getattr(connection,"autocommit",None) is True,
+              "FENCE_DEDICATED_AUTOCOMMIT_CONNECTION_REQUIRED")
+        _deny(callable(getattr(connection,"cursor",None))
+              and callable(getattr(connection,"transaction",None)),
               "FENCE_PSYCOG_CONNECTION_REQUIRED")
         _deny(callable(getattr(connection,"commit",None))
               and callable(getattr(connection,"rollback",None)),
@@ -119,17 +120,19 @@ class CanonicalLabMinuteWriter:
         # transaction. New authority must come from the C/E resource owner.
         self._used=True
         try:
-            with self._connection.cursor() as cursor:
-                cursor.execute("SELECT pg_backend_pid()")
-                observed=cursor.fetchone()
-                _deny(type(observed) in (tuple,list) and len(observed)==1
-                      and type(observed[0]) is int and observed[0]==self._pid,
-                      "FENCE_BACKEND_CHANGED")
-                self._current_after_start()
-                cursor.execute(_SQL,(*self._params,item["dataset_fingerprint"],
-                                     content_id,item["symbol"],item["start_ms"],payload))
-                self._current_after_start()
-            self._connection.commit()
+            # One protected transaction on the original backend. The lock and
+            # last admission check both precede transaction completion.
+            with self._connection.transaction():
+                with self._connection.cursor() as cursor:
+                    cursor.execute("SELECT pg_backend_pid()")
+                    observed=cursor.fetchone()
+                    _deny(type(observed) in (tuple,list) and len(observed)==1
+                          and type(observed[0]) is int and observed[0]==self._pid,
+                          "FENCE_BACKEND_CHANGED")
+                    self._current_after_start()
+                    cursor.execute(_SQL,(*self._params,item["dataset_fingerprint"],
+                                         content_id,item["symbol"],item["start_ms"],payload))
+                    self._current_after_start()
             return {"schema":"market-data.c-fenced-write-result.v1",
                     "status":"LOCAL_COMMIT_RETURNED","fingerprint":item["dataset_fingerprint"],
                     "storage_immutability":"NOT_ATTESTED",
