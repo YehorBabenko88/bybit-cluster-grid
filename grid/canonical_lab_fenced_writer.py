@@ -78,6 +78,11 @@ class CanonicalLabMinuteWriter:
               "FENCE_NATIVE_ADMISSION_REQUIRED")
         _deny(getattr(native_admission,"lab_only",None) is True,
               "FENCE_NATIVE_LAB_SCOPE_REQUIRED")
+        # A caller-provided boolean/duck-typed object is not native authority.
+        # This contract accepts only C/E's private trusted LAB admission type,
+        # once that owner supplies it; until then the runtime remains NO_GO.
+        _deny(getattr(native_admission,"trusted_root_authority",None) is True,
+              "FENCE_TRUSTED_ROOT_AUTHORITY_REQUIRED")
         self._connection=connection
         self._authority=native_admission
         self._pid=bound_backend_pid
