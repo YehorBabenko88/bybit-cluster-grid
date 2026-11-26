@@ -6,6 +6,7 @@ No network, exchange, DB or service access in this file.
 """
 import unittest
 import uuid
+from enum import IntEnum
 from types import SimpleNamespace
 
 from market_data.provenance import minute_record,producer,digest
@@ -139,6 +140,25 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
             with self.subTest(diff=diff),self.assertRaises(FencedWriterRejected):
                 writer(c)
             self.assertEqual(c.calls,[])
+
+    def test_psycopg_transaction_status_intenum_idle_is_valid(self):
+        class TransactionStatus(IntEnum):
+            IDLE=0
+            ACTIVE=1
+        c=Connection()
+        c.info.transaction_status=TransactionStatus.IDLE
+        result=writer(c).write(record(),content_id="c"*64)
+        self.assertEqual(result["status"],"LOCAL_COMMIT_RETURNED")
+        c2=Connection()
+        c2.info.transaction_status=TransactionStatus.ACTIVE
+        with self.assertRaisesRegex(FencedWriterRejected,"FENCE_CONNECTION_NOT_IDLE"):
+            writer(c2).write(record(),content_id="c"*64)
+        self.assertEqual(c2.calls,[])
+        c3=Connection()
+        c3.info.transaction_status=True
+        with self.assertRaisesRegex(FencedWriterRejected,"FENCE_CONNECTION_NOT_IDLE"):
+            writer(c3).write(record(),content_id="c"*64)
+        self.assertEqual(c3.calls,[])
 
     def test_ambient_transaction_denied_before_any_fenced_sql(self):
         c=Connection();c.info.transaction_status=2
