@@ -74,8 +74,8 @@ jobs:
           module=importlib.util.module_from_spec(spec)
           spec.loader.exec_module(module)
           suite=unittest.defaultTestLoader.loadTestsFromTestCase(module.NativePG18GridRead)
-          assert suite.countTestCases()==5, 'NATIVE_PG_TEST_COUNT_CHANGED'
+          assert suite.countTestCases()==6, 'NATIVE_PG_TEST_COUNT_CHANGED'
           result=unittest.TextTestRunner(verbosity=2).run(suite)
-          if not result.wasSuccessful() or result.testsRun!=5 or result.skipped:
+          if not result.wasSuccessful() or result.testsRun!=6 or result.skipped:
               raise SystemExit('NATIVE_PG18_V2_NOT_ACCEPTED')
-          print('NATIVE_OWNED_PG18_GRID_V2_HTTP_READ=5_EXECUTED;SKIPS=0;PROVIDER_ATTESTED=NO;PAPER_AUTHORIZED=NO')
+          print('NATIVE_OWNED_PG18_GRID_V2_HTTP_READ=6_EXECUTED;SKIPS=0;PROVIDER_ATTESTED=NO;PAPER_AUTHORIZED=NO')
