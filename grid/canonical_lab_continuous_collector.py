@@ -157,15 +157,15 @@ class ContinuousLabCollector:
         async with self._lock:
             _need(self.state=="STOPPED","COLLECTOR_ALREADY_STARTED")
             status=await self._guard(write=False)
-            self._journal_generation=getattr(self.journal,'generation',None)
-            self._journal_backend_pid=getattr(self.journal,'backend_pid',None)
-            if self._journal_generation is not None:
-                _need(type(self._journal_generation) is int
-                      and self._journal_generation==status.generation
-                      and type(self._journal_backend_pid) is int
-                      and self._journal_backend_pid>1,
-                      'JOURNAL_OWNER_BACKEND_MISMATCH')
             try:
+                self._journal_generation=getattr(self.journal,'generation',None)
+                self._journal_backend_pid=getattr(self.journal,'backend_pid',None)
+                if self._journal_generation is not None:
+                    _need(type(self._journal_generation) is int
+                          and self._journal_generation==status.generation
+                          and type(self._journal_backend_pid) is int
+                          and self._journal_backend_pid>1,
+                          'JOURNAL_OWNER_BACKEND_MISMATCH')
                 self.pending=await _await(self.journal.pending())
                 if self.pending is not None:
                     _durable_pending(self.pending)
