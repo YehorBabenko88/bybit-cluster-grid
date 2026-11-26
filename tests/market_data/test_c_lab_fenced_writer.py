@@ -44,6 +44,7 @@ def record():
 
 class Admission:
     lab_only=True
+    trusted_root_authority=True
     def __init__(self,*values):
         self.values=list(values or [True,True,True])
         self.calls=0
@@ -125,7 +126,10 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
         with self.assertRaisesRegex(FencedWriterRejected,"FENCE_NATIVE_ADMISSION_REQUIRED"):
             CanonicalLabMinuteWriter(c,native_admission=None,**VALUES)
         with self.assertRaisesRegex(FencedWriterRejected,"FENCE_NATIVE_LAB_SCOPE_REQUIRED"):
-            writer(c,SimpleNamespace(require_current=lambda:True,lab_only=False))
+            writer(c,SimpleNamespace(require_current=lambda:True,lab_only=False,
+                                     trusted_root_authority=True))
+        with self.assertRaisesRegex(FencedWriterRejected,"FENCE_TRUSTED_ROOT_AUTHORITY_REQUIRED"):
+            writer(c,SimpleNamespace(require_current=lambda:True,lab_only=True))
         self.assertEqual(c.calls,[])
 
     def test_deny_automatic_transaction_pooled_and_closed_connection(self):
