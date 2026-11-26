@@ -29,6 +29,13 @@ jobs:
           ref: 9e6acbd9e12a91189f57234828e31640983af553
           path: .source/math
           persist-credentials: false
+      # F's reviewed qualifier is used as an offline verifier ONLY.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/unified-system
+          ref: f6b36c814dd5612df164db28cf43139822bb886e
+          path: .source/f-qualification
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: ${{ matrix.python }}
@@ -49,7 +56,7 @@ jobs:
               if working!=committed and (normalized!=committed or b'\r' in working.replace(b'\r\n',b'')):
                   raise RuntimeError('build input differs from committed source')
               source.write_bytes(committed)
-          for source in [root/'pyproject.toml',root/'MANIFEST.in',root/'README.md',*list((root/'market_data').glob('*.py')),*list((root/'market_data').glob('*.sql')),*list((root/'market_data_v2').glob('*.py'))]:
+          for source in [root/'pyproject.toml',root/'MANIFEST.in',root/'README.md',*list((root/'market_data').glob('*.py')),*list((root/'market_data').glob('*.sql')),*list((root/'market_data_v2').glob('*.py')),*(root/p for p in ('grid/__init__.py','grid/canonical_lab_continuous_collector.py','grid/c_lab_journal_adapter.py','grid/canonical_lab_fenced_writer.py','grid/c_async_fenced_writer.py'))]:
               committed_input(root,source)
           math_root=root/'.source/math'
           assert subprocess.check_output(['git','-C',str(math_root),'rev-parse','HEAD'],text=True).strip()=='9e6acbd9e12a91189f57234828e31640983af553'
@@ -77,6 +84,27 @@ jobs:
           with cache_api['fresh_sdk_cache'](source_roots=(root,)) as cache:
               run('-I','-S','-B','-X','pycache_prefix='+str(cache),root/'scripts/run_canonical_tests.py','--cache-root',cache,'--dependencies',sysconfig.get_path('purelib'),'--site',evidence['artifact_site'],'--bindings',proof,'--evidence',pathlib.Path(os.environ['RUNNER_TEMP'])/'canonical-data-tests.json',cwd=pathlib.Path(os.environ['RUNNER_TEMP']))
           print('PURE_OFFLINE_ONLY=PASS; NATIVE_LIVE_ORIGINAL_DATA=NOT_QUALIFIED')
+
+      - name: Build evidence from REAL installed B9e0 wheel and exact F qualifier (no Root grant)
+        if: runner.os == 'Linux'
+        shell: python
+        run: |
+          import os, pathlib, subprocess, sys
+          root=pathlib.Path.cwd()
+          f=root/'.source/f-qualification'
+          expected='f6b36c814dd5612df164db28cf43139822bb886e'
+          assert subprocess.check_output(['git','-C',str(f),'rev-parse','HEAD'],text=True).strip()==expected
+          wheels=list((root/'.candidate-dist').glob('market_data-*.whl'))
+          sdists=list((root/'.candidate-dist').glob('market_data-*.tar.gz'))
+          math_wheels=list((root/'.dependency-wheels').glob('*.whl'))
+          assert len(wheels)==len(sdists)==len(math_wheels)==1, 'EXACT_B9E0_AND_MATH_BUILD_REQUIRED'
+          proof=pathlib.Path(os.environ['RUNNER_TEMP'])/'b19-real-installed-wheel.json'
+          subprocess.run([sys.executable,'-I','-B',str(root/'scripts/round19_install_actual_b9e0.py'),
+                          '--root',str(root),'--wheel',str(wheels[0]),
+                          '--sdist',str(sdists[0]),'--math-wheel',str(math_wheels[0]),
+                          '--f-tool',str(f/'tools/f_wheel_qualification.py'),
+                          '--output',str(proof)],check=True)
+          assert proof.is_file(), 'B19_INSTALLED_RECORD_PROOF_MISSING'
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -107,4 +135,7 @@ jobs:
             ${{ runner.temp }}/canonical-data-package-proof.json
             ${{ runner.temp }}/canonical-data-tests.json
             ${{ runner.temp }}/canonical-data-custody.json
+            ${{ runner.temp }}/b19-real-installed-wheel.json
+            .candidate-dist/market_data-*.whl
+            .candidate-dist/market_data-*.tar.gz
           if-no-files-found: error
