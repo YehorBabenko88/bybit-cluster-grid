@@ -141,7 +141,7 @@ class ContinuousLabCollector:
             if write:
                 _need(False,"E_NATIVE_WRITER_NOT_ADMITTED")
             return status
-        except BaseException as exc:
+        except Exception as exc:
             self.state="HALTED"
             self.last_error="ROOT_E_AUTHORITY_UNVERIFIED"
             if isinstance(exc,CollectorRejected):
