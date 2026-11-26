@@ -143,6 +143,13 @@ class QualifiedReadContractTests(unittest.TestCase):
         self.assertIs(x["execution_authority"],False)
         self.assertIs(x["trading_authorized"],False)
 
+    def test_rehashed_unbounded_or_nested_quality_reasons_refused(self):
+        for reasons in ([{"private":"payload"}],["x"*257],[1],[True]):
+            item=record()
+            item["quality_reasons"]=reasons
+            with self.assertRaisesRegex(ProvenanceReadError,"RECORD_QUALITY"):
+                validate_minute(resigned(item),symbol="BTCUSDT",before_ms=NOW)
+
     def test_empty_boolean_clocks_and_future_cursor_refused(self):
         with self.assertRaises(ProvenanceReadError):
             qualify_records([],symbol="BTCUSDT",before_ms=NOW,now_ms=NOW)
