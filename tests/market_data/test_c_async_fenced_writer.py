@@ -50,13 +50,13 @@ class Tests(unittest.TestCase):
     def setup_writer(self,*,receipt=None,raised=None):
         raw=object.__new__(CanonicalLabMinuteWriter)
         calls=[]
-        def write(record,*,content_id):
-            calls.append((record,content_id))
+        def write(item,*,content_id):
+            calls.append((item,content_id))
             if raised is not None:raise raised
             return (receipt if receipt is not None else {
                     "schema":"market-data.c-fenced-write-result.v1",
                     "status":"LOCAL_COMMIT_RETURNED",
-                    "fingerprint":record()["dataset_fingerprint"],
+                    "fingerprint":item["dataset_fingerprint"],
                     "content_id":content_id,
                     "execution_authority":False,
                     "trading_authorized":False})
@@ -77,33 +77,36 @@ class Tests(unittest.TestCase):
 
     def test_unknown_commit_does_not_retry(self):
         writer,calls,owner=self.setup_writer(raised=TimeoutError("ACK_UNKNOWN"))
+        item=record()
         with self.assertRaises(TimeoutError):
-            asyncio.run(writer.write(record(),content_id=digest(record())))
+            asyncio.run(writer.write(item,content_id=digest(item)))
         with self.assertRaisesRegex(CollectorRejected,"ALREADY_USED_OR_UNCERTAIN"):
-            asyncio.run(writer.write(record(),content_id=digest(record())))
+            asyncio.run(writer.write(item,content_id=digest(item)))
         self.assertEqual(len(calls),1)
         self.assertEqual(owner.calls,1)
 
     def test_cancellation_is_not_a_retryable_failure(self):
         writer,calls,owner=self.setup_writer()
+        item=record()
         owner.fail=asyncio.CancelledError()
         with self.assertRaises(asyncio.CancelledError):
-            asyncio.run(writer.write(record(),content_id=digest(record())))
+            asyncio.run(writer.write(item,content_id=digest(item)))
         self.assertEqual(owner.calls,1)
         with self.assertRaises(CollectorRejected):
-            asyncio.run(writer.write(record(),content_id=digest(record())))
+            asyncio.run(writer.write(item,content_id=digest(item)))
         self.assertEqual(len(calls),0)
 
     def test_unqualified_receipt_fail_closed(self):
+        item=record()
         writer,calls,owner=self.setup_writer(receipt={
             "schema":"market-data.c-fenced-write-result.v1",
             "status":"LOCAL_COMMIT_RETURNED",
             "execution_authority":True,"trading_authorized":False})
         with self.assertRaisesRegex(CollectorRejected,"RECEIPT_UNQUALIFIED"):
-            asyncio.run(writer.write(record(),content_id=digest(record())))
+            asyncio.run(writer.write(item,content_id=digest(item)))
         self.assertEqual(owner.calls,1)
         with self.assertRaises(CollectorRejected):
-            asyncio.run(writer.write(record(),content_id=digest(record())))
+            asyncio.run(writer.write(item,content_id=digest(item)))
 
     def test_forged_canonical_content_id_denied_before_owner_executor(self):
         writer,calls,owner=self.setup_writer()
