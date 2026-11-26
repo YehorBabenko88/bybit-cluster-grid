@@ -151,17 +151,22 @@ class ContinuousLabCollector:
     async def begin(self):
         _need(self.state=="STOPPED","COLLECTOR_ALREADY_STARTED")
         await self._owner(write=False)
-        self.pending=await _await(self.journal.pending())
-        if self.pending is not None:
-            _identity(self.pending)
+        try:
+            self.pending=await _await(self.journal.pending())
+            if self.pending is not None:
+                _identity(self.pending)
+                self.state="HALTED"
+                self.last_error="DURABLE_PENDING_RECONCILIATION_REQUIRED"
+                return "RECOVERY_REQUIRED"
+            checkpoint=await _await(self.journal.checkpoint())
+            if checkpoint is not None:
+                _identity(checkpoint)
+            self.state="READY"
+            return "READ_ONLY_READY"
+        except BaseException:
             self.state="HALTED"
-            self.last_error="DURABLE_PENDING_RECONCILIATION_REQUIRED"
-            return "RECOVERY_REQUIRED"
-        checkpoint=await _await(self.journal.checkpoint())
-        if checkpoint is not None:
-            _identity(checkpoint)
-        self.state="READY"
-        return "READ_ONLY_READY"
+            self.last_error="DURABLE_JOURNAL_UNVERIFIED"
+            raise
 
     def stop(self):
         self.state="HALTED" if self.pending is not None else "STOPPED"
