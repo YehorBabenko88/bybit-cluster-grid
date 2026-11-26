@@ -61,6 +61,7 @@ class Connection:
         self.fail_commit=fail_commit
         self.calls=[]
         self.rollback_calls=0
+        self.info=SimpleNamespace(transaction_status=0)
     def cursor(self):
         connection=self
         class Cursor:
@@ -134,6 +135,13 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
             with self.subTest(diff=diff),self.assertRaises(FencedWriterRejected):
                 writer(c)
             self.assertEqual(c.calls,[])
+
+    def test_ambient_transaction_denied_before_any_fenced_sql(self):
+        c=Connection();c.info.transaction_status=2
+        with self.assertRaisesRegex(FencedWriterRejected,"FENCE_CONNECTION_NOT_IDLE"):
+            writer(c).write(record(),content_id="c"*64)
+        self.assertEqual(c.calls,[])
+        self.assertEqual(c.rollback_calls,0)
 
     def test_deny_revoked_before_backend_observation(self):
         c=Connection();a=Admission(False)
