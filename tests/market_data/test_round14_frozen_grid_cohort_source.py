@@ -48,7 +48,7 @@ class Round14FrozenGridSourceCohort(unittest.TestCase):
                 self.assertEqual(len(raw), expected_bytes)
                 self.assertEqual(hashlib.sha256(raw).hexdigest(), expected_sha)
                 git_input = (b"blob " + str(len(raw)).encode("ascii") +
-                             b"\\0" + raw)
+                             bytes([0]) + raw)
                 self.assertEqual(
                     hashlib.sha1(git_input).hexdigest(), expected_blob)
 
