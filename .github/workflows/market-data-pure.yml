@@ -49,7 +49,7 @@ jobs:
               if working!=committed and (normalized!=committed or b'\r' in working.replace(b'\r\n',b'')):
                   raise RuntimeError('build input differs from committed source')
               source.write_bytes(committed)
-          for source in [root/'pyproject.toml',root/'MANIFEST.in',root/'README.md',*list((root/'market_data').glob('*.py')),*list((root/'market_data').glob('*.sql'))]:
+          for source in [root/'pyproject.toml',root/'MANIFEST.in',root/'README.md',*list((root/'market_data').glob('*.py')),*list((root/'market_data').glob('*.sql')),*list((root/'market_data_v2').glob('*.py'))]:
               committed_input(root,source)
           math_root=root/'.source/math'
           assert subprocess.check_output(['git','-C',str(math_root),'rev-parse','HEAD'],text=True).strip()=='9e6acbd9e12a91189f57234828e31640983af553'
