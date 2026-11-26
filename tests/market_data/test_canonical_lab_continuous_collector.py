@@ -158,6 +158,17 @@ class Boundaries(unittest.TestCase):
         self.assertEqual(c.pending["content_id"],"c"*64)
         self.assertEqual(w.calls,0)
 
+    def test_feed_is_never_iterated_without_real_e_grant(self):
+        touched=[]
+        async def feed():
+            touched.append("CONNECTED")
+            yield ({}, "a"*64)
+        c,t,w,j,a=self.make()
+        asyncio.run(c.begin())
+        with self.assertRaisesRegex(CollectorRejected,"E_NATIVE_WRITER_NOT_ADMITTED"):
+            asyncio.run(c.pump_existing_grid_feed(feed()))
+        self.assertEqual(touched,[])
+        self.assertEqual(w.calls,0)
     def test_no_transport_on_gap_when_not_admitted(self):
         c,t,w,j,a=self.make()
         asyncio.run(c.begin())
