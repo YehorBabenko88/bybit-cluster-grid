@@ -218,8 +218,8 @@ class NativePG18GridRead(unittest.TestCase):
                         "market_data/history_api.py",
                         "market_data_v2/qualified_read_contract.py",
                         "market_data_v2/read_api.py"):
-                source_hash.update(rel.encode("ascii")+b"\\0"
-                                   +(grid/rel).read_bytes()+b"\\0")
+                source_hash.update(rel.encode("ascii")+b"\0"
+                                   +(grid/rel).read_bytes()+b"\0")
             source_sha=source_hash.hexdigest()
             schema_sha=hashlib.sha256((grid/"grid/migrations.py").read_bytes()).hexdigest()
             self.assertTrue(claim_lab_fence(
