@@ -109,7 +109,7 @@ class CoordinatorTests(unittest.TestCase):
         c.stop()
         self.assertEqual(c.state,"HALTED")
         self.assertIsNotNone(c.pending)
-        with self.assertRaisesRegex(CollectorRejected,"ALREADY_ACTIVE"):
+        with self.assertRaisesRegex(CollectorRejected,"PENDING_REQUIRES_OWNER_RECONCILIATION"):
             c.begin()
 
     def test_lease_revocation_halts(self):
