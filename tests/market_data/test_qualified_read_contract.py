@@ -41,6 +41,8 @@ class QualifiedReadContractTests(unittest.TestCase):
         self.assertEqual(result["record_integrity"],"VERIFIED")
         self.assertEqual(result["source_authenticity"],"NOT_INDEPENDENTLY_ATTESTED")
         self.assertEqual(result["exchange_completeness"],"NOT_ATTESTED")
+        self.assertEqual(result["source_declared_quality"],["GOOD"])
+        self.assertEqual(result["quality_attestation"],"NOT_INDEPENDENTLY_ATTESTED")
         self.assertEqual(result["coverage"]["missing_minutes"],0)
         self.assertEqual(result["rows"],[item])
         self.assertIs(result["execution_authority"],False)
@@ -122,6 +124,24 @@ class QualifiedReadContractTests(unittest.TestCase):
         item["levels"][0]["buy_volume"]=999
         with self.assertRaisesRegex(ProvenanceReadError,"RECORD_NUMERIC_INTEGRITY"):
             validate_minute(resigned(item),symbol="BTCUSDT",before_ms=NOW)
+
+    def test_future_provider_and_ingestion_clock_refused(self):
+        item=record()
+        with self.assertRaisesRegex(ProvenanceReadError,"QUERY_FUTURE_CLOCK"):
+            qualify_records([item],symbol="BTCUSDT",before_ms=NOW+60000,now_ms=START)
+        item=record()
+        item["ingestion_ms"]=NOW+1
+        with self.assertRaisesRegex(ProvenanceReadError,"QUERY_FUTURE_CLOCK"):
+            qualify_records([resigned(item)],symbol="BTCUSDT",before_ms=NOW+60000,now_ms=NOW)
+
+    def test_quality_label_does_not_grant_trading(self):
+        item=record()
+        item["quality_status"]="INVALID"
+        x=qualify_records([resigned(item)],symbol="BTCUSDT",before_ms=NOW,now_ms=NOW)
+        self.assertEqual(x["source_declared_quality"],["INVALID"])
+        self.assertEqual(x["quality_attestation"],"NOT_INDEPENDENTLY_ATTESTED")
+        self.assertIs(x["execution_authority"],False)
+        self.assertIs(x["trading_authorized"],False)
 
     def test_empty_boolean_clocks_and_future_cursor_refused(self):
         with self.assertRaises(ProvenanceReadError):
