@@ -7,6 +7,7 @@ C remains the exclusive owner of SQL, durable checkpoint and backend.
 import asyncio
 from dataclasses import dataclass
 from inspect import isawaitable, iscoroutinefunction
+from market_data.provenance import digest
 import re
 
 _SHA=re.compile(r"[0-9a-f]{64}\Z")
@@ -67,6 +68,7 @@ def _minute(record,content_id):
     symbol,start,fp,cid=_identity(dict(symbol=item["symbol"],
         start_ms=item["start_ms"],fingerprint=item["dataset_fingerprint"],
         content_id=content_id))
+    _need(cid==digest(item),"CONTENT_ID_CANONICAL_RECORD_MISMATCH")
     return Minute(symbol,start,fp,cid,item)
 
 def _key(m):
@@ -202,6 +204,7 @@ class ContinuousLabCollector:
             receipt=await _await(writer.write(minute.payload,content_id=minute.content_id))
             _need(type(receipt) is dict and receipt.get("status")=="LOCAL_COMMIT_RETURNED"
                   and receipt.get("fingerprint")==minute.fingerprint
+                  and receipt.get("content_id")==minute.content_id
                   and receipt.get("trading_authorized") is False,
                   "WRITER_RECEIPT_UNQUALIFIED")
             await self._guard(write=True)
