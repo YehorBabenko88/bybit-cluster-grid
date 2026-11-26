@@ -8,7 +8,6 @@ import copy
 import unittest
 import uuid
 from types import SimpleNamespace
-from unittest.mock import patch
 
 from market_data.provenance import minute_record,producer,digest
 from grid.canonical_lab_fenced_writer import (
@@ -163,7 +162,7 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
         c=Connection();a=Admission(True,True,False)
         with self.assertRaisesRegex(FencedWriterRejected,"FENCE_NATIVE_ADMISSION_REVOKED"):
             writer(c,a).write(record(),content_id="c"*64)
-        self.assertEqual([sql for sql,_ in c.calls if "lab_fenced_insert" in sql].__len__(),1)
+        self.assertEqual(len([sql for sql,_ in c.calls if "lab_fenced_insert" in sql]),1)
         self.assertEqual(c.calls[-1][0],"ROLLBACK")
 
     def test_sql_rejection_and_unknown_commit_are_fatal_no_retry(self):
