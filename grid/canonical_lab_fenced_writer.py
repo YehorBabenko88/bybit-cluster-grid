@@ -115,6 +115,14 @@ class CanonicalLabMinuteWriter:
         _deny(item["execution_authority"] is False,
               "FENCE_NO_EXECUTION_AUTHORITY_REQUIRED")
         payload=canonical(item).decode("utf-8")
+        # No preexisting implicit transaction is permitted: psycopg's
+        # transaction() would only create a SAVEPOINT in that case.
+        # Fail closed before C's SECURITY DEFINER function is invoked.
+        transaction_status=getattr(getattr(self._connection,"info",None),
+                                   "transaction_status",None)
+        if transaction_status is not None:
+            _deny(type(transaction_status) is int and transaction_status==0,
+                  "FENCE_CONNECTION_NOT_IDLE")
         # The caller may not reuse this writer instance after a failed/unknown
         # transaction. New authority must come from the C/E resource owner.
         self._used=True
