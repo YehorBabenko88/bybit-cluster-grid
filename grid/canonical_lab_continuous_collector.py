@@ -113,6 +113,8 @@ class ContinuousLabCollector:
         self.attempts=0
         self.last_error=None
         self._lock=asyncio.Lock()
+        self._journal_generation=None
+        self._journal_backend_pid=None
 
     async def _guard(self,*,write):
         try:
@@ -151,7 +153,12 @@ class ContinuousLabCollector:
     async def begin(self):
         async with self._lock:
             _need(self.state=="STOPPED","COLLECTOR_ALREADY_STARTED")
-            await self._guard(write=False)
+            status=await self._guard(write=False)
+            self._journal_generation=getattr(self.journal,'generation',None)
+            self._journal_backend_pid=getattr(self.journal,'backend_pid',None)
+            if self._journal_generation is not None:
+                _need(self._journal_generation==status.generation,
+                      'JOURNAL_GENERATION_OWNER_MISMATCH')
             try:
                 self.pending=await _await(self.journal.pending())
                 if self.pending is not None:
