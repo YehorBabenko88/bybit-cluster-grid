@@ -115,7 +115,10 @@ class ContinuousLabCollector:
             if write:
                 # No fallback to boolean flags, status.native_admitted, or
                 # arbitrary user-supplied duck-typed writer_grant.
-                from unified_system.lab_writer_authority import LabWriterGrant
+                try:
+                    from unified_system.lab_writer_authority import LabWriterGrant
+                except ImportError as exc:
+                    raise CollectorRejected("E_NATIVE_WRITER_NOT_ADMITTED") from exc
                 _need(type(self.writer_grant) is LabWriterGrant,"E_NATIVE_WRITER_NOT_ADMITTED")
                 grant_status=await _await(self.writer_grant.require_write_current())
                 _need(type(grant_status) is LabWriterGrant
