@@ -329,6 +329,80 @@ class Round14FreshCohort(unittest.TestCase):
                 self.assertEqual(transport.calls, 0)
         asyncio.run(run())
 
+    def test_unrotated_generation_never_reconciles_even_if_epoch_changes(self):
+        async def run():
+            fresh = DurableJournal(committed=True, generation=1)
+            c, transport, writer = self.make(fresh, generation=1)
+            await c.begin()
+            with self.assertRaisesRegex(
+                    CollectorRejected, "ROOT_GENERATION_EPOCH_NOT_ROTATED"):
+                await self.attempt(c)
+            self.assertNotIn("exact", fresh.calls)
+            self.assertNotIn("clear_pending", fresh.calls)
+            self.assertEqual(writer.calls, 0)
+            self.assertEqual(transport.calls, 0)
+        asyncio.run(run())
+
+    def test_mismatching_previous_generation_preserves_pending(self):
+        async def run():
+            fresh = DurableJournal(committed=True)
+            c, transport, writer = self.make(fresh)
+            await c.begin()
+            with self.assertRaisesRegex(
+                    CollectorRejected, "PENDING_OLD_GENERATION_MISMATCH"):
+                await self.attempt(c, previous_generation=0 + 3)
+            self.assertIsNotNone(c.pending)
+            self.assertNotIn("exact", fresh.calls)
+            self.assertNotIn("clear_pending", fresh.calls)
+            self.assertEqual(writer.calls, 0)
+            self.assertEqual(transport.calls, 0)
+        asyncio.run(run())
+
+    def test_old_epoch_receipt_shape_is_not_authority_without_new_grant(self):
+        async def run():
+            fresh = DurableJournal(committed=True, cursor=True)
+            c, transport, writer = self.make(fresh, writer_grant=False)
+            await c.begin()
+            with self.assertRaisesRegex(
+                    CollectorRejected, "E_NATIVE_WRITER_NOT_ADMITTED"):
+                await self.attempt(c, backend=self._backend_type(),
+                                   process=self._process_type())
+            self.assertIsNotNone(c.pending)
+            self.assertEqual(fresh.calls, ["pending"])
+            self.assertEqual(writer.calls, 0)
+            self.assertEqual(transport.calls, 0)
+        asyncio.run(run())
+
+    def test_wrong_backend_identity_denied_before_pending_read(self):
+        async def run():
+            for bad_pid in (None, 0, True, "302"):
+                fresh = DurableJournal(committed=True, backend_pid=bad_pid)
+                c, transport, writer = self.make(fresh)
+                with self.subTest(bad_pid=bad_pid):
+                    with self.assertRaisesRegex(
+                            CollectorRejected, "JOURNAL_OWNER_BACKEND_MISMATCH"):
+                        await c.begin()
+                self.assertEqual(fresh.calls, [])
+                self.assertEqual(writer.calls, 0)
+                self.assertEqual(transport.calls, 0)
+        asyncio.run(run())
+
+    def test_duplicate_attempt_on_same_collector_is_rejected_after_ack(self):
+        async def run():
+            fresh = DurableJournal(committed=True, cursor=True)
+            c, transport, writer = self.make(fresh)
+            await c.begin()
+            self.assertEqual(await self.attempt(c),
+                             "CURSOR_ALREADY_ACKNOWLEDGED")
+            with self.assertRaisesRegex(
+                    CollectorRejected, "DURABLE_PENDING_REQUIRED"):
+                await self.attempt(c)
+            self.assertEqual(fresh.calls.count("clear_pending"), 1)
+            self.assertEqual(fresh.calls.count("commit_cursor"), 0)
+            self.assertEqual(writer.calls, 0)
+            self.assertEqual(transport.calls, 0)
+        asyncio.run(run())
+
     def test_stop_latch_prevents_recovery_sql_even_with_dummy_types(self):
         async def run():
             fresh = DurableJournal(committed=True)
