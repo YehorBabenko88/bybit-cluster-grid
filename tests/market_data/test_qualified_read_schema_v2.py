@@ -1,17 +1,17 @@
 """Validate the published v2 DTO schema against actual canonical producer output."""
 import copy
 import json
+import runpy
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError
 from market_data_v2.read_api import qualified_snapshot
 from market_data_v2.qualified_read_contract import ProvenanceReadError
 
 _ROOT=Path(__file__).resolve().parents[2]
 _SCHEMA=json.loads((_ROOT/"docs/contracts/qualified-read-envelope-v1.schema.json").read_text(encoding="utf-8"))
-_NSPACE={}
-exec(compile((_ROOT/"scripts/qualified_read_v2_fixture.py").read_text(encoding="utf-8"),"qualified_read_v2_fixture.py","exec"),_NSPACE)
+_NSPACE=runpy.run_path(str(_ROOT/"scripts/qualified_read_v2_fixture.py"))
 
 
 class QualifiedReadV2SchemaTests(unittest.TestCase):
@@ -48,18 +48,18 @@ class QualifiedReadV2SchemaTests(unittest.TestCase):
         for field,forged in changes:
             envelope=copy.deepcopy(baseline)
             envelope[field]=forged
-            with self.subTest(field=field),self.assertRaises(Exception):
+            with self.subTest(field=field),self.assertRaises(ValidationError):
                 self.validator.validate(envelope)
 
     def test_unknown_columns_and_unavailable_with_rows_rejected(self):
         baseline=_NSPACE["build_fixture"]()["qualified_read"]
         poisoned=copy.deepcopy(baseline)
         poisoned["signed_storage_receipt"]={"claim":True}
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValidationError):
             self.validator.validate(poisoned)
         missing=qualified_snapshot("BTCUSDT",1,reader=lambda *_:[],now_ms=1800000120000)
         missing["rows"]=[{"forged":True}]
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValidationError):
             self.validator.validate(missing)
 
 if __name__=="__main__":
