@@ -110,8 +110,9 @@ def validate_minute(record, *, symbol, before_ms):
     _require(historical_aggregate_integrity(candidate) is True,
         "RECORD_NUMERIC_INTEGRITY")
     _require(type(r["quality_status"]) is str and 1 <= len(r["quality_status"]) <= 64
-        and type(r["quality_reasons"]) is list and len(r["quality_reasons"]) <= 64,
-        "RECORD_QUALITY")
+        and type(r["quality_reasons"]) is list and len(r["quality_reasons"]) <= 64
+        and all(type(reason) is str and 0 < len(reason) <= 256
+                for reason in r["quality_reasons"]), "RECORD_QUALITY")
     _require(r["status"] != "PARTIAL" or r["source_identity_verified"] is True,
         "RECORD_IDENTITY_UNVERIFIED")
     return r
