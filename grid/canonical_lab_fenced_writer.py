@@ -67,7 +67,7 @@ class CanonicalLabMinuteWriter:
                  session_id, instance_id, node_incarnation_id,
                  source_sha256, schema_sha256, native_admission,
                  bound_backend_pid, executor=None, operation_id=None,
-                 package_identity=None, bound_backend_start=None):
+                 package_identity=None, bound_backend_start=None, epoch=None):
         _deny(type(owner) is str and _OWNER.fullmatch(owner) is not None,
               "FENCE_OWNER_REQUIRED")
         _deny(type(namespace) is str and len(namespace)<=200
@@ -111,6 +111,9 @@ class CanonicalLabMinuteWriter:
         self._executor=executor
         self._operation_id=operation_id
         self._package_identity=package_identity
+        _deny(type(epoch) is str and _SHA64.fullmatch(epoch) is not None,
+              "FENCE_E_ROOT_EPOCH_REQUIRED")
+        self._epoch=epoch
         self._backend_start=bound_backend_start
         self._params=(owner,namespace,generation,token,_uuid4(session_id),
                       _uuid4(instance_id),_uuid4(node_incarnation_id),
@@ -118,27 +121,26 @@ class CanonicalLabMinuteWriter:
         self._closed=False
         self._used=False
 
-    def _permit_args(self, content_id):
+    def _permit_args(self, content_id, item):
         return dict(executor=self._executor,operation_id=self._operation_id,
                     content_id=content_id,package_identity=self._package_identity,
                     entrypoint="grid.canonical_lab_fenced_writer",
-                    backend_pid=self._pid,backend_start=self._backend_start)
+                    backend_pid=self._pid,backend_start=self._backend_start,
+                    symbol=item["symbol"],start_ms=item["start_ms"],
+                    fingerprint=item["dataset_fingerprint"],
+                    owner=self._params[0],namespace=self._params[1],
+                    generation=self._params[2],token=self._params[3],
+                    epoch=self._epoch)
 
-    def _current(self,content_id):
+    def _current(self, content_id, item):
         _deny(not self._closed and not self._used,"FENCE_WRITER_ALREADY_USED")
         _deny(self._connection.closed is False,"FENCE_CONNECTION_CLOSED")
-        self._current_after_start(content_id)
+        self._current_after_start(content_id,item)
 
     def write(self, record, *, content_id):
-        """One transaction; a lost ACK is *not* evidence of a failed commit.
-
-        This method is single-use intentionally. C's exact PG function
-        validates owner/namespace/generation/token/session/instance/backend
-        identity under a PostgreSQL row lock and refuses old or other backends.
-        """
+        """One transaction on one backend; unknown COMMIT cannot be retried."""
         _deny(type(content_id) is str and _SHA64.fullmatch(content_id) is not None,
               "FENCE_CONTENT_ID_REQUIRED")
-        self._current(content_id)
         try:
             item=validate_minute(record,symbol=record["symbol"],before_ms=2**63-1)
         except Exception as exc:
@@ -147,22 +149,21 @@ class CanonicalLabMinuteWriter:
               "FENCE_MINUTE_NOT_QUALIFIED")
         _deny(item["execution_authority"] is False,
               "FENCE_NO_EXECUTION_AUTHORITY_REQUIRED")
+        # Canonical JSON hashes are integrity identifiers, never root authority.
+        # The same exact content ID must be used by the collector, E permit,
+        # C pending journal and the sole SQL fence.
+        from market_data.provenance import digest
+        _deny(content_id==digest(item),"FENCE_CONTENT_ID_RECORD_MISMATCH")
+        self._current(content_id,item)
         payload=canonical(item).decode("utf-8")
-        # No preexisting implicit transaction is permitted: psycopg's
-        # transaction() would only create a SAVEPOINT in that case.
-        # Fail closed before C's SECURITY DEFINER function is invoked.
         transaction_status=getattr(getattr(self._connection,"info",None),
                                    "transaction_status",None)
         _deny(isinstance(transaction_status,int)
               and not isinstance(transaction_status,bool)
               and transaction_status==0,
               "FENCE_CONNECTION_NOT_IDLE")
-        # The caller may not reuse this writer instance after a failed/unknown
-        # transaction. New authority must come from the C/E resource owner.
         self._used=True
         try:
-            # One protected transaction on the original backend. The lock and
-            # last admission check both precede transaction completion.
             with self._connection.transaction():
                 with self._connection.cursor() as cursor:
                     cursor.execute(
@@ -184,12 +185,13 @@ class CanonicalLabMinuteWriter:
                           actual.astimezone(timezone.utc)==
                           expected.astimezone(timezone.utc),
                           "FENCE_BACKEND_START_CHANGED")
-                    self._current_after_start(content_id)
+                    self._current_after_start(content_id,item)
                     cursor.execute(_SQL,(*self._params,item["dataset_fingerprint"],
                                          content_id,item["symbol"],item["start_ms"],payload))
-                    self._consume_after_sql(content_id)
+                    self._consume_after_sql(content_id,item)
             return {"schema":"market-data.c-fenced-write-result.v1",
                     "status":"LOCAL_COMMIT_RETURNED","fingerprint":item["dataset_fingerprint"],
+                    "content_id":content_id,
                     "storage_immutability":"NOT_ATTESTED",
                     "source_authenticity":"NOT_INDEPENDENTLY_ATTESTED",
                     "exchange_completeness":"NOT_ATTESTED",
@@ -202,18 +204,18 @@ class CanonicalLabMinuteWriter:
                 pass
             raise
 
-    def _current_after_start(self,content_id):
+    def _current_after_start(self,content_id,item):
         try:
-            accepted=self._authority.require_current(**self._permit_args(content_id))
+            accepted=self._authority.require_current(**self._permit_args(content_id,item))
         except BaseException as exc:
             raise FencedWriterRejected("FENCE_E_OPERATION_REVOKED") from exc
         _deny(accepted is self._authority,"FENCE_E_OPERATION_REVOKED")
 
-    def _consume_after_sql(self,content_id):
+    def _consume_after_sql(self,content_id,item):
         # The same Root permit must be consumed before the transaction exits;
         # the SQL row fence is still the final durable write barrier.
         try:
-            accepted=self._authority.consume(**self._permit_args(content_id))
+            accepted=self._authority.consume(**self._permit_args(content_id,item))
         except BaseException as exc:
             raise FencedWriterRejected("FENCE_E_OPERATION_CONSUME_DENIED") from exc
         _deny(accepted is self._authority,"FENCE_E_OPERATION_CONSUME_DENIED")
