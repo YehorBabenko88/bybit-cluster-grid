@@ -99,6 +99,16 @@ def validate_minute(record, *, symbol, before_ms):
         "RECORD_CANDLE_KEYS")
     _require(type(r["levels"]) is list and len(r["levels"]) <= 4096,
         "RECORD_LEVEL_BUDGET")
+    from market_math import historical_aggregate_integrity
+    candidate={"symbol":r["symbol"],"start_ms":r["start_ms"],
+        "source_event_start_ms":r["source_event_start_ms"],
+        "source_event_end_ms":r["source_event_end_ms"],
+        "source_provenance":source,
+        **r["candle"],"levels":r["levels"],
+        "quality_status":r["quality_status"],
+        "quality_reasons":r["quality_reasons"]}
+    _require(historical_aggregate_integrity(candidate) is True,
+        "RECORD_NUMERIC_INTEGRITY")
     _require(type(r["quality_status"]) is str and 1 <= len(r["quality_status"]) <= 64
         and type(r["quality_reasons"]) is list and len(r["quality_reasons"]) <= 64,
         "RECORD_QUALITY")
