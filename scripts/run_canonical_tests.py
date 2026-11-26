@@ -43,17 +43,30 @@ def main(argv=None):
     Guard=runpy.run_path(str(root/'scripts/canonical_test_gate.py'))['StrictTestRoster']
     sys.path[:0]=[str(site),str(dependencies),str(root/'scripts'),str(root/'tests/market_data'),str(root/'tests/marketdata')]
     os.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD']='1'
-    expected=json.loads((root/'scripts/canonical_test_roster.json').read_text())
-    guard=Guard(expected,expected_count=902)
+    partition=runpy.run_path(str(root/'scripts/check_cross_repo_roster_partition.py'))['validate']()
+    expected=partition['grid_nodes']
+    guard=Guard(expected,expected_count=884)
     import market_data,market_math,pytest
     verify(site,bindings,custody)
+    # Explicit Grid-owned nodes, not a skip/deselect of the canonical roster.
+    # The other 18 remain mandatory in the pinned independent source checkout.
+    selected=[]
+    for node in expected:
+        relative,marker=(node.split('::',1)+[''])[:2]
+        selected.append(str(root/relative)+('::'+marker if marker else ''))
     with tempfile.TemporaryDirectory(prefix='canonical-data-tests-') as case:
         previous=pathlib.Path.cwd();os.chdir(case)
         try:
-            result=pytest.main(['--rootdir',str(root),'--import-mode=importlib','-p','pytest_asyncio.plugin','--confcutdir',str(root/'tests'),str(root/'tests/market_data'),str(root/'tests/marketdata/test_rich_sync.py'),str(root/'tests/marketdata/test_coverage.py'),str(root/'tests/marketdata/test_audit.py'),str(root/'tests/marketdata/test_history_plan.py'),str(root/'tests/marketdata/test_readiness.py::test_requirements_skip_explicitly_unsupported_optional_datasets'),str(root/'tests/marketdata/test_readiness.py::test_supported_optional_datasets_remain_required'),str(root/'tests/marketdata/test_readiness.py::test_requirements_stop_at_delisting_boundary'),str(root/'tests/marketdata/test_readiness.py::test_requirements_empty_before_instrument_launch'),str(root/'tests/marketdata/test_readiness.py::test_zero_delivery_time_does_not_truncate_perpetual_instrument'),str(root/'tests/marketdata/test_readiness.py::test_dataset_windows_align_to_their_own_sampling_grid'),str(root/'tests/marketdata/test_readiness.py::test_open_market_store_refuses_creation_without_existing_history'),str(root/'tests/marketdata/test_readiness.py::test_existing_candles_not_promoted_to_source_attested'),str(root/'tests/marketdata/test_readiness.py::test_frozen_empty_history_inspection_is_unqualified_without_fetch_or_mutation'),str(root/'tests/unmigrated_market_data/test_source_provenance.py::test_event_time_ohlc_duplicate_and_late_trades'),str(root/'tests/unmigrated_market_data/test_source_provenance.py::test_actual_builder_decimal_tick_rounding_retains_integrity'),'-p','no:cacheprovider','-q'],plugins=[guard])
+            result=pytest.main(['--rootdir',str(root),'--import-mode=importlib',
+                '-p','pytest_asyncio.plugin','--confcutdir',str(root/'tests'),
+                '-p','no:cacheprovider','-q',*selected],plugins=[guard])
             verify(site,bindings,custody)
             accepted=int(result)==0 and guard.accepted
-            output.write_text(json.dumps({'status':'PASS_SCOPED' if accepted else 'FAIL','cases':902,'source_head':head,'scope':'SYNTHETIC_FIXTURES_ONLY','native':'NOT_RUN','release_status':'NO_GO','errors':guard.errors},indent=2)+'\n')
+            output.write_text(json.dumps({'status':'PASS_SCOPED' if accepted else 'FAIL',
+                'cases':884,'other_repository_custody_required':18,'total_required':902,
+                'source_head':head,'source_custody_sha':partition['source_sha'],
+                'scope':'SYNTHETIC_FIXTURES_ONLY','native':'NOT_RUN',
+                'release_status':'NO_GO','errors':guard.errors},indent=2)+'\n')
             return 0 if accepted else 1
         finally:os.chdir(previous)
 
