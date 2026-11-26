@@ -238,6 +238,63 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "PARTIAL"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "const": "EXCHANGE_COMPLETENESS_UNATTESTED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "GAP"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "const": "MISSING_MINUTES_OR_EPOCH_CHANGE"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "STALE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "const": "FRESHNESS_WATERMARK_EXPIRED"
+          }
+        }
+      }
     }
   ],
   "$comment": "Structural only; no provider authentication, PG resource fencing, immutable storage proof, Root startup capability or paper/trading authority can be claimed from schema validation."
