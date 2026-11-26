@@ -84,7 +84,7 @@ def validate_minute(record, *, symbol, before_ms):
         and type(c["observed_minutes"]) is int and c["observed_minutes"] == 1
         and type(c["missing_minutes"]) is int and c["missing_minutes"] == 0
         and c["exchange_completeness_attested"] is False, "RECORD_COMPLETENESS_CLAIM")
-    _require(r["status"] in ("PARTIAL", "UNAVAILABLE"), "RECORD_STATUS")
+    _require(type(r["status"]) is str and r["status"] in ("PARTIAL", "UNAVAILABLE"), "RECORD_STATUS")
     _require((r["status"],r["reason"]) in (
         ("PARTIAL","EXCHANGE_COMPLETENESS_UNATTESTED"),
         ("UNAVAILABLE","SOURCE_PROVENANCE_UNAVAILABLE")), "RECORD_REASON")
