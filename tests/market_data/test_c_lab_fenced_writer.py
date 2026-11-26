@@ -57,11 +57,10 @@ class Admission:
         valid=(not self.used and (self.values.pop(0) if self.values else False))
         return self if valid else False
     def consume(self,**kwargs):
-        return self.require_current(**kwargs) if not self._mark_used() else False
-    def _mark_used(self):
-        if self.used:return True
-        self.used=True
-        return False
+        result=self.require_current(**kwargs)
+        if result is self:
+            self.used=True
+        return result
 
 
 class Connection:
@@ -148,7 +147,10 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
 
     def test_deny_no_auth_and_nonlab_authority(self):
         c=Connection()
-        for admission in (None,SimpleNamespace(require_current=lambda:True),
+        with self.assertRaisesRegex(
+                FencedWriterRejected,"FENCE_E_ROOT_OPERATION_PERMIT_REQUIRED"):
+            CanonicalLabMinuteWriter(c,native_admission=None,**VALUES)
+        for admission in (SimpleNamespace(require_current=lambda:True),
                           SimpleNamespace(lab_only=True,trusted_root_authority=True,
                                           require_current=lambda:True)):
             with self.subTest(admission=admission),self.assertRaisesRegex(
