@@ -4,7 +4,6 @@ The stub is *not* real PostgreSQL. Native PG18 tests must prove actual
 SECURITY DEFINER function ownership, revocation and durable high-water.
 No network, exchange, DB or service access in this file.
 """
-import copy
 import unittest
 import uuid
 from types import SimpleNamespace
