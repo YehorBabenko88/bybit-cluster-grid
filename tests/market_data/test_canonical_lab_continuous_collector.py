@@ -120,6 +120,35 @@ class Boundaries(unittest.TestCase):
             asyncio.run(c.deliver({},content_id="0"*64))
         self.assertEqual(w.calls,0)
 
+    def test_stale_journal_generation_denies_before_c_journal_read(self):
+        j=Journal()
+        j.generation=2
+        j.backend_pid=555
+        c,t,w,j,a=self.make(journal=j)
+        with self.assertRaisesRegex(CollectorRejected,"JOURNAL_OWNER_BACKEND_MISMATCH"):
+            asyncio.run(c.begin())
+        self.assertEqual(c.state,"HALTED")
+        self.assertEqual(j.calls,[])
+        self.assertEqual(w.calls,0)
+
+    def test_journal_missing_bound_backend_pid_denies(self):
+        j=Journal()
+        j.generation=1
+        j.backend_pid=None
+        c,t,w,j,a=self.make(journal=j)
+        with self.assertRaisesRegex(CollectorRejected,"JOURNAL_OWNER_BACKEND_MISMATCH"):
+            asyncio.run(c.begin())
+        self.assertEqual(c.state,"HALTED")
+        self.assertEqual(j.calls,[])
+        self.assertEqual(w.calls,0)
+
+    def test_new_owner_generation_and_backend_readonly_begin(self):
+        j=Journal()
+        j.generation=1
+        j.backend_pid=555
+        c,t,w,j,a=self.make(journal=j)
+        self.assertEqual(asyncio.run(c.begin()),"READ_ONLY_READY")
+        self.assertEqual(j.calls,["pending","checkpoint"])
     def test_not_async_e_fails_closed(self):
         class Bad:
             def check(self):return _e_status()
