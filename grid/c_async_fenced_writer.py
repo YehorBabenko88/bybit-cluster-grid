@@ -72,10 +72,10 @@ class RootCanonicalWriterFactory:
     def __init__(self, *, authority, owner_executor, connection, identity,
                  generation, token, epoch, backend_pid, backend_start,
                  package_identity):
-        from unified_system.lab_writer_authority import LabRootWriterAuthority
+        from unified_system.lab_writer_authority import LabWriterAuthority
         from unified_system.lab_owner_executor import LabOwnerExecutor
         import re
-        _need(type(authority) is LabRootWriterAuthority and
+        _need(type(authority) is LabWriterAuthority and
               type(owner_executor) is LabOwnerExecutor and
               owner_executor is authority._executor,
               "E_EXACT_ROOT_FACTORY_AUTHORITY_REQUIRED")
@@ -121,8 +121,9 @@ class RootCanonicalWriterFactory:
         self._uncertain=True
         # The original Root issuer performs live C/Consul checks and must
         # return ONLY a protected installed-wheel-bound typed operation permit.
+        operation_id=secrets.token_hex(16)
         permit=await self.authority.issue_operation_permit(
-            executor=self.owner_executor,operation_id=secrets.token_hex(16),
+            executor=self.owner_executor,operation_id=operation_id,
             content_id=minute.content_id,package_identity=self.package_identity,
             entrypoint="grid.canonical_lab_fenced_writer",
             symbol=minute.symbol,start_ms=minute.start_ms,
@@ -142,15 +143,17 @@ class RootCanonicalWriterFactory:
                 schema_sha256=self.identity.schema_sha256,
                 native_admission=permit,bound_backend_pid=self.backend_pid,
                 executor=self.owner_executor,
-                operation_id=permit._operation_id,
+                operation_id=operation_id,
                 package_identity=self.package_identity,
                 bound_backend_start=self.backend_start,epoch=self.epoch)
         try:
             raw=await self.owner_executor.call(bind_original_writer,timeout=3.0)
             _need(type(raw) is CanonicalLabMinuteWriter,
                   "ROOT_FACTORY_WRITER_CONSTRUCTION_REJECTED")
-            return AsyncCanonicalFencedWriter(
+            bound=AsyncCanonicalFencedWriter(
                 writer=raw,owner_executor=self.owner_executor)
+            self._uncertain=False
+            return bound
         except BaseException:
             permit.revoke()
             raise
