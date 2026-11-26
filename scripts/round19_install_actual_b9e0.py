@@ -136,8 +136,30 @@ def inspect(root: Path, wheel: Path, sdist: Path, math_wheel: Path, ftool: Path)
         assert qualified["installed_bytes_match"] is True
         assert qualified["installed_record_verified"] is True
         assert qualified["source_bytes_match"] is True
+        assert qualified["all_installed_bytes_authenticated"] is True
         assert qualified["writer_admitted"] is False
         assert qualified["release_authenticated"] is False
+
+        # Negative check on the REAL installed B bytes in an OWNED disposable
+        # test target: a changed installed writer must fail F's byte qualifier.
+        installed_writer = install / "grid/canonical_lab_fenced_writer.py"
+        original = installed_writer.read_bytes()
+        try:
+            installed_writer.write_bytes(original + b"\\n# deliberate disposable corruption\\n")
+            try:
+                namespace.qualify_wheel(
+                    wheel, install, expected_sha256=digest(wb),
+                    source_files={name: digest(data) for name, data in committed.items()},
+                    expected_distribution="market-data",
+                    expected_version="0.2.0.dev0", expected_entrypoints=SCRIPTS,
+                )
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("MUTATED_INSTALLED_WRITER_ACCEPTED")
+        finally:
+            installed_writer.write_bytes(original)
+        assert installed_writer.read_bytes() == original
 
         # No historical Grid Python file may appear on the installed target.
         installed_grid = {p.relative_to(install).as_posix()
