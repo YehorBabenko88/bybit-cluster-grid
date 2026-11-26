@@ -95,7 +95,7 @@ def main():
  site=pathlib.Path(tempfile.mkdtemp(prefix='.artifact-site-',dir=root))
  for archive in (wheel,sdk):
   with zipfile.ZipFile(archive) as z:z.extractall(site)
- bindings={name:hashlib.sha256(raw).hexdigest() for name,raw in {**source,**grid,**numerical}.items()}
+ bindings={name:hashlib.sha256(raw).hexdigest() for name,raw in {**source,**v2,**grid,**numerical}.items()}
  print(json.dumps({'bindings':bindings,'artifact_site':str(site),'wheel_sha256':hashlib.sha256(wheel.read_bytes()).hexdigest(),'sdist_sha256':hashlib.sha256(sdist.read_bytes()).hexdigest(),'runtime_files':len(source),'qualified_v2_files':len(v2),'canonical_grid_files':len(grid),'canonical_grid_source_sha256':{name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(grid.items())},'qualified_v2_source_sha256':{name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(v2.items())},'python_files':sum(n.endswith('.py') for n in source),'sql_files':sum(n.endswith('.sql') for n in source),'math_files':len(numerical),'byte_comparison':'RAW_IDENTICAL','closed_wheel_members':True,'exact_entrypoints':True,'record_integrity':True,'legacy_packages_absent':True,'native_scripts_absent':True,'source_namespace_scan':'PASS'},sort_keys=True))
 
 if __name__=='__main__':main()
