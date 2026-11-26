@@ -106,6 +106,7 @@ def writer(conn=None,auth=None,**updates):
     args.setdefault("operation_id","d"*32)
     args.setdefault("package_identity","e"*64)
     args.setdefault("bound_backend_start","2026-11-26T20:00:00+00:00")
+    args.setdefault("epoch","f"*64)
     return CanonicalLabMinuteWriter(conn or Connection(),
                                     native_admission=auth if auth is not None else Admission(),
                                     **args)
@@ -122,7 +123,7 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
         self.addCleanup(self.mock_permit.stop)
     def test_only_exact_sql_security_definer_function_on_same_backend(self):
         c=Connection();a=Admission()
-        result=writer(c,a).write(record(),content_id="c"*64)
+        result=writer(c,a).write(record(),content_id=digest(record()))
         self.assertEqual(result["status"],"LOCAL_COMMIT_RETURNED")
         self.assertFalse(result["execution_authority"])
         self.assertFalse(result["trading_authorized"])
@@ -199,7 +200,7 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
 
     def test_deny_revoked_before_backend_observation(self):
         c=Connection();a=Admission(False)
-        with self.assertRaisesRegex(FencedWriterRejected,"FENCE_NATIVE_ADMISSION_REVOKED"):
+        with self.assertRaisesRegex(FencedWriterRejected,"FENCE_E_OPERATION_REVOKED"):
             writer(c,a).write(record(),content_id="c"*64)
         self.assertEqual(c.calls,[])
 
@@ -207,7 +208,7 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
         c=Connection(pid=5678);w=writer(c)
         with self.assertRaisesRegex(FencedWriterRejected,"FENCE_BACKEND_CHANGED"):
             w.write(record(),content_id="c"*64)
-        self.assertEqual([x[0] for x in c.calls],["BEGIN","SELECT pg_backend_pid()","ROLLBACK"])
+        self.assertEqual([x[0] for x in c.calls],["BEGIN","SELECT pg_backend_pid(), backend_start::text FROM pg_catalog.pg_stat_activity WHERE pid=pg_backend_pid() AND usename=session_user","ROLLBACK"])
         self.assertEqual(c.rollback_calls,1)
         with self.assertRaisesRegex(FencedWriterRejected,"FENCE_WRITER_ALREADY_USED"):
             w.write(record(),content_id="c"*64)
@@ -270,22 +271,53 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
         self.assertTrue(a.used)
         self.assertEqual(a.calls,3)
         self.assertEqual(len(a.kwargs),3)
-        self.assertTrue(all(k["content_id"]=="c"*64 for k in a.kwargs))
+        self.assertTrue(all(k["content_id"]==digest(record()) for k in a.kwargs))
         self.assertTrue(all(k["operation_id"]=="d"*32 for k in a.kwargs))
         self.assertTrue(all(k["package_identity"]=="e"*64 for k in a.kwargs))
         self.assertTrue(all(k["backend_pid"]==1234 for k in a.kwargs))
+        self.assertTrue(all(k["symbol"]=="BTCUSDT" and k["start_ms"]==START for k in a.kwargs))
+        self.assertTrue(all(k["fingerprint"]==record()["dataset_fingerprint"] for k in a.kwargs))
+        self.assertTrue(all(k["owner"]==VALUES["owner"] and k["namespace"]==VALUES["namespace"] for k in a.kwargs))
+        self.assertTrue(all(k["generation"]==1 and k["token"]==100 and k["epoch"]=="f"*64 for k in a.kwargs))
 
     def test_replayed_one_use_writer_never_second_insert(self):
         c = Connection()
         w = writer(c, Admission())
         self.assertEqual(
-            w.write(record(), content_id="c" * 64)["status"],
+            w.write(record(), content_id=digest(record()))["status"],
             "LOCAL_COMMIT_RETURNED")
         with self.assertRaisesRegex(
                 FencedWriterRejected, "FENCE_WRITER_ALREADY_USED"):
             w.write(record(), content_id="c" * 64)
         self.assertEqual(sum(
             "lab_fenced_insert" in sql for sql, _ in c.calls), 1)
+
+    def test_mismatched_content_digest_denied_before_e_or_sql(self):
+        c=Connection();a=Admission()
+        with self.assertRaisesRegex(FencedWriterRejected,
+                                    "FENCE_CONTENT_ID_RECORD_MISMATCH"):
+            writer(c,a).write(record(),content_id="0"*64)
+        self.assertEqual(a.calls,0)
+        self.assertEqual(c.calls,[])
+
+    def test_epoch_required_before_any_sql(self):
+        c=Connection()
+        with self.assertRaisesRegex(FencedWriterRejected,
+                                    "FENCE_E_ROOT_EPOCH_REQUIRED"):
+            writer(c,epoch="INVALID")
+        self.assertEqual(c.calls,[])
+
+    def test_sql_tuple_tampering_denied_by_exact_e_permit(self):
+        class Bound(Admission):
+            def require_current(self,**kwargs):
+                if kwargs["generation"]!=1 or kwargs["token"]!=100:
+                    return False
+                return super().require_current(**kwargs)
+        c=Connection();a=Bound()
+        with self.assertRaisesRegex(FencedWriterRejected,
+                                    "FENCE_E_ROOT_OPERATION_PERMIT_REQUIRED"):
+            writer(c,a,generation=2)
+        self.assertEqual(c.calls,[])
 
     def test_literal_fence_abi_never_claims_native_or_trade_authority(self):
         details=fenced_writer_abi()
