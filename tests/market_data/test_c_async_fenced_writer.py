@@ -9,8 +9,22 @@ import types
 import unittest
 
 from grid.canonical_lab_fenced_writer import CanonicalLabMinuteWriter
+from market_data.provenance import minute_record, producer, digest
 from grid.c_async_fenced_writer import AsyncCanonicalFencedWriter
 from grid.canonical_lab_continuous_collector import CollectorRejected
+
+def record():
+    src=producer("fixture","a"*40,"wss://stream.bybit.com/v5/public/linear")
+    row={"symbol":"BTCUSDT","start_ms":60000,
+         "source_event_start_ms":60001,"source_event_end_ms":119999,
+         "source_provenance":src,
+         "open":1.0,"high":2.0,"low":1.0,"close":2.0,
+         "buy_volume":1.0,"sell_volume":0.0,"delta":1.0,
+         "trade_count":1,"poc_price":2.0,"quality_status":"GOOD",
+         "quality_reasons":[],
+         "levels":[{"price":2.0,"buy_volume":1.0,"sell_volume":0.0,
+                    "delta":1.0,"volume":1.0,"buy_count":1,"sell_count":0}]}
+    return minute_record(row,120000,"fixture")
 
 class Tests(unittest.TestCase):
     def setUp(self):
@@ -42,7 +56,8 @@ class Tests(unittest.TestCase):
             return (receipt if receipt is not None else {
                     "schema":"market-data.c-fenced-write-result.v1",
                     "status":"LOCAL_COMMIT_RETURNED",
-                    "fingerprint":"a"*64,
+                    "fingerprint":record()["dataset_fingerprint"],
+                    "content_id":content_id,
                     "execution_authority":False,
                     "trading_authorized":False})
         raw.write=write
@@ -51,7 +66,8 @@ class Tests(unittest.TestCase):
 
     def test_only_exact_writer_uses_single_root_executor(self):
         writer,calls,owner=self.setup_writer()
-        got=asyncio.run(writer.write({"start_ms":60000},content_id="b"*64))
+        item=record()
+        got=asyncio.run(writer.write(item,content_id=digest(item)))
         self.assertEqual(got["status"],"LOCAL_COMMIT_RETURNED")
         self.assertEqual(len(calls),1)
         self.assertEqual(owner.calls,1)
@@ -62,9 +78,9 @@ class Tests(unittest.TestCase):
     def test_unknown_commit_does_not_retry(self):
         writer,calls,owner=self.setup_writer(raised=TimeoutError("ACK_UNKNOWN"))
         with self.assertRaises(TimeoutError):
-            asyncio.run(writer.write({},content_id="c"*64))
+            asyncio.run(writer.write(record(),content_id=digest(record())))
         with self.assertRaisesRegex(CollectorRejected,"ALREADY_USED_OR_UNCERTAIN"):
-            asyncio.run(writer.write({},content_id="c"*64))
+            asyncio.run(writer.write(record(),content_id=digest(record())))
         self.assertEqual(len(calls),1)
         self.assertEqual(owner.calls,1)
 
@@ -72,10 +88,10 @@ class Tests(unittest.TestCase):
         writer,calls,owner=self.setup_writer()
         owner.fail=asyncio.CancelledError()
         with self.assertRaises(asyncio.CancelledError):
-            asyncio.run(writer.write({},content_id="c"*64))
+            asyncio.run(writer.write(record(),content_id=digest(record())))
         self.assertEqual(owner.calls,1)
         with self.assertRaises(CollectorRejected):
-            asyncio.run(writer.write({},content_id="c"*64))
+            asyncio.run(writer.write(record(),content_id=digest(record())))
         self.assertEqual(len(calls),0)
 
     def test_unqualified_receipt_fail_closed(self):
@@ -84,10 +100,17 @@ class Tests(unittest.TestCase):
             "status":"LOCAL_COMMIT_RETURNED",
             "execution_authority":True,"trading_authorized":False})
         with self.assertRaisesRegex(CollectorRejected,"RECEIPT_UNQUALIFIED"):
-            asyncio.run(writer.write({},content_id="c"*64))
+            asyncio.run(writer.write(record(),content_id=digest(record())))
         self.assertEqual(owner.calls,1)
         with self.assertRaises(CollectorRejected):
-            asyncio.run(writer.write({},content_id="c"*64))
+            asyncio.run(writer.write(record(),content_id=digest(record())))
+
+    def test_forged_canonical_content_id_denied_before_owner_executor(self):
+        writer,calls,owner=self.setup_writer()
+        with self.assertRaisesRegex(CollectorRejected,"CANONICAL_CONTENT_ID_REQUIRED"):
+            asyncio.run(writer.write(record(),content_id="0"*64))
+        self.assertEqual(owner.calls,0)
+        self.assertEqual(calls,[])
 
     def test_raw_sql_connection_and_fake_writer_rejected(self):
         with self.assertRaisesRegex(CollectorRejected,"EXACT_C_FENCED_WRITER_REQUIRED"):
