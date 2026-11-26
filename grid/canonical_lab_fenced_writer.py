@@ -72,8 +72,7 @@ class CanonicalLabMinuteWriter:
         _deny(callable(getattr(connection,"cursor",None))
               and callable(getattr(connection,"transaction",None)),
               "FENCE_PSYCOG_CONNECTION_REQUIRED")
-        _deny(callable(getattr(connection,"commit",None))
-              and callable(getattr(connection,"rollback",None)),
+        _deny(callable(getattr(connection,"rollback",None)),
               "FENCE_TRANSACTION_BOUNDARY_REQUIRED")
         _deny(callable(getattr(native_admission,"require_current",None)),
               "FENCE_NATIVE_ADMISSION_REQUIRED")
