@@ -10,8 +10,8 @@ import unittest
 
 from grid.canonical_lab_fenced_writer import CanonicalLabMinuteWriter
 from market_data.provenance import minute_record, producer, digest
-from grid.c_async_fenced_writer import AsyncCanonicalFencedWriter
-from grid.canonical_lab_continuous_collector import CollectorRejected
+from grid.c_async_fenced_writer import AsyncCanonicalFencedWriter, RootCanonicalWriterFactory
+from grid.canonical_lab_continuous_collector import CollectorRejected, Minute
 
 def record():
     src=producer("fixture","a"*40,"wss://stream.bybit.com/v5/public/linear")
@@ -114,6 +114,28 @@ class Tests(unittest.TestCase):
             asyncio.run(writer.write(record(),content_id="0"*64))
         self.assertEqual(owner.calls,0)
         self.assertEqual(calls,[])
+
+    def test_factory_releases_only_after_successful_exact_C_checkpoint(self):
+        # Synthetic lifecycle check only; no fake E permit or DB privilege.
+        item=record()
+        m=Minute(item["symbol"],item["start_ms"],
+                 item["dataset_fingerprint"],digest(item),item)
+        factory=object.__new__(RootCanonicalWriterFactory)
+        factory._uncertain=True
+        factory._sql_committed=False
+        factory._pending_key=(m.symbol,m.start_ms,m.fingerprint,m.content_id)
+        with self.assertRaisesRegex(
+                CollectorRejected,"ROOT_FACTORY_DURABLE_CONFIRMATION_REQUIRED"):
+            factory.complete_confirmed(m)
+        factory._sql_committed=True
+        with self.assertRaisesRegex(
+                CollectorRejected,"ROOT_FACTORY_DURABLE_CONFIRMATION_REQUIRED"):
+            factory.complete_confirmed(Minute(m.symbol,m.start_ms,m.fingerprint,
+                                              "0"*64,m.payload))
+        factory.complete_confirmed(m)
+        self.assertFalse(factory._uncertain)
+        self.assertIsNone(factory._pending_key)
+        self.assertFalse(factory._sql_committed)
 
     def test_raw_sql_connection_and_fake_writer_rejected(self):
         with self.assertRaisesRegex(CollectorRejected,"EXACT_C_FENCED_WRITER_REQUIRED"):
