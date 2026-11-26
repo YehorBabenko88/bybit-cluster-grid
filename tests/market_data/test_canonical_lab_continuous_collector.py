@@ -101,6 +101,17 @@ class CoordinatorTests(unittest.TestCase):
                          "RECONCILED")
         self.assertEqual(w.calls,1)
 
+    def test_stop_does_not_erase_uncertain_commit(self):
+        c,j,w,a,t=self.setup(writer=Writer(fail=True));c.begin()
+        with self.assertRaises(RuntimeError):
+            c.deliver(minute(60000),content_id="1"*64)
+        self.assertIsNotNone(c.pending)
+        c.stop()
+        self.assertEqual(c.state,"HALTED")
+        self.assertIsNotNone(c.pending)
+        with self.assertRaisesRegex(CollectorRejected,"ALREADY_ACTIVE"):
+            c.begin()
+
     def test_lease_revocation_halts(self):
         c,j,w,a,t=self.setup();c.begin();a.live=False
         with self.assertRaisesRegex(CollectorRejected,"AUTHORITY_REVOKED"):
