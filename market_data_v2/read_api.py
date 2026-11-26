@@ -106,8 +106,14 @@ class Handler(history_api.Handler):
             return self._json(503,{"error":"QUALIFIED_SOURCE_READ_UNAVAILABLE"})
 
 
-def main(*,startup_admission=None):
-    """Explicit replacement Market Data API entrypoint; no background fork."""
+def main(argv=None, *, startup_admission=None):
+    """Root's existing module.main(['serve'], startup_admission=...) ABI.
+
+    This is not an automatic fallback from market_data.cli. Root E must pin
+    this module explicitly in its protected source/manifest and keep v1.
+    """
+    if type(argv) is not list or argv != ["serve"]:
+        raise ValueError("ROOT_MANAGED_V2_SERVE_ARGUMENTS_REQUIRED")
     identity=startup_identity(startup_admission)
     if identity is None:
         raise RuntimeError("v2 route requires managed Root admission")
