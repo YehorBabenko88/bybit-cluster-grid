@@ -39,6 +39,9 @@ class Journal:
     async def readback(self,m):self.calls.append("readback")
     async def commit_cursor(self,m):self.calls.append("commit")
     async def clear_pending(self,m):self.calls.append("clear")
+    async def exact_existing_checkpoint(self,m):
+        self.calls.append("exact")
+        return {"state":"UNRESOLVED"}
 
 class Transport:
     def __init__(self):self.calls=0
@@ -151,21 +154,21 @@ class Boundaries(unittest.TestCase):
         c,t,w,j,a=self.make(journal=Journal(pending=pending()))
         asyncio.run(c.begin())
         with self.assertRaisesRegex(CollectorRejected,"E_NATIVE_WRITER_NOT_ADMITTED"):
-            asyncio.run(c.reconcile_after_restart(fresh_authority=Authority()))
+            asyncio.run(c.reconcile_after_restart(fresh_authority=Authority(),fresh_grant=None))
         self.assertEqual(c.pending["content_id"],"c"*64)
         self.assertEqual(w.calls,0)
 
     def test_no_transport_on_gap_when_not_admitted(self):
         c,t,w,j,a=self.make()
         asyncio.run(c.begin())
-        with self.assertRaisesRegex(CollectorRejected,"E_NATIVE_WRITER_NOT_ADMITTED"):
+        with self.assertRaisesRegex(CollectorRejected,"NO_GAP"):
             asyncio.run(c.recover_gap())
         self.assertEqual(t.calls,0)
 
     def test_corrupt_durable_pending_denied(self):
         x=pending();x["content_id"]="INVALID"
         c,t,w,j,a=self.make(journal=Journal(pending=x))
-        with self.assertRaisesRegex(CollectorRejected,"INVALID_DIGEST"):
+        with self.assertRaisesRegex(CollectorRejected,"INVALID_CONTENT_ID"):
             asyncio.run(c.begin())
         self.assertEqual(w.calls,0)
 
@@ -173,7 +176,7 @@ class Boundaries(unittest.TestCase):
         c,t,w,j,a=self.make(journal=Journal(pending=pending()))
         asyncio.run(c.begin())
         with self.assertRaisesRegex(CollectorRejected,"E_ASYNC_AUTHORITY_REQUIRED"):
-            asyncio.run(c.reconcile_after_restart(fresh_authority=None))
+            asyncio.run(c.reconcile_after_restart(fresh_authority=None,fresh_grant=None))
         self.assertIsNotNone(c.pending)
         self.assertNotIn("clear",j.calls)
 
