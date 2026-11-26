@@ -12,15 +12,18 @@ from market_data.provenance import digest
 from market_data_v2.qualified_read_contract import validate_minute
 
 class AsyncCanonicalFencedWriter:
-    __slots__=("_writer","_executor","_used","_poisoned")
-    def __init__(self, *, writer, owner_executor):
+    __slots__=("_writer","_executor","_used","_poisoned","_factory")
+    def __init__(self, *, writer, owner_executor, owner_factory=None):
         from unified_system.lab_owner_executor import LabOwnerExecutor
         _need(type(writer) is CanonicalLabMinuteWriter,
               "EXACT_C_FENCED_WRITER_REQUIRED")
         _need(type(owner_executor) is LabOwnerExecutor,
               "ROOT_SERIAL_WRITER_EXECUTOR_REQUIRED")
+        _need(owner_factory is None or type(owner_factory) is RootCanonicalWriterFactory,
+              "EXACT_ROOT_FACTORY_REQUIRED")
         self._writer=writer
         self._executor=owner_executor
+        self._factory=owner_factory
         self._used=False
         self._poisoned=False
 
@@ -50,6 +53,8 @@ class AsyncCanonicalFencedWriter:
                   and receipt.get("execution_authority") is False
                   and receipt.get("trading_authorized") is False,
                   "C_FENCED_WRITER_RECEIPT_UNQUALIFIED")
+            if self._factory is not None:
+                self._factory._sql_committed=True
             return receipt
         except BaseException:
             self._poisoned=True
@@ -67,7 +72,7 @@ class RootCanonicalWriterFactory:
     """
     __slots__=("authority","owner_executor","connection","identity",
                "generation","token","epoch","backend_pid","backend_start",
-               "package_identity","_uncertain")
+               "package_identity","_uncertain","_pending_key","_sql_committed")
 
     def __init__(self, *, authority, owner_executor, connection, identity,
                  generation, token, epoch, backend_pid, backend_start,
@@ -106,6 +111,8 @@ class RootCanonicalWriterFactory:
         self.backend_start=backend_start
         self.package_identity=package_identity
         self._uncertain=False
+        self._pending_key=None
+        self._sql_committed=False
 
     async def __call__(self, minute):
         """Return the original one-shot async writer, not a second SQL path."""
@@ -119,6 +126,8 @@ class RootCanonicalWriterFactory:
               minute.fingerprint==minute.payload["dataset_fingerprint"],
               "ROOT_FACTORY_CANONICAL_IDENTITY_MISMATCH")
         self._uncertain=True
+        self._pending_key=(minute.symbol,minute.start_ms,minute.fingerprint,minute.content_id)
+        self._sql_committed=False
         # The original Root issuer performs live C/Consul checks and must
         # return ONLY a protected installed-wheel-bound typed operation permit.
         operation_id=secrets.token_hex(16)
@@ -150,10 +159,25 @@ class RootCanonicalWriterFactory:
             raw=await self.owner_executor.call(bind_original_writer,timeout=3.0)
             _need(type(raw) is CanonicalLabMinuteWriter,
                   "ROOT_FACTORY_WRITER_CONSTRUCTION_REJECTED")
-            bound=AsyncCanonicalFencedWriter(
-                writer=raw,owner_executor=self.owner_executor)
-            self._uncertain=False
-            return bound
+            return AsyncCanonicalFencedWriter(
+                writer=raw,owner_executor=self.owner_executor,owner_factory=self)
         except BaseException:
             permit.revoke()
             raise
+
+    def complete_confirmed(self, minute):
+        """Only after collector's exact C readback, cursor and pending clear.
+
+        This marker has no SQL/Consul authority. A failed or cancelled C
+        journal sequence keeps the factory permanently latched, so a later
+        minute cannot be granted on top of an unknown prior commit.
+        """
+        from .canonical_lab_continuous_collector import Minute
+        _need(type(minute) is Minute and self._uncertain and
+              self._sql_committed and
+              self._pending_key==(minute.symbol,minute.start_ms,
+                                  minute.fingerprint,minute.content_id),
+              "ROOT_FACTORY_DURABLE_CONFIRMATION_REQUIRED")
+        self._pending_key=None
+        self._sql_committed=False
+        self._uncertain=False
