@@ -220,6 +220,19 @@ class Tests(unittest.TestCase):
             self.assertEqual(await fresh.begin(),"READ_ONLY_READY")
             self.assertEqual(self.factory.calls,1)
         asyncio.run(run())
+    def test_pump_uses_existing_grid_feed_sequentially(self):
+        async def feed():
+            for i in range(3):
+                yield (record(BASE+i*60000),cid(i+1))
+        async def run():
+            c=self.collector();await c.begin()
+            result=await c.pump_existing_grid_feed(feed(),max_items=3)
+            self.assertEqual(result["processed_candidates"],3)
+            self.assertFalse(result["trading_authorized"])
+            self.assertEqual(self.j.cursor["start_ms"],BASE+120000)
+            self.assertEqual(self.factory.calls,3)
+            self.assertEqual(c.state,"READY")
+        asyncio.run(run())
     def test_cancel_write_halts_with_pending(self):
         async def run():
             c=self.collector();await c.begin()
