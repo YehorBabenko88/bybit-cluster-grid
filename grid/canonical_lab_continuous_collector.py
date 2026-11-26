@@ -308,6 +308,41 @@ class ContinuousLabCollector:
                 elif self.state!="HALTED":self.state="GAP"
                 raise
 
+    async def pump_existing_grid_feed(self, feed, *, max_items=None):
+        """Root-drivable sequential feed; never creates a Bybit connection.
+
+        The feed is supplied by Grid existing sole REST/WS transport and
+        carries already closed canonical minute candidates. Root supervises
+        shutdown/reconnect; this function creates no task or competing client.
+        """
+        _need(self.state=="READY" and self.pending is None,
+              "COLLECTOR_NOT_READY")
+        _need(callable(getattr(feed,"__aiter__",None)),
+              "EXISTING_GRID_ASYNC_FEED_REQUIRED")
+        _need(max_items is None or (type(max_items) is int and 1<=max_items<=100000),
+              "PUMP_BUDGET_INVALID")
+        await self._guard(write=True)
+        processed=0
+        try:
+            async for item in feed:
+                _need(type(item) is tuple and len(item)==2,
+                      "GRID_FEED_ITEM_INVALID")
+                await self._guard(write=True)
+                outcome=await self.deliver(item[0],content_id=item[1])
+                if outcome=="GAP":
+                    await self.recover_gap()
+                processed+=1
+                if max_items is not None and processed>=max_items:
+                    break
+            return {"schema":"grid.lab-feed-pump.v1",
+                    "processed_candidates":processed,
+                    "exchange_completeness":"NOT_ATTESTED",
+                    "trading_authorized":False}
+        except BaseException:
+            self.state="HALTED"
+            if self.last_error is None:
+                self.last_error="GRID_FEED_INTERRUPTED_OR_UNCERTAIN"
+            raise
     def diagnostic(self):
         return {"schema":"grid.lab-continuous-collector.v3",
                 "state":self.state,"error":self.last_error,
