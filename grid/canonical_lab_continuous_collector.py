@@ -1,15 +1,33 @@
-"""LAB-only continuous market-data coordination; no service, network or SQL owner.
+"""Fail-closed asynchronous Grid LAB candle coordinator.
 
-C owns the fenced writer and durable journal; E owns revocable admission and
-process lifecycle. The Grid transport passed here must be the existing Grid
-transport. No constructor opens a network socket, starts tasks or provisions DB.
+B owns sequencing only. C owns durable PostgreSQL checkpoints and single
+fenced writer; E owns Root/Consul/OS admission. This class cannot create leases,
+connections, SQL tables, processes, or alternate Bybit REST/WebSocket clients.
 """
 from dataclasses import dataclass
-import hashlib
-import json
+from inspect import isawaitable
+import re
+
+_SHA = re.compile(r"[0-9a-f]{64}\Z")
+_SYMBOL = re.compile(r"[A-Z0-9_.:-]{2,40}\Z")
+_E_SCHEMA = "unified.lab-root-writer-authority.v1"
+_SCOPE = "ISOLATED_LAB_ONLY"
 
 class CollectorRejected(RuntimeError):
     pass
+
+def _need(ok, reason):
+    if ok is not True:
+        raise CollectorRejected(reason)
+
+async def _await(value):
+    if not isawaitable(value):
+        raise CollectorRejected("ASYNC_OWNER_ABI_REQUIRED")
+    return await value
+
+def _sha(value):
+    _need(type(value) is str and _SHA.fullmatch(value) is not None,
+          "INVALID_DIGEST")
 
 @dataclass(frozen=True)
 class Minute:
@@ -17,52 +35,71 @@ class Minute:
     start_ms: int
     fingerprint: str
     content_id: str
-    payload: object
+    payload: dict
 
-def _need(value, code):
-    if value is not True:
-        raise CollectorRejected(code)
-
-def _sha(value):
-    _need(type(value) is str and len(value)==64 and
-          all(c in "0123456789abcdef" for c in value), "INVALID_DIGEST")
-
-def _minute(record, content_id):
-    _need(type(record) is dict and type(record.get("symbol")) is str and
-          record["symbol"].isalnum() and 1<=len(record["symbol"])<=64,
+def _identity(value):
+    _need(type(value) is dict, "PENDING_IDENTITY_INVALID")
+    symbol = value.get("symbol")
+    start = value.get("start_ms")
+    fingerprint = value.get("fingerprint",value.get("dataset_fingerprint"))
+    content_id = value.get("content_id")
+    _need(type(symbol) is str and _SYMBOL.fullmatch(symbol) is not None,
           "INVALID_SYMBOL")
-    _need(type(record.get("start_ms")) is int and
-          record["start_ms"]>=0 and record["start_ms"]%60000==0,
+    _need(type(start) is int and 0 <= start < 2**63 and start % 60000 == 0,
           "INVALID_MINUTE_START")
-    fingerprint=record.get("dataset_fingerprint")
-    _sha(fingerprint);_sha(content_id)
-    _need(record.get("status")=="PARTIAL" and
-          record.get("execution_authority") is False and
-          record.get("trading_authorized") is False,
+    _sha(fingerprint)
+    _sha(content_id)
+    return (symbol,start,fingerprint,content_id)
+
+def _minute(record,content_id):
+    _need(type(record) is dict and record.get("status") == "PARTIAL"
+          and record.get("execution_authority") is False
+          and record.get("trading_authorized") is False
+          and record.get("paper_admitted") is False,
           "NOT_DISPLAY_ONLY")
-    return Minute(record["symbol"],record["start_ms"],fingerprint,content_id,record)
+    from market_data_v2.qualified_read_contract import validate_minute
+    try:
+        qualified=validate_minute(record,symbol=record["symbol"],
+                                  before_ms=2**63-1)
+    except Exception as exc:
+        raise CollectorRejected("CANONICAL_MINUTE_INVALID") from exc
+    _need(qualified.get("status")=="PARTIAL" and
+          qualified.get("source_identity_verified") is True,
+          "CANONICAL_MINUTE_UNQUALIFIED")
+    identity = dict(record,content_id=content_id,
+                    fingerprint=record.get("dataset_fingerprint"))
+    symbol,start,fp,cid=_identity(identity)
+    return Minute(symbol,start,fp,cid,record)
+
+def _same(a,b):
+    return _identity(a)==_identity(b)
 
 class ContinuousLabCollector:
-    """Single-consumer deterministic coordinator with owner-supplied interfaces.
+    """Async, Root-driven and intentionally non-actuating before E grant.
 
-    journal contract: read(symbol) -> mapping {start_ms, fingerprint, content_id}
-    or None; append_pending(minute)->None; confirm(minute)->None;
-    reconcile(minute)->"MATCH"|"ABSENT"|"CONFLICT"|"UNKNOWN".
-    Implementations must durably fence journal updates with C SQL authority.
-    No claims of durable delivery are made until journal.confirm returns.
-    writer_factory(minute) returns one NEW C-fenced writer, never a pool or raw
-    SQL connection. E authority.require_current must be true on each boundary.
+    journal C-owner adapter contract (all async): checkpoint(), pending(),
+    append_pending(minute), readback(minute), commit_cursor(minute),
+    clear_pending(minute). readback returns exact C dict with status
+    MATCH/MISSING/CONFLICT and fixed fields. commit_cursor returns exact
+    C custody receipt; no cursor ACK from a local writer result.
+    authority must provide E async check() returning typed LabAuthorityStatus.
+    writer_grant is a *separate* Root-owned future capability: no grant exists
+    in E current release, so no native Grid writes can start today.
     """
     def __init__(self, *, transport, writer_factory, journal, authority,
+                 writer_grant=None, stream_id="grid/BTCUSDT/1m",
                  max_backfill=256, max_retry=4):
-        for name,obj,methods in (
+        _need(type(stream_id) is str and 1<=len(stream_id)<=128,
+              "STREAM_REQUIRED")
+        for label,obj,methods in (
             ("TRANSPORT",transport,("backfill",)),
             ("WRITER",writer_factory,("__call__",)),
-            ("JOURNAL",journal,("read","append_pending","confirm","reconcile")),
-            ("AUTHORITY",authority,("require_current",)),
+            ("JOURNAL",journal,("checkpoint","pending","append_pending",
+                                "readback","commit_cursor","clear_pending")),
+            ("AUTHORITY",authority,("check",)),
         ):
-            _need(all(callable(getattr(obj,m,None)) for m in methods),
-                  name+"_REQUIRED")
+            _need(all(callable(getattr(obj,name,None)) for name in methods),
+                  label+"_REQUIRED")
         _need(type(max_backfill) is int and 1<=max_backfill<=10000,
               "BACKFILL_BOUND_REQUIRED")
         _need(type(max_retry) is int and 0<=max_retry<=16,
@@ -71,134 +108,91 @@ class ContinuousLabCollector:
         self.writer_factory=writer_factory
         self.journal=journal
         self.authority=authority
+        self.writer_grant=writer_grant
+        self.stream_id=stream_id
         self.max_backfill=max_backfill
         self.max_retry=max_retry
+        self.attempts=0
         self.state="STOPPED"
         self.pending=None
-        self.attempts=0
+        self.tail=None
         self.last_error=None
+        self._epoch=None
 
-    def _authorized(self):
+    async def _owner(self,*,write):
         try:
-            current=self.authority.require_current()
-        except Exception as exc:
-            self.state="HALTED";self.last_error="AUTHORITY_REVOKED"
-            raise CollectorRejected("AUTHORITY_REVOKED") from exc
-        if current is not True:
-            self.state="HALTED";self.last_error="AUTHORITY_REVOKED"
-            raise CollectorRejected("AUTHORITY_REVOKED")
+            status=await _await(self.authority.check())
+            from unified_system.lab_writer_authority import LabAuthorityStatus
+            _need(type(status) is LabAuthorityStatus
+                  and status.schema==_E_SCHEMA and status.scope==_SCOPE
+                  and status.state=="READ_ONLY_REVALIDATED_NOT_NATIVE"
+                  and type(status.epoch) is str and len(status.epoch)==64
+                  and _SHA.fullmatch(status.epoch) is not None
+                  and type(status.generation) is int
+                  and status.generation>0
+                  and status.native_admitted is False
+                  and status.trading_authorized is False,
+                  "E_STATUS_REJECTED")
+            if self._epoch is None:
+                self._epoch=status.epoch
+            _need(self._epoch==status.epoch,"E_EPOCH_CHANGED")
+            # E's current diagnostic result is NEVER sufficient for a
+            # write permit. Existing E runtime unconditionally DENIES.
+            if write:
+                _need(False,"E_NATIVE_WRITER_NOT_ADMITTED")
+            return status
+        except BaseException as exc:
+            self.state="HALTED"
+            self.last_error="ROOT_E_AUTHORITY_UNVERIFIED"
+            if isinstance(exc,CollectorRejected):
+                raise
+            raise CollectorRejected("ROOT_E_AUTHORITY_UNVERIFIED") from exc
 
-    def begin(self):
-        _need(self.state=="STOPPED" and self.pending is None,
-              "PENDING_REQUIRES_OWNER_RECONCILIATION")
-        self._authorized()
+    async def begin(self):
+        _need(self.state=="STOPPED","COLLECTOR_ALREADY_STARTED")
+        await self._owner(write=False)
+        self.pending=await _await(self.journal.pending())
+        if self.pending is not None:
+            _identity(self.pending)
+            self.state="HALTED"
+            self.last_error="DURABLE_PENDING_RECONCILIATION_REQUIRED"
+            return "RECOVERY_REQUIRED"
+        checkpoint=await _await(self.journal.checkpoint())
+        if checkpoint is not None:
+            _identity(checkpoint)
         self.state="READY"
+        return "READ_ONLY_READY"
 
     def stop(self):
-        # Never erase the recovery state after an uncertain write or a gap.
+        self.state="HALTED" if self.pending is not None else "STOPPED"
         if self.pending is not None:
-            self.state="HALTED"
-            self.last_error="PENDING_REQUIRES_OWNER_RECONCILIATION"
-            return
-        self.state="STOPPED"
+            self.last_error="DURABLE_PENDING_RECONCILIATION_REQUIRED"
 
-    def deliver(self,record,*,content_id):
+    async def deliver(self,record,*,content_id):
         _need(self.state=="READY","COLLECTOR_NOT_READY")
-        self._authorized()
-        m=_minute(record,content_id)
-        _need(self.pending is None,"PENDING_UNRESOLVED")
-        prior=self.journal.read(m.symbol)
-        if prior is not None:
-            _need(type(prior) is dict and type(prior.get("start_ms")) is int,
-                  "JOURNAL_CORRUPT")
-            if prior["start_ms"]>=m.start_ms:
-                if (prior["start_ms"]==m.start_ms and
-                    prior.get("fingerprint")==m.fingerprint and
-                    prior.get("content_id")==m.content_id):
-                    return "DEDUP"
-                self.state="HALTED";self.last_error="CONFLICT_OR_OLD_MINUTE"
-                raise CollectorRejected("CONFLICT_OR_OLD_MINUTE")
-            if m.start_ms-prior["start_ms"]>60000:
-                self.state="GAP";self.pending=m
-                return "GAP"
-        self.journal.append_pending(m)
-        self.pending=m
-        self.state="WRITING"
-        try:
-            self._authorized()
-            writer=self.writer_factory(m)
-            _need(callable(getattr(writer,"write",None)),"C_FENCED_WRITER_REQUIRED")
-            receipt=writer.write(m.payload,content_id=m.content_id)
-            _need(type(receipt) is dict and receipt.get("status")=="LOCAL_COMMIT_RETURNED"
-                  and receipt.get("fingerprint")==m.fingerprint and
-                  receipt.get("execution_authority") is False
-                  and receipt.get("trading_authorized") is False,
-                  "WRITE_RECEIPT_UNQUALIFIED")
-            self._authorized()
-            result=self.journal.reconcile(m)
-            _need(result=="MATCH","READBACK_NOT_PROVEN")
-            self.journal.confirm(m)
-        except BaseException:
-            self.state="HALTED";self.last_error="WRITE_OR_COMMIT_UNCERTAIN"
-            raise
-        self.pending=None
-        self.state="READY"
-        return "COMMITTED"
-
-    def reconcile_after_restart(self,*,new_authority):
-        """Reconciliation never replays unknown writes or mints new authority."""
-        _need(self.state=="HALTED" and self.pending is not None,
-              "NO_UNRESOLVED_WRITE")
-        _need(callable(getattr(new_authority,"require_current",None)),
-              "FRESH_ROOT_AUTHORITY_REQUIRED")
-        self.authority=new_authority
-        self._authorized()
-        outcome=self.journal.reconcile(self.pending)
-        if outcome=="MATCH":
-            self.journal.confirm(self.pending)
-            self.pending=None
-            self.state="READY"
-            return "RECONCILED"
-        # ABSENT may be a raced/unknown read, never blind replay.
-        self.state="HALTED";self.last_error="UNKNOWN_COMMIT_UNRESOLVED"
-        raise CollectorRejected("UNKNOWN_COMMIT_UNRESOLVED")
+        # Fail closed before transforming a candidate or mutating a C journal.
+        await self._owner(write=True)
+        raise CollectorRejected("E_NATIVE_WRITER_NOT_ADMITTED")
 
     async def recover_gap(self):
-        _need(self.state=="GAP" and self.pending is not None,"NO_GAP")
-        self._authorized()
-        current=self.journal.read(self.pending.symbol)
-        _need(type(current) is dict and type(current.get("start_ms")) is int,
-              "DURABLE_CURSOR_REQUIRED")
-        first=current["start_ms"]+60000
-        missing=(self.pending.start_ms-first)//60000
-        _need(missing>0 and missing<=self.max_backfill,"GAP_BOUND_EXCEEDED")
-        try:
-            # Existing Grid transport only; the callback cannot independently
-            # grant exchange completeness or write a second store.
-            pages=await self.transport.backfill(self.pending.symbol,first,
-                                                self.pending.start_ms-60000,
-                                                self.max_backfill)
-        except BaseException:
-            self.attempts+=1
-            if self.attempts>self.max_retry:
-                self.state="HALTED"
-            raise
-        _need(type(pages) is list and len(pages)==missing,"BACKFILL_INCOMPLETE")
-        expected=first
-        for item in pages:
-            _need(type(item) is tuple and len(item)==2,"BACKFILL_INVALID")
-            candidate=_minute(item[0],item[1])
-            _need(candidate.symbol==self.pending.symbol and
-                  candidate.start_ms==expected,"BACKFILL_NOT_CONTIGUOUS")
-            expected+=60000
-        tail=self.pending;self.pending=None;self.state="READY"
-        for record,content_id in pages:
-            self.deliver(record,content_id=content_id)
-        return self.deliver(tail.payload,content_id=tail.content_id)
+        await self._owner(write=True)
+        raise CollectorRejected("E_NATIVE_WRITER_NOT_ADMITTED")
+
+    async def reconcile_after_restart(self,*,fresh_authority):
+        _need(self.state=="HALTED" and self.pending is not None,
+              "NO_DURABLE_PENDING")
+        _need(callable(getattr(fresh_authority,"check",None)),
+              "E_ASYNC_AUTHORITY_REQUIRED")
+        # A different Python object does not imply a fresh Consul/PG epoch.
+        self.authority=fresh_authority
+        await self._owner(write=False)
+        _need(False,"E_NATIVE_WRITER_NOT_ADMITTED")
 
     def diagnostic(self):
-        return {"schema":"grid.lab-continuous-collector.v1",
+        return {"schema":"grid.lab-continuous-collector.v2",
                 "state":self.state,"error":self.last_error,
-                "pending":self.pending.content_id if self.pending else None,
-                "native_admitted":False,"trading_authorized":False,
+                "pending":self.pending.get("content_id") if
+                type(self.pending) is dict else None,
+                "native_admitted":False,
+                "trading_authorized":False,
                 "exchange_completeness":"NOT_ATTESTED"}
