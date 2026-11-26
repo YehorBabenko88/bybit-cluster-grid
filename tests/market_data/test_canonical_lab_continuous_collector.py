@@ -9,9 +9,10 @@ import sys
 import types
 import unittest
 from unittest.mock import patch
+from market_data.provenance import digest
 
 from grid.canonical_lab_continuous_collector import (
-    ContinuousLabCollector,CollectorRejected,
+    ContinuousLabCollector,CollectorRejected,_minute,
 )
 
 def _e_status(epoch="a"*64,**changes):
@@ -87,6 +88,21 @@ class Boundaries(unittest.TestCase):
         c=ContinuousLabCollector(transport=t,writer_factory=w,
                                   journal=j,authority=a)
         return c,t,w,j,a
+
+    def test_content_id_is_hash_of_validated_canonical_record(self):
+        # Validator independently owns the complete provenance contract.
+        # This unit only checks the B collector's binding to its exact output.
+        item=dict(symbol="BTCUSDT",start_ms=60000,
+                  dataset_fingerprint="a"*64,status="PARTIAL",
+                  source_identity_verified=True,execution_authority=False)
+        with patch("market_data_v2.qualified_read_contract.validate_minute",
+                   return_value=item):
+            m=_minute({"symbol":"BTCUSDT"},digest(item))
+            self.assertEqual(m.content_id,digest(item))
+            self.assertEqual(m.fingerprint,"a"*64)
+            with self.assertRaisesRegex(
+                    CollectorRejected,"CONTENT_ID_CANONICAL_RECORD_MISMATCH"):
+                _minute({"symbol":"BTCUSDT"},"0"*64)
 
     def test_readonly_start_without_unresolved_pending(self):
         c,t,w,j,a=self.make()
