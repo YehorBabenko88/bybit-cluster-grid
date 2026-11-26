@@ -134,6 +134,8 @@ def qualify_records(records, *, symbol, before_ms, now_ms):
     epochs={r["source"]["epoch"] for r in ordered}
     revisions={r["source"]["source_revision"] for r in ordered}
     ids={r["source"]["identity"] for r in ordered}
+    _require(all(item["source_event_end_ms"] <= now_ms
+        and item["ingestion_ms"] <= now_ms for item in ordered), "QUERY_FUTURE_CLOCK")
     unavailable=any(r["status"] == "UNAVAILABLE" for r in ordered)
     missing=expected-len(ordered)
     stale=now_ms-last["source_event_end_ms"] > 120000
@@ -153,6 +155,8 @@ def qualify_records(records, *, symbol, before_ms, now_ms):
         "symbol":symbol,"timeframe":"1m",
         "status":status,"reason":reason,
         "record_integrity":"VERIFIED",
+        "source_declared_quality":sorted({item["quality_status"] for item in ordered}),
+        "quality_attestation":"NOT_INDEPENDENTLY_ATTESTED",
         "source_authenticity":"NOT_INDEPENDENTLY_ATTESTED",
         "exchange_completeness":"NOT_ATTESTED",
         "coverage":{"expected_minutes":expected,"observed_minutes":len(ordered),
