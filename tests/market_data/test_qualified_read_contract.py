@@ -109,6 +109,18 @@ class QualifiedReadContractTests(unittest.TestCase):
         self.assertEqual(x["status"],"UNAVAILABLE")
         self.assertEqual(x["rows"],[])
 
+    def test_rehashed_invalid_numeric_candle_refused(self):
+        item=record()
+        item["candle"]["high"]=0.5
+        with self.assertRaisesRegex(ProvenanceReadError,"RECORD_NUMERIC_INTEGRITY"):
+            validate_minute(resigned(item),symbol="BTCUSDT",before_ms=NOW)
+
+    def test_rehashed_invalid_footprint_refused(self):
+        item=record()
+        item["levels"][0]["buy_volume"]=999
+        with self.assertRaisesRegex(ProvenanceReadError,"RECORD_NUMERIC_INTEGRITY"):
+            validate_minute(resigned(item),symbol="BTCUSDT",before_ms=NOW)
+
     def test_empty_boolean_clocks_and_future_cursor_refused(self):
         with self.assertRaises(ProvenanceReadError):
             qualify_records([],symbol="BTCUSDT",before_ms=NOW,now_ms=NOW)
