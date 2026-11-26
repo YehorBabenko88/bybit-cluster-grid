@@ -176,6 +176,95 @@ class NativePG18GridRead(unittest.TestCase):
                        " VALUES ('"+("f"*64)+"','"+("e"*64)+"','BTCUSDT',0,'{}'::jsonb)",
                        role="lab_reader")
 
+    def test_real_c_fenced_writer_backend_revocation_and_readback(self):
+        """LAB-only E authority stub; C DB function is real, never mocked."""
+        import psycopg
+        import uuid
+        from unified_system.lab_pg_fence import (
+            install_lab_fence, claim_lab_fence, revoke_lab_fence,
+            fenced_lab_witness,
+        )
+        from grid.canonical_lab_fenced_writer import (
+            CanonicalLabMinuteWriter, FencedWriterRejected,
+        )
+        class TestOnlyLabAdmission(CurrentAdmission):
+            # Synthetic permission for a dedicated owned test database only.
+            # Root's native Consul/OS attestation is NOT simulated as real.
+            lab_only=True
+            trusted_root_authority=True
+
+        pg=self.start_pg()
+        install_lab_fence(pg)
+        witness=fenced_lab_witness(pg)
+        self.assertFalse(witness["direct_writer_insert"])
+        self.assertTrue(witness["writer_exec"])
+        self.assertFalse(witness["execution_authority"])
+        primary=psycopg.connect(pg.dsn("lab_writer"),autocommit=True)
+        foreign=psycopg.connect(pg.dsn("lab_writer"),autocommit=True)
+        try:
+            def backend(connection):
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT pg_backend_pid()")
+                    return cursor.fetchone()[0]
+            primary_pid=backend(primary)
+            foreign_pid=backend(foreign)
+            self.assertNotEqual(primary_pid,foreign_pid)
+            ids=tuple(str(uuid.uuid4()) for _ in range(3))
+            # These hashes are bound to the actual pinned Grid tree; the LAB
+            # fixture is not proof of public provider origin or publisher.
+            grid=Path(os.environ["GRID_SOURCE_ROOT"]).resolve(strict=True)
+            source_hash=hashlib.sha256()
+            for rel in ("market_data/provenance.py",
+                        "market_data/history_api.py",
+                        "market_data_v2/qualified_read_contract.py",
+                        "market_data_v2/read_api.py"):
+                source_hash.update(rel.encode("ascii")+b"\\0"
+                                   +(grid/rel).read_bytes()+b"\\0")
+            source_sha=source_hash.hexdigest()
+            schema_sha=hashlib.sha256((grid/"grid/migrations.py").read_bytes()).hexdigest()
+            self.assertTrue(claim_lab_fence(
+                pg,owner="unified-system",namespace="unified/lab",
+                generation=1,token=100,session_id=ids[0],
+                instance_id=ids[1],node_incarnation_id=ids[2],
+                source_sha256=source_sha,schema_sha256=schema_sha,
+                backend_pid=primary_pid,previous_quiescence_verified=True))
+            def bound_writer(connection,pid):
+                return CanonicalLabMinuteWriter(
+                    connection, owner="unified-system",namespace="unified/lab",
+                    generation=1,token=100,session_id=ids[0],
+                    instance_id=ids[1],node_incarnation_id=ids[2],
+                    source_sha256=source_sha,schema_sha256=schema_sha,
+                    native_admission=TestOnlyLabAdmission(True,True,True),
+                    bound_backend_pid=pid)
+            minute=source_minute()
+            receipt=bound_writer(primary,primary_pid).write(
+                minute,content_id=digest(minute))
+            self.assertEqual(receipt["status"],"LOCAL_COMMIT_RETURNED")
+            self.assertFalse(receipt["trading_authorized"])
+            self.assertEqual(pg.sql("SELECT count(*) FROM provenance_minutes"),"1")
+            with patch.dict(os.environ,{"MARKET_DATA_DSN":pg.dsn("lab_reader")}):
+                out=qualified_snapshot("BTCUSDT",1,now_ms=_NOW_MS)
+            self.assertEqual(out["status"],"PARTIAL")
+            self.assertFalse(out["paper_admitted"])
+            # Same role, same credentials and identical token, other backend:
+            # the actual C SECURITY DEFINER function denies every attempt.
+            with self.assertRaises(psycopg.Error):
+                bound_writer(foreign,foreign_pid).write(
+                    minute,content_id="e"*64)
+            self.assertTrue(revoke_lab_fence(pg,generation=1,token=100))
+            with self.assertRaises(psycopg.Error):
+                bound_writer(primary,primary_pid).write(
+                    minute,content_id="f"*64)
+            self.assertEqual(pg.sql("SELECT count(*) FROM provenance_minutes"),"1")
+            with self.assertRaises(Exception):
+                pg.sql("INSERT INTO provenance_minutes("
+                       "fingerprint,content_id,symbol,start_ms,record)"
+                       " VALUES ('"+("a"*64)+"','"+("b"*64)
+                       +"','BTCUSDT',0,'{}'::jsonb)",role="lab_writer")
+        finally:
+            primary.close()
+            foreign.close()
+
     def test_real_pg18_over_private_http_socket(self):
         pg=self.start_pg()
         record=source_minute()
