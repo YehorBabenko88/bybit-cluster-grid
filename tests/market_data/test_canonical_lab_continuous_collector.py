@@ -1,157 +1,180 @@
-"""Synthetic-only B ROUND9 continuity tests. No Bybit, PG, services or trading."""
-import asyncio
-import unittest
-from grid.canonical_lab_continuous_collector import ContinuousLabCollector, CollectorRejected
+"""B Round10: exact E async diagnostic type and C durable-pending refusal.
 
-def minute(ts, c="a"):
-    return {"symbol":"BTCUSDT","start_ms":ts,
-            "dataset_fingerprint":c*64,"status":"PARTIAL",
-            "execution_authority":False,"trading_authorized":False}
+These tests are pure Python, with an isolated import shim for E's *exact*
+LabAuthorityStatus dataclass. They never create a native permission, DB,
+network connection, process, or real exchange transport.
+"""
+import asyncio
+import sys
+import types
+import unittest
+from unittest.mock import patch
+
+from grid.canonical_lab_continuous_collector import (
+    ContinuousLabCollector,CollectorRejected,
+)
+
+def _e_status(epoch="a"*64,**changes):
+    from unified_system.lab_writer_authority import LabAuthorityStatus
+    args=dict(schema="unified.lab-root-writer-authority.v1",
+              scope="ISOLATED_LAB_ONLY",epoch=epoch,generation=1,
+              state="READ_ONLY_REVALIDATED_NOT_NATIVE",
+              native_admitted=False,trading_authorized=False)
+    args.update(changes)
+    return LabAuthorityStatus(**args)
 
 class Authority:
-    def __init__(self, live=True): self.live=live
-    def require_current(self): return self.live
+    def __init__(self,status=None):self.status=status;self.calls=0
+    async def check(self):
+        self.calls+=1
+        return self.status if self.status is not None else _e_status()
 
 class Journal:
-    def __init__(self): self.committed={};self.pending=[];self.outcome="MATCH"
-    def read(self,symbol): return self.committed.get(symbol)
-    def append_pending(self,m): self.pending.append(m)
-    def reconcile(self,m): return self.outcome
-    def confirm(self,m):
-        if self.outcome!="MATCH": raise RuntimeError("READBACK_MISMATCH")
-        self.committed[m.symbol]={"start_ms":m.start_ms,
-                                  "fingerprint":m.fingerprint,
-                                  "content_id":m.content_id}
-
-class Writer:
-    def __init__(self,fail=False): self.fail=fail;self.calls=0
-    def write(self,record,*,content_id):
-        self.calls+=1
-        if self.fail: raise RuntimeError("UNKNOWN_COMMIT")
-        return {"status":"LOCAL_COMMIT_RETURNED",
-                "fingerprint":record["dataset_fingerprint"],
-                "execution_authority":False,"trading_authorized":False}
+    def __init__(self,pending=None,checkpoint=None):
+        self._pending=pending;self._checkpoint=checkpoint
+        self.calls=[]
+    async def pending(self):self.calls.append("pending");return self._pending
+    async def checkpoint(self):self.calls.append("checkpoint");return self._checkpoint
+    async def append_pending(self,m):self.calls.append("append")
+    async def readback(self,m):self.calls.append("readback")
+    async def commit_cursor(self,m):self.calls.append("commit")
+    async def clear_pending(self,m):self.calls.append("clear")
 
 class Transport:
-    def __init__(self,items=None): self.items=items or [];self.calls=[]
-    async def backfill(self,symbol,start,end,limit):
-        self.calls.append((symbol,start,end,limit))
-        return self.items
+    def __init__(self):self.calls=0
+    async def backfill(self,*args):self.calls+=1;return []
 
-class CoordinatorTests(unittest.TestCase):
-    def setup(self,writer=None,transport=None,journal=None,authority=None,**kw):
-        j=journal or Journal()
-        w=writer or Writer()
-        a=authority or Authority()
+class Writer:
+    def __init__(self):self.calls=0
+    def __call__(self,*args):self.calls+=1;raise AssertionError("NO_WRITE_GRANT")
+
+def pending():
+    return dict(symbol="BTCUSDT",start_ms=60000,fingerprint="b"*64,
+                content_id="c"*64,generation=1,token=7,
+                source_sha256="d"*64,schema_sha256="e"*64)
+
+class Boundaries(unittest.TestCase):
+    def setUp(self):
+        # E's dataclass layout is mirrored only as an isolated test import,
+        # not as an authority object. No test-side root grants exist.
+        import dataclasses
+        package=types.ModuleType("unified_system")
+        package.__path__=[]
+        e=types.ModuleType("unified_system.lab_writer_authority")
+        @dataclasses.dataclass(frozen=True)
+        class LabAuthorityStatus:
+            schema:str; scope:str;epoch:str;generation:int;state:str
+            native_admitted:bool=False;trading_authorized:bool=False
+        e.LabAuthorityStatus=LabAuthorityStatus
+        self.old_package=sys.modules.get("unified_system")
+        self.old_e=sys.modules.get("unified_system.lab_writer_authority")
+        sys.modules["unified_system"]=package
+        sys.modules["unified_system.lab_writer_authority"]=e
+    def tearDown(self):
+        for name,old in (
+            ("unified_system",self.old_package),
+            ("unified_system.lab_writer_authority",self.old_e)):
+            if old is None:sys.modules.pop(name,None)
+            else:sys.modules[name]=old
+    def make(self,*,authority=None,journal=None,writer=None,transport=None):
         t=transport or Transport()
-        return ContinuousLabCollector(transport=t,writer_factory=lambda _:w,
-            journal=j,authority=a,**kw),j,w,a,t
+        w=writer or Writer()
+        j=journal or Journal()
+        a=authority or Authority()
+        c=ContinuousLabCollector(transport=t,writer_factory=w,
+                                  journal=j,authority=a)
+        return c,t,w,j,a
 
-    def test_single_writer_no_parallel_transport_or_trade(self):
-        c,j,w,a,t=self.setup();c.begin()
-        self.assertEqual(c.deliver(minute(60000),content_id="1"*64),"COMMITTED")
-        self.assertEqual(w.calls,1)
-        self.assertEqual(j.committed["BTCUSDT"]["start_ms"],60000)
-        self.assertFalse(c.diagnostic()["trading_authorized"])
-        self.assertFalse(c.diagnostic()["native_admitted"])
-
-    def test_dedup_cannot_reinsert(self):
-        c,j,w,a,t=self.setup();c.begin()
-        r=minute(60000)
-        self.assertEqual(c.deliver(r,content_id="1"*64),"COMMITTED")
-        self.assertEqual(c.deliver(r,content_id="1"*64),"DEDUP")
-        self.assertEqual(w.calls,1)
-
-    def test_conflict_stale_and_wrong_fingerprint_halt(self):
-        c,j,w,a,t=self.setup();c.begin()
-        c.deliver(minute(60000),content_id="1"*64)
-        with self.assertRaisesRegex(CollectorRejected,"CONFLICT_OR_OLD_MINUTE"):
-            c.deliver(minute(60000,"b"),content_id="2"*64)
-        self.assertEqual(c.state,"HALTED")
-
-    def test_gap_requires_bounded_canonical_transport(self):
-        items=[(minute(120000), "2"*64), (minute(180000),"3"*64)]
-        c,j,w,a,t=self.setup(transport=Transport(items));c.begin()
-        c.deliver(minute(60000),content_id="1"*64)
-        self.assertEqual(c.deliver(minute(240000),content_id="4"*64),"GAP")
-        self.assertEqual(asyncio.run(c.recover_gap()),"COMMITTED")
-        self.assertEqual(t.calls,[("BTCUSDT",120000,180000,256)])
-        self.assertEqual(j.committed["BTCUSDT"]["start_ms"],240000)
-        self.assertEqual(w.calls,4)
-
-    def test_gap_fails_closed_when_truncated(self):
-        c,j,w,a,t=self.setup(transport=Transport([]));c.begin()
-        c.deliver(minute(60000),content_id="1"*64)
-        c.deliver(minute(180000),content_id="3"*64)
-        with self.assertRaisesRegex(CollectorRejected,"BACKFILL_INCOMPLETE"):
-            asyncio.run(c.recover_gap())
-        self.assertNotEqual(c.state,"READY")
-
-    def test_unknown_commit_does_not_blind_retry(self):
-        c,j,w,a,t=self.setup(writer=Writer(fail=True));c.begin()
-        with self.assertRaisesRegex(RuntimeError,"UNKNOWN_COMMIT"):
-            c.deliver(minute(60000),content_id="1"*64)
-        self.assertEqual(c.state,"HALTED")
-        self.assertEqual(w.calls,1)
-        with self.assertRaisesRegex(CollectorRejected,"UNKNOWN_COMMIT_UNRESOLVED"):
-            c.reconcile_after_restart(new_authority=Authority())
-        self.assertEqual(w.calls,1)
-        j.outcome="MATCH"
-        self.assertEqual(c.reconcile_after_restart(new_authority=Authority()),
-                         "RECONCILED")
-        self.assertEqual(w.calls,1)
-
-    def test_stop_does_not_erase_uncertain_commit(self):
-        c,j,w,a,t=self.setup(writer=Writer(fail=True));c.begin()
-        with self.assertRaises(RuntimeError):
-            c.deliver(minute(60000),content_id="1"*64)
-        self.assertIsNotNone(c.pending)
-        c.stop()
-        self.assertEqual(c.state,"HALTED")
-        self.assertIsNotNone(c.pending)
-        with self.assertRaisesRegex(CollectorRejected,"PENDING_REQUIRES_OWNER_RECONCILIATION"):
-            c.begin()
-
-    def test_lease_revocation_halts(self):
-        c,j,w,a,t=self.setup();c.begin();a.live=False
-        with self.assertRaisesRegex(CollectorRejected,"AUTHORITY_REVOKED"):
-            c.deliver(minute(60000),content_id="1"*64)
+    def test_readonly_start_without_unresolved_pending(self):
+        c,t,w,j,a=self.make()
+        self.assertEqual(asyncio.run(c.begin()),"READ_ONLY_READY")
+        self.assertEqual(c.state,"READY")
+        self.assertEqual(j.calls,["pending","checkpoint"])
         self.assertEqual(w.calls,0)
 
-    def test_writer_receipt_mismatch_does_not_advance(self):
-        class BadWriter:
-            def write(self,*args,**kwargs):
-                return {"status":"LOCAL_COMMIT_RETURNED","fingerprint":"b"*64,
-                        "execution_authority":False,"trading_authorized":False}
-        c,j,w,a,t=self.setup(writer=BadWriter());c.begin()
-        with self.assertRaisesRegex(CollectorRejected,"WRITE_RECEIPT_UNQUALIFIED"):
-            c.deliver(minute(60000),content_id="1"*64)
-        self.assertNotIn("BTCUSDT",j.committed)
+    def test_fresh_collector_reads_durable_unresolved_pending(self):
+        c,t,w,j,a=self.make(journal=Journal(pending=pending()))
+        self.assertEqual(asyncio.run(c.begin()),"RECOVERY_REQUIRED")
+        self.assertEqual(c.state,"HALTED")
+        self.assertEqual(c.pending["content_id"],"c"*64)
+        self.assertEqual(j.calls,["pending"])
+        self.assertEqual(w.calls,0)
+
+    def test_readonly_e_status_never_admits_write(self):
+        c,t,w,j,a=self.make()
+        asyncio.run(c.begin())
+        with self.assertRaisesRegex(CollectorRejected,"E_NATIVE_WRITER_NOT_ADMITTED"):
+            asyncio.run(c.deliver({},content_id="0"*64))
+        self.assertEqual(c.state,"HALTED")
+        self.assertEqual(w.calls,0)
+        self.assertNotIn("append",j.calls)
+
+    def test_even_caller_writer_grant_cannot_override_e_denial(self):
+        c,t,w,j,a=self.make()
+        c.writer_grant=object()
+        asyncio.run(c.begin())
+        with self.assertRaisesRegex(CollectorRejected,"E_NATIVE_WRITER_NOT_ADMITTED"):
+            asyncio.run(c.deliver({},content_id="0"*64))
+        self.assertEqual(w.calls,0)
+
+    def test_not_async_e_fails_closed(self):
+        class Bad:
+            def check(self):return _e_status()
+        c,t,w,j,a=self.make(authority=Bad())
+        with self.assertRaisesRegex(CollectorRejected,"ROOT_E_AUTHORITY_UNVERIFIED"):
+            asyncio.run(c.begin())
         self.assertEqual(c.state,"HALTED")
 
-    def test_readback_mismatch_halts_and_preserves_pending(self):
-        j=Journal();j.outcome="UNKNOWN"
-        c,j,w,a,t=self.setup(journal=j);c.begin()
-        with self.assertRaisesRegex(CollectorRejected,"READBACK_NOT_PROVEN"):
-            c.deliver(minute(60000),content_id="1"*64)
-        self.assertIsNotNone(c.pending)
-        self.assertNotIn("BTCUSDT",j.committed)
+    def test_fake_boolean_and_dict_do_not_count_as_status(self):
+        for value in (True,{"native_admitted":True},"READY"):
+            c,t,w,j,a=self.make(authority=Authority(value))
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(CollectorRejected,"E_STATUS_REJECTED"):
+                    asyncio.run(c.begin())
 
-    def test_backfill_rejects_noncontiguous(self):
-        c,j,w,a,t=self.setup(transport=Transport([(minute(180000),"3"*64)]))
-        c.begin();c.deliver(minute(60000),content_id="1"*64)
-        c.deliver(minute(180000),content_id="3"*64)
-        with self.assertRaisesRegex(CollectorRejected,"BACKFILL_NOT_CONTIGUOUS"):
+    def test_e_claim_native_admitted_true_rejected(self):
+        c,t,w,j,a=self.make(authority=Authority(
+            _e_status(native_admitted=True)))
+        with self.assertRaisesRegex(CollectorRejected,"E_STATUS_REJECTED"):
+            asyncio.run(c.begin())
+
+    def test_epoch_rotation_and_revoke_fail_closed(self):
+        a=Authority()
+        c,t,w,j,a=self.make(authority=a)
+        asyncio.run(c.begin())
+        a.status=_e_status(epoch="b"*64)
+        with self.assertRaisesRegex(CollectorRejected,"E_EPOCH_CHANGED"):
+            asyncio.run(c.deliver({},content_id="0"*64))
+        self.assertEqual(c.state,"HALTED")
+
+    def test_readonly_status_not_sufficient_to_reconcile_pending(self):
+        c,t,w,j,a=self.make(journal=Journal(pending=pending()))
+        asyncio.run(c.begin())
+        with self.assertRaisesRegex(CollectorRejected,"E_NATIVE_WRITER_NOT_ADMITTED"):
+            asyncio.run(c.reconcile_after_restart(fresh_authority=Authority()))
+        self.assertEqual(c.pending["content_id"],"c"*64)
+        self.assertEqual(w.calls,0)
+
+    def test_no_transport_on_gap_when_not_admitted(self):
+        c,t,w,j,a=self.make()
+        asyncio.run(c.begin())
+        with self.assertRaisesRegex(CollectorRejected,"E_NATIVE_WRITER_NOT_ADMITTED"):
             asyncio.run(c.recover_gap())
-        self.assertEqual(w.calls,1)
+        self.assertEqual(t.calls,0)
 
-    def test_no_forgeable_missing_root_components(self):
-        with self.assertRaisesRegex(CollectorRejected,"AUTHORITY_REQUIRED"):
-            ContinuousLabCollector(transport=Transport(),writer_factory=lambda _:Writer(),
-                                   journal=Journal(),authority=None)
-        c,j,w,a,t=self.setup();self.assertEqual(c.state,"STOPPED")
-        with self.assertRaisesRegex(CollectorRejected,"COLLECTOR_NOT_READY"):
-            c.deliver(minute(60000),content_id="1"*64)
+    def test_corrupt_durable_pending_denied(self):
+        x=pending();x["content_id"]="INVALID"
+        c,t,w,j,a=self.make(journal=Journal(pending=x))
+        with self.assertRaisesRegex(CollectorRejected,"INVALID_DIGEST"):
+            asyncio.run(c.begin())
+        self.assertEqual(w.calls,0)
 
-if __name__=="__main__":
-    unittest.main()
+    def test_restart_without_trusted_e_capability_never_clears_pending(self):
+        c,t,w,j,a=self.make(journal=Journal(pending=pending()))
+        asyncio.run(c.begin())
+        with self.assertRaisesRegex(CollectorRejected,"E_ASYNC_AUTHORITY_REQUIRED"):
+            asyncio.run(c.reconcile_after_restart(fresh_authority=None))
+        self.assertIsNotNone(c.pending)
+        self.assertNotIn("clear",j.calls)
+
+if __name__=="__main__":unittest.main()
