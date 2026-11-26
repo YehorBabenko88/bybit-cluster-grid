@@ -1,5 +1,6 @@
 include README.md
 recursive-include market_data *.py *.sql
+recursive-include market_data_v2 *.py
 prune strattester
 prune service
 prune tests
