@@ -98,10 +98,10 @@ class Handler(history_api.Handler):
             if self.server.startup_admission.require_current() is not True:
                 return self._json(503,{"error":"CURRENT_ADMISSION_REQUIRED"})
             return self._json(200,result)
-        except (ValueError,OverflowError):
-            return self._json(400,{"error":"INVALID_QUALIFIED_READ_REQUEST"})
         except ProvenanceReadError:
             return self._json(503,{"error":"SOURCE_RECORD_UNQUALIFIED"})
+        except (ValueError,OverflowError):
+            return self._json(400,{"error":"INVALID_QUALIFIED_READ_REQUEST"})
         except Exception:
             return self._json(503,{"error":"QUALIFIED_SOURCE_READ_UNAVAILABLE"})
 
