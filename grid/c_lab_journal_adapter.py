@@ -20,7 +20,9 @@ class COwnedLabJournal:
               and type(backend_pid) is int and backend_pid>1,
               "C_OWNER_GENERATION_BACKEND_REQUIRED")
         _need(type(stream_id) is str and stream_id,"C_STREAM_REQUIRED")
-        _need(callable(getattr(owner_executor,"run_c",None)), "ROOT_BOUNDED_C_EXECUTOR_REQUIRED")
+        from unified_system.lab_owner_executor import LabOwnerExecutor
+        _need(type(owner_executor) is LabOwnerExecutor,
+              "ROOT_BOUNDED_C_EXECUTOR_REQUIRED")
         self.c=c_module;self.pg=pg;self.identity=identity
         self.generation=generation;self.backend_pid=backend_pid;self.stream_id=stream_id
         self.owner_executor=owner_executor
@@ -37,7 +39,8 @@ class COwnedLabJournal:
         async with self._serialization:
             _need(not self._uncertain,"C_OWNER_SESSION_UNCERTAIN")
             try:
-                result=self.owner_executor.run_c(method,getattr(self.c,method),self.pg,**values)
+                fn=getattr(self.c,method)
+                result=self.owner_executor.call(lambda: fn(self.pg,**values),timeout=10.0)
                 _need(isawaitable(result),"ROOT_ASYNC_C_EXECUTOR_REQUIRED")
                 return await result
             except BaseException:
