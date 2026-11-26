@@ -4,7 +4,7 @@ import time
 import unittest
 from unittest.mock import patch
 from market_data.provenance import minute_record, producer, digest
-from grid.qualified_read_contract import (
+from market_data_v2.qualified_read_contract import (
     ProvenanceReadError, validate_minute, qualify_records,
 )
 
