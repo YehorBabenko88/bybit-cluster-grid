@@ -116,10 +116,10 @@ def inspect(root: Path, wheel: Path, sdist: Path, math_wheel: Path, ftool: Path)
     with tempfile.TemporaryDirectory(prefix="b19-installed-", dir=os.environ.get("RUNNER_TEMP")) as tmp:
         install = Path(tmp, "b-wheel")
         math_install = Path(tmp, "math")
-        subprocess.run([sys.executable, "-m", "pip", "install", "--no-deps",
+        subprocess.run([sys.executable, "-m", "pip", "install", "--no-index", "--no-deps",
                         "--no-compile", "--target", str(math_install),
                         str(math_wheel)], check=True)
-        subprocess.run([sys.executable, "-m", "pip", "install", "--no-deps",
+        subprocess.run([sys.executable, "-m", "pip", "install", "--no-index", "--no-deps",
                         "--no-compile", "--target", str(install), str(wheel)], check=True)
         # F's actual qualifier is the single existing offline package checker,
         # not an E protected Root issuance API. It verifies installed RECORD.
