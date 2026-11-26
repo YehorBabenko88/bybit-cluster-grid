@@ -8,6 +8,7 @@ import unittest
 import uuid
 from enum import IntEnum
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from market_data.provenance import minute_record,producer,digest
 from grid.canonical_lab_fenced_writer import (
@@ -44,14 +45,23 @@ def record():
 
 
 class Admission:
-    lab_only=True
-    trusted_root_authority=True
+    """Synthetic E-shape ONLY for negative unit logic, never native authority."""
     def __init__(self,*values):
         self.values=list(values or [True,True,True])
         self.calls=0
-    def require_current(self):
+        self.used=False
+        self.kwargs=[]
+    def require_current(self,**kwargs):
         self.calls+=1
-        return self.values.pop(0) if self.values else False
+        self.kwargs.append(kwargs)
+        valid=(not self.used and (self.values.pop(0) if self.values else False))
+        return self if valid else False
+    def consume(self,**kwargs):
+        return self.require_current(**kwargs) if not self._mark_used() else False
+    def _mark_used(self):
+        if self.used:return True
+        self.used=True
+        return False
 
 
 class Connection:
@@ -73,7 +83,7 @@ class Connection:
                 connection.calls.append((sql,args))
                 if connection.fail_sql and "lab_fenced_insert" in sql:
                     raise RuntimeError("DATABASE_FENCE_REJECTED")
-            def fetchone(self):return (connection.pid,)
+            def fetchone(self):return (connection.pid,"2026-11-26 20:00:00+00")
         return Cursor()
     def transaction(self):
         connection=self
@@ -93,10 +103,24 @@ class Connection:
 
 def writer(conn=None,auth=None,**updates):
     args={**VALUES,**updates}
-    return CanonicalLabMinuteWriter(conn or Connection(),native_admission=auth or Admission(),**args)
+    args.setdefault("executor",object())
+    args.setdefault("operation_id","d"*32)
+    args.setdefault("package_identity","e"*64)
+    args.setdefault("bound_backend_start","2026-11-26T20:00:00+00:00")
+    return CanonicalLabMinuteWriter(conn or Connection(),
+                                    native_admission=auth if auth is not None else Admission(),
+                                    **args)
 
 
 class CanonicalLabFencedWriterTests(unittest.TestCase):
+    def setUp(self):
+        # Exact mock substitution applies only to unit tests. E's real type
+        # and protected issuer are mandatory in installed Grid runtime.
+        self.mock_permit=patch(
+            "grid.canonical_lab_fenced_writer._root_operation_permit_type",
+            return_value=Admission)
+        self.mock_permit.start()
+        self.addCleanup(self.mock_permit.stop)
     def test_only_exact_sql_security_definer_function_on_same_backend(self):
         c=Connection();a=Admission()
         result=writer(c,a).write(record(),content_id="c"*64)
@@ -124,13 +148,17 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
 
     def test_deny_no_auth_and_nonlab_authority(self):
         c=Connection()
-        with self.assertRaisesRegex(FencedWriterRejected,"FENCE_NATIVE_ADMISSION_REQUIRED"):
-            CanonicalLabMinuteWriter(c,native_admission=None,**VALUES)
-        with self.assertRaisesRegex(FencedWriterRejected,"FENCE_NATIVE_LAB_SCOPE_REQUIRED"):
-            writer(c,SimpleNamespace(require_current=lambda:True,lab_only=False,
-                                     trusted_root_authority=True))
-        with self.assertRaisesRegex(FencedWriterRejected,"FENCE_TRUSTED_ROOT_AUTHORITY_REQUIRED"):
-            writer(c,SimpleNamespace(require_current=lambda:True,lab_only=True))
+        for admission in (None,SimpleNamespace(require_current=lambda:True),
+                          SimpleNamespace(lab_only=True,trusted_root_authority=True,
+                                          require_current=lambda:True)):
+            with self.subTest(admission=admission),self.assertRaisesRegex(
+                    FencedWriterRejected,"FENCE_E_ROOT_OPERATION_PERMIT_REQUIRED"):
+                writer(c,admission)
+        class UserForgedSubclass(Admission):
+            pass
+        with self.assertRaisesRegex(
+                FencedWriterRejected,"FENCE_E_ROOT_OPERATION_PERMIT_REQUIRED"):
+            writer(c,UserForgedSubclass())
         self.assertEqual(c.calls,[])
 
     def test_deny_automatic_transaction_pooled_and_closed_connection(self):
@@ -214,31 +242,38 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
             self.assertEqual(c.calls,[])
 
     def test_async_sealed_grant_cannot_be_misread_as_sync_true(self):
-        """A awaitable E-style check cannot be mistaken for synchronous True."""
-        class SealedAwaitable:
-            def __await__(self):
-                yield
-                return self
         class AsyncGrant:
-            lab_only = True
-            trusted_root_authority = True
-            def __init__(self):
-                self.calls = 0
-            def require_current(self):
-                self.calls += 1
-                return SealedAwaitable()
-        c = Connection()
-        auth = AsyncGrant()
-        w = writer(c, auth)
+            lab_only=True
+            trusted_root_authority=True
+            async def require_current(self):
+                return True
+        c=Connection()
         with self.assertRaisesRegex(
-                FencedWriterRejected, "FENCE_NATIVE_ADMISSION_REVOKED"):
-            w.write(record(), content_id="c" * 64)
-        self.assertEqual(c.calls, [])
-        self.assertEqual(auth.calls, 1)
-        # The awaitable is never executed or accepted as native permission.
-        # This is legacy ABI rejection, not a trusted operation grant.
+                FencedWriterRejected,"FENCE_E_ROOT_OPERATION_PERMIT_REQUIRED"):
+            writer(c,AsyncGrant())
+        self.assertEqual(c.calls,[])
 
-    def test_replayed_legacy_writer_never_second_insert(self):
+    def test_backend_start_mismatch_aborts_before_fenced_sql(self):
+        c=Connection()
+        with self.assertRaisesRegex(FencedWriterRejected,
+                                    "FENCE_BACKEND_START_CHANGED"):
+            writer(c,bound_backend_start="2026-11-26T21:00:00+00:00").write(
+                record(),content_id="c"*64)
+        self.assertEqual(c.calls[-1][0],"ROLLBACK")
+        self.assertFalse(any("lab_fenced_insert" in sql for sql,_ in c.calls))
+
+    def test_one_operation_content_binding_and_consumption(self):
+        c=Connection(); a=Admission()
+        writer(c,a).write(record(),content_id="c"*64)
+        self.assertTrue(a.used)
+        self.assertEqual(a.calls,3)
+        self.assertEqual(len(a.kwargs),3)
+        self.assertTrue(all(k["content_id"]=="c"*64 for k in a.kwargs))
+        self.assertTrue(all(k["operation_id"]=="d"*32 for k in a.kwargs))
+        self.assertTrue(all(k["package_identity"]=="e"*64 for k in a.kwargs))
+        self.assertTrue(all(k["backend_pid"]==1234 for k in a.kwargs))
+
+    def test_replayed_one_use_writer_never_second_insert(self):
         c = Connection()
         w = writer(c, Admission())
         self.assertEqual(
@@ -256,6 +291,7 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
         self.assertEqual(details["fence_schema"],"lab-postgres-writer-fence.v1")
         self.assertFalse(details["trading_authorized"])
         self.assertTrue(details["lab_only"])
+        self.assertEqual(details["native_admission"],"E_ROOT_ISSUED_ONE_USE_OPERATION_PERMIT")
 
 
 if __name__=="__main__":
