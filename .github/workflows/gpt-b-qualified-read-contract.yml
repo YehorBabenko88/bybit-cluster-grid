@@ -49,4 +49,4 @@ jobs:
           subprocess.check_call([sys.executable,'-I','-c',
             'import importlib.metadata as meta; import market_data, market_data_v2.qualified_read_contract, market_data_v2.read_api; assert meta.version("market-data") == "0.2.0.dev0"; assert market_data_v2.read_api.ROUTE == "/internal/v2/candles/qualified"'])
       - name: Execute qualified provenance and authenticated route regression suite
-        run: python -m pytest -v --strict-markers -p no:cacheprovider tests/market_data/test_qualified_read_contract.py tests/market_data/test_qualified_route_v2.py tests/market_data/test_qualified_read_schema_v2.py
+        run: python -m pytest -v --strict-markers -p no:cacheprovider tests/market_data/test_qualified_read_contract.py tests/market_data/test_qualified_route_v2.py tests/market_data/test_qualified_read_schema_v2.py tests/market_data/test_v2_wheel_guard.py
