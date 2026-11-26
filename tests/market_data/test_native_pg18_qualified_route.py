@@ -7,6 +7,7 @@ a fake passing / skipped PostgreSQL qualification when invoked without them.
 Never point MARKET_DATA_DSN at any existing or user-owned database.
 """
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -15,10 +16,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from email.message import Message
 from types import SimpleNamespace
+from http.server import ThreadingHTTPServer
 from unittest.mock import patch
 
 from market_data.provenance import minute_record, producer, digest, canonical
@@ -170,6 +173,44 @@ class NativePG18GridRead(unittest.TestCase):
                 pg.sql("INSERT INTO provenance_minutes(fingerprint,content_id,symbol,start_ms,record)"
                        " VALUES ('"+("f"*64)+"','"+("e"*64)+"','BTCUSDT',0,'{}'::jsonb)",
                        role="lab_reader")
+
+    def test_real_pg18_over_private_http_socket(self):
+        pg=self.start_pg()
+        record=source_minute()
+        self.insert(record)
+        admission=CurrentAdmission(*([True]*10))
+        server=ThreadingHTTPServer(("127.0.0.1",0),Handler)
+        server.daemon_threads=True
+        server.startup_admission=admission
+        server.module_identity={"instance_token":"b"*64}
+        worker=threading.Thread(target=server.serve_forever,daemon=True)
+        worker.start()
+        try:
+            with patch.dict(os.environ,{"MARKET_DATA_DSN":pg.dsn("lab_reader")}):
+                with patch("market_data_v2.read_api.time.time",return_value=_NOW_MS/1000):
+                    connection=http.client.HTTPConnection("127.0.0.1",server.server_port,timeout=3)
+                    try:
+                        connection.request("GET",ROUTE+"?symbol=BTCUSDT&limit=1",
+                                           headers={"Authorization":"Bearer "+"b"*64})
+                        result=connection.getresponse()
+                        code=result.status
+                        body=json.loads(result.read())
+                    finally:
+                        connection.close()
+            self.assertEqual(code,200)
+            self.assertEqual(body["status"],"PARTIAL")
+            self.assertEqual(body["rows"][0]["dataset_fingerprint"],
+                             record["dataset_fingerprint"])
+            self.assertEqual(body["source_authenticity"],"NOT_INDEPENDENTLY_ATTESTED")
+            self.assertEqual(body["storage_immutability"],"NOT_ATTESTED")
+            self.assertFalse(body["paper_admitted"])
+            self.assertFalse(body["execution_authority"])
+            self.assertEqual(admission.calls,3)
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=3)
+            self.assertFalse(worker.is_alive(),"NATIVE_HTTP_LISTENER_NOT_CLOSED")
 
     def test_real_pg_tampered_record_503_and_legacy_producer_refusal(self):
         pg=self.start_pg()
