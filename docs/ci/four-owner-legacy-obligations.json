@@ -1,0 +1,4910 @@
+{
+  "schema": "unified-system.legacy-test-obligations.v1",
+  "base": "b4ada83ee64814f7264c392f01047a1953766f63",
+  "scope": "547 declared functions, NOT parameterized cases; assignment proposals are not completed migrations",
+  "owners": [
+    "market_data",
+    "math",
+    "terminan",
+    "unified_system"
+  ],
+  "files": [
+    {
+      "path": "integration_tests/test_frozen_results.py",
+      "source_blob": "8c5b7e38602f607b1263dfa51cc86a27fbc36022",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "unified_system"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/archive state; Unified caller custody or persistence infrastructure",
+      "declared_functions": [
+        {
+          "name": "test_six_fields_preserved_on_import_retry_and_reopen",
+          "status": "CANONICAL_TERM115_106",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_wrong_hash_and_source_alias_fail_before_destination_write",
+          "status": "CANONICAL_TERM115_106",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_current_schema_preserves_staged_results_as_unverified",
+          "status": "CANONICAL_TERM115_106",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_legacy_with_present_empty_staged_table_is_not_treated_as_absent",
+          "status": "CANONICAL_TERM115_106",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_native_legacy_receipt_preserves_zero_and_infinite_rows",
+          "status": "CANONICAL_TERM115_106",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_noncanonical_legacy_schema_refused_without_destination",
+          "status": "CANONICAL_TERM115_106",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_modern_published_schema_refuses_malformed_staging",
+          "status": "CANONICAL_TERM115_106",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_wal_database_refused_without_touching_sidecars",
+          "status": "CANONICAL_TERM115_106",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "contextlib",
+        "hashlib",
+        "pytest",
+        "sqlite3",
+        "strattester.persistence.frozen_results",
+        "strattester.persistence.result_store",
+        "terminan.paper_ledger",
+        "terminan.research_archive"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/deploy/test_healthcheck.py",
+      "source_blob": "878361d11b2f0c811c992aac429473ce4a1c6bea",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_health_result_is_explicit",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.deploy.healthcheck"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/deploy/test_updater.py",
+      "source_blob": "a96e7798196325dcfae513d02900877f6c18d491",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_stage_excludes_runtime_data",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_failed_healthcheck_rolls_back",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "pathlib",
+        "strattester.deploy.releases",
+        "strattester.deploy.updater"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/engine/test_checkpoints.py",
+      "source_blob": "16841a014a7d636dcc07a24a8b6c1c601cf40cbb",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_checkpoint_roundtrip_and_compatibility",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_checkpoint_rejects_changed_strategy_or_config",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_checkpoint_rejects_different_job",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "strattester.engine.checkpoints"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/engine/test_distribution.py",
+      "source_blob": "1372bdce3e3101f1a4cbe93094bba545ee157922",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_assignment_is_deterministic",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_sync_and_backtest_follow_data_locality",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_unavailable_node_can_be_reassigned",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.engine.distribution",
+        "strattester.engine.jobs"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/engine/test_executor.py",
+      "source_blob": "2d32ad9c42538e55a6642c10a22c41564503570b",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_requirements_block_empty_history",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_executor_streams_candles",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_executor_accepts_ready_rich_requirements_and_context",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_executor_respects_requested_time_range",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_executor_bounds_public_trade_aggregates_to_requested_time_range",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_context_coverage_is_bounded_to_requested_time_range",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_requirements_do_not_use_history_outside_requested_window",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_requirements_reject_internal_gap_even_when_rows_exist",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "strattester.engine.executor",
+        "strattester.marketdata.sqlite_store",
+        "strattester.strategies.base"
+      ],
+      "process_or_network_review_required": true
+    },
+    {
+      "path": "tests/engine/test_jobs.py",
+      "source_blob": "c32b62a54633ace324b79f11330fc583d506240a",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_stale_running_job_becomes_retryable",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_worker_disappearance_does_not_mean_complete",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.engine.jobs",
+        "strattester.persistence.sqlite_state_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/engine/test_resource_manager.py",
+      "source_blob": "9fc49c6cab5a22ad4f34837370f91c213afd0861",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_ram_thresholds",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_low_absolute_disk_blocks",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_slots_scale_with_cpu_and_leave_headroom",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_cpu_pressure_reduces_or_pauses_work",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_ram_can_limit_cpu_parallelism",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.engine.resource_manager"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/engine/test_scheduler.py",
+      "source_blob": "3e169ed561eb91ce1815d4ea62b94d95b2756f22",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_scheduler_recovers_stale_and_limits_jobs",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.engine.jobs",
+        "strattester.engine.resource_manager",
+        "strattester.engine.scheduler",
+        "strattester.persistence.sqlite_state_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/engine/test_scheduler_cluster.py",
+      "source_blob": "233cad66930398756c8a27b0e5c191844fae527d",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_node_filter_happens_before_parallel_slot_limit",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_sync_jobs_are_capped_but_backtests_fill_remaining_slots",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.engine.jobs",
+        "strattester.engine.resource_manager",
+        "strattester.engine.scheduler",
+        "strattester.persistence.sqlite_state_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/install/test_install_contract.py",
+      "source_blob": "83f44972893d7d87f0d6e5a469210b6e4cc50493",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_install_script_preserves_external_runtime_directories",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_uninstall_requires_explicit_delete_confirmation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_install_has_dry_run",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_legacy_installer_runs_preflight_without_starting_workers",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_legacy_installer_leaves_service_registration_to_unified",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_explicit_smoke_uses_and_removes_disposable_state",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "json",
+        "pathlib",
+        "subprocess",
+        "sys"
+      ],
+      "process_or_network_review_required": true
+    },
+    {
+      "path": "tests/marketdata/test_audit.py",
+      "source_blob": "1433fd5957981d0ea33b4faa9a0b67f0df4fd95c",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_complete_active_history",
+          "status": "CANONICAL_DATA_DECLARED_RANGE_AUDIT_WITH_CONSERVATIVE_COMPLETENESS_FIX",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_unrecoverable_delisted_gap_is_partial",
+          "status": "CANONICAL_DATA_DECLARED_RANGE_AUDIT_WITH_CONSERVATIVE_COMPLETENESS_FIX",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_missing_mandatory_dataset_is_insufficient",
+          "status": "CANONICAL_DATA_DECLARED_RANGE_AUDIT_WITH_CONSERVATIVE_COMPLETENESS_FIX",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_history_before_listing_is_not_complete",
+          "status": "CANONICAL_DATA_DECLARED_RANGE_AUDIT_WITH_CONSERVATIVE_COMPLETENESS_FIX",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.audit",
+        "strattester.marketdata.instruments"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_bybit_client.py",
+      "source_blob": "b31442eb73fb63f9163014918a1f07c86ea8cf95",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_403_fails_without_retry",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_429_retries_then_succeeds",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_5xx_exhaustion_is_retryable",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_retry_after_is_honored_but_bounded",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_bybit_rate_limit_retcode_is_retryable",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_invalid_retry_policy_fails_before_network",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_legacy_default_client_cannot_create_direct_bybit_session",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_legacy_explicit_requests_session_is_refused_without_request",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "requests",
+        "strattester.marketdata.bybit_client"
+      ],
+      "process_or_network_review_required": true
+    },
+    {
+      "path": "tests/marketdata/test_configured_store.py",
+      "source_blob": "057b0d81c7976ad90d1b3794ee8c726a61c2771c",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_configured_store_routes_research_reads_after_promotion",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "pathlib",
+        "strattester.config",
+        "strattester.marketdata.sharded_store",
+        "strattester.marketdata.sqlite_store",
+        "strattester.marketdata.store_factory"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_coverage.py",
+      "source_blob": "0a76b42c092166af6451880105648d1886382cd8",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_coverage_detects_internal_gap",
+          "status": "CANONICAL_DATA_BUNDLE_PENDING_FREEZE",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.sqlite_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_discovery.py",
+      "source_blob": "7d59826ab8045802cf4e1d7f5ffa0e7342df2be5",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_missing_candidate_is_not_created",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_valid_db_is_discovered_read_only",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_invalid_large_file_is_rejected",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_adoption_never_overwrites_existing_destination",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "pathlib",
+        "sqlite3",
+        "strattester.config",
+        "strattester.marketdata.discovery"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_download_smoke.py",
+      "source_blob": "91100da2c7614503b5437d5a914305dc995f0624",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_candle_smoke_validation_requires_contiguous_unique_rows",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_candle_smoke_validation_rejects_gap",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_no_implicit_exchange_client_or_disk_mutation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_invalid_grid_source_denied_without_files",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_legacy_cli_never_downloads",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata",
+        "strattester.marketdata.bybit_client",
+        "strattester.marketdata.download_smoke"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_history_plan.py",
+      "source_blob": "dd9de8cf02efa51889ec7efda2b36ef598340aec",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_instrument_history_plan_starts_at_launch_and_uses_dataset_cadence",
+          "status": "CANONICAL_DECLARED_HISTORY_REQUEST_PLAN",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.readiness"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_instruments.py",
+      "source_blob": "fb459aded989d33d4f6f10384375999bf24f220a",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_new_symbol_is_ineligible_before_first_seen",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_disappearance_retains_history_and_marks_delisted",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_suspension_can_resume_without_erasing_interval",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_delisted_state_survives_registry_reopen",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_new_symbol_after_reopen_gets_fresh_active_interval",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_transient_single_snapshot_absence_does_not_false_delist",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_missing_confirmation_survives_reboot_before_delist",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_universe_time_cannot_regress_and_corrupt_intervals",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_same_snapshot_same_timestamp_is_idempotent_for_missing_confirmation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_conflicting_snapshot_same_timestamp_is_rejected",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_returning_missing_symbol_resets_confirmation_counter",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_reconcile_rolls_back_entire_snapshot_on_mid_transaction_failure",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_non_string_symbol_is_rejected_not_stringified",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "strattester.marketdata.instruments"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_l2_recorder.py",
+      "source_blob": "d5cda388429e2a189ca0cec5050a3f8b51aa5eaa",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math",
+        "market_data"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "wall/absorption analytical semantics, source lifecycle remains Data",
+      "declared_functions": [
+        {
+          "name": "test_wall_requires_relative_depth_and_persistence",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_removed_wall_is_marked_spoof_candidate",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_true_l2_absorption_needs_wall_trade_hits_and_replenishment",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.l2_recorder"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_legacy_store_compat.py",
+      "source_blob": "84e58d37ced597148a41db23c9d3328dbe3bf7e3",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_store_reuses_legacy_ts_candle_database_without_copy",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_legacy_store_rejects_non_1m_candle_write",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "sqlite3",
+        "strattester.marketdata.sqlite_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_process_kill_recovery.py",
+      "source_blob": "97c847b7dd5854f64f3454adc49d32bded39ace0",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_os_hard_kill_rolls_back_uncommitted_wal_transaction",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_os_hard_kill_preserves_committed_wal_transaction",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "__future__",
+        "strattester.marketdata.sqlite_store",
+        "subprocess",
+        "sys",
+        "textwrap"
+      ],
+      "process_or_network_review_required": true
+    },
+    {
+      "path": "tests/marketdata/test_public_trade_store.py",
+      "source_blob": "0f1527529fc3ba16ff9ccd7a5b881e64f0b04fcb",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_public_trade_aggregates_are_idempotent_and_iterable",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.sqlite_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_readiness.py",
+      "source_blob": "4694411478281c268d1bcbbbc1e4bb2369ba885f",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_open_market_store_prefers_existing_local_legacy_data",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_historical_reader_sees_committed_wal_rows_without_checkpoint",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_open_market_store_refuses_creation_without_existing_history",
+          "status": "CANONICAL_FROZEN_MISSING_SOURCE_REFUSAL",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_ensure_history_refuses_legacy_writer_without_fetch_or_mutation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_existing_candles_not_promoted_to_source_attested",
+          "status": "CANONICAL_FROZEN_ROWS_NOT_SOURCE_ATTESTED",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_requirements_skip_explicitly_unsupported_optional_datasets",
+          "status": "CANONICAL_DECLARED_HISTORY_REQUEST_PLAN",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_supported_optional_datasets_remain_required",
+          "status": "CANONICAL_DECLARED_HISTORY_REQUEST_PLAN",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_requirements_stop_at_delisting_boundary",
+          "status": "CANONICAL_DECLARED_HISTORY_REQUEST_PLAN",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_requirements_empty_before_instrument_launch",
+          "status": "CANONICAL_DECLARED_HISTORY_REQUEST_PLAN",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_zero_delivery_time_does_not_truncate_perpetual_instrument",
+          "status": "CANONICAL_DECLARED_HISTORY_REQUEST_PLAN",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_dataset_windows_align_to_their_own_sampling_grid",
+          "status": "CANONICAL_DECLARED_HISTORY_REQUEST_PLAN",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "hashlib",
+        "pathlib",
+        "pytest",
+        "sqlite3",
+        "strattester.marketdata.integrity",
+        "strattester.marketdata.readiness",
+        "strattester.marketdata.sqlite_store",
+        "strattester.marketdata.sync_engine"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_rich_schema.py",
+      "source_blob": "757efce9f49c52294cc2576e994c7deb1d46da04",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_rich_datasets_have_explicit_contracts",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_schema_contains_rich_history_tables",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.datasets",
+        "strattester.marketdata.schema",
+        "strattester.strategies.base"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_rich_store.py",
+      "source_blob": "2c4d25b814b4ccce48d13bddbd3540d544c81a6c",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_rich_store_upserts_market_price_and_reports_coverage",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_rich_store_upserts_oi_funding_ratio_idempotently",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.sqlite_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_rich_sync.py",
+      "source_blob": "41a9de25486b06d467faf45694f55f2430a690b8",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_rich_history_methods_use_explicit_bybit_endpoints",
+          "status": "CANONICAL_DATA_BUNDLE_PENDING_FREEZE",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_rich_history_uses_endpoint_specific_parameter_names",
+          "status": "CANONICAL_DATA_BUNDLE_PENDING_FREEZE",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.bybit_client"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_rich_sync_engine.py",
+      "source_blob": "97716251de68f3b6158be7fc4d7d93ed542dadc9",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_sync_engine_persists_mark_price_history",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_sync_engine_persists_open_interest_history",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.sqlite_store",
+        "strattester.marketdata.sync_engine"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_shard_migrator.py",
+      "source_blob": "385545a474d8b94e34739d65e4d29a3cd34fe168",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_migrator_processes_bounded_batches_and_resumes",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_migrator_pauses_without_touching_manifest_when_disk_reserve_is_low",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.shard_migrator",
+        "strattester.marketdata.sharded_store",
+        "strattester.marketdata.sqlite_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_sharded_store.py",
+      "source_blob": "df1e4e4f92bff66a35e5f234eaf92f2ef5bbed3b",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_symbols_use_independent_sqlite_files",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_legacy_database_remains_read_fallback_until_shard_has_data",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_write_batch_cannot_cross_symbol_shards",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_legacy_symbol_migration_is_validated_before_shard_use",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_partial_shard_is_never_authoritative_after_restart",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_migration_resume_is_idempotent_and_promotes_only_after_validation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_live_writes_stay_visible_in_legacy_until_promotion",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_writes_switch_to_shard_only_after_ready",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_source_growth_during_migration_defers_promotion_and_retry_catches_up",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_promotion_copies_and_verifies_all_auxiliary_datasets",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_symbol_with_auxiliary_data_but_no_candles_is_not_promoted_empty",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_restart_resumes_partial_full_dataset_migration_idempotently",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_routed_wrapper_close_does_not_destroy_external_legacy_backend",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "strattester.marketdata.sharded_store",
+        "strattester.marketdata.sqlite_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_storage_health.py",
+      "source_blob": "c149512afde7f1a84b21fea905b1d2202c96bf2b",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_storage_health_accepts_writable_database",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_storage_health_blocks_when_free_space_threshold_is_impossible",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_corrupt_database_is_quarantined_not_overwritten",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_sqlite_footprint_counts_wal_sidecars",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_safe_checkpoint_refuses_low_headroom_without_touching_db",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_safe_checkpoint_runs_passive_with_headroom",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "os",
+        "pathlib",
+        "strattester.marketdata.sqlite_store",
+        "strattester.marketdata.storage_health"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_store.py",
+      "source_blob": "5a5a3329b6ba7d7d8a02da5f40db9348e5cea90a",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_candle_insert_shape_is_ten_columns",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_duplicate_is_idempotent",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_complete_record_repairs_incomplete",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_incomplete_cannot_regress_complete",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_malformed_candle_rejected",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_transaction_rolls_back_on_sql_error",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_generator_failure_rolls_back_whole_candle_batch",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_two_local_connections_can_write_different_symbols_without_corruption",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_wal_checkpoint_and_reopen_preserve_integrity",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_uncommitted_wal_transaction_disappears_after_reopen",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_committed_wal_data_survives_reopen_without_manual_checkpoint",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_market_store_close_is_idempotent",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "sqlite3",
+        "strattester.marketdata.sqlite_store",
+        "threading"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_store_factory.py",
+      "source_blob": "7b716e37d64a1ecb0a786350d4b60ffe591cf4c0",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_factory_uses_shards_without_creating_empty_legacy",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_factory_preserves_existing_legacy_until_symbol_promotion",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.sharded_store",
+        "strattester.marketdata.sqlite_store",
+        "strattester.marketdata.store_factory"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_sync_contracts.py",
+      "source_blob": "57fc609f4938145093d6fa544a2556f5626a639c",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_funding_requirement_uses_client_funding_method",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_public_trade_aggregate_is_not_silently_faked_from_recent_rest",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_candle_sync_uses_requested_native_bybit_interval",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.sqlite_store",
+        "strattester.marketdata.sync_engine"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/marketdata/test_sync_engine.py",
+      "source_blob": "0d8ad130552f28b6d685e97f449c0fbe0e06bc4a",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_empty_db_syncs_and_overlap_is_harmless",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_internal_gap_is_repaired",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_403_degrades_one_requirement",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_failover_node_repairs_only_missing_local_history",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_retry_after_interrupted_page_is_idempotent",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_one_unavailable_dataset_is_isolated_from_other_requirements",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_empty_exchange_page_never_marks_missing_history_ready",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_open_interest_timestamp_zero_is_not_replaced_by_fallback",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_auxiliary_row_without_any_timestamp_is_retryable_not_ready",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_restart_after_partial_backfill_requests_only_persisted_gap",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_hard_crash_mid_market_transaction_recovers_wal_without_phantom_page",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "os",
+        "sqlite3",
+        "strattester.marketdata.bybit_client",
+        "strattester.marketdata.sqlite_store",
+        "strattester.marketdata.sync_engine",
+        "subprocess",
+        "sys"
+      ],
+      "process_or_network_review_required": true
+    },
+    {
+      "path": "tests/marketdata/test_universe_sync.py",
+      "source_blob": "8ba8f142a85c7affff03d09ac59e8ed571e9a99d",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_bybit_discovers_only_trading_usdt_linear_perpetuals",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_unverified_grid_universe_cannot_mutate_legacy_registry",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_legacy_client_is_refused_without_network_or_mutation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_reverse_chronological_pages_do_not_skip_middle",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "strattester.marketdata.bybit_client",
+        "strattester.marketdata.instruments",
+        "strattester.marketdata.sqlite_store",
+        "strattester.marketdata.sync_engine",
+        "strattester.marketdata.universe_sync"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/persistence/test_postgres_brain_state.py",
+      "source_blob": "bfe82b0172982af1ecc384f00a6babbb9a9af356",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "unified_system"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/archive state; Unified caller custody or persistence infrastructure",
+      "declared_functions": [
+        {
+          "name": "test_brain_lease_fences_second_holder_until_expiry",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_stale_epoch_cannot_renew_after_failover",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_learning_claim_is_exactly_once_per_decision_horizon",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_same_live_holder_renews_without_epoch_increment",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_invalid_brain_lease_parameters_fail_closed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_immutable_learning_log_is_idempotent_and_detects_collision",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "json",
+        "strattester.persistence.postgres_state_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/persistence/test_postgres_optional.py",
+      "source_blob": "b5f63f87e0785b769bccb23ae3b58ce17e5ebd1f",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_postgres_dependency_is_optional",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "strattester.persistence.postgres_state_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/persistence/test_result_store.py",
+      "source_blob": "8d95c9c8bda753dfbac5b456c411138cae1288b2",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "unified_system"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/archive state; Unified caller custody or persistence infrastructure",
+      "declared_functions": [
+        {
+          "name": "test_result_store_persists_latest_strategy_result",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_stale_lease_cannot_publish_staged_result",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_valid_lease_atomically_promotes_staged_result",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_older_fencing_generation_cannot_overwrite_newer_result",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_result_store_migrates_legacy_schema_for_fencing",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_result_records_worker_generation_provenance",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_generation_validator_can_fence_stale_incarnation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_fenced_read_revalidates_authority_after_publication",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_fenced_read_never_trusts_legacy_unfenced_result",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_fenced_read_can_skip_stale_newer_row_and_use_valid_older_row",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "sqlite3",
+        "strattester.persistence.result_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/persistence/test_result_store_recovery.py",
+      "source_blob": "88b8c6bac98fee2d7ee2b3205a15593fb82e5a4a",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "unified_system"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/archive state; Unified caller custody or persistence infrastructure",
+      "declared_functions": [
+        {
+          "name": "test_result_write_is_atomic_and_survives_reopen",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_failed_result_transaction_does_not_replace_previous_result",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_reboot_never_auto_publishes_stale_staged_result",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_reboot_can_publish_stage_only_after_full_authority_revalidation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_legacy_staged_table_gets_generation_fence_columns",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_staged_cleanup_is_age_bounded_and_never_deletes_published_results",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_uncommitted_wal_transaction_disappears_after_crash_like_reopen",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "sqlite3",
+        "strattester.persistence.result_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/persistence/test_state_contract.py",
+      "source_blob": "32e75fb7b62c487d3e6731473da41be38c56e843",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_local_state_contract_and_copy",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_lease_valid_requires_exact_owner_token_active_state_and_time",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.engine.jobs",
+        "strattester.persistence.migrate_state",
+        "strattester.persistence.sqlite_state_store"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/regression/test_legacy_28_catalog.py",
+      "source_blob": "ff9d035c88846f2c6f24e987477d28cd150dafda",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_legacy_catalog_contains_exact_28_variants",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_entry_distance_variants_are_explicit",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_tp_and_sl_variants_preserve_original_entry_distance",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_age_and_direction_variants_are_explicit",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_first_touch_variants_allow_one_entry_per_level",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.strategies.builtin.legacy_grid"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/regression/test_legacy_engine.py",
+      "source_blob": "1b4de72f47cdcc1e664e1767933230443eb83be2",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_high_level_strict_break_and_tp",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_stop_rearms_unbroken_level",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_intrabar_entry_uses_conservative_same_minute_stop",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_gap_stop_uses_worse_open_fill",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_reversal_high_can_open_short",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.strategies.builtin.legacy_grid"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/regression/test_legacy_grid.py",
+      "source_blob": "1a7d44a6158ff2929d40bb5d61783af6c6fe61fe",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_long_tp_math_includes_both_side_fees",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_short_sl_math",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.strategies.builtin.legacy_grid"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/regression/test_legacy_suite_runner.py",
+      "source_blob": "15e34ff5fd7069f18082eca4faa50f19c2e864a4",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_legacy_suite_replays_history_for_all_28_variants",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_completed_higher_timeframe_level_is_not_available_early",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.strategies.builtin.legacy_grid"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/remote/test_tailscale.py",
+      "source_blob": "44b7e7d80c761ed861efb3ab8b354c6a23dd3d51",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_missing_tailscale_is_optional",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.remote"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_absorption.py",
+      "source_blob": "dd6d18cff9f2656862b49d5605caeff697f1f90c",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_absorption_requires_level_aggression_stall_decay_and_cvd_confirmation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_absorption_rejects_when_price_accepts_below_wall",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.absorption"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_adaptive_role_allocator.py",
+      "source_blob": "0f63b399db451de66652ea46db10c9311363e6d0",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_best_healthy_capable_node_selected",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_unhealthy_or_overloaded_nodes_are_excluded",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_critical_role_prefers_independent_failure_domains",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_critical_role_reports_insufficient_redundancy",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_execution_health_fails_closed_for_degraded_critical_role",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_multi_role_allocation_reserves_capacity",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_communication_quality_affects_placement",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_invalid_node_telemetry_is_excluded",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.adaptive_role_allocator"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_agent_communication.py",
+      "source_blob": "274921549d9ed843107b66f5f06f2a16842332f7",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_useful_fast_link_reinforces",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_slow_failed_redundant_link_weakens",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_neighbors_are_sparse_and_ranked",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_stigmergic_blackboard_is_bounded",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_urgent_good_link_prefers_direct_signal",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_anticipation_does_not_create_dense_mesh",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_topology_detects_single_link_dominance",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_route_scoring_unknown_candidate_has_no_side_effect",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_neighbors_do_not_materialize_candidates",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_invalid_delivery_numbers_fail_closed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.agent_communication"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_brain_quorum.py",
+      "source_blob": "7a9991222cf18dedee930aaa5818b278c28da532",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_majority_current_holder_can_execute",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_minority_partition_is_fenced_even_with_valid_looking_lease",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_stale_epoch_is_fenced_after_failover",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_non_holder_cannot_execute",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_expired_lease_is_fenced",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_two_node_cluster_requires_both_members",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_old_membership_generation_is_fenced_even_with_majority_and_lease",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_current_membership_generation_allows_normal_quorum",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.brain_quorum"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_causal.py",
+      "source_blob": "31ec237ff3062a5590a231e85a80ed9ca15fb610",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_view_hides_features_not_yet_known",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_feature_rejects_known_before_event",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_future_append_does_not_change_past_view",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "strattester.research.causal"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_credit_assignment.py",
+      "source_blob": "91d998d68e162c87b75d1545c7d9489bf13dd276",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_single_lucky_outcome_cannot_rewire_brain",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_consistently_positive_oos_evidence_earns_credit",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_consistently_negative_oos_evidence_loses_credit",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_noisy_mixed_results_remain_uncertain",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_counterfactual_regret_is_discounted_not_treated_as_fact",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.credit_assignment",
+        "strattester.research.decision_memory"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_decision_memory.py",
+      "source_blob": "b977bbb85e755c6d11fe2dd0f82b1e934570d69f",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_observation_requires_real_decision",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_counterfactual_requires_estimator_and_confidence",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_low_confidence_counterfactual_cannot_create_regret",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_reliable_counterfactual_reports_bounded_nonnegative_regret",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_better_realized_action_has_zero_regret",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_context_history_does_not_mix_regimes",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.decision_memory"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_durable_learning_log.py",
+      "source_blob": "d8ac03173c72539101373dc7efee8b5391cdd774",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_decode_durable_event_preserves_counterfactual_provenance",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_corrupt_durable_payload_fails_before_replay",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "hashlib",
+        "json",
+        "strattester.research.decision_memory",
+        "strattester.research.durable_learning_log",
+        "strattester.research.learning_event_log"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_entry_screening.py",
+      "source_blob": "506293a38a9af5386dd392a87fd11b04ea47105d",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_majority_losing_oos_pattern_is_rejected",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_stable_oos_pattern_can_survive",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_spec_only_hypotheses_cannot_enter_executable_ranking",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.entry_screening",
+        "strattester.strategies.builtin.research_common",
+        "strattester.strategies.builtin.research_scalp"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_execution_journal.py",
+      "source_blob": "494f8408eaed87a81edbe353ee5b1ef7e675f6b2",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_market_signal_checks_stop_on_entry_bar",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_ambiguous_bar_uses_conservative_stop_first",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_gap_and_costs_are_applied",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_limit_order_is_not_eligible_before_next_bar",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_journal_preserves_research_metadata",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_long_limit_gapped_below_fills_at_better_open",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_short_limit_gapped_above_fills_at_better_open",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_take_profit_gap_is_filled_at_target_not_optimistic_open",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.execution",
+        "strattester.research.journal"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_homeostasis.py",
+      "source_blob": "c23685b97feb43f734dc075055d746d1b99768d1",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_external_permission_is_required_for_execution",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_repeated_autonomous_drive_becomes_senescent",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_low_reliability_strong_signal_is_quarantined",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_repeated_failures_retire_model",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_mutation_budget_quarantines_unstable_model",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_clone_dominance_veto_blocks_single_model_capture",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_independent_two_sieve_confirmation_can_execute",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_inhibitory_checkpoint_has_absolute_veto",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_slow_modulation_cannot_run_away",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_unhealthy_structural_report_is_independent_veto",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_healthy_structural_report_does_not_block_execution",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.homeostasis",
+        "strattester.research.neuro_controller",
+        "strattester.research.structural_mathematics"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_hypotheses.py",
+      "source_blob": "64575ebcd1cf41f29c393b61999cbb0013c7a2fb",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_research_hypothesis_families_have_controls_and_ablations",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_smc_mtf_hypothesis_records_bias_and_entry_timeframes",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.strategies.builtin.research_levels",
+        "strattester.strategies.builtin.research_poc",
+        "strattester.strategies.builtin.research_smc",
+        "strattester.strategies.builtin.research_volatility"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_learning_event_log.py",
+      "source_blob": "80e2a8c26bf6f1d2970b41cc7322244ce35c66cd",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_duplicate_event_is_not_appended_twice",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_conflicting_duplicate_fails_closed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_replay_order_is_deterministic",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_event_id_is_stable_for_decision_horizon",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_export_restore_preserves_counterfactuals_and_sequence",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_restore_rejects_tampered_event_identity",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.decision_memory",
+        "strattester.research.learning_event_log"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_learning_replay.py",
+      "source_blob": "9dfb88f1922c78afbad74fdd2296a8b324f2eaef",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_replay_applies_only_after_boundary",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_second_replay_is_noop",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_missing_decision_trace_fails_before_advancing_boundary",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_late_orphan_event_does_not_partially_apply_earlier_events",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.decision_memory",
+        "strattester.research.learning_event_log",
+        "strattester.research.learning_replay",
+        "strattester.research.organism_controller"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_levels_smc.py",
+      "source_blob": "1a194f2d3687ff53d3ae64fd2db37484f0002928",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_completed_level_known_only_after_period_close",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_swing_high_known_after_right_confirmation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_fvg_known_at_third_candle_close",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.levels",
+        "strattester.research.smc"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_microstructure_setups.py",
+      "source_blob": "b72d038817f94c8d7c3069a9ad58bc54e464e793",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_absorption_proxy_requires_aggression_without_price_progress",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_absorption_proxy_rejects_true_breakdown",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_sweep_reversal_requires_return_through_level_and_sell_aggression",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_absorption_proxy_does_not_accumulate_stale_aggression",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.microstructure"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_neuro_controller.py",
+      "source_blob": "bf13e3d6a286b02bcda3e7ec60f6559f822fc858",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_subthreshold_evidence_accumulates_then_fires",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_conflicting_channels_reduce_confidence_and_prevent_false_fire",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_risk_and_uncertainty_raise_threshold",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_refractory_gate_blocks_immediate_repeat_decision",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_sustained_signal_desensitizes_channel",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_slow_feedback_is_bounded",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_only_explicit_signed_science_can_drive_brain",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.neuro_controller",
+        "strattester.research.scientific_graph"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_offline_consolidation.py",
+      "source_blob": "04eef74c2e926327f7f507ebffb3251a312cab53",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_active_channel_is_never_pruned",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_stale_weak_unconfirmed_channel_decays_but_has_floor",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_quarantined_channel_can_be_pruned_immediately",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_native_update_requires_independent_validation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_contradiction_blocks_new_native_state",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.credit_assignment",
+        "strattester.research.decision_memory",
+        "strattester.research.homeostasis",
+        "strattester.research.neuro_controller",
+        "strattester.research.offline_consolidation",
+        "strattester.research.stability_landscape",
+        "strattester.research.timescale_memory"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_orderflow.py",
+      "source_blob": "c7661575b430d385cee9524c7cb04e3cd3b47ac4",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_cumulative_delta_is_causal",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "math"
+        },
+        {
+          "name": "test_sell_aggression_decay_detects_falling_pressure",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "math"
+        },
+        {
+          "name": "test_bullish_cvd_divergence_requires_price_not_lower_but_cvd_higher",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "math"
+        }
+      ],
+      "consumers": [
+        "strattester.research.orderflow"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_organism_checkpoint.py",
+      "source_blob": "b7dd1713c8a7a289f0d002b07d3cc9193aa543d0",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_checkpoint_roundtrip_restores_adaptive_state",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_tampered_checkpoint_is_rejected_before_mutation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_unsafe_but_rechecksummed_state_is_rejected",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_late_decode_failure_leaves_live_organism_unchanged",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_checkpoint_replace_failure_preserves_previous_checkpoint_and_cleans_tmp",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "hashlib",
+        "json",
+        "os",
+        "pytest",
+        "strattester.research.decision_memory",
+        "strattester.research.homeostasis",
+        "strattester.research.organism_checkpoint",
+        "strattester.research.organism_controller",
+        "strattester.research.structural_memory"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_organism_controller.py",
+      "source_blob": "9105867dd678bc7d3703a0338c92b54c7af83a17",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_integrated_controller_can_act_when_all_gates_pass",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_unhealthy_model_population_blocks_execution",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_metastable_landscape_vetoes_action",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_learning_updates_health_and_is_bounded",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_decision_history_is_bounded_by_query_not_storage",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.homeostasis",
+        "strattester.research.neuro_controller",
+        "strattester.research.organism_controller",
+        "strattester.research.population_guard",
+        "strattester.research.scientific_graph",
+        "strattester.research.stability_landscape"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_organism_learning.py",
+      "source_blob": "3a3eedf4a3bd31758c9d90adb18a0383be5ebce6",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_one_outcome_does_not_change_long_term_conductance",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_repeated_supported_outcomes_eventually_consolidate",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_noisy_outcomes_do_not_consolidate",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_regime_memory_is_recorded_during_learning",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_orphan_outcome_cannot_train_organism",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_same_outcome_retry_is_applied_only_once",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_durable_store_blocks_duplicate_across_controller_restart",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.credit_assignment",
+        "strattester.research.decision_memory",
+        "strattester.research.neuro_controller",
+        "strattester.research.organism_controller",
+        "strattester.research.stability_landscape",
+        "strattester.research.timescale_memory"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_organism_network_gates.py",
+      "source_blob": "f36d7bf11c6395a08ede459ed5184a488d981bd2",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_unfamiliar_transition_can_fail_closed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_familiar_transition_passes_transition_gate",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_unhealthy_communication_topology_vetoes_execution",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_communication_gate_can_be_disabled_for_offline_research",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.agent_communication",
+        "strattester.research.homeostasis",
+        "strattester.research.neuro_controller",
+        "strattester.research.organism_controller",
+        "strattester.research.population_guard",
+        "strattester.research.scientific_graph",
+        "strattester.research.structural_state_graph"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_organism_quorum.py",
+      "source_blob": "371be282475186ef53ae4811626798ca41690993",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_minority_partition_forces_hold",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_current_majority_lease_allows_normal_path",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.brain_quorum",
+        "strattester.research.homeostasis",
+        "strattester.research.neuro_controller",
+        "strattester.research.organism_controller",
+        "strattester.research.population_guard",
+        "strattester.research.scientific_graph"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_organism_recovery.py",
+      "source_blob": "508063a01c3cbc6b9130ba0c3f1427818585b53a",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_recovering_topology_blocks_execution_and_is_explainable",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_healthy_recovered_topology_allows_normal_brain_path",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_recovery_uncertainty_is_added_to_brain_decision",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.adaptive_role_allocator",
+        "strattester.research.homeostasis",
+        "strattester.research.neuro_controller",
+        "strattester.research.organism_controller",
+        "strattester.research.population_guard",
+        "strattester.research.scientific_graph",
+        "strattester.research.topology_recovery"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_pattern_evaluation.py",
+      "source_blob": "0c8b5cfa67ff08aba5bd24417830cb7da2df90ea",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_pattern_evaluator_is_chronological_and_returns_verdict",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_empty_pattern_never_becomes_keep",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.execution",
+        "strattester.research.pattern_evaluation",
+        "strattester.research.scalp_entries"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_population_guard.py",
+      "source_blob": "c2e7f621aa57582963fe6928abed64bfdc128cc4",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_clones_cannot_manufacture_consensus",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_related_models_are_not_independent_validators",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_healthy_population_requires_independent_families",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_mutation_burst_is_detected",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.population_guard"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_portfolio.py",
+      "source_blob": "761637867d48028964e7c8d6c6834c5bb7c983f3",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_one_open_trade_is_enforced_per_instrument_and_strategy",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_each_strategy_instrument_stream_has_independent_virtual_capital",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.portfolio",
+        "types"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_predictive_communication.py",
+      "source_blob": "874b9a52a9aa27bcea2aafb49933a92036c72e68",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_forecast_prepares_agents_for_likely_next_states",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_unfamiliar_forecast_does_not_preconnect",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_wrong_prediction_weakens_prepared_links",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_stigmergic_progress_is_visible_without_direct_message",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_forecast_hit_does_not_fake_delivery_success",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_only_agents_for_actual_state_receive_positive_preparation_credit",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.agent_communication",
+        "strattester.research.predictive_communication",
+        "strattester.research.structural_state_graph"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_result_persistence.py",
+      "source_blob": "65859cd1b5779c67269ac5790e0a7f07f562b25f",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_persist_report_serializes_core_metrics",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.result_persistence",
+        "types"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_runner.py",
+      "source_blob": "feaa81a1cb6dea15f1685d648f2ec8f173cfc8ce",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_runner_requires_terminan_engine_after_readiness_without_mutation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_legacy_client_rejected_before_exchange_calls",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_partial_history_does_not_become_ready",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "hashlib",
+        "pytest",
+        "strattester.marketdata.sqlite_store",
+        "strattester.research.runner",
+        "strattester.strategies.base"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_same_bar_execution.py",
+      "source_blob": "be0dbfa157819f6fad2eb8679e254e1e9dba1f63",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_limit_entry_cannot_get_free_same_bar_survival",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_market_entry_checks_same_bar_stop",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.execution"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_scale_execution.py",
+      "source_blob": "543490e6731208ab0aa8b003c3c1cc3fd981b86a",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_scale_trade_has_two_independent_entry_legs_and_partial_targets",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_scale_trade_does_not_share_state_between_calls",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_scale_trade_can_move_stop_after_first_target",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.execution"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_scalp_bootstrap.py",
+      "source_blob": "a018fac57e0b98d3ebbc7f59bd0ad5fe198daa34",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_historical_scalp_contract_never_fabricates_l2",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_historical_scalp_known_at_is_after_event",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.scalp_bootstrap"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_scalp_entries.py",
+      "source_blob": "079c89f5bf6ab6f6d2f295a1a68ad21d718451f6",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_only_implemented_scalps_are_executable",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_sweep_entry_never_precedes_confirmed_event",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_breakout_bar_is_not_reused_as_retest",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_volatility_entry_waits_for_snapshot_known_at",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_poc_reclaim_uses_only_profile_known_by_decision",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.causal",
+        "strattester.research.scalp_entries",
+        "strattester.research.volatility",
+        "strattester.research.volume_profile",
+        "strattester.strategies.builtin.research_common",
+        "strattester.strategies.builtin.research_scalp"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_scientific_fleet.py",
+      "source_blob": "1621263d4be63aaf4235f9ed0c361a79a2981408",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_healthy_independent_critical_replicas_allow_permission",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_missing_critical_replica_blocks_permission",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_external_permission_remains_authoritative",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.adaptive_role_allocator",
+        "strattester.research.scientific_fleet"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_scientific_graph.py",
+      "source_blob": "d6fbf052d11a8d057d507996e7153ce3e94230a6",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_graph_requires_existing_upstream",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_layered_outputs_are_deterministic_and_traceable",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_robustness_detects_parameter_regime_boundary",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_meta_pattern_consumes_multiple_model_results",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_nonlinear_screen_never_claims_chaos",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.scientific_graph"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_smc_hypotheses.py",
+      "source_blob": "1981c6bb56b649202993c7e4174bc53625314119",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_smc_suite_contains_mtf_and_ablation_controls",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_hypotheses_have_explicit_required_features",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_custom_timeframe_ladder_is_supported",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.hypotheses"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_smc_structure.py",
+      "source_blob": "cf8b6f8f2d2d393777b1bdbcb9f7b7f7960c6cfc",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_bos_known_only_on_breaking_bar_close",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_liquidity_sweep_requires_rejection_back_through_level",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_order_block_is_created_only_after_confirming_bos",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_same_confirmed_swing_can_break_only_once",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.smc"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_smc_timeframes.py",
+      "source_blob": "c105ea0d94f39973601430c41521801787450842",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_mtf_events_keep_source_timeframe",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_higher_timeframe_bias_is_only_visible_after_confirmation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_lower_tf_entry_can_require_confirmed_higher_tf_bias",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.smc"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_stability_landscape.py",
+      "source_blob": "fa0213ac3f6bd41399d9cab5d3b38c50fd2d7d43",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_native_basin_tolerates_small_perturbation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_competing_near_equal_state_is_metastable_and_not_healthy",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_large_drift_requests_chaperone_recovery",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_recovery_restores_known_channels_and_quarantines_unknown",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_native_state_requires_validation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_plasticity_requires_repeated_confirmation_and_bounds_change",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_failed_confirmation_delays_consolidation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.homeostasis",
+        "strattester.research.neuro_controller",
+        "strattester.research.stability_landscape"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_statistics_reporting.py",
+      "source_blob": "7548936243b2e32c94ff0ddb35d022afe71d1a61",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_statistics_compute_core_metrics_drawdown_and_streaks",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "math"
+        },
+        {
+          "name": "test_primary_report_excludes_partial_history",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_volatility_breakdown_keeps_sample_counts_and_coverage_separate",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.reporting",
+        "strattester.research.statistics",
+        "types"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_structural_mathematics.py",
+      "source_blob": "8dedd9f3168f3eda43eb6ba73c453faa076ccf09",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_invariance_detects_stable_signature_under_transformations",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "math"
+        },
+        {
+          "name": "test_balanced_design_rewards_equal_pair_exposure",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "math"
+        },
+        {
+          "name": "test_temporal_tiling_penalizes_holes_and_overlap",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "math"
+        },
+        {
+          "name": "test_periodic_word_has_less_complexity_than_richer_sequence",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "math"
+        },
+        {
+          "name": "test_rational_approximation_is_bounded_and_interpretable",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "math"
+        },
+        {
+          "name": "test_supervisor_fails_closed_on_structural_collapse",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.structural_mathematics"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_structural_memory.py",
+      "source_blob": "74e945a0bd0735918e172390c208ce59673d5488",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_absolute_noninvariant_values_do_not_change_class",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_invariant_feature_change_creates_new_class",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_unfamiliar_structure_is_fail_closed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_repeated_reliable_structure_becomes_familiar",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_low_confidence_history_does_not_authorize_execution",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_bad_familiar_structure_can_be_vetoed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_transition_probabilities_are_empirical_and_directional",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_missing_declared_invariant_fails_closed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_delayed_outcome_does_not_create_transition",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_duplicate_structural_outcome_is_idempotent",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.structural_memory"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_structural_organism.py",
+      "source_blob": "0be17d5a64eaa4361d1f6ba74bc75c07dbee8154",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_novel_structural_class_is_researchable_but_fail_closed_when_required",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_familiar_reliable_class_can_pass_memory_gate",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_structural_health_and_memory_are_independent_gates",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.homeostasis",
+        "strattester.research.neuro_controller",
+        "strattester.research.organism_controller",
+        "strattester.research.population_guard",
+        "strattester.research.scientific_graph",
+        "strattester.research.structural_mathematics",
+        "strattester.research.structural_memory"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_structural_state_graph.py",
+      "source_blob": "471a1da9fe2b56905e0920219cde137074945694",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_graph_learns_directional_transitions",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_unfamiliar_transition_graph_fails_closed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_prediction_requires_familiarity",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_novel_transition_is_maximally_surprising",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_delayed_graph_outcome_cannot_rewrite_transition_order",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_graph_rejects_out_of_order_state_sequence",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_one_deterministic_transition_is_not_high_confidence",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_confidence_requires_repeated_transition_evidence",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_invalid_prior_strength_fails_closed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.structural_state_graph"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_timescale_memory.py",
+      "source_blob": "78db1bc5a757726a2efc5d62659103e224ff2a3d",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_short_memory_reacts_without_becoming_long_term",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_regime_memories_are_separate",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_reactive_modifier_is_bounded",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_long_term_candidate_requires_enough_history",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_regime_lifetime_disagreement_blocks_consolidation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.timescale_memory"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_topology_recovery.py",
+      "source_blob": "4d3f0e606ab62c629a11c999b0d0131eb773de71",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_startup_requires_stabilization_before_execution",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_worker_loss_immediately_degrades_and_adds_uncertainty",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_recovered_node_does_not_immediately_restore_permission",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_role_is_reallocated_to_independent_live_nodes",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_stale_heartbeat_cannot_move_clock_backwards",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_loss_of_noncritical_spare_does_not_permanently_block_execution",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.adaptive_role_allocator",
+        "strattester.research.topology_recovery"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_trade_context.py",
+      "source_blob": "282d16346a5acdf6e050c573f8bfd726771976e4",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_entry_context_uses_latest_snapshot_known_at_entry",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_future_context_is_never_attached",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.trade_context",
+        "strattester.research.volatility",
+        "strattester.research.volume_profile"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_validation_resampling.py",
+      "source_blob": "03b8ceac2018580db4c1bc52ef457ad46f60e661",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_chronological_split_never_overlaps_or_uses_future",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_walk_forward_folds_are_chronological",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_selected_parameters_are_frozen_before_test",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_bootstrap_expectancy_is_seeded_and_contains_sample_mean",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "math"
+        },
+        {
+          "name": "test_monte_carlo_drawdown_is_seeded",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "math"
+        }
+      ],
+      "consumers": [
+        "strattester.research.resampling",
+        "strattester.research.validation"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_volatility.py",
+      "source_blob": "ce6bdcbd8341988c85f4cc1b2ec04dbc93077595",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_observatory_computes_causal_metrics_and_regime",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_future_rows_cannot_reclassify_old_snapshot",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_percentile_uses_only_prior_history",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "math",
+        "strattester.research.volatility"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/research/test_volume_profile.py",
+      "source_blob": "5df43120683db798d94cd16f8788d945e0650ecd",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_trade_profile_labels_true_trade_mode",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_proxy_profile_is_explicitly_approximate",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_future_trades_do_not_change_frozen_profile",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.research.volume_profile"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_background_migration.py",
+      "source_blob": "387a1a55382c49451934c210eac57b75b4296f70",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_background_migration_runs_only_with_normal_resource_headroom",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_background_migration_pauses_under_cpu_ram_or_disk_pressure",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.engine.resource_manager",
+        "strattester.runtime.background_migration"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_bootstrap_completion.py",
+      "source_blob": "f3b3cadeafc8436404de2854ec02f55fd5088ed7",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_completion_waits_for_all_terminal_jobs",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_failed_job_blocks_handoff",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "dataclasses",
+        "pathlib",
+        "strattester.engine.jobs",
+        "strattester.runtime.bootstrap_completion"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_bootstrap_worker.py",
+      "source_blob": "806765c1250384c858c26395fb2146e9fa28ce51",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_worker_bootstrap_has_durable_state",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_worker_bootstrap_wires_background_migration_for_existing_market_db",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.marketdata.sqlite_store",
+        "strattester.runtime.bootstrap_worker"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_cluster_recovery.py",
+      "source_blob": "31b8c7961332ec4e775e5bd8d145e2d85ccfc247",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_expired_job_on_dead_node_moves_and_rebinds_writer_lock",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_live_lease_on_dead_heartbeat_node_is_deferred_until_lease_expires",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_completed_job_is_never_reassigned",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_recovery_is_idempotent_after_first_move",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_competing_recovery_cas_allows_only_first_snapshot_to_commit",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_reassigned_expired_job_gets_new_fencing_token_when_reclaimed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.engine.distribution",
+        "strattester.engine.jobs",
+        "strattester.persistence.sqlite_state_store",
+        "strattester.runtime.cluster_recovery"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_commissioning.py",
+      "source_blob": "c4b39283c9063152e74dd2e18855537bdad62ccb",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_commissioning_is_strictly_ordered_and_durable",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_commissioning_cannot_skip_failed_or_missing_stage",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_production_ready_requires_every_prior_gate",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "strattester.runtime.commissioning"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_concurrency_isolation.py",
+      "source_blob": "1310f4489c478476118c72e372d83b2fb93cba1e",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_two_workers_cannot_claim_same_job",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_exclusive_resource_prevents_competing_sync_jobs",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_different_strategy_backtests_do_not_share_trade_state",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_same_market_writer_is_exclusive_but_backtests_remain_parallel",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_expired_writer_lease_releases_resource",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_stale_worker_cannot_complete_after_takeover",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_live_lease_renewal_prevents_takeover",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.engine.jobs",
+        "strattester.persistence.sqlite_state_store",
+        "strattester.strategies.builtin.legacy_grid"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_control_status.py",
+      "source_blob": "7d9ca4bb566f37e763d4c9f6a5f6d2c12f41da22",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_control_status_reports_worker_heartbeat_and_tail_logs",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_stale_heartbeat_is_down",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_control_status_reports_resources_db_and_recent_errors",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_results_reads_latest_persistent_metrics",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "json",
+        "pathlib",
+        "sqlite3",
+        "strattester.persistence.result_store",
+        "strattester.runtime.control_status"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_grid_handoff.py",
+      "source_blob": "986725a4831de9fa4ea4acfca2b03622db6dbca6",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_handoff_requires_science_bundle",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "pathlib",
+        "strattester.runtime.grid_handoff"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_housekeeping.py",
+      "source_blob": "0cfce192ddbc3aeeccc0c750c823782cf3106448",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_cleanup_only_allowlisted_stale_files",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_cleanup_never_deletes_active_path",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_cleanup_is_bounded",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_cleanup_does_not_follow_symlink_outside_root",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_cleanup_preserves_database_wal_logs_and_current_checkpoint",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "os",
+        "pathlib",
+        "strattester.runtime.housekeeping"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_logging.py",
+      "source_blob": "1e96c6afe546c2801a906053818b54ca6120b11a",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_structured_log_contains_context",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "json",
+        "strattester.runtime.logging"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_service_intent.py",
+      "source_blob": "0b0f077b11ebb16b5787d1d6def7aecbc89b4fd1",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_intentional_stop_survives_guardian_restart",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_start_clears_the_durable_stop_hold",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_restart_waits_for_scm_to_report_stopped",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_failed_stop_is_not_reported_as_success",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_stop_disables_automatic_boot_until_explicit_start",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_guardian_cannot_restart_after_a_concurrent_stop_completes",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "strattester",
+        "strattester.runtime.service_manager",
+        "threading",
+        "types"
+      ],
+      "process_or_network_review_required": true
+    },
+    {
+      "path": "tests/runtime/test_service_manager.py",
+      "source_blob": "1b353f9eb49bb6baf9c9e83cf1a11f98c9215b11",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_manager_targets_only_worker",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.runtime.service_manager"
+      ],
+      "process_or_network_review_required": true
+    },
+    {
+      "path": "tests/runtime/test_smoke.py",
+      "source_blob": "6754ada6d4e6809f57eb251401b28362d39bfe9a",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_worker_smoke_completes_and_persists_job",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_worker_smoke_failure_is_retryable",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.smoke"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/runtime/test_worker.py",
+      "source_blob": "01551b28108582d15892086585be65d0649f82ba",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_one_failure_is_retryable_and_next_job_completes",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_worker_claims_only_jobs_selected_by_scheduler",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_retryable_failure_releases_worker_lease",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_worker_runs_independent_jobs_concurrently",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_auto_mode_can_use_process_pool_for_picklable_executor",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_permanent_failure_stops_after_max_attempts",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_broken_job_does_not_block_other_symbols",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_cluster_worker_refuses_new_work_when_control_plane_heartbeat_fails",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_cluster_worker_recovers_after_control_plane_returns",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_recovered_control_plane_respects_closed_work_schedule",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_executor_crash_never_marks_job_complete",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_worker_close_releases_owned_resources_once",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_process_pool_child_hard_exit_never_completes_job",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_worker_registers_generation_once_and_sends_it_on_heartbeat",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_fenced_generation_refuses_new_work",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_disk_full_is_terminal_and_quarantines_worker_until_cleared",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_sqlite_disk_full_message_is_resource_exhaustion",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_generation_loss_during_batch_never_completes_inflight_job",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "errno",
+        "logging",
+        "os",
+        "sqlite3",
+        "strattester.engine.jobs",
+        "strattester.engine.resource_manager",
+        "strattester.engine.scheduler",
+        "strattester.persistence.sqlite_state_store",
+        "strattester.runtime.lifecycle",
+        "strattester.runtime.worker",
+        "threading",
+        "time"
+      ],
+      "process_or_network_review_required": true
+    },
+    {
+      "path": "tests/strategies/test_fingerprint.py",
+      "source_blob": "48db41549ff4fa29bc8c264807c26f743b7f5ecc",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_fingerprint_changes_when_implementation_source_changes",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_feature_definition_versions_affect_identity",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "strattester.strategies.base"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/strategies/test_registry.py",
+      "source_blob": "65b5c25ee0a81883b0e6e8e64cf218b676d1ea88",
+      "primary_owner": "terminan",
+      "secondary_owners": [
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "research/strategy lifecycle with numerical operations delegated to Math",
+      "declared_functions": [
+        {
+          "name": "test_duplicate_rejected",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_enable_disable_preserves_identity",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        },
+        {
+          "name": "test_version_changes_result_identity",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "terminan"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "strattester.strategies.base",
+        "strattester.strategies.registry"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/telegram/test_commands.py",
+      "source_blob": "13b18ec3eeaa8308b7b85ef18bedc0d30c5b65aa",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_confirmation_expires",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.telegram.commands"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/telegram/test_controller.py",
+      "source_blob": "0e0892649ca95878562603730e20964c4ec0283f",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_unknown_chat_ignored",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_controller_operates_when_worker_stopped",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_remove_requires_nonce",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_logs_command_is_read_only_and_bounded",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.telegram.commands",
+        "strattester.telegram.controller"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/telegram/test_lifecycle_failures.py",
+      "source_blob": "0c1959a2a607b42d04bac39f438387f8b2a1d8a9",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_lifecycle_failure_returns_error_and_controller_remains_available",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_locked_service_state_is_reported_without_crashing_controller",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "pytest",
+        "sqlite3",
+        "strattester.telegram.controller"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/telegram/test_poller.py",
+      "source_blob": "86ae905588c32647b8291e6f0cae8d206e1f2fcd",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_poller_advances_offset_and_replies",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.telegram.poller"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/test_audit_runtime_integrity.py",
+      "source_blob": "baf90ed5d6ee432b5118091f5bd3196e05d418b8",
+      "primary_owner": "unified_system",
+      "secondary_owners": [
+        "market_data",
+        "terminan",
+        "math"
+      ],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "mixed cross-owner integration; requires function-level split before migration",
+      "declared_functions": [
+        {
+          "name": "test_restart_recovers_an_expired_only_queue",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_scheduler_candidate_does_not_overwrite_a_concurrent_renewal",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_premium_index_accepts_finite_signed_values",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_price_klines_reject_nonfinite_values",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_incomplete_candle_does_not_satisfy_history_or_strategy_readers",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_migration_does_not_promote_a_stale_corrected_candle",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_routed_write_waits_for_promotion_then_uses_the_shard",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_intrabar_limit_fill_cannot_exit_at_an_earlier_opening_gap",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "dataclasses",
+        "logging",
+        "pytest",
+        "strattester.engine.executor",
+        "strattester.engine.jobs",
+        "strattester.engine.resource_manager",
+        "strattester.engine.scheduler",
+        "strattester.marketdata.sharded_store",
+        "strattester.marketdata.sqlite_store",
+        "strattester.persistence.sqlite_state_store",
+        "strattester.research.execution",
+        "strattester.runtime.lifecycle",
+        "strattester.runtime.worker",
+        "threading"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/test_bootstrap.py",
+      "source_blob": "6a2d44407fe0157926dd17e8d5838765ce42d6cb",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_bootstrap_selects_valid_legacy_without_copying",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_bootstrap_does_not_create_empty_market_db",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "sqlite3",
+        "strattester.bootstrap"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/test_config.py",
+      "source_blob": "e0addd733b873d73ed53214d07d4a198b917845a",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_defaults_use_local_directories",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_repr_redacts_telegram_token",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "pathlib",
+        "strattester.config"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/test_connectivity.py",
+      "source_blob": "8c79fd0c777ca402d831f0ff194f2ceb02a38ce8",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_connectivity_checks_are_read_only",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.connectivity"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/test_doctor.py",
+      "source_blob": "d8eeb7edc17ee30672f0ceb2579d9584423c1b65",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_doctor_does_not_create_missing_market_db",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "pathlib",
+        "strattester.config",
+        "strattester.doctor"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/test_preflight.py",
+      "source_blob": "bacd3ffbe9aa76816f9096e27ad60a8bb2298da9",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_legacy_network_preflight_reports_grid_as_required",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_preflight_is_non_destructive_and_reports_core_checks",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_preflight_required_ok_ignores_optional_remote_configuration",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "strattester.preflight"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/test_windows_uninstall_lifecycle.py",
+      "source_blob": "cd45d153a40658e294ce9166d662184fa26f8aa3",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_uninstaller_stops_guardian_before_other_services",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "pathlib",
+        "pytest",
+        "subprocess",
+        "sys"
+      ],
+      "process_or_network_review_required": true
+    },
+    {
+      "path": "tests/test_work_schedule.py",
+      "source_blob": "a00c157d98452a25c72861f864c7dc7514147223",
+      "primary_owner": "unified_system",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "deployment, scheduling, runtime orchestration or external control",
+      "declared_functions": [
+        {
+          "name": "test_scheduled_nodes_boundaries_winter_berlin",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_sunday_is_full_day",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_saturday_to_sunday_and_sunday_to_monday",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_dst_uses_europe_berlin_local_clock",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_draining_does_not_hard_kill_active_work",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        },
+        {
+          "name": "test_other_nodes_are_unrestricted",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "unified_system"
+        }
+      ],
+      "consumers": [
+        "datetime",
+        "strattester.runtime.work_schedule"
+      ],
+      "process_or_network_review_required": false
+    },
+    {
+      "path": "tests/unmigrated_market_data/test_source_provenance.py",
+      "source_blob": "fcf102930c199d651923978ec8e802f369a45c60",
+      "primary_owner": "market_data",
+      "secondary_owners": [],
+      "assignment": "PROPOSED_SEMANTIC_OWNER_REVIEW_REQUIRED",
+      "reason": "market acquisition, storage or historical observation contract",
+      "declared_functions": [
+        {
+          "name": "test_owner_declaration_and_digest_are_not_completeness_attestation",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_bad_attestations_fail_closed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_restart_has_new_epoch",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_gateway_integrity_gaps_stale_and_restart",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_research_handoff_requires_trust_and_never_trades",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_handoff_adversarial",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_event_time_ohlc_duplicate_and_late_trades",
+          "status": "CANONICAL_DATA_FOOTPRINT_TEST_RETARGET",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_cancellation_during_snapshot_write_propagates",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_disposable_pg_immutability_and_idempotency",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_market_integrity_fail_closed",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_http_absolute_deadline_closes_slow_header_or_body",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_real_strattester_producer_export_compatibility",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_http_invalid_query_does_not_echo_or_log_secret",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_additive_capabilities_do_not_claim_source_readiness",
+          "status": "RETAINED_REQUIRES_SEMANTIC_MIGRATION",
+          "proposed_owner": "market_data"
+        },
+        {
+          "name": "test_actual_builder_decimal_tick_rounding_retains_integrity",
+          "status": "CANONICAL_DATA_FOOTPRINT_TEST_RETARGET",
+          "proposed_owner": "market_data"
+        }
+      ],
+      "consumers": [
+        "asyncio",
+        "asyncpg",
+        "copy",
+        "http.client",
+        "http.server",
+        "json",
+        "market_data",
+        "market_data.cluster",
+        "market_data.migrations",
+        "market_data.models",
+        "market_data.provenance",
+        "market_data.research_handoff",
+        "os",
+        "pathlib",
+        "pytest",
+        "socket",
+        "threading",
+        "time",
+        "uuid"
+      ],
+      "process_or_network_review_required": true
+    }
+  ]
+}

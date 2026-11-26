@@ -1,0 +1,44 @@
+[
+  {
+    "mode": "positive",
+    "refused": false,
+    "reason": "returned 0",
+    "scope": "actual SDK modules/private copied site; fake pytest outcomes only"
+  },
+  {
+    "mode": "unowned",
+    "refused": true,
+    "reason": "SDK module is not exactly owned by named distribution",
+    "scope": "actual SDK modules/private copied site; fake pytest outcomes only"
+  },
+  {
+    "mode": "missing",
+    "refused": true,
+    "reason": "[WinError 2] Das System kann die angegebene Datei nicht finden: 'C:\\\\Users\\\\Administrator\\\\Documents\\\\Codex\\\\2026-11-19\\\\files-pasted-by-the-user-unified\\\\work\\\\data-ci-origin-controls20261120\\\\does-not-exist.py'",
+    "scope": "actual SDK modules/private copied site; fake pytest outcomes only"
+  },
+  {
+    "mode": "wrong_path",
+    "refused": true,
+    "reason": "SDK exact installed path differs",
+    "scope": "actual SDK modules/private copied site; fake pytest outcomes only"
+  },
+  {
+    "mode": "before_bytes",
+    "refused": true,
+    "reason": "SDK module differs from approved Git source bytes",
+    "scope": "actual SDK modules/private copied site; fake pytest outcomes only"
+  },
+  {
+    "mode": "after_bytes",
+    "refused": true,
+    "reason": "SDK module differs from approved Git source bytes",
+    "scope": "actual SDK modules/private copied site; fake pytest outcomes only"
+  },
+  {
+    "mode": "unknown_module",
+    "refused": true,
+    "reason": "unapproved imported SDK module: terminan.unknown_shadow",
+    "scope": "actual SDK modules/private copied site; fake pytest outcomes only"
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "source": "f19f7feee0f63da34a20607a8cae59191180aa7c",
+  "scope": "NEW_CANONICAL_SYNTHETIC_FIXTURE_NOT_HISTORICAL_REWRITE",
+  "files": {
+    "data-schema": {
+      "sha256": "c99eacf8b4161f367f038a5d6e447aec6c829d30567d92769b3a206087c2525b",
+      "bytes": 337
+    },
+    "rows": {
+      "sha256": "4617a918caf19b279ddf5f4f79a42644fb2715e0547bc38c9e888f0b7f630b6c",
+      "bytes": 379
+    },
+    "segment-index": {
+      "sha256": "e65c1db3675e867ab0d1119119c8b26b0688c4995b15e5d4518367d4db0614c6",
+      "bytes": 461
+    },
+    "coverage": {
+      "sha256": "f719a49d075f9f0ca30e3bb8eaba80e1175af895e7c37dde5b3a5ffc98d2c872",
+      "bytes": 797
+    },
+    "dependencies": {
+      "sha256": "c692e1759e6fe9b107c18931f7e47b3058150b52ef33bf2553e1da6b51e768fc",
+      "bytes": 633
+    },
+    "manifest": {
+      "sha256": "220da472fb772b3bdc45f9644b16714d0a20d2876dad0a21c876772f03cdb141",
+      "bytes": 861
+    }
+  }
+}

@@ -1,0 +1,314 @@
+{
+  "schema": "market_data.gateway-query-ownership-map.v1",
+  "source": "f19f7feee0f63da34a20607a8cae59191180aa7c",
+  "raw_files": [
+    {
+      "path": "grid/gateway_query.py",
+      "blob": "067643f1d88e5f0fcca39b78d301c61b66938f76",
+      "sha256": "1186062afaf7d87609acf934a8cf2f55405f7786bdc0f76516956ff89424b9cd",
+      "bytes": 23162
+    },
+    {
+      "path": "tests/gateway_query/fixtures/coverage.canonical.json",
+      "blob": "f2ba125d000db89cf0fad46221591006582aa2be",
+      "sha256": "4fa39463b03ec4ec40a12cbf2a091e340df8ada71798247c369b8e7f69ffddeb",
+      "bytes": 790
+    },
+    {
+      "path": "tests/gateway_query/fixtures/data-schema.canonical.json",
+      "blob": "a84c8d1190c04c28b16ec0fa7ff98d17c784dfa6",
+      "sha256": "14c9f8e8d5c70584b0ca675c6de676498dafedab442076e71c96d45eb4346a77",
+      "bytes": 330
+    },
+    {
+      "path": "tests/gateway_query/fixtures/dependencies.canonical.json",
+      "blob": "8c14f282218914218a24963dcaa3897152361b7a",
+      "sha256": "a2b4bd76a46f63d43ccb32c73394a47890c56e9faa300c96796b1a88d24bc159",
+      "bytes": 626
+    },
+    {
+      "path": "tests/gateway_query/fixtures/manifest.canonical.json",
+      "blob": "98661e745bb63a566f53d493b8a28f017d71f9ec",
+      "sha256": "8d216a8bc1117c240ef45d96b57f415779a14e7ee438dcf5c4109d3826b8b719",
+      "bytes": 861
+    },
+    {
+      "path": "tests/gateway_query/fixtures/rows.canonical.json",
+      "blob": "364e07fd1b0967a4694d5a7a28f06570fc25ebaa",
+      "sha256": "67d2111643da839429fa065502cd92ab327f6fcc8dd07686ece8ea7766f866ac",
+      "bytes": 372
+    },
+    {
+      "path": "tests/gateway_query/fixtures/segment-index.canonical.json",
+      "blob": "40e5d565751c77f9825000e2472387699786d521",
+      "sha256": "17c17a0335c9eeb732751c92752ec8d5dd82cac9e7c3fad60c5763371f933373",
+      "bytes": 454
+    },
+    {
+      "path": "tests/gateway_query/test_authenticated_query.py",
+      "blob": "bd2c41732dee579e0921a2de5f1d8eec5f963252",
+      "sha256": "92716ba930dadbe746d56442385fe047e1a397678b8cdcd967ae635d8f5f8820",
+      "bytes": 12428
+    },
+    {
+      "path": "tests/gateway_query/test_fixture_codec.py",
+      "blob": "4107d8331447e0f9fb77dac768b0b6547a1d8119",
+      "sha256": "f1a068381cb3688935bddd058cefe2da5e7336305e0cc7e864739b6a1e47e671",
+      "bytes": 6329
+    },
+    {
+      "path": "tests/gateway_query/test_owned_store_fixture.py",
+      "blob": "d9813fe521660833f56ce5205e72235fa95f72d6",
+      "sha256": "6e383f6e98e12d156d73839af1c6da477ce50b6c10e7cab08f48c917fc1d7971",
+      "bytes": 5855
+    },
+    {
+      "path": "tests/gateway_query/test_preparation.py",
+      "blob": "4007035cc0dc30ec9ca8a9dd2263db93ff9f58ac",
+      "sha256": "40c0afe33903c727dff22007793401bb0db471213c383f6570a6a7bde5050816",
+      "bytes": 8025
+    }
+  ],
+  "execution": "DATA_PURE_SOURCE_AND_ARTIFACT_PASS_SCOPED_ROOT_AUTHENTICATED_INTEGRATION_PENDING",
+  "target_module": "market_data.gateway_query",
+  "canonical_schema_family": "market_data.gateway.*",
+  "legacy_active_aliases": false,
+  "roles": [
+    {
+      "path": "tests\\gateway_query\\test_authenticated_query.py.raw.txt",
+      "roles": [
+        {
+          "name": "test_actual_tls_six_read_query_returns_only_requested_row_and_explicit_gap",
+          "line": 76,
+          "assertions": 8
+        },
+        {
+          "name": "test_missing_capability_denies_before_store_attribute_access",
+          "line": 88,
+          "assertions": 2
+        },
+        {
+          "name": "test_legitimate_foreign_issuer_same_store_denies_zero_reads",
+          "line": 94,
+          "assertions": 2
+        },
+        {
+          "name": "test_wrong_view_full_query_digest_denies_zero_reads",
+          "line": 100,
+          "assertions": 2
+        },
+        {
+          "name": "test_real_revocation_after_last_read_blocks_output",
+          "line": 107,
+          "assertions": 2
+        },
+        {
+          "name": "test_actual_revoked_capability_denies_before_first_read",
+          "line": 118,
+          "assertions": 2
+        },
+        {
+          "name": "test_other_actual_store_same_uuid_denies_before_read",
+          "line": 124,
+          "assertions": 2
+        },
+        {
+          "name": "test_manifest_tool_capability_cannot_authorize_query",
+          "line": 131,
+          "assertions": 2
+        },
+        {
+          "name": "test_changed_range_and_event_cut_full_digest_denies_before_read",
+          "line": 146,
+          "assertions": 2
+        },
+        {
+          "name": "test_authorized_missing_dependency_returns_error_no_success_empty_history",
+          "line": 153,
+          "assertions": 1
+        },
+        {
+          "name": "test_full_fixture_query_returns_two_rows_and_gap_with_new_actual_permit",
+          "line": 159,
+          "assertions": 3
+        },
+        {
+          "name": "test_actual_elapsed_registry_expiry_denies_query_zero_reads",
+          "line": 169,
+          "assertions": 2
+        }
+      ],
+      "owner": "unified_system",
+      "status": "ROOT_AUTHORITY_STORE_TLS_OWNER_TRANSFER_PENDING",
+      "assertions_must_be_preserved": true
+    },
+    {
+      "path": "tests\\gateway_query\\test_fixture_codec.py.raw.txt",
+      "roles": [
+        {
+          "name": "test_exact_fixture_explicit_gap_is_not_provider_coverage",
+          "line": 33,
+          "assertions": 7
+        },
+        {
+          "name": "test_missing_object_rejected_not_empty_history",
+          "line": 43,
+          "assertions": 1
+        },
+        {
+          "name": "test_bytes_hash_mismatch_rejected",
+          "line": 47,
+          "assertions": 1
+        },
+        {
+          "name": "test_extra_object_not_silently_traversed",
+          "line": 51,
+          "assertions": 1
+        },
+        {
+          "name": "test_claim_result_is_detached",
+          "line": 55,
+          "assertions": 1
+        },
+        {
+          "name": "test_oversized_manifest_refuses_before_any_hash",
+          "line": 59,
+          "assertions": 2
+        },
+        {
+          "name": "test_oversized_object_refuses_before_any_hash",
+          "line": 65,
+          "assertions": 2
+        },
+        {
+          "name": "test_aggregate_oversize_refuses_before_any_hash",
+          "line": 71,
+          "assertions": 2
+        },
+        {
+          "name": "test_rehashed_semantic_mismatches_rejected",
+          "line": 77,
+          "assertions": 1
+        }
+      ],
+      "owner": "market_data",
+      "status": "CANONICAL_DATA_PURE_DOMAIN_ASSERTIONS_PRESERVED",
+      "assertions_must_be_preserved": true
+    },
+    {
+      "path": "tests\\gateway_query\\test_owned_store_fixture.py.raw.txt",
+      "roles": [
+        {
+          "name": "test_actual_six_reads_reopen_and_codec_keep_gap_explicit",
+          "line": 69,
+          "assertions": 6
+        },
+        {
+          "name": "test_actual_store_missing_object_refuses",
+          "line": 95,
+          "assertions": 1
+        },
+        {
+          "name": "test_actual_store_modified_owned_object_refuses_hash",
+          "line": 100,
+          "assertions": 1
+        }
+      ],
+      "owner": "unified_system",
+      "status": "ROOT_AUTHORITY_STORE_TLS_OWNER_TRANSFER_PENDING",
+      "assertions_must_be_preserved": true
+    },
+    {
+      "path": "tests\\gateway_query\\test_preparation.py.raw.txt",
+      "roles": [
+        {
+          "name": "test_valid_request_is_claim_and_blocked_not_empty_success",
+          "line": 45,
+          "assertions": 6
+        },
+        {
+          "name": "test_result_and_request_views_are_detached",
+          "line": 56,
+          "assertions": 3
+        },
+        {
+          "name": "test_preparation_and_denial_have_zero_io",
+          "line": 65,
+          "assertions": 1
+        },
+        {
+          "name": "test_maximum_1440_rows_accepted_without_execution",
+          "line": 71,
+          "assertions": 1
+        },
+        {
+          "name": "test_old_retained_manifest_is_claim_not_replaced_with_latest",
+          "line": 75,
+          "assertions": 2
+        },
+        {
+          "name": "test_dataset_and_manifest_revision_are_not_aliases",
+          "line": 80,
+          "assertions": 2
+        },
+        {
+          "name": "test_forged_prepared_bytes_revalidated_before_denial",
+          "line": 85,
+          "assertions": 1
+        },
+        {
+          "name": "test_profile_and_schema_are_exact_canonical_images",
+          "line": 89,
+          "assertions": 2
+        }
+      ],
+      "owner": "market_data",
+      "status": "CANONICAL_DATA_PURE_DOMAIN_ASSERTIONS_PRESERVED",
+      "assertions_must_be_preserved": true
+    }
+  ],
+  "boundaries": {
+    "market_data": [
+      "pure prepare_query request/descriptor codecs",
+      "pure bounded decode_query_segment_index selects one rows object key",
+      "pure project_query validates already-read Data-owned objects and projects exact rows/cells",
+      "no Root manifest decoder/schema duplication; no IO/callback/auth imports"
+    ],
+    "math": [
+      "reuse candle_ohlcv_valid OHLC envelope and volume domain",
+      "turnover nonnegative domain",
+      "strict half-open minute grid/alignment/count and cell construction; helper contract pending"
+    ],
+    "unified_system": [
+      "existing issuer/capability/current auth",
+      "ObjectStore and manifest custody/read ordering",
+      "six reads plus final revocation check",
+      "five actual HTTPS front tests retained as hosted mandatory",
+      "Root converts sole decode_manifest result to closed Data query context; Root keeps all six reads and seven current checks"
+    ]
+  },
+  "limits": {
+    "request_bytes": 32768,
+    "rows": 1440,
+    "objects": 5,
+    "input_bytes": 1048576,
+    "output_bytes": 1048576,
+    "decimal_text": 80
+  },
+  "adoption": "New canonical schemas require NEW descriptor/closure/hash fixtures; historical bytes never silently rewritten",
+  "risk": "Approved strongest separation: no opaque Data callback; no Root imports or generic Root manifest DTO parser",
+  "case_counts": {
+    "retained_previous": 696,
+    "original_preparation_generated_cases": 53,
+    "original_codec_cases": 9,
+    "new_domain_cases": 14,
+    "total": 772
+  },
+  "original_static_roles": {
+    "total": 32,
+    "data": 17,
+    "root": 15,
+    "assertion_nodes": 74
+  },
+  "other_inventory": "Strattester original547 inventory remains523 pending; Grid query roles are separate, not subtracted blindly"
+}

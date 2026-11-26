@@ -1,0 +1,40 @@
+[
+  {
+    "name": "handoff",
+    "source": "def handoff():\n    r=dict(api_version={\"major\":1,\"minor\":1},producer=\"terminan\",producer_identity=\"fixture\",\n        source_revision=\"a\"*40,producer_epoch=str(uuid.uuid4()),run_id=str(uuid.uuid4()),mode=\"HISTORICAL\",execution_authority=False,\n        dataset=dict(fingerprint=\"b\"*64,source_identity=\"fixture\",market_type=\"linear\",symbol=\"BTCUSDT\",timeframe=\"1m\",start_ms=0,end_ms=60000,coverage=\"COMPLETE\",missing_data=[]),\n        strategy={\"id\":\"fixture\",\"version\":\"1\",\"fingerprint\":\"a\"*64,\"parameters\":{}},model={\"kind\":\"synthetic\",\"version\":\"1\"},execution_assumptions={\"fees\":1,\"slippage\":0,\"execution\":\"none\"},metrics={\"x\":1},completed_at_ms=60001)\n    r[\"completion_receipt\"]=digest(r);return r",
+    "assertions": [],
+    "decorators": []
+  },
+  {
+    "name": "test_research_handoff_requires_trust_and_never_trades",
+    "source": "def test_research_handoff_requires_trust_and_never_trades():\n    r=handoff();trust={(\"fixture\",\"a\"*40,r[\"run_id\"],r[\"completion_receipt\"])}\n    assert accept_handoff(r,set())[\"reason\"]==\"SOURCE_IDENTITY_UNATTESTED\"\n    out=accept_handoff(r,trust)\n    assert out[\"status\"]==\"ACCEPTED_HISTORICAL\" and out[\"trading_authorized\"] is False\n    r[\"execution_authority\"]=True\n    assert accept_handoff(r,trust)[\"status\"]==\"UNAVAILABLE\"",
+    "assertions": [
+      "Assert(test=Compare(left=Subscript(value=Call(func=Name(id='accept_handoff', ctx=Load()), args=[Name(id='r', ctx=Load()), Call(func=Name(id='set', ctx=Load()), args=[], keywords=[])], keywords=[]), slice=Constant(value='reason'), ctx=Load()), ops=[Eq()], comparators=[Constant(value='SOURCE_IDENTITY_UNATTESTED')]))",
+      "Assert(test=BoolOp(op=And(), values=[Compare(left=Subscript(value=Name(id='out', ctx=Load()), slice=Constant(value='status'), ctx=Load()), ops=[Eq()], comparators=[Constant(value='ACCEPTED_HISTORICAL')]), Compare(left=Subscript(value=Name(id='out', ctx=Load()), slice=Constant(value='trading_authorized'), ctx=Load()), ops=[Is()], comparators=[Constant(value=False)])]))",
+      "Assert(test=Compare(left=Subscript(value=Call(func=Name(id='accept_handoff', ctx=Load()), args=[Name(id='r', ctx=Load()), Name(id='trust', ctx=Load())], keywords=[]), slice=Constant(value='status'), ctx=Load()), ops=[Eq()], comparators=[Constant(value='UNAVAILABLE')]))"
+    ],
+    "decorators": []
+  },
+  {
+    "name": "test_handoff_adversarial",
+    "source": "def test_handoff_adversarial(change):\n    r=handoff();change(r)\n    assert accept_handoff(r,{(\"fixture\",\"a\"*40,r[\"run_id\"],r[\"completion_receipt\"])})[\"status\"]==\"UNAVAILABLE\"",
+    "assertions": [
+      "Assert(test=Compare(left=Subscript(value=Call(func=Name(id='accept_handoff', ctx=Load()), args=[Name(id='r', ctx=Load()), Set(elts=[Tuple(elts=[Constant(value='fixture'), BinOp(left=Constant(value='a'), op=Mult(), right=Constant(value=40)), Subscript(value=Name(id='r', ctx=Load()), slice=Constant(value='run_id'), ctx=Load()), Subscript(value=Name(id='r', ctx=Load()), slice=Constant(value='completion_receipt'), ctx=Load())], ctx=Load())])], keywords=[]), slice=Constant(value='status'), ctx=Load()), ops=[Eq()], comparators=[Constant(value='UNAVAILABLE')]))"
+    ],
+    "decorators": [
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='change'), List(elts=[Lambda(args=arguments(posonlyargs=[], args=[arg(arg='r')], kwonlyargs=[], kw_defaults=[], defaults=[]), body=Call(func=Attribute(value=Name(id='r', ctx=Load()), attr='update', ctx=Load()), args=[], keywords=[keyword(arg='completion_receipt', value=BinOp(left=Constant(value='0'), op=Mult(), right=Constant(value=64)))])), Lambda(args=arguments(posonlyargs=[], args=[arg(arg='r')], kwonlyargs=[], kw_defaults=[], defaults=[]), body=Call(func=Attribute(value=Name(id='r', ctx=Load()), attr='update', ctx=Load()), args=[], keywords=[keyword(arg='api_version', value=Dict(keys=[Constant(value='major'), Constant(value='minor')], values=[Constant(value=2), Constant(value=0)]))])), Lambda(args=arguments(posonlyargs=[], args=[arg(arg='r')], kwonlyargs=[], kw_defaults=[], defaults=[]), body=Call(func=Attribute(value=Name(id='r', ctx=Load()), attr='update', ctx=Load()), args=[], keywords=[keyword(arg='completed_at_ms', value=Constant(value=True))])), Lambda(args=arguments(posonlyargs=[], args=[arg(arg='r')], kwonlyargs=[], kw_defaults=[], defaults=[]), body=Call(func=Attribute(value=Subscript(value=Name(id='r', ctx=Load()), slice=Constant(value='dataset'), ctx=Load()), attr='update', ctx=Load()), args=[], keywords=[keyword(arg='missing_data', value=List(elts=[Constant(value=1)], ctx=Load()))]))], ctx=Load())], keywords=[])"
+    ]
+  },
+  {
+    "name": "test_canonical_handoff_preserves_frozen_source_and_rejects_forgery",
+    "source": "def test_canonical_handoff_preserves_frozen_source_and_rejects_forgery():\n    import json\n    from pathlib import Path\n    # Original frozen producer bytes remain historical evidence, not an active alias.\n    source=Path(__file__).parents[1]/'market_data'/'fixtures'/'legacy-experiment-export.synthetic.json'\n    original=source.read_bytes()\n    legacy=json.loads(original)\n    legacy_trust={(legacy['producer_identity'],legacy['source_revision'],legacy['run_id'],legacy['completion_receipt'])}\n    assert accept_handoff(legacy,legacy_trust)['status']=='UNAVAILABLE'\n    # Explicit synthetic namespace transfer; this is not a real producer attestation.\n    r=copy.deepcopy(legacy)\n    r['producer']='terminan'\n    r['completion_receipt']=digest({k:v for k,v in r.items() if k!='completion_receipt'})\n    trust={(r['producer_identity'],r['source_revision'],r['run_id'],r['completion_receipt'])}\n    assert accept_handoff(r,trust)['status']=='ACCEPTED_HISTORICAL'\n    assert accept_handoff(r,set())['status']=='UNAVAILABLE'\n    changed=copy.deepcopy(r);changed['metrics']={'forged':True}\n    changed['completion_receipt']=digest({k:v for k,v in changed.items() if k!='completion_receipt'})\n    assert accept_handoff(changed,trust)['status']=='UNAVAILABLE'\n    assert source.read_bytes()==original",
+    "assertions": [
+      "Assert(test=Compare(left=Subscript(value=Call(func=Name(id='accept_handoff', ctx=Load()), args=[Name(id='legacy', ctx=Load()), Name(id='legacy_trust', ctx=Load())], keywords=[]), slice=Constant(value='status'), ctx=Load()), ops=[Eq()], comparators=[Constant(value='UNAVAILABLE')]))",
+      "Assert(test=Compare(left=Subscript(value=Call(func=Name(id='accept_handoff', ctx=Load()), args=[Name(id='r', ctx=Load()), Name(id='trust', ctx=Load())], keywords=[]), slice=Constant(value='status'), ctx=Load()), ops=[Eq()], comparators=[Constant(value='ACCEPTED_HISTORICAL')]))",
+      "Assert(test=Compare(left=Subscript(value=Call(func=Name(id='accept_handoff', ctx=Load()), args=[Name(id='r', ctx=Load()), Call(func=Name(id='set', ctx=Load()), args=[], keywords=[])], keywords=[]), slice=Constant(value='status'), ctx=Load()), ops=[Eq()], comparators=[Constant(value='UNAVAILABLE')]))",
+      "Assert(test=Compare(left=Subscript(value=Call(func=Name(id='accept_handoff', ctx=Load()), args=[Name(id='changed', ctx=Load()), Name(id='trust', ctx=Load())], keywords=[]), slice=Constant(value='status'), ctx=Load()), ops=[Eq()], comparators=[Constant(value='UNAVAILABLE')]))",
+      "Assert(test=Compare(left=Call(func=Attribute(value=Name(id='source', ctx=Load()), attr='read_bytes', ctx=Load()), args=[], keywords=[]), ops=[Eq()], comparators=[Name(id='original', ctx=Load())]))"
+    ],
+    "decorators": []
+  }
+]

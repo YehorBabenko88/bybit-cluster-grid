@@ -1,0 +1,57 @@
+class Connection:
+ def __init__(self,records=(),active=0):self.info=SimpleNamespace(transaction_status=active);self.records=records;self.calls=[];self.in_tx=False
+ @contextmanager
+ def transaction(self):
+  self.in_tx=True
+  try:yield
+  finally:self.in_tx=False
+ @contextmanager
+ def cursor(self):yield self
+ def execute(self,sql,args=None):assert self.in_tx;self.calls.append((sql,args))
+ def fetchall(self):return self.records
+
+
+def test_reader_fixed_sql_readonly_and_no_partial_budget_success():
+ conn=Connection([(r,)for r in rows()]);packet=read_paper_inputs(conn,request());assert packet['cursor']==3
+ sql,args=conn.calls[-1];assert 'id>%s'in sql and 'ORDER BY id'in sql and 'LIMIT'in sql
+ assert args[0]=='BTCUSDT'and args[1]==0
+ assert any('REPEATABLE READ READ ONLY'in s for s,_ in conn.calls)
+ assert any('statement_timeout'in s for s,_ in conn.calls)
+ assert not conn.in_tx
+ for conn in (Connection(active=1),Connection([(None,)]),Connection([(rows()[0],)]*1001)):
+  with pytest.raises(ExportBlocked):read_paper_inputs(conn,request())
+
+
+def test_reader_checks_whole_budget_after_transform(monkeypatch):
+ from market_data import paper_inputs as module
+ packet=export_paper_inputs(rows(),request());clock=[0.]
+ monkeypatch.setattr(module.time,'monotonic',lambda:clock[0])
+ def slow_transform(*args):clock[0]=6.;return packet
+ monkeypatch.setattr(module,'export_paper_inputs',slow_transform)
+ with pytest.raises(ExportBlocked,match='DEADLINE'):read_paper_inputs(Connection(),request())
+
+@pytest.mark.parametrize('status',[True,False,1,2,3,4,None])
+def test_unproven_or_active_reader_state_refuses_without_touching_connection(status):
+    class Connection:
+        info=SimpleNamespace(transaction_status=status)
+        def transaction(self):raise AssertionError('NO_TRANSACTION_ADOPTION')
+    q=dict(symbol='BTCUSDT',after_id=0,start_ms=0,end_ms=1,as_of_ms=0,max_age_ms=1)
+    with pytest.raises(module.ExportBlocked,match='ACTIVE_TRANSACTION'):module.read_paper_inputs(Connection(),q)
+
+
+def test_readonly_transaction_must_retire_before_return_without_repair():
+    from contextlib import contextmanager
+    class Connection:
+        info=SimpleNamespace(transaction_status=0)
+        @contextmanager
+        def transaction(self):
+            yield self
+            self.info.transaction_status=2
+        @contextmanager
+        def cursor(self):yield self
+        def execute(self,*args):pass
+        def fetchall(self):return []
+    q=dict(symbol='BTCUSDT',after_id=0,start_ms=0,end_ms=1,as_of_ms=0,max_age_ms=1)
+    conn=Connection()
+    with pytest.raises(module.ExportBlocked):module.read_paper_inputs(conn,q)
+    assert conn.info.transaction_status==2

@@ -1,0 +1,26 @@
+{
+  "source_revision": "b1a4d6a41054f0040a88dc80b585380fb6b4f323",
+  "files": {
+    "collector.py": {
+      "git_blob": "a38243a7ab3d45d0cb5f599b9a3910b224252ce5",
+      "sha256": "8df9c6eff45d6b4933bc79e9da01ae40f008165b37854a7d4f13c4498b6925e0",
+      "bytes": 2629
+    },
+    "instruments.py": {
+      "git_blob": "a0632e6183288a509b944c462bb12c986f7d2425",
+      "sha256": "6fa5b3b6bb780e4c23f03046bdfe8f88e482c5ddc33329b566ebde51ea74e628",
+      "bytes": 1444
+    },
+    "exchange.py": {
+      "git_blob": "3bf46d5624be3508636f1b4470e4d0df66de2188",
+      "sha256": "67dfe8ac28fd0c86f99905a60c46e804ac31a4875eafc919ca6215bffd55fa4a",
+      "bytes": 4421
+    },
+    "pipeline.py": {
+      "git_blob": "6a43f41136cc4258584b0e572eaa2b706eba044f",
+      "sha256": "229473e74c7e87b969d4374247b66900844540af57459e9d78afad00994d76f7",
+      "bytes": 3635
+    }
+  },
+  "scope": "READ_ONLY_HISTORICAL_SOURCE_NOT_ACTIVE_PACKAGE"
+}

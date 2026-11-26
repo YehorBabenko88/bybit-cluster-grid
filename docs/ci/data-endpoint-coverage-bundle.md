@@ -1,0 +1,9 @@
+# First canonical Data legacy-test bundle
+
+Base106b4ada, independent of frozen105 andCI107. All127baselinefiles/547declaredtestfunctions have explicit proposed four-owner mappings; these proposals require semantic owner review and are not completed migrations. Existing8 historical consumer functions were migrated by106; this bundle migrates3 additional original functions with unchanged names and preserved assertions, leaving536 original functions unresolved. Counts are functions, not parameterized test cases.
+
+The six original rich-history route/parameter assertions now execute actual canonical fetch_kline_page,fetch_open_interest_page,fetch_funding_page and the newly ported fetch_long_short_ratio_page. The missing account-ratio route reuses the sole bounded HTTP reader/JSON decoder and existing aiohttp session policy, caps rows500/body1MiB, validates arguments before transport construction and returns raw provider-declared UNVALIDATED dictionaries. No numerical parser, store, writer, normalized SQL schema or completeness claim is added. The literal frozen SQLite fixture for internal coverage gaps replaces the retired mutable store; all original gap assertions remain and byte/sidecar preservation is additionally checked.
+
+Two original endpoint cases first failed on the missing canonical account-ratio method. All3retainedcases plus12new boundary cases pass; combined current canonical regressions629PASS. These fake byte-stream coroutines complete without an event loop; no provider/socket/DBserver/native/child is used. SQLite is a fresh test-only fixture. Existing selectors and original files remain; no skip/xfail or old namespace alias is introduced.
+
+Initial8callsite heuristic was not exhaustive: tests/runtime/test_worker.py also indirectly launches process mode with os._exit. It remains unmigrated/not executed and requires separate owner/static execution review. No all-legacy native-safety or broad-suite success claim.

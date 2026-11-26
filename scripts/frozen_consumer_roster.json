@@ -1,0 +1,16 @@
+[
+  "integration_tests/test_frozen_results.py::test_six_fields_preserved_on_import_retry_and_reopen",
+  "integration_tests/test_frozen_results.py::test_wrong_hash_and_source_alias_fail_before_destination_write",
+  "integration_tests/test_frozen_results.py::test_current_schema_preserves_staged_results_as_unverified",
+  "integration_tests/test_frozen_results.py::test_legacy_with_present_empty_staged_table_is_not_treated_as_absent",
+  "integration_tests/test_frozen_results.py::test_native_legacy_receipt_preserves_zero_and_infinite_rows[timestamps0]",
+  "integration_tests/test_frozen_results.py::test_native_legacy_receipt_preserves_zero_and_infinite_rows[timestamps1]",
+  "integration_tests/test_frozen_results.py::test_noncanonical_legacy_schema_refused_without_destination[run_id TEXT NOT NULL, symbol TEXT NOT NULL, strategy_id TEXT NOT NULL, strategy_version TEXT NOT NULL, created_at REAL NOT NULL, metrics TEXT NOT NULL]",
+  "integration_tests/test_frozen_results.py::test_noncanonical_legacy_schema_refused_without_destination[run_id TEXT NOT NULL, symbol TEXT NOT NULL, strategy_id TEXT NOT NULL, strategy_version TEXT NOT NULL, created_at REAL NOT NULL, metrics TEXT NOT NULL, PRIMARY KEY(symbol, run_id, strategy_id, strategy_version)]",
+  "integration_tests/test_frozen_results.py::test_noncanonical_legacy_schema_refused_without_destination[run_id TEXT NOT NULL, symbol TEXT NOT NULL, strategy_id TEXT NOT NULL, strategy_version TEXT NOT NULL, created_at NUMERIC NOT NULL, metrics TEXT NOT NULL, PRIMARY KEY(run_id, symbol, strategy_id, strategy_version)]",
+  "integration_tests/test_frozen_results.py::test_noncanonical_legacy_schema_refused_without_destination[run_id TEXT, symbol TEXT NOT NULL, strategy_id TEXT NOT NULL, strategy_version TEXT NOT NULL, created_at REAL NOT NULL, metrics TEXT NOT NULL, PRIMARY KEY(run_id, symbol, strategy_id, strategy_version)]",
+  "integration_tests/test_frozen_results.py::test_noncanonical_legacy_schema_refused_without_destination[run_id TEXT NOT NULL, symbol TEXT NOT NULL, strategy_id TEXT NOT NULL, strategy_version TEXT NOT NULL, created_at REAL NOT NULL, metrics TEXT, PRIMARY KEY(run_id, symbol, strategy_id, strategy_version)]",
+  "integration_tests/test_frozen_results.py::test_noncanonical_legacy_schema_refused_without_destination[run_id TEXT NOT NULL, symbol TEXT NOT NULL, strategy_id TEXT NOT NULL, strategy_version TEXT NOT NULL, created_at REAL NOT NULL, metrics TEXT NOT NULL, hidden_copy TEXT GENERATED ALWAYS AS (metrics) VIRTUAL, PRIMARY KEY(run_id, symbol, strategy_id, strategy_version)]",
+  "integration_tests/test_frozen_results.py::test_modern_published_schema_refuses_malformed_staging",
+  "integration_tests/test_frozen_results.py::test_wal_database_refused_without_touching_sidecars"
+]

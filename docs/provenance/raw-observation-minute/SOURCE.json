@@ -1,0 +1,58 @@
+{
+  "schema": "market_data.observation-minute.source.v1",
+  "base": "104b8474de7870d52921316d345fb5f027d8dbeb",
+  "MathOwner": "9ed369ddd41ae32c4b3a9434f0b29d6dcf51154f",
+  "implementation": {
+    "path": "market_data/observation_materializer.py",
+    "sha256": "8c3294b162f0101df47575b549d266189235b38fc333713adef5c1ec41a4c2fe"
+  },
+  "reuse": [
+    {
+      "path": "market_data/raw_capture.py",
+      "commit": "104b8474de7870d52921316d345fb5f027d8dbeb",
+      "sha256": "3f1430206f677c9485a62e60e389908de4b27b68e39e865885b84a804a3b28a1"
+    },
+    {
+      "path": "market_data/public_trades.py",
+      "commit": "104b8474de7870d52921316d345fb5f027d8dbeb",
+      "sha256": "513e028ecf10e95eff6bf9223c6cd6bf76715aa144db7bee6de72a2779502216"
+    },
+    {
+      "path": "market_data/timestamp_codec.py",
+      "commit": "104b8474de7870d52921316d345fb5f027d8dbeb",
+      "sha256": "9663b635878d57d1d738e4d301645626a1cc7862b626be53b3e7a123a2d60a98"
+    },
+    {
+      "path": "market_data/footprint_state.py",
+      "commit": "104b8474de7870d52921316d345fb5f027d8dbeb",
+      "sha256": "a1b83afdf81513ce237fe2e9aad14ee1b836f786f40d79d0b8609163b9efe85d"
+    },
+    {
+      "path": "market_data/provenance.py",
+      "commit": "104b8474de7870d52921316d345fb5f027d8dbeb",
+      "sha256": "5305da8d5c712756022123512d4e90c39ba6cbdc00bbf792a910c036e3345749"
+    },
+    {
+      "path": "market_data/history_contract.py",
+      "commit": "104b8474de7870d52921316d345fb5f027d8dbeb",
+      "sha256": "c17c9348c92f1fbe66c7be9c004df1fb69a989774bc2d89f8e6b0559e33e2b7c"
+    }
+  ],
+  "audits": [
+    {
+      "path": "outputs/data-raw-observation-materializer-audit-1795474899112/proposal.md",
+      "sha256": "9632e47d1a9eb886f9b8a114f6d80294dc1d78220a082271c615abf00fe746f8"
+    },
+    {
+      "path": "outputs/data-capture-history-flow-1795473924535/recommendation.md",
+      "sha256": "a6e970612d81d8f09122b6be934a6e5cddf20f460745aea8f1fd44eb0ed0791d"
+    }
+  ],
+  "scope": "PURE_CONTIGUOUS_V2_WS_WINDOW_ONLY_NO_RUNTIME_WRITER_OR_CALLER_INTEGRATION",
+  "pending": "FULL_WINDOW_PRESERVED_SUBSET_NOT_INDEPENDENTLY_RESUMABLE_CURSOR_NOT_DURABLE_ACK",
+  "availability": "CONSERVATIVE_MAX_DECLARED_RECEIVE_FINALIZATION_INGESTION_NOT_COMMIT_OR_PIT",
+  "existingV11Bytes": "UNCHANGED",
+  "remainingDeclaredLegacyTestFunctions": 516,
+  "retirementDeduction": 0,
+  "release": "NO_GO"
+}

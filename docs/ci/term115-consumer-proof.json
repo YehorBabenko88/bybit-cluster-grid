@@ -1,0 +1,276 @@
+{
+  "source_head": "28f475cd237037837be20af0cf6289150168e70a",
+  "wheel_sha256": "8510fb73c5fd5a0bbb88095667f72568309e5d629ead16346042f0216a14a416",
+  "runtime_entries": [
+    {
+      "path": "terminan/__init__.py",
+      "sha256": "20c8e430ededc2143396e553a3c67aac4ec483ef54efdfcb18a31cb162ca0646",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/__main__.py",
+      "sha256": "9e374459014e54e9bd5a8accf08b39021648ff3f259f681ac359ac2d0e0f11db",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/contracts.py",
+      "sha256": "c0580982c13d1b5442fabcf4862b5e021362c9b38d5a3fb6caba9e37046f0a0b",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/data.py",
+      "sha256": "f71fc48de0f23e6cac6a6e75ac176263de0bc592abbaf9c19099a5c36f64a3c2",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/desktop.py",
+      "sha256": "fd41f297c17d836e2d5fde766ac2cb19401fbcdc45280245f98e06f1e74b6c1e",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/external_terminal.py",
+      "sha256": "80abbb417f01920b8464306b05ca2c4b5742aab44195eda78c5f5b03cb515256",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/levels.py",
+      "sha256": "496f003c3d50bfac5be170097534d664e7a0e0e72d5178948b3f3d1cb7cb5be3",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/metascalp_levels.py",
+      "sha256": "af027ad12303219856ee2174276782a70aa3ae24361fac083ffbf80a396ec8e3",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/monitor.py",
+      "sha256": "6e4508ade4fb079648018ffda034619bf13734204483e09ae90aa64ec84bdc07",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/paper.py",
+      "sha256": "b91d31b49db3188b24cc2d12238df4a8b5fa47a351a543582d3ba0b30ca3a5e3",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/paper_journal.py",
+      "sha256": "8cab7c62578f6e56f64ee43f905551a7c7a78b04394dac3bc04a78cdfb53068e",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/paper_ledger.py",
+      "sha256": "df4e9170ec888a1391e0ee4faa93fc5d57acc0f92f316fa86fa611c5af0997f7",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/research_archive.py",
+      "sha256": "3a86af09f8e0c07085752f679119e59ee987b9add068aea335e4c00ceed93a58",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/research_replay.py",
+      "sha256": "7e910a799b6049d721bdcd3f74f8dcbb50e63a4ffae8c10aaa7e4272937f10a9",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/research_service.py",
+      "sha256": "ae33114d94a1eccf908e0e7f5dd7d78ff3099ed6bd047b8ac12b59fd7d31f980",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/research_signals.py",
+      "sha256": "dc13a39c3796421f792a010acec6ec10c1f2edcfc7f472f1e62132f08abd5f80",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/server.py",
+      "sha256": "700e1446e29b1872a009889c04828735a140027e2cad6b01ae97ef42baf38e64",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/__init__.py",
+      "sha256": "54745e1768e1332a61dbce02845dbe8a11c988c75758f54ec23c71bedbf97308",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/analysis_coordinator.py",
+      "sha256": "24a476ee56aae9d722d02fc1fa6ebe17dab4bcd8621926aaf5e5752105862703",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/api.py",
+      "sha256": "ab2f236a0913c811d36c0a5d017c7b48c7e1df9c493d7267d641270ca7ba3ab0",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/book_summary.py",
+      "sha256": "47ff39f89ac9c0303bbd2d2e9d9e0d4160296185e635dd05f4e7c2238c6646a8",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/core.py",
+      "sha256": "b2a3b30052e6756a10604c3d7b991eb004ecca34798343ba9787257fa0072b51",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/crossing_quality.py",
+      "sha256": "894135037e3ede93cf4e189fd75c30491fd3132be738d32bc5c2b9d3eac38453",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/feed_watchdog.py",
+      "sha256": "17c5a79a39ccf0ed9cef5a4f49c2224381e322def41e9dd62b11cac77372db14",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/flow_bridge.py",
+      "sha256": "ae04f26cc4600c8642055ead7f112607e610f0832ee05b0c97e1bbd3c125393d",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/flow_diff.py",
+      "sha256": "c4c6e9324985018c7af2e9fd84c9c05683de52c1a7178c98b998f6abd85de241",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/flow_style.py",
+      "sha256": "38eee9c7576243c6932b62e442b60ebbcea3bc4914a84e16532bbb8ddd782168",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/footprint.py",
+      "sha256": "f17f5bb1807f6b6c51b07a93522b368a6e396760873a18b88e3ff60b37558f2b",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/footprint_engine.py",
+      "sha256": "239e353405480dba5fef714208aade554249f417687b7a112f7edce551a37161",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/freshness.py",
+      "sha256": "9c536744235ff99b8145ba8ae8a4b8812fa7183b4cd3211da4ee55dd2d3ea2e3",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/freshness_style.py",
+      "sha256": "d640e6e87d940893a7c7f6c7a13d5f43bc989715d68dbf1bd246e14354dbf124",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/level_quality.py",
+      "sha256": "3cc9223ca9c7f44c68842b67325af554e164faa4091faad29941ea2ca2abc5c8",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/level_sync.py",
+      "sha256": "e7a20cd5689a8d42d4c060ea7e9636dcf52916d571761050f8ea155b4e9c0b6c",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/liquidity.py",
+      "sha256": "e8a3fe7e39289505df7870dba7731b2d2ffdb22189eb3be8c49b149b0113f655",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/market_clock.py",
+      "sha256": "4dc8c9afe974b81d8af5924f1b98a79bb54d861e4eeef3aac4b23912b29ba903",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/market_health.py",
+      "sha256": "4c01020984ebc239b5c609060afe6310daee0cf5fcb0276507e3b96c14cfc653",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/market_history.py",
+      "sha256": "0ad3067b58fe94270b785017c3cddc9f139570e4ba94fbb52b28416d589e85d7",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/ohlcv_research.py",
+      "sha256": "73694679633dc865b83e3ce503b65c3157082a3141ce4475ebb14a2da8fdd176",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/orderflow_adapters.py",
+      "sha256": "f4381662da59ea3c4810ecbba81138cfe94d8d224ff2b5844f890a118ad2777e",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/orderflow_aggregation.py",
+      "sha256": "e70c325d20108b7980914f29d26f522d13e927ee1c23befdce10dcd9ed6a5b94",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/orderflow_metrics.py",
+      "sha256": "4bccc66be93d1e64407d9551330f0449a28f22af85e5f902d2050d0a482f9a30",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/orderflow_view.py",
+      "sha256": "d7d7f9d41c7d44a00834394c6ad1ee62bf0b2552ed4c10088281a7436fcf218f",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/tape_velocity.py",
+      "sha256": "b2a41af89d4e356516348978c8dd466f52f6c84072470ddf7e1a865dd7c631f0",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/trader_theme.py",
+      "sha256": "894e47be33705d12afc4d0c3dc433671992cf2bdf4c882cff263bd89fd809dad",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/analytics/wall_tracker.py",
+      "sha256": "4468d4de1725e99e5769191b9fb78751caa02e90bf587355abd8f5e8a0bb39a9",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/migration/__init__.py",
+      "sha256": "6d6269995daad12a8fde46c78742e3edd21ac8f60fd2f9fa69ed61534c89aacc",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/migration/candle_snapshot.py",
+      "sha256": "7eee1d71dcaa906da5e0949de22e59b984406e99f2444adc1849930065d26023",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/migration/historical_trades.py",
+      "sha256": "15388c8571765e406c6e3c78246b1e56e111cb8b8d0b950c471a60ae4786f2c0",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/migration/orderflow_archive.py",
+      "sha256": "995816a5fc69961d26f255e21c16c5bc5a3126e413d10c5bafa2a334a6952ace",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/migration/paper_receipts.py",
+      "sha256": "cfad99e117078e9fc2dc886f6f255c6c3db16e6393008418a78f58ea06584452",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/migration/research_results.py",
+      "sha256": "e0654eb90cf90bbce9b65b9d57487fb7ac6a47bb112f5b09e1f465678601890d",
+      "raw_git_identical": true
+    },
+    {
+      "path": "terminan/migration/state_receipt.py",
+      "sha256": "344bab18680e35bf480c224ebbd2c97aac2b5a59fdaf96a2064639eaca6bbb0f",
+      "raw_git_identical": true
+    }
+  ],
+  "historical_cases_source": 14,
+  "historical_cases_artifact": 14,
+  "retired_specs_absent": [
+    "grid",
+    "strattester",
+    "meta_analyse",
+    "market_profile_math"
+  ],
+  "native_qualification": "NOT_RUN",
+  "full_legacy_gate": "NO_GO"
+}

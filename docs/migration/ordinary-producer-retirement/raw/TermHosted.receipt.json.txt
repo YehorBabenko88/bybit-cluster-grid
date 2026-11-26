@@ -1,0 +1,107 @@
+{
+  "schema": "independent.terminan92b.hosted-scoped-qualification.v1",
+  "head": "92b30fd3364b2c0e8eb05b2592193cf126b86d2d",
+  "run": 45407232478,
+  "event": "pull_request",
+  "attempt": 1,
+  "status": "ACCEPTED_REQUIRED_EXACT_HEAD_HOSTED_SCOPED",
+  "required": {
+    "total": 10,
+    "success": 10,
+    "failure": 0,
+    "cancelled": 0,
+    "pending": 0
+  },
+  "source": {
+    "cells": 4,
+    "passedEach": 837,
+    "subtestsPassedEach": 443,
+    "skipEach": 0,
+    "countsActualFreshLogs": true
+  },
+  "installed": {
+    "cells": 4,
+    "passedEach": 374,
+    "compatibilityEach": 4,
+    "skipEach": 0,
+    "allVerbose374OrderedIDsExactRawRoster": true,
+    "old367OrderedPrefix": true,
+    "new7MethodsUnique": true,
+    "originalProducerLabels": {
+      "perLabelHostedLines": false,
+      "evidence": "Actualexacthead successfulchecker has mandatoryclosedcontract+four-successful-originalID-subtest guard;individualsuccessfulsubtestlabelsnotprinted",
+      "noInventedPerLabelCounter": true
+    }
+  },
+  "other": {
+    "historyParity": 3,
+    "browser": "SUCCESS"
+  },
+  "heads": {
+    "Terminan": "92b30fd3364b2c0e8eb05b2592193cf126b86d2d",
+    "Data": "71cd99876107a7c1a378c32077dba15cf1bdc4a0",
+    "Math": "9e6acbd9e12a91189f57234828e31640983af553"
+  },
+  "checkout": {
+    "TermExactFullSHALoggedAll10": true,
+    "sourceAndInstalled8CellsAll3OwnerFullSHAActualCheckout": true,
+    "historicalParityTermAndMathOnly": true,
+    "browserTermOnly": true,
+    "syntheticPRMerge": "ada7b7a12cc664148261c147e72b86237b8ee1ca",
+    "headTree": "0b5c08e6b4038ca7451e37f6f2cebffb40a0aeb3",
+    "mergeTree": "0b5c08e6b4038ca7451e37f6f2cebffb40a0aeb3",
+    "treeEqual": true,
+    "actualSyntheticMergeCheckout": false
+  },
+  "officialArtifacts": {
+    "count": 4,
+    "closedJSONEach": 3,
+    "totalJSON": 12,
+    "APIHeadDigestSizeAndActualZIPVerified": true,
+    "ownRaw131HeadsBindingsEach": true,
+    "owners": {
+      "Terminan": 79,
+      "Data": 49,
+      "Math": 3
+    },
+    "actualBuildLogReportedWheelSHABoundEach": true,
+    "guardedParser311": "PASS",
+    "guardedParser312": "PASS",
+    "parserContentByteIdentical": true,
+    "hostedWheelContainers": 0,
+    "hostedFull317SourceSnapshots": 0,
+    "rosterFileInOfficialZIP": false
+  },
+  "ownSourceProof": {
+    "TermGitRawSourceFiles": 317,
+    "TermRaw79Payloads": true,
+    "Data49Own71cdRawProofReused": true,
+    "MathQ3OwnGitRawProofReused": true
+  },
+  "privateFull374QA": {
+    "receipt": "C:/Users/Administrator/Documents/Codex/2026-11-19/files-pasted-by-the-user-unified/outputs/qa-independent-term92b-1795527735026/receipt.json",
+    "sha256": "9dd3f6c454769ea39d952f75e709b253f8fb62ef6d51a6e2917dc789350fb488",
+    "scope": "Separatepriorindependentfull374source/actualSDKSQLqualification; hostedobserverdoesnotrerun"
+  },
+  "effects": {
+    "localProductTests": 0,
+    "localFull374": 0,
+    "localSQL": 0,
+    "sourceEdits": 0,
+    "build": 0,
+    "dispatch": 0,
+    "rerun": 0,
+    "publicationByObserver": 0
+  },
+  "limits": [
+    "HostedofficialJSONreported131consistency andreportedwheelhashes arenot actualhostwheelcontainercustody",
+    "837source cases+443subtests areactualcounts; no452subtestclaim",
+    "No sourceauthenticity/native/globalreleasequalification"
+  ],
+  "globalRelease": "NO_GO",
+  "counter": {
+    "accepted": 44,
+    "remaining": 503,
+    "deduction": 0
+  }
+}

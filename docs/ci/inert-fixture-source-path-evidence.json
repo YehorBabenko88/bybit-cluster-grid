@@ -1,0 +1,78 @@
+{
+  "base": "d1ef5e03fed131c55c154496591b28ba7da81e35",
+  "observed_job": 136424738464,
+  "observed_failure": "inert check_sdk_cache_controls.py:39 verify_module_cache predicate refusal",
+  "diagnosis": "Fresh-cache owner is canonical, inert TEMP source was not; source cache names depend on lexical source spelling. Actual hosted failing subpredicate not separately logged; DOS8.3 remains inferred until rerun.",
+  "change": "Only three inert controls canonicalize fresh temporary source owners via existing checked helper BEFORE source/spec/import; strict SDK predicate unchanged",
+  "controls": [
+    {
+      "python": "311",
+      "control": "check_sdk_cache_path_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_test_roster_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_canonical_package_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_sdk_cache_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_sdk_origin_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "311",
+      "control": "check_test_framework_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_sdk_cache_path_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_test_roster_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_canonical_package_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_sdk_cache_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_sdk_origin_controls.py",
+      "exit": 0
+    },
+    {
+      "python": "312",
+      "control": "check_test_framework_controls.py",
+      "exit": 0
+    }
+  ],
+  "new_negative": "foreign_source_cache_inside_same_fresh_prefix_refused",
+  "preserved_negative_controls": true,
+  "mock_cache_name_divergence": true,
+  "runtime_guard_roster_sdk_pins_unchanged": true,
+  "local_native_alias_or_new_installs": false,
+  "hosted_repeat": "PENDING",
+  "legacy_job": 136424738586,
+  "legacy_status": "MISSING_REQUESTS_PSUTIL_RETAINED_NO_RUNTIME_DEPENDENCY_ADDITION",
+  "release_status": "NO_GO"
+}
