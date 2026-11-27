@@ -155,6 +155,59 @@ class HOriginalD129VsGridB308(unittest.TestCase):
                         reader=lambda *_: copy.deepcopy(broken),
                         now_ms=NOW, exact=True)
 
+    def test_both_paths_refuse_duplicate_or_shifted_minute_without_mutation(self):
+        for timeframe, width in (("5m", 5), ("15m", 15)):
+            original = minutes(width, buy=1.0, sell=0.5)
+            for mode in ("duplicate", "shifted"):
+                damaged = copy.deepcopy(original)
+                if mode == "duplicate":
+                    damaged[2] = copy.deepcopy(damaged[1])
+                else:
+                    damaged[2]["start_ms"] += 60000
+                pristine = copy.deepcopy(damaged)
+                with self.subTest(timeframe=timeframe, mutation=mode):
+                    with self.assertRaises(ValueError):
+                        self._old(damaged, timeframe, 1)
+                    with self.assertRaises(ProvenanceReadError):
+                        qualified_rollup_snapshot(
+                            "BTCUSDT", timeframe, 1, before_ms=BOUNDARY,
+                            reader=lambda *_: copy.deepcopy(damaged),
+                            now_ms=NOW, exact=True)
+                    self.assertEqual(damaged, pristine)
+                    self.assertEqual(original, minutes(width, buy=1.0, sell=0.5))
+
+    def test_original_and_canonical_deny_incomplete_full_bar(self):
+        for timeframe, width in (("5m", 5), ("15m", 15)):
+            rows = minutes(width, buy=1.0, sell=0.5)[:-1]
+            with self.subTest(timeframe=timeframe):
+                with self.assertRaises(ValueError):
+                    self._old(rows, timeframe, 1)
+                with self.assertRaises(ProvenanceReadError):
+                    qualified_rollup_snapshot(
+                        "BTCUSDT", timeframe, 1, before_ms=BOUNDARY,
+                        reader=lambda *_: copy.deepcopy(rows),
+                        now_ms=NOW, exact=True)
+
+    def test_canonical_receipt_is_read_only_and_does_not_modify_source(self):
+        for timeframe, width in (("5m", 5), ("15m", 15)):
+            source_rows = minutes(width, buy=0.1, sell=0.3)
+            preserved = copy.deepcopy(source_rows)
+            with self.subTest(timeframe=timeframe):
+                legacy = self._old(source_rows, timeframe, 1)
+                current = qualified_rollup_snapshot(
+                    "BTCUSDT", timeframe, 1, before_ms=BOUNDARY,
+                    reader=lambda *_: copy.deepcopy(source_rows),
+                    now_ms=NOW, exact=True)
+                self.assertEqual(source_rows, preserved)
+                for receipt in (legacy, current):
+                    self.assertIs(receipt["read_only"], True)
+                    self.assertIs(receipt["paper_admitted"], False)
+                    self.assertIs(receipt["execution_authority"], False)
+                    self.assertIs(receipt["trading_authorized"], False)
+                    self.assertEqual(
+                        receipt["source_authenticity"],
+                        "NOT_INDEPENDENTLY_ATTESTED")
+
     def test_comparison_does_not_claim_source_trust_or_retirement(self):
         rows = minutes(5, buy=1.0, sell=0.5)
         current = qualified_rollup_snapshot(
