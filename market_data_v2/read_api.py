@@ -221,6 +221,7 @@ class Handler(history_api.Handler):
             # Require a still-current lease immediately before reading.
             if self.server.startup_admission.require_current() is not True:
                 return self._json(503,{"error":"CURRENT_ADMISSION_REQUIRED"})
+            observed_epoch_before=None
             if u.path == INSTRUMENT_UNIVERSE_ROUTE:
                 # A stored registry without independently verified exhaustive
                 # provenance is NEVER an authorized list for mass delisting.
@@ -239,9 +240,10 @@ class Handler(history_api.Handler):
                                      "current_roster_epoch", None)
                 if not callable(epoch_reader):
                     raise UniverseReadError("GRID_ROSTER_ROOT_EPOCH_UNAVAILABLE")
+                observed_epoch_before=epoch_reader()
                 result=read_root_staged_roster(
                     getattr(self.server, "roster_observation", None),
-                    expected_lease_epoch=epoch_reader(),
+                    expected_lease_epoch=observed_epoch_before,
                     now_ms=int(time.time()*1000))
             elif u.path in (HISTORICAL_ROUTE, EXACT_HISTORICAL_ROUTE):
                 result=historical_asof_snapshot(
@@ -259,6 +261,11 @@ class Handler(history_api.Handler):
             # Deny a post-read lease revocation, avoiding stale read display.
             if self.server.startup_admission.require_current() is not True:
                 return self._json(503,{"error":"CURRENT_ADMISSION_REQUIRED"})
+            if observed_epoch_before is not None:
+                # Admission may remain TRUE across an epoch handoff: reject
+                # stale display if the live Root epoch changed mid-request.
+                if epoch_reader() != observed_epoch_before:
+                    return self._json(503,{"error":"CURRENT_ADMISSION_REQUIRED"})
             return self._json(503 if u.path == INSTRUMENT_UNIVERSE_ROUTE else 200,result)
         except UniverseReadError:
             return self._json(503,{"error":"UNIVERSE_SOURCE_UNQUALIFIED"})

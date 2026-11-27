@@ -169,6 +169,18 @@ class ObservedRouteTests(unittest.TestCase):
         self.assertEqual(h.results[0][0], 503)
         self.assertNotIn("records", h.results[0][1])
 
+    def test_epoch_swaps_between_read_and_response_are_denied(self):
+        class SwappingEpoch(HttpEpochAdmission):
+            calls = 0
+            def current_roster_epoch(self):
+                self.calls += 1
+                return "opaque-root-epoch" if self.calls == 1 else "new-root-epoch"
+        h = handler(OBSERVED_UNIVERSE_ROUTE, admission=SwappingEpoch())
+        h.server.roster_observation = staged_observation()
+        h.do_GET()
+        self.assertEqual(h.results[0], (503, {"error": "CURRENT_ADMISSION_REQUIRED"}))
+        self.assertEqual(h.server.startup_admission.calls, 3)
+
     def test_authoritative_route_remains_default_unavailable(self):
         h = handler(INSTRUMENT_UNIVERSE_ROUTE)
         h.server.roster_observation = staged_observation()
