@@ -20,7 +20,7 @@ UPSTREAM = ROOT / ".source" / "grid-b311" / "market_data_v2"
 UNIVERSE = UPSTREAM / "instrument_universe.py"
 EPOCH = UPSTREAM / "exchange_roster_epoch.py"
 UNIVERSE_BLOB = "d05cb998c71cf4b5c0076eb2bec060bedb478767"
-EPOCH_BLOB = "d05861cfdbcf8a64efcba29f7e565e7db5f75bd8"
+EPOCH_BLOB = "42ee1555697e76bb36b748c75113180d9205ec6d"
 BTC = ("BTCUSDT", "Trading", "LinearPerpetual", "USDT")
 ETH = ("ETHUSDT", "Trading", "LinearPerpetual", "USDT")
 XRP = ("XRPUSDT", "Trading", "LinearPerpetual", "USDT")
@@ -138,6 +138,48 @@ class B311OriginalEpochIndependent(unittest.IsolatedAsyncioTestCase):
                                     "GRID_ROSTER_LEASE_REVOKED"):
             await self.scan([page([BTC]), page([BTC])],
                             admission=Admission(revoke_at=3))
+
+    async def test_same_records_different_page_cursor_chain_refused(self):
+        # Identical global symbols cannot hide a changed page/cursor walk.
+        with self.assertRaisesRegex(self.universe.UniverseReadError,
+                                    "GRID_ROSTER_EPOCH_UNSTABLE"):
+            await self.scan([page([BTC, ETH]),
+                             page([BTC], "later"), page([ETH])])
+
+    async def test_overlong_observation_window_refused(self):
+        readings = iter((1800000000000, 1800000600001))
+        with self.assertRaisesRegex(self.universe.UniverseReadError,
+                                    "GRID_ROSTER_OBSERVATION_WINDOW"):
+            await self.scan([page([BTC]), page([BTC])],
+                            clock_ms=lambda: next(readings))
+
+    async def test_root_staged_observation_read_is_still_informational(self):
+        observed, _ = await self.scan([page([BTC]), page([BTC])])
+        checked = self.original.observation_for_read(observed)
+        self.assertEqual(checked, observed)
+        self.assertIsNot(checked, observed)
+        self.assertEqual(checked["status"], "INFORMATIONAL")
+        self.assertEqual(checked["exchange_completeness"], "NOT_ATTESTED")
+        self.assertFalse(checked["delisting_authorized"])
+        self.assertFalse(checked["consumer_cutover_authorized"])
+
+    async def test_observation_rehashed_forged_authority_and_time_refused(self):
+        observed, _ = await self.scan([page([BTC]), page([BTC])])
+        for field, value in (
+            ("delisting_authorized", True),
+            ("consumer_cutover_authorized", True),
+            ("paper_admitted", True),
+            ("exchange_completeness", "ATTESTED"),
+            ("last_observed_ms", observed["first_observed_ms"] + 600001),
+        ):
+            altered = copy.deepcopy(observed)
+            altered[field] = value
+            altered["dataset_fingerprint"] = self.universe._sha({
+                k: v for k, v in altered.items()
+                if k != "dataset_fingerprint"})
+            with self.subTest(field=field), self.assertRaises(
+                    self.universe.UniverseReadError):
+                self.original.observation_for_read(altered)
 
     async def test_forged_digest_or_missing_root_refused(self):
         with self.assertRaisesRegex(self.universe.UniverseReadError,
