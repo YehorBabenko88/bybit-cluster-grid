@@ -65,8 +65,7 @@ class HRound28GridMathParity(unittest.TestCase):
                     self.assertEqual(
                         row["delta"],
                         float(executed_volume_delta(
-                            Decimal(str(row["buy_volume"])),
-                            Decimal(str(row["sell_volume"])))))
+                            expected_buy, expected_sell))))
                     self.assertEqual(len(row["source_minute_fingerprints"]),width)
                     self.assertEqual(result["dataset_fingerprint"],digest({
                         key:value for key,value in result.items()
