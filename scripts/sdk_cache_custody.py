@@ -10,7 +10,7 @@ from pathlib import Path
 import importlib.machinery,importlib.util,stat,sys,tempfile
 
 _SDK_MODULES=frozenset(('market_math','market_compute_api','history_statistics'))
-_SDK_PREFIXES=('market_data','terminan')
+_SDK_PREFIXES=('market_data','market_data_v2','grid','terminan')
 
 def _ordinary_directory(path):
     info=path.lstat()

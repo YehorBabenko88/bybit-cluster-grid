@@ -1,0 +1,81 @@
+name: B native owned PostgreSQL 18 qualified read E2E (no trading)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  native-pg18-v2-read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LAB_GRID_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      GRID_SOURCE_ROOT: ${{ github.workspace }}
+      LAB_GRID_ROOT: ${{ github.workspace }}
+      LAB_C_ROOT: ${{ github.workspace }}/.source/unified
+      LAB_MATH_REPO: ${{ github.workspace }}/.source/math
+      LAB_MATH_ROOT: ${{ github.workspace }}/.source/math/python
+      LAB_C_SHA: dcedaa870b5b8de566ff7bfa03182e3a43d19db5
+      LAB_MATH_SHA: 9e6acbd9e12a91189f57234828e31640983af553
+      LAB_POSTGRES_BIN: /usr/lib/postgresql/18/bin
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.LAB_GRID_SHA }}
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/unified-system
+          ref: dcedaa870b5b8de566ff7bfa03182e3a43d19db5
+          path: .source/unified
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/math
+          ref: 9e6acbd9e12a91189f57234828e31640983af553
+          path: .source/math
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Verify exact owned C, B and Math Git sources
+        shell: python
+        run: |
+          import os, pathlib, subprocess
+          for root,sha in ((os.environ['GRID_SOURCE_ROOT'],os.environ['LAB_GRID_SHA']),
+                           (os.environ['LAB_C_ROOT'],os.environ['LAB_C_SHA']),
+                           (os.environ['LAB_MATH_REPO'],os.environ['LAB_MATH_SHA'])):
+              actual=subprocess.check_output(['git','-C',root,'rev-parse','HEAD'],text=True).strip()
+              assert actual==sha, 'NATIVE_PG_SOURCE_SHA_MISMATCH'
+      - name: Install PostgreSQL 18 binary without any default cluster
+        run: |
+          sudo install -d /etc/postgresql-common/createcluster.d
+          echo 'create_main_cluster = false' | sudo tee /etc/postgresql-common/createcluster.d/no-main.conf
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q postgresql-18
+          /usr/lib/postgresql/18/bin/postgres --version
+          echo NATIVE_PG18_USES_ONLY_NEW_OWNER_PRIVATE_TEMP_CLUSTER
+      - name: Install exact Math and single Grid v2 wheel
+        run: |
+          python -m pip install --no-deps ./.source/math
+          python -m pip install '.[test]'
+          python -I -c 'import importlib.metadata as m; assert m.version("market-data")=="0.2.0.dev0"'
+      - name: Run actual psycopg SQL, managed HTTP and source-refusal tests
+        shell: python
+        run: |
+          import os, sys, unittest
+          from pathlib import Path
+          p=Path('tests/market_data/test_native_pg18_qualified_route.py').resolve(strict=True)
+          import importlib.util
+          spec=importlib.util.spec_from_file_location('native_grid_pg18',p)
+          module=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          suite=unittest.defaultTestLoader.loadTestsFromTestCase(module.NativePG18GridRead)
+          assert suite.countTestCases()==6, 'NATIVE_PG_TEST_COUNT_CHANGED'
+          result=unittest.TextTestRunner(verbosity=2).run(suite)
+          if not result.wasSuccessful() or result.testsRun!=6 or result.skipped:
+              raise SystemExit('NATIVE_PG18_V2_NOT_ACCEPTED')
+          print('NATIVE_OWNED_PG18_GRID_V2_HTTP_READ=6_EXECUTED;SKIPS=0;PROVIDER_ATTESTED=NO;PAPER_AUTHORIZED=NO')

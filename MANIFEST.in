@@ -1,5 +1,12 @@
 include README.md
 recursive-include market_data *.py *.sql
+recursive-include market_data_v2 *.py
+# Exact canonical LAB-only cohort; NEVER recursive-include legacy grid.
+include grid/__init__.py
+include grid/canonical_lab_continuous_collector.py
+include grid/c_lab_journal_adapter.py
+include grid/canonical_lab_fenced_writer.py
+include grid/c_async_fenced_writer.py
 prune strattester
 prune service
 prune tests

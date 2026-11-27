@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Market Data managed v2 GET envelope; v1 qualified record contract; no provider attestation",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "market_data.qualified-read-envelope.v1"
+    },
+    "api_version": {
+      "type": "object",
+      "properties": {
+        "major": {
+          "const": 2
+        },
+        "minor": {
+          "const": 0
+        }
+      },
+      "required": [
+        "major",
+        "minor"
+      ],
+      "additionalProperties": false
+    },
+    "producer": {
+      "const": "market_data"
+    },
+    "read_only": {
+      "const": true
+    },
+    "symbol": {
+      "type": "string",
+      "pattern": "^[A-Z0-9]{2,30}$"
+    },
+    "timeframe": {
+      "const": "1m"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "status": {
+      "enum": [
+        "UNAVAILABLE",
+        "PARTIAL",
+        "GAP",
+        "STALE"
+      ]
+    },
+    "reason": {
+      "enum": [
+        "SOURCE_PROVENANCE_UNAVAILABLE",
+        "EXCHANGE_COMPLETENESS_UNATTESTED",
+        "MISSING_MINUTES_OR_EPOCH_CHANGE",
+        "FRESHNESS_WATERMARK_EXPIRED"
+      ]
+    },
+    "record_integrity": {
+      "enum": [
+        "NOT_ESTABLISHED",
+        "VERIFIED"
+      ]
+    },
+    "source_authenticity": {
+      "const": "NOT_INDEPENDENTLY_ATTESTED"
+    },
+    "exchange_completeness": {
+      "const": "NOT_ATTESTED"
+    },
+    "quality_attestation": {
+      "const": "NOT_INDEPENDENTLY_ATTESTED"
+    },
+    "storage_immutability": {
+      "const": "NOT_ATTESTED"
+    },
+    "immutable": {
+      "const": false
+    },
+    "rows": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "execution_authority": {
+      "const": false
+    },
+    "trading_authorized": {
+      "const": false
+    },
+    "paper_admitted": {
+      "const": false
+    },
+    "source_declared_quality": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 1000
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "expected_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "observed_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "missing_minutes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999
+        }
+      },
+      "required": [
+        "expected_minutes",
+        "observed_minutes",
+        "missing_minutes"
+      ],
+      "additionalProperties": false
+    },
+    "freshness_utc_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_revision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "producer_epoch": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dataset_fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schema",
+    "api_version",
+    "producer",
+    "read_only",
+    "symbol",
+    "timeframe",
+    "limit",
+    "status",
+    "reason",
+    "record_integrity",
+    "source_authenticity",
+    "exchange_completeness",
+    "quality_attestation",
+    "storage_immutability",
+    "immutable",
+    "rows",
+    "execution_authority",
+    "trading_authorized",
+    "paper_admitted"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "UNAVAILABLE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "const": "SOURCE_PROVENANCE_UNAVAILABLE"
+          },
+          "record_integrity": {
+            "const": "NOT_ESTABLISHED"
+          },
+          "rows": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "PARTIAL",
+              "GAP",
+              "STALE"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "source_declared_quality",
+          "coverage",
+          "freshness_utc_ms",
+          "source_revision",
+          "producer_epoch",
+          "dataset_fingerprint"
+        ],
+        "properties": {
+          "record_integrity": {
+            "const": "VERIFIED"
+          },
+          "rows": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "PARTIAL"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "const": "EXCHANGE_COMPLETENESS_UNATTESTED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "GAP"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "const": "MISSING_MINUTES_OR_EPOCH_CHANGE"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "STALE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "const": "FRESHNESS_WATERMARK_EXPIRED"
+          }
+        }
+      }
+    }
+  ],
+  "$comment": "Structural only; no provider authentication, PG resource fencing, immutable storage proof, Root startup capability or paper/trading authority can be claimed from schema validation."
+}

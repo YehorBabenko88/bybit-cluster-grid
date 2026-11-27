@@ -1,0 +1,52 @@
+name: GPT B qualified provenance read contract (inert)
+on:
+  pull_request:
+  push:
+    branches: ['gpt/b-qualified-provenance-read-v1-20261126']
+permissions:
+  contents: read
+jobs:
+  read-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12', '3.13']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/math
+          ref: 9e6acbd9e12a91189f57234828e31640983af553
+          path: .source/math
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Confirm immutable Math checkout
+        shell: python
+        run: |
+          import pathlib, subprocess
+          root=pathlib.Path('.source/math')
+          assert subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip() == '9e6acbd9e12a91189f57234828e31640983af553'
+      - name: Install exact Math and pytest without credentials
+        run: |
+          python -m pip install --no-deps ./.source/math
+          python -m pip install pytest==8.3.5 jsonschema==4.23.0
+      - name: Build additive v2 SDK wheel without touching legacy runtime49
+        run: python -m pip wheel --no-deps --wheel-dir dist .
+      - name: Install additive SDK wheel and prove isolated import
+        shell: python
+        run: |
+          import pathlib, subprocess, sys
+          wheels=list(pathlib.Path('dist').glob('market_data-*.whl'))
+          assert len(wheels) == 1, 'exactly one canonical SDK wheel'
+          subprocess.check_call([sys.executable,'-m','pip','install','--no-deps',str(wheels[0])])
+          subprocess.check_call([sys.executable,'-I','-c',
+            'import importlib.metadata as meta; import market_data, market_data_v2.qualified_read_contract, market_data_v2.read_api; assert meta.version("market-data") == "0.2.0.dev0"; assert market_data_v2.read_api.ROUTE == "/internal/v2/candles/qualified"'])
+      - name: Execute qualified provenance and authenticated route regression suite
+        run: python -m pytest -v --strict-markers -p no:cacheprovider tests/market_data/test_qualified_read_contract.py tests/market_data/test_qualified_route_v2.py tests/market_data/test_qualified_read_schema_v2.py tests/market_data/test_v2_wheel_guard.py tests/market_data/test_c_lab_fenced_writer.py

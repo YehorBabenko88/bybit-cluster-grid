@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "market-data"
-version = "0.1.0"
+version = "0.2.0.dev0"
 description = "Canonical bounded public market acquisition and read-only historical data service"
 requires-python = ">=3.11"
 dependencies = ["aiohttp>=3.10,<4", "psycopg[binary]>=3.2,<4", "websockets>=15,<16"]
@@ -17,9 +17,18 @@ legacy-test = ["requests>=2.31,<3", "psutil>=5.9,<8"]
 
 [project.scripts]
 market-data = "market_data.cli:main"
+market-data-qualified-read-v2 = "market_data_v2.read_api:main"
 
 [tool.setuptools]
-packages = ["market_data"]
+packages = ["market_data", "market_data_v2"]
+# Exactly four B-owned LAB runtime modules, not the legacy grid package.
+# setuptools dotted py-modules includes grid/__init__.py as required parent.
+py-modules = [
+    "grid.canonical_lab_continuous_collector",
+    "grid.c_lab_journal_adapter",
+    "grid.canonical_lab_fenced_writer",
+    "grid.c_async_fenced_writer",
+]
 include-package-data = false
 
 [tool.setuptools.package-data]
