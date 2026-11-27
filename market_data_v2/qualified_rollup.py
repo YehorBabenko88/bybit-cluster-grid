@@ -6,7 +6,7 @@ Exchange completeness, storage immutability and source authenticity remain
 unattested. Never emit READY/AVAILABLE, paper or trading permission.
 """
 from decimal import Decimal
-from market_math import exact_sum
+from market_math import exact_sum, executed_volume_delta
 from market_data.provenance import digest, canonical
 from market_data.numeric_dto import volume_total, volume_delta
 from .qualified_read_contract import ProvenanceReadError
@@ -15,7 +15,7 @@ MINUTES = {"5m": 5, "15m": 15}
 MAX_SOURCE_MINUTES = 75
 
 
-def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
+def project_qualified_rollup(envelope, *, timeframe, limit, now_ms, exact=False):
     """Reject all incomplete, misaligned, stale or mixed-source minute windows."""
     def need(ok, reason):
         if ok is not True:
@@ -85,15 +85,22 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
                                 for row in group)
             raw_sell = exact_sum(Decimal(str(row["candle"]["sell_volume"]))
                                  for row in group)
-            buy = volume_total((raw_buy,))
-            sell = volume_total((raw_sell,))
-            delta = volume_delta(raw_buy, raw_sell)
-            # The wire DTO includes binary64 buy/sell, which may round away a
-            # small exact difference. Until the consumer can independently
-            # validate the original exact directional totals, refuse rather
-            # than ship a seemingly valid but uncheckable numeric receipt.
-            need(delta == volume_delta(buy, sell),
-                 "ROLLUP_BINARY64_PARITY_UNAVAILABLE")
+            raw_volume = exact_sum((raw_buy, raw_sell))
+            raw_delta = executed_volume_delta(raw_buy, raw_sell)
+            if exact:
+                # A source-exact Decimal *string* is authoritative for display;
+                # binary64 is optional legacy visualization only and may lose
+                # sub-ULP amounts. No attempt to reconstruct unknown raw ticks.
+                buy = volume_total((raw_buy,)) if raw_buy else 0.0
+                sell = volume_total((raw_sell,)) if raw_sell else 0.0
+                delta = volume_delta(raw_buy, raw_sell) if raw_delta else 0.0
+            else:
+                buy = volume_total((raw_buy,))
+                sell = volume_total((raw_sell,))
+                delta = volume_delta(raw_buy, raw_sell)
+                # Preserve v1 legacy D130 exact binary64-only contract.
+                need(delta == volume_delta(buy, sell),
+                     "ROLLUP_BINARY64_PARITY_UNAVAILABLE")
             trades = sum(row["candle"]["trade_count"] for row in group)
         except ProvenanceReadError:
             raise
@@ -113,6 +120,22 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
             "trade_count": trades,
             "source_minute_fingerprints": [row["dataset_fingerprint"] for row in group],
         }
+        if exact:
+            # Canonical bounded decimal rendering: producer uses Math results,
+            # not a parallel arithmetic kernel or client-side reconstruction.
+            exact_values = {
+                "buy_volume_decimal": raw_buy,
+                "sell_volume_decimal": raw_sell,
+                "volume_decimal": raw_volume,
+                "delta_decimal": raw_delta,
+            }
+            for key, value in exact_values.items():
+                rendered = str(value)
+                need(type(rendered) is str and len(rendered) <= 4300
+                     and Decimal(rendered) == value
+                     and str(Decimal(rendered)) == rendered,
+                     "ROLLUP_DECIMAL_CANONICAL")
+                candle[key] = rendered
         windows.append(candle)
     result = {
         "schema": "market_data.qualified-mtf-envelope.v1",
@@ -135,6 +158,11 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
         "trading_authorized": False, "paper_admitted": False,
         "rows": windows,
     }
+    if exact:
+        result["schema"] = "market_data.qualified-mtf-envelope.v2"
+        result["decimal_contract"] = "CANONICAL_MATH_EXACT_SOURCE_VALUES"
+        result["numeric_presentation"] = "DECIMAL_STRING_LOSSLESS"
+        result["api_version"] = {"major": 2, "minor": 1}
     # Bound the derived output too; provenance fingerprints never grant trust.
     need(len(canonical(result)) <= 8_388_608, "ROLLUP_RESULT_BYTES")
     return dict(result, dataset_fingerprint=digest(result))
