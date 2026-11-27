@@ -13,12 +13,14 @@ from market_data import history_api
 from market_data.admission import startup_identity
 from .qualified_read_contract import ProvenanceReadError, qualify_records
 from .qualified_rollup import MINUTES, project_qualified_rollup
+from .instrument_universe import unavailable_universe
 
 ROUTE = "/internal/v2/candles/qualified"
 ROLLUP_ROUTE = "/internal/v2/candles/qualified-rollup"
 HISTORICAL_ROUTE = "/internal/v2/candles/historical-as-of"
 EXACT_ROLLUP_ROUTE = "/internal/v2/candles/qualified-rollup-exact"
 EXACT_HISTORICAL_ROUTE = "/internal/v2/candles/historical-as-of-exact"
+INSTRUMENT_UNIVERSE_ROUTE = "/internal/v2/instruments/universe"
 _MAX_MS = 9223372036854775807
 
 
@@ -179,7 +181,7 @@ class Handler(history_api.Handler):
     def do_GET(self):
         # Keep historical v1 GET behavior unchanged except for new v2
         # requirement that the entire replacement listener be Root-managed.
-        if urlsplit(self.path).path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE, EXACT_ROLLUP_ROUTE, EXACT_HISTORICAL_ROUTE):
+        if urlsplit(self.path).path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE, EXACT_ROLLUP_ROUTE, EXACT_HISTORICAL_ROUTE, INSTRUMENT_UNIVERSE_ROUTE):
             return super().do_GET()
         if not self._managed_request():
             return
@@ -187,9 +189,13 @@ class Handler(history_api.Handler):
             if len(self.path.encode("utf-8")) > 2048 or "#" in self.path:
                 raise ValueError("invalid route bounds")
             u=urlsplit(self.path)
-            if u.path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE, EXACT_ROLLUP_ROUTE, EXACT_HISTORICAL_ROUTE):
+            if u.path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE, EXACT_ROLLUP_ROUTE, EXACT_HISTORICAL_ROUTE, INSTRUMENT_UNIVERSE_ROUTE):
                 raise ValueError("route mismatch")
-            if u.path in (HISTORICAL_ROUTE, EXACT_HISTORICAL_ROUTE):
+            if u.path == INSTRUMENT_UNIVERSE_ROUTE:
+                if u.query:
+                    raise ValueError("instrument universe has no query parameters")
+                q={}
+            elif u.path in (HISTORICAL_ROUTE, EXACT_HISTORICAL_ROUTE):
                 q=parse_qs(u.query,keep_blank_values=True,max_num_fields=5,
                            strict_parsing=True)
                 required={"symbol","limit","timeframe","before_ms","as_of_ms"}
@@ -212,7 +218,12 @@ class Handler(history_api.Handler):
             # Require a still-current lease immediately before reading.
             if self.server.startup_admission.require_current() is not True:
                 return self._json(503,{"error":"CURRENT_ADMISSION_REQUIRED"})
-            if u.path in (HISTORICAL_ROUTE, EXACT_HISTORICAL_ROUTE):
+            if u.path == INSTRUMENT_UNIVERSE_ROUTE:
+                # A stored registry without independently verified exhaustive
+                # provenance is NEVER an authorized list for mass delisting.
+                # No SQL or exchange reads and no second listener.
+                result=unavailable_universe()
+            elif u.path in (HISTORICAL_ROUTE, EXACT_HISTORICAL_ROUTE):
                 result=historical_asof_snapshot(
                     q["symbol"][0],q["timeframe"][0],q["limit"][0],
                     q["before_ms"][0],q["as_of_ms"][0],
@@ -228,7 +239,7 @@ class Handler(history_api.Handler):
             # Deny a post-read lease revocation, avoiding stale read display.
             if self.server.startup_admission.require_current() is not True:
                 return self._json(503,{"error":"CURRENT_ADMISSION_REQUIRED"})
-            return self._json(200,result)
+            return self._json(503 if u.path == INSTRUMENT_UNIVERSE_ROUTE else 200,result)
         except ProvenanceReadError:
             return self._json(503,{"error":"SOURCE_RECORD_UNQUALIFIED"})
         except (ValueError,OverflowError):
