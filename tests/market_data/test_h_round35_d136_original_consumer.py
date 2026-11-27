@@ -1,4 +1,4 @@
-"""H/R35 exact original D136 consumer against Grid canonical 5m/15m DTO.
+"""H/R35 current immutable D consumer against Grid canonical 5m/15m DTO.
 
 Historical D136 consumer from immutable Git object is executed unchanged.
 Canonical Grid/Math own source and arithmetic. All data are fabricated stored
@@ -20,7 +20,7 @@ from h_mtf_fixture import BOUNDARY, NOW, minutes
 
 ROOT = Path(__file__).resolve().parents[2]
 D_ROOT = ROOT / ".source" / "terminan-d136"
-D_HEAD = "fe4316d7c1580b9799903b57d8471034b5281996"
+D_HEAD = "d71b29b194b40f32a2de8a4cfd0100041489fd94"
 D_FILE = "terminan/qualified_rollup.py"
 D_BLOB = "77c6855c52030d5d9b0e839e0c9245b947db41b5"
 
