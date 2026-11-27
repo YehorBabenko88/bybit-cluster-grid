@@ -1,4 +1,4 @@
-"""ROUND19 actual B wheel/sdist install qualification in a disposable runner.
+"""Legacy B9e0 and B28 candidate exact installed wheel source diagnostics.
 
 This executes a genuine pip --target installation of the built Grid market-data
 wheel. The result is diagnostic source and installed-byte evidence only; it
@@ -30,6 +30,17 @@ LAB = {
     "grid/canonical_lab_fenced_writer.py": "247d7fab2738e1892a05979e407f637f9df62784",
     "grid/c_async_fenced_writer.py": "35bf202bb1674238d53b74f962af966d2a699fa2",
 }
+# Preserve original B9e0 custody while independently admitting ONLY the
+# explicit source-reviewed original B writer candidate; this is not a
+# protected issuer or a general permission to use any later writer blob.
+B28_WRITER_BLOB = "747941f609b5f877f7f794a770b465e7b6a41f6c"
+V2_BASE = (
+    "market_data_v2/__init__.py",
+    "market_data_v2/qualified_read_contract.py",
+    "market_data_v2/read_api.py",
+)
+V2_ROLLUP = "market_data_v2/qualified_rollup.py"
+
 MODULES = (
     "grid",
     "grid.canonical_lab_continuous_collector",
@@ -72,11 +83,29 @@ def exact_git_blob(root: Path, name: str) -> bytes:
 
 def inspect(root: Path, wheel: Path, sdist: Path, math_wheel: Path, ftool: Path):
     assert run("git", "-C", str(root), "rev-parse", "HEAD") == os.environ["MARKET_DATA_TEST_SHA"]
-    committed = {name: exact_git_blob(root, name) for name in LAB}
+    # Strict two-member cohort: legacy EXACT B9e0 writer or reviewed B302
+    # writer. All four other pinned LAB modules remain raw-byte identical.
+    actual_writer=run("git","-C",str(root),"rev-parse","HEAD:grid/canonical_lab_fenced_writer.py")
+    if actual_writer == LAB["grid/canonical_lab_fenced_writer.py"]:
+        cohort="ORIGINAL_B9E0"
+    elif actual_writer == B28_WRITER_BLOB:
+        cohort="REVIEWED_B302_SOURCE_CANDIDATE"
+    else:
+        raise AssertionError("UNAPPROVED_CANONICAL_LAB_WRITER_BLOB")
+    assert cohort in ("ORIGINAL_B9E0","REVIEWED_B302_SOURCE_CANDIDATE")
+    v2_names=V2_BASE+((V2_ROLLUP,) if cohort != "ORIGINAL_B9E0" else ())
+    observed_v2={p.relative_to(root).as_posix() for p in (root/"market_data_v2").iterdir()
+                 if p.is_file()}
+    assert observed_v2==set(v2_names), ("UNAPPROVED_V2_RUNTIME_MEMBER",observed_v2)
+    for name in v2_names:
+        path=root/name
+        assert path.is_file() and not path.is_symlink(), "V2_RUNTIME_NONREGULAR_SOURCE"
+    committed={name:exact_git_blob(root,name) for name in (*LAB,*v2_names)}
     for name, blob in LAB.items():
-        assert run("git", "-C", str(root), "rev-parse", "HEAD:" + name) == blob, (
-            "B9E0_RUNTIME_MODULE_CHANGED", name
-        )
+        expected=B28_WRITER_BLOB if name=="grid/canonical_lab_fenced_writer.py" and cohort!="ORIGINAL_B9E0" else blob
+        assert run("git","-C",str(root),"rev-parse","HEAD:"+name)==expected, (
+            "PINNED_CANONICAL_LAB_RUNTIME_CHANGED",name)
+
     wb = wheel.read_bytes()
     sb = sdist.read_bytes()
     # A single immutable byte snapshot is hashed and parsed; never reopen
@@ -189,7 +218,7 @@ from market_data.cli import main as cli
 from market_data_v2.read_api import main as qualified_entry
 assert callable(cli) and callable(qualified_entry)
 print('B19_REAL_INSTALLED_IMPORTS=PASS;ROOT_ADMISSION=DENIED')
-""" % (MODULES,)
+""" % (MODULES+("market_data_v2.qualified_rollup",) if cohort!="ORIGINAL_B9E0" else MODULES,)
         subprocess.run([sys.executable, "-I", "-B", "-c", probe,
                         str(install), str(math_install)],
                        cwd=tmp, check=True, env={
@@ -197,6 +226,8 @@ print('B19_REAL_INSTALLED_IMPORTS=PASS;ROOT_ADMISSION=DENIED')
                        })
         return {
             "source_head": os.environ["MARKET_DATA_TEST_SHA"],
+            "source_cohort": cohort,
+            "qualified_v2_runtime_count": len(v2_names),
             "b9e0_runtime_blobs": LAB,
             "wheel_sha256": digest(wb),
             "sdist_sha256": digest(sb),
