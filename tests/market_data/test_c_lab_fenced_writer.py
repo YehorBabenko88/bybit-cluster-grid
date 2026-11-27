@@ -206,13 +206,11 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
             self.assertEqual(c.calls, [])
         # An unverified/forged permit is still denied even if session syntax
         # is valid: this cannot turn an observed ID into Root admission.
-        with patch("grid.canonical_lab_fenced_writer._root_operation_permit_type",
-                   return_value=Admission):
-            c = Connection()
-            with self.assertRaisesRegex(
-                    FencedWriterRejected, "FENCE_E_ROOT_OPERATION_PERMIT_REQUIRED"):
-                writer(c, SimpleNamespace(), session_id=real_session)
-            self.assertEqual(c.calls, [])
+        c = Connection()
+        with self.assertRaisesRegex(
+                FencedWriterRejected, "FENCE_E_ROOT_OPERATION_PERMIT_REQUIRED"):
+            writer(c, SimpleNamespace(), session_id=real_session)
+        self.assertEqual(c.calls, [])
 
     def test_deny_no_auth_and_nonlab_authority(self):
         c=Connection()
