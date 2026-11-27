@@ -79,7 +79,7 @@ def qualified_rollup_snapshot(symbol, timeframe, limit, before_ms=None, *, reade
     return project_qualified_rollup(original, timeframe=timeframe, limit=limit, now_ms=now_ms)
 
 
- 
+
 def historical_asof_snapshot(symbol, timeframe, limit, before_ms, as_of_ms,
                              *, reader=None, now_ms=None):
     """Pure source-only historical view; does not grant historical trust.
