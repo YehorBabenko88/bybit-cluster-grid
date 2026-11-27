@@ -138,12 +138,20 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms, exact=False)
                 "delta_decimal": raw_delta,
             }
             for key, value in exact_values.items():
-                rendered = str(value)
-                # Fixed-size canonical Math Decimal bytes: no exponent alias,
-                # no nonfinite values and no ambient Decimal context rounding.
-                need(type(value) is Decimal and value.is_finite()
-                     and type(rendered) is str and len(rendered) <= 4300
-                     and Decimal(rendered).as_tuple() == value.as_tuple(),
+                # Fixed-point ASCII without exponent aliases or -0;
+                # only presentation normalization, Math owns all arithmetic.
+                need(type(value) is Decimal and value.is_finite(),
+                     "ROLLUP_DECIMAL_DOMAIN")
+                if value.is_zero():
+                    rendered = "0"
+                else:
+                    rendered = format(value, "f")
+                    if "." in rendered:
+                        rendered = rendered.rstrip("0").rstrip(".")
+                need(0 < len(rendered) <= 4300
+                     and rendered != "-0"
+                     and "e" not in rendered.lower()
+                     and Decimal(rendered) == value,
                      "ROLLUP_DECIMAL_CANONICAL")
                 candle[key] = rendered
         windows.append(candle)
