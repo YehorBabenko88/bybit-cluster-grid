@@ -6,6 +6,7 @@ Exchange completeness, storage immutability and source authenticity remain
 unattested. Never emit READY/AVAILABLE, paper or trading permission.
 """
 from market_data.provenance import digest, canonical
+from market_data.numeric_dto import volume_total, volume_delta
 from .qualified_read_contract import ProvenanceReadError
 
 MINUTES = {"5m": 5, "15m": 15}
@@ -68,8 +69,16 @@ def project_qualified_rollup(envelope, *, timeframe, limit):
     windows = []
     for i in range(0, expected, width):
         group = rows[i:i + width]
-        # No new precision/mathematical owner: preserve exact numbers and let
-        # Math/Terminan independently qualify consumer-side aggregations.
+        # Reuse Grid's original Decimal-to-binary64 DTO adapter backed by
+        # market_math exact_sum and executed_volume_delta; no second Math SDK.
+        try:
+            buy = volume_total(row["candle"]["buy_volume"] for row in group)
+            sell = volume_total(row["candle"]["sell_volume"] for row in group)
+            delta = volume_delta(buy, sell)
+            trades = sum(row["candle"]["trade_count"] for row in group)
+        except (ValueError, OverflowError, ArithmeticError) as exc:
+            raise ProvenanceReadError("ROLLUP_NUMERIC_UNAVAILABLE") from exc
+        need(type(trades) is int and 0 <= trades < 2**63, "ROLLUP_TRADES")
         candle = {
             "start_ms": group[0]["start_ms"],
             "end_ms": group[-1]["end_ms"],
@@ -77,15 +86,12 @@ def project_qualified_rollup(envelope, *, timeframe, limit):
             "high": max(row["candle"]["high"] for row in group),
             "low": min(row["candle"]["low"] for row in group),
             "close": group[-1]["candle"]["close"],
-            "buy_volume": sum(row["candle"]["buy_volume"] for row in group),
-            "sell_volume": sum(row["candle"]["sell_volume"] for row in group),
-            "delta": sum(row["candle"]["delta"] for row in group),
-            "trade_count": sum(row["candle"]["trade_count"] for row in group),
+            "buy_volume": buy,
+            "sell_volume": sell,
+            "delta": delta,
+            "trade_count": trades,
             "source_minute_fingerprints": [row["dataset_fingerprint"] for row in group],
         }
-        need(type(candle["trade_count"]) is int
-             and not isinstance(candle["trade_count"], bool)
-             and candle["trade_count"] >= 0, "ROLLUP_TRADES")
         windows.append(candle)
     result = {
         "schema": "market_data.qualified-rollup-envelope.v1",
