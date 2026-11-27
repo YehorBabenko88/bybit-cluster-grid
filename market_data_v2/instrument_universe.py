@@ -63,11 +63,9 @@ def qualified_universe_snapshot(pages, *, observation_ms, source_receipt):
           and type(r["page_count"]) is int and r["page_count"] == len(pages)
           and type(r["complete_count"]) is int and 0 < r["complete_count"] <= _MAX_SYMBOLS,
           "UNIVERSE_SOURCE_IDENTITY_REQUIRED")
-    # A self-asserted receipt cannot authenticate its own completeness. Do
-    # not trust even a caller-forged True, digest, release, or Root label.
-    # Production must substitute a distinct independently verified capability
-    # issued by Root before any instrument snapshot can be admitted.
-    _need(False, "UNIVERSE_INDEPENDENT_ROOT_ATTESTATION_NOT_INSTALLED")
+    # A self-asserted receipt cannot authenticate its own completeness.
+    # Validate the page mechanics, but independent Root issuance is not
+    # implemented and no output can authorize a consumer cutover.
     symbols = []
     for index, page in enumerate(pages):
         _need(type(page) is dict and set(page) == {"page_index", "symbols", "page_sha256"},
@@ -88,21 +86,7 @@ def qualified_universe_snapshot(pages, *, observation_ms, source_receipt):
     _need(len(symbols) == r["complete_count"]
           and symbols == sorted(set(symbols)),
           "UNIVERSE_PAGINATION_NOT_EXHAUSTIVE")
-    receipt = {
-        "schema": _SCHEMA, "api_version": {"major": 1, "minor": 0},
-        "status": "PARTIAL", "reason": "GRID_SOURCE_ATTESTED_EXHAUSTIVE",
-        "producer": "market_data", "venue": "Bybit", "market_type": "linear",
-        "snapshot_id": r["snapshot_id"], "lease_epoch": r["lease_epoch"],
-        "source_revision": r["source_revision"], "observation_ms": observation_ms,
-        "source_authenticity": "EXTERNALLY_ATTESTED",
-        "exchange_completeness": "EXTERNALLY_ATTESTED",
-        "source_receipt_verification": "REQUIRES_ROOT_EXTERNAL_VERIFIER",
-        "page_count": len(pages), "symbol_count": len(symbols),
-        "symbols": symbols, "read_only": True, "execution_authority": False,
-        "trading_authorized": False, "paper_admitted": False,
-        "consumer_cutover_authorized": False,
-    }
-    return dict(receipt, dataset_fingerprint=_sha(receipt))
+    raise UniverseReadError("UNIVERSE_INDEPENDENT_ROOT_ATTESTATION_NOT_INSTALLED")
 
 
 def unavailable_universe(reason="UNIVERSE_SOURCE_NOT_INDEPENDENTLY_ATTESTED"):
@@ -130,15 +114,16 @@ def recorded_universe_snapshot(*, reader=None, observed_at_ms=None):
     The caller/HTTP handler must require current Root admission before/after.
     """
     import time
-    from market_data import history_api
     if observed_at_ms is None:
         observed_at_ms = int(time.time() * 1000)
     _need(type(observed_at_ms) is int and 0 < observed_at_ms < 2**63,
           "UNIVERSE_RECORDED_CLOCK")
-    source = reader if reader is not None else (
-        lambda count: history_api.query(
+    source = reader
+    if source is None:
+        from market_data import history_api
+        source = lambda count: history_api.query(
             "SELECT symbol,status,contract_type FROM instruments "
-            "ORDER BY symbol LIMIT %s", (count,)))
+            "ORDER BY symbol LIMIT %s", (count,))
     _need(callable(source), "UNIVERSE_RECORDED_READER")
     records = source(_MAX_SYMBOLS + 1)
     _need(type(records) in (list, tuple) and 0 < len(records) <= _MAX_SYMBOLS,
