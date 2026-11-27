@@ -79,9 +79,9 @@ class LosslessMtfRound30(unittest.TestCase):
         got=qualified_rollup_snapshot(
             "BTCUSDT","5m",1,reader=lambda *_: records,now_ms=NOW,exact=True)
         row=got["rows"][0]
-        self.assertEqual(row["buy_volume_decimal"],"10000000000000004.01")
-        self.assertEqual(row["sell_volume_decimal"],"10000000000000004.0")
-        self.assertEqual(row["volume_decimal"],"20000000000000008.01")
+        self.assertEqual(Decimal(row["buy_volume_decimal"]),Decimal("10000000000000004.01"))
+        self.assertEqual(Decimal(row["sell_volume_decimal"]),Decimal("10000000000000004"))
+        self.assertEqual(Decimal(row["volume_decimal"]),Decimal("20000000000000008.01"))
         self.assertEqual(row["delta_decimal"],"0.01")
         self.assertEqual(row["buy_volume"],row["sell_volume"])
         self.assertFalse(got["paper_admitted"])
