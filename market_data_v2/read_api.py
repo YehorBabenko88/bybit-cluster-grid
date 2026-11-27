@@ -13,7 +13,7 @@ from market_data import history_api
 from market_data.admission import startup_identity
 from .qualified_read_contract import ProvenanceReadError, qualify_records
 from .qualified_rollup import MINUTES, project_qualified_rollup
-from .instrument_universe import unavailable_universe, recorded_universe_snapshot
+from .instrument_universe import UniverseReadError, unavailable_universe, recorded_universe_snapshot
 
 ROUTE = "/internal/v2/candles/qualified"
 ROLLUP_ROUTE = "/internal/v2/candles/qualified-rollup"
@@ -245,6 +245,8 @@ class Handler(history_api.Handler):
             if self.server.startup_admission.require_current() is not True:
                 return self._json(503,{"error":"CURRENT_ADMISSION_REQUIRED"})
             return self._json(503 if u.path == INSTRUMENT_UNIVERSE_ROUTE else 200,result)
+        except UniverseReadError:
+            return self._json(503,{"error":"UNIVERSE_SOURCE_UNQUALIFIED"})
         except ProvenanceReadError:
             return self._json(503,{"error":"SOURCE_RECORD_UNQUALIFIED"})
         except (ValueError,OverflowError):
