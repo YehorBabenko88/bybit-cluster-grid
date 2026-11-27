@@ -49,12 +49,32 @@ class HRound29ExactMathAndAsOf(unittest.TestCase):
         page=qualified_rollup_snapshot(
             "BTCUSDT","5m",1,
             reader=lambda *_:copy.deepcopy(rows), now_ms=NOW)
-        self.assertEqual(page["source_declared_quality"], ["GOOD"])
+        self.assertNotIn("source_declared_quality",page)
         self.assertEqual(page["schema"],"market_data.qualified-mtf-envelope.v1")
         self.assertEqual(page["status"],"PARTIAL")
         self.assertFalse(page["paper_admitted"])
         self.assertFalse(page["execution_authority"])
         self.assertFalse(page["trading_authorized"])
+
+
+    def test_grid_b306_rejects_uncheckable_binary64_delta(self):
+        from test_qualified_rollup_round27 import fixture_minutes
+        from market_data.provenance import digest
+        rows = fixture_minutes(5, ingestion_ms=BOUNDARY)
+        for i, item in enumerate(rows):
+            buy = 1e16 if i == 0 else (1.01 if i == 1 else 1.0)
+            sell = 1e16 if i == 0 else 1.0
+            delta = 0.01 if i == 1 else 0.0
+            item["candle"].update(buy_volume=buy, sell_volume=sell, delta=delta)
+            item["levels"][0].update(
+                buy_volume=buy, sell_volume=sell, delta=delta, volume=buy+sell)
+            item["dataset_fingerprint"] = digest({
+                k:v for k,v in item.items() if k != "dataset_fingerprint"})
+        with self.assertRaisesRegex(
+                ProvenanceReadError, "ROLLUP_BINARY64_PARITY_UNAVAILABLE"):
+            qualified_rollup_snapshot(
+                "BTCUSDT", "5m", 1, reader=lambda *_:copy.deepcopy(rows),
+                now_ms=NOW)
 
 
 if __name__ == "__main__":
