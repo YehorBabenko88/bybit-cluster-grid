@@ -38,6 +38,13 @@ jobs:
           ref: 14d9ca92803b3ede19c7292e85c3627554d5c1d9
           path: .source/math-d167
           persist-credentials: false
+      - name: Checkout original B311 epoch modules (H source tests only)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/bybit-cluster-grid
+          ref: 1b66fb19ccedfcb67134dcc0cf6ffa30705a3852
+          path: .source/grid-b311
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: ${{ matrix.python }}
@@ -49,6 +56,7 @@ jobs:
             '.source/math': '9e6acbd9e12a91189f57234828e31640983af553',
             '.source/terminan-d129': '6e4a39c185d51eeab37f004964655da3b8dd938b',
             '.source/math-d167': '14d9ca92803b3ede19c7292e85c3627554d5c1d9',
+            '.source/grid-b311': '1b66fb19ccedfcb67134dcc0cf6ffa30705a3852',
           }
           for where, sha in pins.items():
             root = pathlib.Path(where)
@@ -72,4 +80,4 @@ jobs:
           subprocess.check_call([sys.executable,'-I','-c',
             'import importlib.metadata as meta; import market_data, market_data_v2.qualified_read_contract, market_data_v2.qualified_rollup, market_data_v2.read_api; assert meta.version("market-data") == "0.2.0.dev0"; assert market_data_v2.read_api.ROUTE == "/internal/v2/candles/qualified"; assert market_data_v2.read_api.ROLLUP_ROUTE == "/internal/v2/candles/qualified-rollup"'])
       - name: Execute qualified provenance and authenticated route regression suite
-        run: python -m pytest -v --strict-markers -p no:cacheprovider tests/market_data/test_qualified_read_contract.py tests/market_data/test_qualified_route_v2.py tests/market_data/test_qualified_read_schema_v2.py tests/market_data/test_v2_wheel_guard.py tests/market_data/test_c_lab_fenced_writer.py tests/market_data/test_qualified_rollup_round27.py tests/market_data/test_historical_asof_round28.py tests/market_data/test_lossless_mtf_round30.py tests/market_data/test_h_round28_mtf_parity.py tests/market_data/test_h_round29_asof_contract.py tests/market_data/test_h_round30_lossless_original.py tests/market_data/test_h_round32_cursor_contract.py tests/market_data/test_h_round34_g012_original_differential.py
+        run: python -m pytest -v --strict-markers -p no:cacheprovider tests/market_data/test_qualified_read_contract.py tests/market_data/test_qualified_route_v2.py tests/market_data/test_qualified_read_schema_v2.py tests/market_data/test_v2_wheel_guard.py tests/market_data/test_c_lab_fenced_writer.py tests/market_data/test_qualified_rollup_round27.py tests/market_data/test_historical_asof_round28.py tests/market_data/test_lossless_mtf_round30.py tests/market_data/test_h_round28_mtf_parity.py tests/market_data/test_h_round29_asof_contract.py tests/market_data/test_h_round30_lossless_original.py tests/market_data/test_h_round32_cursor_contract.py tests/market_data/test_h_round34_g012_original_differential.py tests/market_data/test_h_round35_b311_epoch_independent.py
