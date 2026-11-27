@@ -74,9 +74,24 @@ def qualified_rollup_snapshot(symbol, timeframe, limit, before_ms=None, *, reade
         limit = int(limit)
     if type(limit) is not int or not 1 <= limit <= 5:
         raise ValueError("QUALIFIED_ROLLUP_LIMIT_REQUIRED")
+    if type(exact) is not bool:
+        raise ValueError("QUALIFIED_ROLLUP_EXACT_MODE_REQUIRED")
     expected = limit * MINUTES[timeframe]
     if now_ms is None:
         now_ms = int(time.time() * 1000)
+    # New v2 has an explicit complete-candle UTC cursor contract.
+    # Refuse invalid cursors before any PostgreSQL read. Legacy v1 retains
+    # its original behavior, because its unchanged consumer may depend on it.
+    if exact:
+        if (type(now_ms) is not int or not 0 < now_ms < 2**63):
+            raise ValueError("QUALIFIED_ROLLUP_EXACT_NOW_REQUIRED")
+        if before_ms is not None:
+            if type(before_ms) is str and re.fullmatch(r"[1-9][0-9]{0,18}", before_ms):
+                before_ms = int(before_ms)
+            if (type(before_ms) is not int
+                    or not 0 < before_ms <= now_ms
+                    or before_ms % (MINUTES[timeframe] * 60000)):
+                raise ValueError("QUALIFIED_ROLLUP_EXACT_CURSOR_REQUIRED")
     original = qualified_snapshot(symbol, expected, before_ms, reader=reader, now_ms=now_ms)
     return project_qualified_rollup(original, timeframe=timeframe, limit=limit, now_ms=now_ms, exact=exact)
 
@@ -95,6 +110,8 @@ def historical_asof_snapshot(symbol, timeframe, limit, before_ms, as_of_ms,
         limit = int(limit)
     if type(limit) is not int or not 1 <= limit <= 5:
         raise ValueError("HISTORICAL_LIMIT_REQUIRED")
+    if type(exact) is not bool:
+        raise ValueError("HISTORICAL_EXACT_MODE_REQUIRED")
     expected = limit * MINUTES[timeframe]
     if type(before_ms) is str and re.fullmatch(r"[1-9][0-9]{0,18}", before_ms):
         before_ms = int(before_ms)
@@ -108,6 +125,11 @@ def historical_asof_snapshot(symbol, timeframe, limit, before_ms, as_of_ms,
         raise ValueError("HISTORICAL_AS_OF_BOUNDS")
     if before_ms % 60000 or as_of_ms % 60000:
         raise ValueError("HISTORICAL_MINUTE_ALIGNMENT")
+    # The new lossless historical contract is keyed to FULL 5m/15m candles.
+    # Before/as-of remain distinct: as_of is an observation cutoff, not
+    # permission to issue a partial bar or imply an authenticated DB snapshot.
+    if exact and before_ms % (MINUTES[timeframe] * 60000):
+        raise ValueError("HISTORICAL_EXACT_CANDLE_CURSOR_REQUIRED")
     if as_of_ms - before_ms > 30 * 86400000:
         raise ValueError("HISTORICAL_AS_OF_WINDOW_EXCEEDED")
     if type(symbol) is not str or history_api.SYMBOL.fullmatch(symbol) is None:

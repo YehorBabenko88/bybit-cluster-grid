@@ -141,6 +141,33 @@ class LosslessMtfRound30(unittest.TestCase):
         self.assertNotIn("volume_decimal",legacy["rows"][0])
         self.assertFalse(legacy["execution_authority"])
 
+    def test_exact_cursor_refuses_unaligned_future_and_nonliteral_without_sql(self):
+        def reader(*_):
+            self.fail("invalid exact LIVE input touched source PostgreSQL")
+        for cursor in (BOUNDARY-60000, BOUNDARY+1, NOW+60000,
+                       -1, 0, True, 2**63, "1e12", "00060"):
+            with self.subTest(cursor=cursor),self.assertRaises(ValueError):
+                qualified_rollup_snapshot(
+                    "BTCUSDT", "5m", 1, cursor, reader=reader,
+                    now_ms=NOW, exact=True)
+        with self.assertRaises(ValueError):
+            qualified_rollup_snapshot(
+                "BTCUSDT","5m",1,BOUNDARY,reader=reader,
+                now_ms=NOW,exact=1)
+
+    def test_exact_historical_cursor_refuses_partial_bucket_before_sql(self):
+        def reader(*_):
+            self.fail("invalid exact HISTORICAL input touched PostgreSQL")
+        with self.assertRaisesRegex(ValueError,
+                                    "HISTORICAL_EXACT_CANDLE_CURSOR_REQUIRED"):
+            historical_asof_snapshot(
+                "BTCUSDT","15m",1,BOUNDARY-60000,BOUNDARY,
+                reader=reader,now_ms=NOW,exact=True)
+        with self.assertRaises(ValueError):
+            historical_asof_snapshot(
+                "BTCUSDT","5m",1,BOUNDARY,BOUNDARY,
+                reader=reader,now_ms=NOW,exact="true")
+
     def test_invalid_exact_query_must_not_touch_canonical_reader(self):
         bad=(EXACT_ROLLUP_ROUTE+"?symbol=BTCUSDT&timeframe=1h&limit=1",
              EXACT_ROLLUP_ROUTE+"?symbol=BTCUSDT&timeframe=5m&limit=6",
