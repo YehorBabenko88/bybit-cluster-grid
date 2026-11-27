@@ -92,10 +92,16 @@ def inspect(root: Path, wheel: Path, sdist: Path, math_wheel: Path, ftool: Path)
         cohort="REVIEWED_B302_SOURCE_CANDIDATE"
     else:
         raise AssertionError("UNAPPROVED_CANONICAL_LAB_WRITER_BLOB")
-    assert cohort in ("ORIGINAL_B9E0","REVIEWED_B302_SOURCE_CANDIDATE")
-    v2_names=V2_BASE+((V2_ROLLUP,) if cohort != "ORIGINAL_B9E0" else ())
-    observed_v2={p.relative_to(root).as_posix() for p in (root/"market_data_v2").iterdir()
-                 if p.is_file()}
+    observed_v2={p.relative_to(root).as_posix() for p in (root/"market_data_v2").iterdir()}
+    if cohort == "ORIGINAL_B9E0":
+        v2_names=V2_BASE
+    elif observed_v2==set(V2_BASE):
+        # B302 source-only session correction before optional MTF cutover.
+        cohort="REVIEWED_B302_SOURCE_CANDIDATE"
+        v2_names=V2_BASE
+    else:
+        cohort="REVIEWED_B28_MTF_SOURCE_CANDIDATE"
+        v2_names=V2_BASE+(V2_ROLLUP,)
     assert observed_v2==set(v2_names), ("UNAPPROVED_V2_RUNTIME_MEMBER",observed_v2)
     for name in v2_names:
         path=root/name
@@ -218,7 +224,7 @@ from market_data.cli import main as cli
 from market_data_v2.read_api import main as qualified_entry
 assert callable(cli) and callable(qualified_entry)
 print('B19_REAL_INSTALLED_IMPORTS=PASS;ROOT_ADMISSION=DENIED')
-""" % (MODULES+("market_data_v2.qualified_rollup",) if cohort!="ORIGINAL_B9E0" else MODULES,)
+""" % (MODULES+("market_data_v2.qualified_rollup",) if V2_ROLLUP in v2_names else MODULES,)
         subprocess.run([sys.executable, "-I", "-B", "-c", probe,
                         str(install), str(math_install)],
                        cwd=tmp, check=True, env={
@@ -229,6 +235,7 @@ print('B19_REAL_INSTALLED_IMPORTS=PASS;ROOT_ADMISSION=DENIED')
             "source_cohort": cohort,
             "qualified_v2_runtime_count": len(v2_names),
             "b9e0_runtime_blobs": LAB,
+            "effective_lab_blobs": {name:(B28_WRITER_BLOB if name=="grid/canonical_lab_fenced_writer.py" and cohort!="ORIGINAL_B9E0" else sha) for name,sha in LAB.items()},
             "wheel_sha256": digest(wb),
             "sdist_sha256": digest(sb),
             "source_sha256": {n: digest(data) for n, data in committed.items()},
