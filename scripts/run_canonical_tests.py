@@ -46,7 +46,7 @@ def main(argv=None):
     site=pathlib.Path(args.site).resolve(strict=True);output=pathlib.Path(args.evidence).absolute()
     if output.exists() or output.resolve().is_relative_to(root):raise ValueError('fresh external evidence required')
     bindings=json.loads(pathlib.Path(args.bindings).read_text())['bindings']
-    if len(bindings)!=60:raise ValueError('exact49Data+3v2+5Grid+3Math wheel bindings required')
+    if len(bindings)!=61:raise ValueError('exact49Data+4v2+5Grid+3Math wheel bindings required')
     grid={name for name in bindings if name.startswith('grid/')}
     if grid != {'grid/__init__.py','grid/canonical_lab_continuous_collector.py',
                 'grid/c_lab_journal_adapter.py','grid/canonical_lab_fenced_writer.py',
