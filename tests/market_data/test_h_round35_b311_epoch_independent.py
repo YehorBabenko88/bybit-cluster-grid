@@ -27,7 +27,7 @@ XRP = ("XRPUSDT", "Trading", "LinearPerpetual", "USDT")
 
 def git_blob(path, expected):
     data = path.read_bytes()
-    actual = sha1(b"blob " + str(len(data)).encode() + b"\\0" + data).hexdigest()
+    actual = sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
     if actual != expected:
         raise AssertionError("H_B311_ORIGINAL_BLOB_MISMATCH:" + path.name)
     return data
