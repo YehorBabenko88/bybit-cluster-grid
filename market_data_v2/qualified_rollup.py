@@ -5,6 +5,8 @@ qualifier, NOT another Bybit transport, SQL writer, Math SDK or Root admission.
 Exchange completeness, storage immutability and source authenticity remain
 unattested. Never emit READY/AVAILABLE, paper or trading permission.
 """
+from decimal import Decimal
+from market_math import exact_sum
 from market_data.provenance import digest, canonical
 from market_data.numeric_dto import volume_total, volume_delta
 from .qualified_read_contract import ProvenanceReadError
@@ -27,8 +29,9 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
          and envelope.get("timeframe") == "1m"
          and envelope.get("producer") == "market_data"
          and envelope.get("record_integrity") == "VERIFIED"
+         and envelope.get("source_declared_quality") == ["GOOD"]
          and envelope.get("status") == "PARTIAL"
-         and envelope.get("reason") == "EXCHANGE_COMPLETENESS_UNATTESTED"
+         and envelope.get("reason") in ("EXCHANGE_COMPLETENESS_UNATTESTED", "HISTORICAL_AS_OF_SOURCE_ONLY")
          and envelope.get("source_authenticity") == "NOT_INDEPENDENTLY_ATTESTED"
          and envelope.get("exchange_completeness") == "NOT_ATTESTED"
          and envelope.get("storage_immutability") == "NOT_ATTESTED"
@@ -75,9 +78,16 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
         # Reuse Grid's original Decimal-to-binary64 DTO adapter backed by
         # market_math exact_sum and executed_volume_delta; no second Math SDK.
         try:
-            buy = volume_total(row["candle"]["buy_volume"] for row in group)
-            sell = volume_total(row["candle"]["sell_volume"] for row in group)
-            delta = volume_delta(buy, sell)
+            # Derive delta from canonical exact directional Decimal totals
+            # BEFORE binary64 DTO presentation, avoiding cancellation from
+            # rounded aggregate buy/sell floats. Math remains sole owner.
+            raw_buy = exact_sum(Decimal(str(row["candle"]["buy_volume"]))
+                                for row in group)
+            raw_sell = exact_sum(Decimal(str(row["candle"]["sell_volume"]))
+                                 for row in group)
+            buy = volume_total((raw_buy,))
+            sell = volume_total((raw_sell,))
+            delta = volume_delta(raw_buy, raw_sell)
             trades = sum(row["candle"]["trade_count"] for row in group)
         except (ValueError, OverflowError, ArithmeticError) as exc:
             raise ProvenanceReadError("ROLLUP_NUMERIC_UNAVAILABLE") from exc
@@ -109,6 +119,7 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
         "coverage": {"expected_minutes": expected,
                      "observed_minutes": expected, "missing_minutes": 0},
         "record_integrity": "VERIFIED",
+        "source_declared_quality": ["GOOD"],
         "source_authenticity": "NOT_INDEPENDENTLY_ATTESTED",
         "exchange_completeness": "NOT_ATTESTED",
         "quality_attestation": "NOT_INDEPENDENTLY_ATTESTED",

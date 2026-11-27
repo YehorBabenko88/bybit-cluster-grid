@@ -118,10 +118,20 @@ def validate_minute(record, *, symbol, before_ms):
     return r
 
 
-def qualify_records(records, *, symbol, before_ms, now_ms):
+def qualify_records(records, *, symbol, before_ms, now_ms, mode="LIVE", as_of_ms=None):
     _require(type(symbol) is str and _SYMBOL.fullmatch(symbol) is not None, "QUERY_SYMBOL")
     _require(type(before_ms) is int and 0 < before_ms < 2**63
         and type(now_ms) is int and 0 < now_ms < 2**63, "QUERY_CLOCK")
+    _require(type(mode) is str and mode in ("LIVE", "HISTORICAL_AS_OF"),
+        "QUERY_FRESHNESS_MODE")
+    if mode == "LIVE":
+        _require(as_of_ms is None, "QUERY_LIVE_AS_OF_FORBIDDEN")
+    else:
+        _require(type(as_of_ms) is int and 0 < as_of_ms <= now_ms,
+            "QUERY_HISTORICAL_AS_OF_REQUIRED")
+        # Historical policy is a deliberately chosen observation cutoff.
+        # It is not a caller-supplied clock replacement or source trust proof.
+        _require(before_ms <= as_of_ms, "QUERY_AS_OF_CURSOR_REQUIRED")
     _require(type(records) is list and 1 <= len(records) <= 1000,
         "QUERY_RECORD_COUNT")
     validated = [validate_minute(item,symbol=symbol,before_ms=before_ms) for item in records]
@@ -139,7 +149,14 @@ def qualify_records(records, *, symbol, before_ms, now_ms):
         and item["ingestion_ms"] <= now_ms for item in ordered), "QUERY_FUTURE_CLOCK")
     unavailable=any(r["status"] == "UNAVAILABLE" for r in ordered)
     missing=expected-len(ordered)
-    stale=now_ms-last["source_event_end_ms"] > 120000
+    # LIVE retains its original 120-second freshness policy exactly.
+    # HISTORICAL_AS_OF never labels old observations as fresh/live, but still
+    # refuses records ingested after the requested historical cutoff.
+    if mode == "HISTORICAL_AS_OF":
+        _require(all(item["ingestion_ms"] <= as_of_ms
+            and item["source_event_end_ms"] <= as_of_ms
+            for item in ordered), "QUERY_HISTORICAL_LOOKAHEAD")
+    stale=(mode == "LIVE" and now_ms-last["source_event_end_ms"] > 120000)
     if unavailable:
         status,reason="UNAVAILABLE","SOURCE_PROVENANCE_UNAVAILABLE"
     elif missing or len(epochs)!=1 or len(revisions)!=1 or len(ids)!=1:
@@ -148,6 +165,10 @@ def qualify_records(records, *, symbol, before_ms, now_ms):
         status,reason="STALE","FRESHNESS_WATERMARK_EXPIRED"
     else:
         status,reason="PARTIAL","EXCHANGE_COMPLETENESS_UNATTESTED"
+    if mode == "HISTORICAL_AS_OF" and status == "PARTIAL":
+        status,reason="PARTIAL","HISTORICAL_AS_OF_SOURCE_ONLY"
+    # A historical cutoff is an observation policy, not independently
+    # provisioned catalog trust or an exchange-wide completeness guarantee.
     # A valid single observed minute does not prove whole-exchange completeness.
     return {
         "schema":"market_data.qualified-read-envelope.v1",

@@ -16,6 +16,7 @@ from .qualified_rollup import MINUTES, project_qualified_rollup
 
 ROUTE = "/internal/v2/candles/qualified"
 ROLLUP_ROUTE = "/internal/v2/candles/qualified-rollup"
+HISTORICAL_ROUTE = "/internal/v2/candles/historical-as-of"
 _MAX_MS = 9223372036854775807
 
 
@@ -78,6 +79,67 @@ def qualified_rollup_snapshot(symbol, timeframe, limit, before_ms=None, *, reade
     return project_qualified_rollup(original, timeframe=timeframe, limit=limit, now_ms=now_ms)
 
 
+ 
+def historical_asof_snapshot(symbol, timeframe, limit, before_ms, as_of_ms,
+                             *, reader=None, now_ms=None):
+    """Pure source-only historical view; does not grant historical trust.
+
+    Caller fixes an explicit as-of cutoff independent of wall-clock freshness.
+    SQL cursor remains a strict upper bound; no NULL/implicit latest snapshot.
+    """
+    if type(timeframe) is not str or timeframe not in MINUTES:
+        raise ValueError("HISTORICAL_TIMEFRAME_REQUIRED")
+    if type(limit) is str and re.fullmatch(r"[1-5]", limit):
+        limit = int(limit)
+    if type(limit) is not int or not 1 <= limit <= 5:
+        raise ValueError("HISTORICAL_LIMIT_REQUIRED")
+    expected = limit * MINUTES[timeframe]
+    if type(before_ms) is str and re.fullmatch(r"[1-9][0-9]{0,18}", before_ms):
+        before_ms = int(before_ms)
+    if type(as_of_ms) is str and re.fullmatch(r"[1-9][0-9]{0,18}", as_of_ms):
+        as_of_ms = int(as_of_ms)
+    if now_ms is None:
+        now_ms = int(time.time() * 1000)
+    if (type(before_ms) is not int or type(as_of_ms) is not int
+            or type(now_ms) is not int
+            or not 0 < before_ms <= as_of_ms <= now_ms < 2**63):
+        raise ValueError("HISTORICAL_AS_OF_BOUNDS")
+    if before_ms % 60000 or as_of_ms % 60000:
+        raise ValueError("HISTORICAL_MINUTE_ALIGNMENT")
+    if as_of_ms - before_ms > 30 * 86400000:
+        raise ValueError("HISTORICAL_AS_OF_WINDOW_EXCEEDED")
+    if type(symbol) is not str or history_api.SYMBOL.fullmatch(symbol) is None:
+        raise ValueError("HISTORICAL_SYMBOL_REQUIRED")
+    read = history_api.immutable_minutes if reader is None else reader
+    records = read(symbol, expected, before_ms)
+    if not records:
+        raise ProvenanceReadError("HISTORICAL_SOURCE_MISSING")
+    result = qualify_records(records, symbol=symbol, before_ms=before_ms,
+                             now_ms=now_ms, mode="HISTORICAL_AS_OF",
+                             as_of_ms=as_of_ms)
+    result = dict(result, api_version={"major":2,"minor":0}, read_only=True,
+                  limit=expected, paper_admitted=False, immutable=False,
+                  freshness_mode="HISTORICAL_AS_OF", as_of_ms=as_of_ms)
+    if result["status"] != "PARTIAL":
+        raise ProvenanceReadError("HISTORICAL_SOURCE_NOT_QUALIFIED")
+    # Preserve the same bounded 1m -> 5m/15m projection and one Math SDK.
+    # Its closed-bar check must use the historical cutoff, not current clock.
+    projected = project_qualified_rollup(
+        result, timeframe=timeframe, limit=limit, now_ms=as_of_ms)
+    # Mark as a distinct informational DTO; historical data is not live-fresh.
+    base = {key:value for key,value in projected.items()
+            if key != "dataset_fingerprint"}
+    base.update(schema="market_data.historical-as-of-mtf-envelope.v1",
+                freshness_mode="HISTORICAL_AS_OF", as_of_ms=as_of_ms,
+                status="PARTIAL", reason="HISTORICAL_AS_OF_SOURCE_ONLY",
+                live_freshness="NOT_APPLICABLE",
+                historical_source_trust="NOT_INDEPENDENTLY_ATTESTED",
+                execution_authority=False, trading_authorized=False,
+                paper_admitted=False)
+    from market_data.provenance import digest
+    return dict(base, dataset_fingerprint=digest(base))
+
+
 class Handler(history_api.Handler):
     """Retain all v1 handlers and ingress deadlines, add managed v2 read only."""
 
@@ -92,7 +154,7 @@ class Handler(history_api.Handler):
     def do_GET(self):
         # Keep historical v1 GET behavior unchanged except for new v2
         # requirement that the entire replacement listener be Root-managed.
-        if urlsplit(self.path).path not in (ROUTE, ROLLUP_ROUTE):
+        if urlsplit(self.path).path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE):
             return super().do_GET()
         if not self._managed_request():
             return
@@ -100,22 +162,36 @@ class Handler(history_api.Handler):
             if len(self.path.encode("utf-8")) > 2048 or "#" in self.path:
                 raise ValueError("invalid route bounds")
             u=urlsplit(self.path)
-            if u.path not in (ROUTE, ROLLUP_ROUTE):
+            if u.path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE):
                 raise ValueError("route mismatch")
-            q=parse_qs(u.query,keep_blank_values=True,
-                       max_num_fields=4 if u.path == ROLLUP_ROUTE else 3,
-                       strict_parsing=True)
-            required={"symbol","limit","timeframe"} if u.path == ROLLUP_ROUTE else {"symbol","limit"}
-            if (set(q) not in (required, required | {"before_ms"})
-                    or any(len(v)!=1 for v in q.values())):
-                raise ValueError("explicit query fields required")
-            if u.path == ROLLUP_ROUTE:
-                if q["timeframe"][0] not in MINUTES or re.fullmatch(r"[1-5]", q["limit"][0]) is None:
-                    raise ValueError("invalid rollup bounds")
+            if u.path == HISTORICAL_ROUTE:
+                q=parse_qs(u.query,keep_blank_values=True,max_num_fields=5,
+                           strict_parsing=True)
+                required={"symbol","limit","timeframe","before_ms","as_of_ms"}
+                if set(q) != required or any(len(v)!=1 for v in q.values()):
+                    raise ValueError("explicit historical query fields required")
+                if (q["timeframe"][0] not in MINUTES
+                        or re.fullmatch(r"[1-5]", q["limit"][0]) is None):
+                    raise ValueError("invalid historical rollup bounds")
+            else:
+                q=parse_qs(u.query,keep_blank_values=True,
+                           max_num_fields=4 if u.path == ROLLUP_ROUTE else 3,
+                           strict_parsing=True)
+                required={"symbol","limit","timeframe"} if u.path == ROLLUP_ROUTE else {"symbol","limit"}
+                if (set(q) not in (required, required | {"before_ms"})
+                        or any(len(v)!=1 for v in q.values())):
+                    raise ValueError("explicit query fields required")
+                if u.path == ROLLUP_ROUTE:
+                    if q["timeframe"][0] not in MINUTES or re.fullmatch(r"[1-5]", q["limit"][0]) is None:
+                        raise ValueError("invalid rollup bounds")
             # Require a still-current lease immediately before reading.
             if self.server.startup_admission.require_current() is not True:
                 return self._json(503,{"error":"CURRENT_ADMISSION_REQUIRED"})
-            if u.path == ROLLUP_ROUTE:
+            if u.path == HISTORICAL_ROUTE:
+                result=historical_asof_snapshot(
+                    q["symbol"][0],q["timeframe"][0],q["limit"][0],
+                    q["before_ms"][0],q["as_of_ms"][0])
+            elif u.path == ROLLUP_ROUTE:
                 result=qualified_rollup_snapshot(
                     q["symbol"][0],q["timeframe"][0],q["limit"][0],
                     q.get("before_ms",[None])[0])
