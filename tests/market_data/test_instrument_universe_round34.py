@@ -3,9 +3,10 @@ import copy
 import unittest
 from unittest.mock import patch
 from test_qualified_rollup_round27 import handler, Admission
-from market_data_v2.read_api import INSTRUMENT_UNIVERSE_ROUTE
+from market_data_v2.read_api import INSTRUMENT_UNIVERSE_ROUTE, RECORDED_UNIVERSE_ROUTE
 from market_data_v2.instrument_universe import (
     UniverseReadError, _sha, unavailable_universe, qualified_universe_snapshot,
+    recorded_universe_snapshot,
 )
 
 
@@ -115,6 +116,93 @@ class InstrumentUniverseRound34Tests(unittest.TestCase):
         self.assertEqual(revoked.results[0][0], 503)
         self.assertEqual(revoked.results[0][1]["error"],
                          "CURRENT_ADMISSION_REQUIRED")
+
+
+    def test_real_recorded_source_is_informational_only_and_paged(self):
+        source = [
+            ("BTCUSDT", "Trading", "LinearPerpetual"),
+            ("ETHUSDT", "Trading", "LinearFutures"),
+            ("EURUSDT", "Trading", "Spot"),
+            ("SOLUSDT", "Retired", "LinearPerpetual"),
+        ]
+        read_calls = []
+        def read(limit):
+            read_calls.append(limit)
+            return source
+        result = recorded_universe_snapshot(reader=read,
+                                            observed_at_ms=1800000000000)
+        self.assertEqual(read_calls, [50001])
+        self.assertEqual(result["status"], "INFORMATIONAL")
+        self.assertEqual(result["symbol_count"], 2)
+        self.assertEqual(result["stored_retired_count"], 1)
+        self.assertEqual(result["unsupported_stored_contract_count"], 1)
+        self.assertEqual(result["pages"][0]["symbols"], ["BTCUSDT", "ETHUSDT"])
+        self.assertEqual(result["pages"][0]["page_sha256"], _sha(["BTCUSDT", "ETHUSDT"]))
+        self.assertFalse(result["consumer_cutover_authorized"])
+        self.assertFalse(result["trading_authorized"])
+        self.assertEqual(result["exchange_completeness"], "NOT_ATTESTED")
+        self.assertEqual(result["dataset_fingerprint"],
+                         _sha({k:v for k,v in result.items() if k != "dataset_fingerprint"}))
+
+    def test_recorded_source_duplicates_unsorted_and_malformed_denied(self):
+        candidates = (
+            [("BTCUSDT", "Trading", "LinearPerpetual"),
+             ("BTCUSDT", "Trading", "LinearPerpetual")],
+            [("ETHUSDT", "Trading", "LinearPerpetual"),
+             ("BTCUSDT", "Trading", "LinearPerpetual")],
+            [("BTCUSDT", "invalid", "LinearPerpetual")],
+            [("BTCUSDT", "Trading")],
+            [("BTC-USDT", "Trading", "LinearPerpetual")],
+            [("BTCUSDT", "Trading", 10)],
+            [(True, "Trading", "LinearPerpetual")],
+            [],
+            None,
+        )
+        for rows in candidates:
+            with self.subTest(rows=rows), self.assertRaises(UniverseReadError):
+                recorded_universe_snapshot(reader=lambda _:rows,
+                                           observed_at_ms=1800000000000)
+
+    def test_recorded_managed_route_preserves_sql_readonly_and_never_authorizes(self):
+        h = handler(RECORDED_UNIVERSE_ROUTE)
+        rows = [("BTCUSDT", "Trading", "LinearPerpetual")]
+        with patch("market_data.history_api.query", return_value=rows) as sql:
+            h.do_GET()
+        self.assertEqual(h.results[0][0], 200)
+        output = h.results[0][1]
+        self.assertEqual(output["schema"], "market_data.instrument-universe-recorded.v1")
+        self.assertEqual(output["pages"][0]["symbols"], ["BTCUSDT"])
+        self.assertFalse(output["consumer_cutover_authorized"])
+        self.assertFalse(output["execution_authority"])
+        self.assertEqual(output["exchange_completeness"], "NOT_ATTESTED")
+        sql.assert_called_once()
+        statement, args = sql.call_args.args
+        self.assertTrue(statement.startswith("SELECT symbol,status,contract_type FROM instruments"))
+        self.assertIn("ORDER BY symbol LIMIT %s", statement)
+        self.assertEqual(args, (50001,))
+        self.assertEqual(h.server.startup_admission.calls, 3)
+
+    def test_recorded_route_invalid_query_root_revocation_and_missing_sql(self):
+        for item, expected in (
+            (handler(RECORDED_UNIVERSE_ROUTE + "?limit=1"), 400),
+            (handler(RECORDED_UNIVERSE_ROUTE, identity=False), 503),
+            (handler(RECORDED_UNIVERSE_ROUTE, token="c" * 64), 401),
+            (handler(RECORDED_UNIVERSE_ROUTE, admission=Admission((True,True,False))), 503),
+        ):
+            with self.subTest(path=item.path):
+                with patch("market_data.history_api.query",
+                           return_value=[("BTCUSDT","Trading","LinearPerpetual")]) as sql:
+                    item.do_GET()
+                self.assertEqual(item.results[0][0], expected)
+                if expected != 503 or item.server.module_identity is None:
+                    sql.assert_not_called()
+                self.assertNotIn("symbols", item.results[0][1])
+        h = handler(RECORDED_UNIVERSE_ROUTE)
+        with patch("market_data.history_api.query",
+                   side_effect=RuntimeError("dedicated PG unavailable")):
+            h.do_GET()
+        self.assertEqual(h.results[0][0], 503)
+        self.assertNotIn("symbols", h.results[0][1])
 
 
 if __name__ == "__main__":
