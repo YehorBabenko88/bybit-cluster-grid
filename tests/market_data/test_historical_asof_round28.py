@@ -5,7 +5,7 @@ All fixtures are synthetic; no live exchange, PostgreSQL or Root issuer.
 import copy
 import unittest
 from unittest.mock import patch
-from tests.market_data.test_qualified_rollup_round27 import (
+from test_qualified_rollup_round27 import (
     NOW, BOUNDARY, fixture_minutes, handler,
 )
 from market_data.provenance import digest
