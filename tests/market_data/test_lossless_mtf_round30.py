@@ -57,6 +57,23 @@ class LosslessMtfRound30(unittest.TestCase):
                     self.assertEqual(row["delta_decimal"],
                                      str(executed_volume_delta(buy,sell)))
 
+    def test_decimal_canonical_fixed_ascii_no_exponent_or_alias(self):
+        rows=accurate_fixture(5)
+        got=qualified_rollup_snapshot(
+            "BTCUSDT","5m",1,reader=lambda *_:rows,now_ms=NOW,
+            exact=True)
+        row=got["rows"][0]
+        self.assertEqual(row["buy_volume_decimal"],"5")
+        self.assertEqual(row["sell_volume_decimal"],"0")
+        self.assertEqual(row["volume_decimal"],"5")
+        self.assertEqual(row["delta_decimal"],"5")
+        for key in ("buy_volume_decimal","sell_volume_decimal",
+                    "volume_decimal","delta_decimal"):
+            value=row[key]
+            self.assertNotIn("E",value.upper())
+            self.assertFalse(value.startswith("+"))
+            self.assertNotEqual(value,"-0")
+
     def test_huge_decimal_delta_retained_without_false_parity_refusal(self):
         records=accurate_fixture(5)
         # Canonical Math source is v1 binary64 already, but aggregate sums may
