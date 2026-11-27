@@ -9,6 +9,7 @@ from hashlib import sha1
 import importlib.util
 from pathlib import Path
 import sys
+import subprocess
 import types
 import unittest
 from unittest.mock import patch
@@ -26,12 +27,15 @@ XRP = ("XRPUSDT", "Trading", "LinearPerpetual", "USDT")
 
 
 def git_blob(path, expected):
-    data = path.read_bytes()
+    # Pin the Git object, not a platform-translated checkout file.
+    checkout = path.parents[1]
+    relative = path.relative_to(checkout).as_posix()
+    data = subprocess.check_output(
+        ["git", "-C", str(checkout), "show", "HEAD:" + relative])
     actual = sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
     if actual != expected:
         raise AssertionError("H_B311_ORIGINAL_BLOB_MISMATCH:" + path.name)
     return data
-
 
 def original_b311():
     # Separate module objects: this test never replaces or imports the installed
