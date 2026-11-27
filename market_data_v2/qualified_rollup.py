@@ -13,13 +13,14 @@ MINUTES = {"5m": 5, "15m": 15}
 MAX_SOURCE_MINUTES = 75
 
 
-def project_qualified_rollup(envelope, *, timeframe, limit):
+def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
     """Reject all incomplete, misaligned, stale or mixed-source minute windows."""
     def need(ok, reason):
         if ok is not True:
             raise ProvenanceReadError(reason)
 
     need(type(timeframe) is str and timeframe in MINUTES, "ROLLUP_TIMEFRAME")
+    need(type(now_ms) is int and 0 < now_ms < 2**63, "ROLLUP_CLOCK")
     need(type(limit) is int and 1 <= limit <= 5, "ROLLUP_LIMIT")
     need(type(envelope) is dict
          and envelope.get("schema") == "market_data.qualified-read-envelope.v1"
@@ -56,6 +57,8 @@ def project_qualified_rollup(envelope, *, timeframe, limit):
     start = rows[0].get("start_ms")
     need(type(start) is int and start % (width * 60000) == 0,
          "ROLLUP_ALIGNMENT")
+    need(type(rows[-1].get("end_ms")) is int
+         and rows[-1]["end_ms"] < now_ms, "ROLLUP_CLOSED_BAR_REQUIRED")
     need(all(type(row) is dict
              and row.get("start_ms") == start + i * 60000
              and row.get("status") == "PARTIAL"
