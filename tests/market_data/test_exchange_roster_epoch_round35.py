@@ -2,7 +2,7 @@
 import copy
 import unittest
 from types import SimpleNamespace
-from market_data_v2.exchange_roster_epoch import observe_linear_roster
+from market_data_v2.exchange_roster_epoch import observe_linear_roster, observation_for_read
 from market_data_v2.instrument_universe import UniverseReadError, _sha
 
 
@@ -116,6 +116,43 @@ class EpochTests(unittest.IsolatedAsyncioTestCase):
             await observe_linear_roster("https://invalid.example", admission=Admission(),
                                         lease_epoch="epoch", fetch_page=failing,
                                         clock_ms=lambda: 1800000000000)
+
+    async def test_changed_cursor_chain_with_same_rows_refused(self):
+        with self.assertRaisesRegex(UniverseReadError, "EPOCH_UNSTABLE"):
+            await self.scan([page([BTC], "a"), page([ETH]),
+                             page([BTC], "b"), page([ETH])])
+
+    async def test_observation_window_too_long_refused(self):
+        clock = iter((1800000000000, 1800000600001))
+        with self.assertRaisesRegex(UniverseReadError, "OBSERVATION_WINDOW"):
+            await self.scan([page([BTC]), page([BTC])],
+                            clock_ms=lambda: next(clock))
+
+    async def test_defensive_copy_no_authority(self):
+        snapshot, _ = await self.scan([page([BTC]), page([BTC])])
+        copied = observation_for_read(snapshot)
+        self.assertEqual(copied, snapshot)
+        copied["records"][0]["symbol"] = "XRPUSDT"
+        self.assertEqual(snapshot["records"][0]["symbol"], "BTCUSDT")
+        self.assertFalse(copied["delisting_authorized"])
+
+    async def test_forged_authority_refused_even_after_fingerprint_reset(self):
+        snapshot, _ = await self.scan([page([BTC]), page([BTC])])
+        for field in ("delisting_authorized", "consumer_cutover_authorized",
+                      "trading_authorized", "execution_authority", "paper_admitted"):
+            row = copy.deepcopy(snapshot)
+            row[field] = True
+            row["dataset_fingerprint"] = _sha({
+                k:v for k,v in row.items() if k != "dataset_fingerprint"})
+            with self.subTest(field=field), self.assertRaises(UniverseReadError):
+                observation_for_read(row)
+
+    async def test_malformed_cached_observation_refused(self):
+        snapshot, _ = await self.scan([page([BTC]), page([BTC])])
+        for item in (None, {}, dict(snapshot, record_count=9),
+                     dict(snapshot, dataset_fingerprint="0"*64)):
+            with self.subTest(item=str(item)[:30]), self.assertRaises(UniverseReadError):
+                observation_for_read(item)
 
     async def test_bogus_source_digest_fails(self):
         broken = page([BTC])

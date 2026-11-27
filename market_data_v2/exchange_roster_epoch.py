@@ -15,7 +15,8 @@ _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 
 async def observe_linear_roster(base_url, *, admission, lease_epoch,
                                 fetch_page=None, clock_ms=None,
-                                page_limit=1000, max_pages=128, max_symbols=4096):
+                                page_limit=1000, max_pages=128, max_symbols=4096,
+                                max_window_ms=600000):
     """Use existing Grid fetch_linear_instruments_page; optional test seam only.
 
     A Root admission guard must remain current before/after *every* request.
@@ -28,7 +29,8 @@ async def observe_linear_roster(base_url, *, admission, lease_epoch,
           "GRID_ROSTER_EPOCH_REQUIRED")
     _need(type(page_limit) is int and 1 <= page_limit <= 1000
           and type(max_pages) is int and 1 <= max_pages <= 128
-          and type(max_symbols) is int and 1 <= max_symbols <= 50000,
+          and type(max_symbols) is int and 1 <= max_symbols <= 50000
+          and type(max_window_ms) is int and 1 <= max_window_ms <= 600000,
           "GRID_ROSTER_BOUNDS")
     _need(admission is not None and callable(getattr(admission, "require_current", None)),
           "GRID_ROSTER_ROOT_ADMISSION_REQUIRED")
@@ -117,9 +119,12 @@ async def observe_linear_roster(base_url, *, admission, lease_epoch,
     last_ms = clock_ms()
     _need(type(last_ms) is int and first_ms <= last_ms < 2**63,
           "GRID_ROSTER_CLOCK_INVALID")
+    _need(last_ms - first_ms <= max_window_ms, "GRID_ROSTER_OBSERVATION_WINDOW")
     _need(first_records == second_records
-          and [p["records_sha256"] for p in first_pages]
-              == [p["records_sha256"] for p in second_pages],
+          and [(p["count"], p["records_sha256"], p["request_cursor_sha256"],
+                p["next_cursor_sha256"]) for p in first_pages]
+              == [(p["count"], p["records_sha256"], p["request_cursor_sha256"],
+                   p["next_cursor_sha256"]) for p in second_pages],
           "GRID_ROSTER_EPOCH_UNSTABLE")
     result = {
         "schema": "market_data.linear-roster-observation.v1",
@@ -144,3 +149,87 @@ async def observe_linear_roster(base_url, *, admission, lease_epoch,
                          allow_nan=False)) <= 8_388_608,
           "GRID_ROSTER_BYTE_LIMIT")
     return dict(result, dataset_fingerprint=_sha(result))
+
+
+def observation_for_read(snapshot):
+    """Defensively copy informational Root-staged observation, never grant delisting."""
+    _need(type(snapshot) is dict, "GRID_ROSTER_OBSERVATION_UNAVAILABLE")
+    try:
+        encoded = json.dumps(snapshot, sort_keys=True, separators=(",", ":"),
+                             ensure_ascii=True, allow_nan=False)
+        _need(len(encoded) <= 8_388_608, "GRID_ROSTER_BYTE_LIMIT")
+        data = json.loads(encoded)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise UniverseReadError("GRID_ROSTER_OBSERVATION_INVALID") from exc
+    keys = {"schema", "status", "venue", "market_type", "producer", "read_only",
+            "reason", "lease_epoch", "lease_epoch_authenticity",
+            "first_observed_ms", "last_observed_ms", "cursor_walks_terminated",
+            "two_walk_roster_equal", "record_count", "page_count", "records",
+            "page_evidence", "roster_sha256", "source_authenticity",
+            "exchange_completeness", "source_freshness",
+            "consumer_cutover_authorized", "delisting_authorized",
+            "execution_authority", "trading_authorized", "paper_admitted",
+            "dataset_fingerprint"}
+    _need(set(data) == keys and
+          data["schema"] == "market_data.linear-roster-observation.v1" and
+          data["status"] == "INFORMATIONAL" and data["venue"] == "Bybit" and
+          data["market_type"] == "linear" and data["producer"] == "market_data" and
+          data["read_only"] is True and
+          data["reason"] == "TWO_CURSOR_WALKS_NOT_INDEPENDENT_COMPLETENESS_PROOF" and
+          data["lease_epoch_authenticity"] == "NOT_INDEPENDENTLY_ATTESTED" and
+          data["source_authenticity"] == "NOT_INDEPENDENTLY_ATTESTED" and
+          data["exchange_completeness"] == "NOT_ATTESTED" and
+          data["source_freshness"] == "OBSERVATION_ONLY" and
+          all(data[k] is False for k in (
+              "consumer_cutover_authorized", "delisting_authorized",
+              "execution_authority", "trading_authorized", "paper_admitted")) and
+          data["cursor_walks_terminated"] == 2 and
+          data["two_walk_roster_equal"] is True,
+          "GRID_ROSTER_INFORMATIONAL_ONLY")
+    _need(type(data["first_observed_ms"]) is int and
+          type(data["last_observed_ms"]) is int and
+          0 < data["first_observed_ms"] <= data["last_observed_ms"] < 2**63 and
+          data["last_observed_ms"] - data["first_observed_ms"] <= 600000,
+          "GRID_ROSTER_OBSERVATION_WINDOW")
+    _need(type(data["lease_epoch"]) is str and 0 < len(data["lease_epoch"]) <= 128
+          and type(data["record_count"]) is int
+          and 0 < data["record_count"] <= 50000
+          and type(data["page_count"]) is int and 0 < data["page_count"] <= 128
+          and type(data["records"]) is list
+          and len(data["records"]) == data["record_count"]
+          and type(data["page_evidence"]) is list
+          and len(data["page_evidence"]) == data["page_count"],
+          "GRID_ROSTER_OBSERVATION_BOUNDS")
+    rows = []
+    for row in data["records"]:
+        _need(type(row) is dict and set(row) == {
+              "symbol", "status", "contract_type", "settle_coin"},
+              "GRID_ROSTER_OBSERVATION_ROW")
+        symbol, state, kind, settle = (row["symbol"], row["status"],
+                                      row["contract_type"], row["settle_coin"])
+        _need(type(symbol) is str and _SYMBOL.fullmatch(symbol) is not None
+              and all(type(x) is str and _FIELD.fullmatch(x) is not None
+                      for x in (state, kind))
+              and type(settle) is str and _SYMBOL.fullmatch(settle) is not None,
+              "GRID_ROSTER_OBSERVATION_ROW")
+        rows.append((symbol, state, kind, settle))
+    _need(rows == sorted(rows) and len({x[0] for x in rows}) == len(rows)
+          and data["roster_sha256"] == _sha(rows),
+          "GRID_ROSTER_OBSERVATION_FINGERPRINT")
+    count = 0
+    for i, page in enumerate(data["page_evidence"]):
+        _need(type(page) is dict and set(page) == {
+              "page_index", "count", "request_cursor_sha256",
+              "next_cursor_sha256", "body_sha256", "records_sha256"}
+              and type(page["page_index"]) is int and page["page_index"] == i
+              and type(page["count"]) is int and 0 < page["count"] <= 1000
+              and all(type(page[k]) is str and _DIGEST.fullmatch(page[k]) is not None
+                      for k in ("request_cursor_sha256", "next_cursor_sha256",
+                                "body_sha256", "records_sha256")),
+              "GRID_ROSTER_OBSERVATION_PAGE")
+        count += page["count"]
+    _need(count == len(rows) and type(data["dataset_fingerprint"]) is str
+          and data["dataset_fingerprint"] ==
+             _sha({k: v for k, v in data.items() if k != "dataset_fingerprint"}),
+          "GRID_ROSTER_OBSERVATION_FINGERPRINT")
+    return data
