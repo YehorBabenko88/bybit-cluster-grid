@@ -10,6 +10,10 @@ from decimal import Decimal
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from urllib.parse import urlsplit,parse_qs
 
+from grid.qualified_ohlcv import (
+    descriptive_snapshot, _request as _validate_descriptive_window, MAX_RESPONSE_BYTES,
+)
+
 SYMBOL=re.compile(r'^[A-Z0-9]{2,30}$')
 
 
@@ -71,9 +75,67 @@ def snapshot(route,symbol='BTCUSDT',limit=300):
         return {'version':1,'nodes':[dict(node_id=r[0],hostname=r[1],last_seen=r[2].isoformat() if r[2] else None,cpu_pct=float(r[3]) if r[3] is not None else None,ram_pct=float(r[4]) if r[4] is not None else None,disk_free_bytes=r[5],assigned_symbols=r[6]) for r in rows]}
     raise KeyError(route)
 
+_DESCRIPTIVE_PATH = '/v1/ohlcv/descriptive'
+_DESCRIPTIVE_KEYS = frozenset(('symbol', 'start_ms', 'end_ms', 'as_of_ms'))
+_DECIMAL_MS = re.compile(r'(?:0|[1-9][0-9]{0,15})\Z', re.ASCII)
+
+
+def _descriptive_parameters(raw_query):
+    # Only this opt-in route has a new strict query contract. Legacy routes keep
+    # their current parser and serialized DTO bytes unchanged.
+    if len(raw_query) > 512:
+        raise ValueError('invalid descriptive request')
+    fields = parse_qs(raw_query, keep_blank_values=True, strict_parsing=True,
+                      max_num_fields=4)
+    if set(fields) != _DESCRIPTIVE_KEYS or any(len(v) != 1 for v in fields.values()):
+        raise ValueError('invalid descriptive request')
+    symbol = fields['symbol'][0]
+    if not SYMBOL.fullmatch(symbol):
+        raise ValueError('invalid descriptive request')
+    numbers = []
+    for key in ('start_ms', 'end_ms', 'as_of_ms'):
+        value = fields[key][0]
+        if not _DECIMAL_MS.fullmatch(value):
+            raise ValueError('invalid descriptive request')
+        numbers.append(int(value))
+    _validate_descriptive_window(symbol, *numbers)
+    return symbol, *numbers
+
+
+def _descriptive_json(raw_query, *, reader=None):
+    # Invalid request != corrupt/missing persisted source. Never reveal database
+    # errors or row values over HTTP. Validation happens before invoking reader.
+    args = _descriptive_parameters(raw_query)
+    if reader is None:
+        reader = query
+    try:
+        data = descriptive_snapshot(*args, reader=reader)
+        body = json.dumps(data, allow_nan=False).encode('utf-8')
+        if len(body) > MAX_RESPONSE_BYTES:
+            raise ValueError('descriptive response too large')
+    except Exception:
+        return 503, b'{"error":"source unavailable"}'
+    return 200, body
+
+
 class Handler(BaseHTTPRequestHandler):
+    def _descriptive_GET(self, raw_query):
+        try:
+            status, body = _descriptive_json(raw_query)
+        except (ValueError, TypeError):
+            status, body = 400, b'{"error":"invalid descriptive request"}'
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
-        u=urlsplit(self.path);q=parse_qs(u.query)
+        u=urlsplit(self.path)
+        if u.path == _DESCRIPTIVE_PATH:
+            return self._descriptive_GET(u.query)
+        q=parse_qs(u.query)
         try:
             result=snapshot(u.path,q.get('symbol',['BTCUSDT'])[0],q.get('limit',[300])[0]);status=200
             body=json.dumps(result,allow_nan=False).encode()
