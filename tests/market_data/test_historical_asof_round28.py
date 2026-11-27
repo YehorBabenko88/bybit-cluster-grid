@@ -114,6 +114,21 @@ class HistoricalAsOfRound28Tests(unittest.TestCase):
         self.assertEqual(candle["delta"],0.01)
         self.assertFalse(out["execution_authority"])
 
+    def test_degraded_source_quality_never_becomes_mtf_partial(self):
+        rows=fixture_minutes(5,ingestion_ms=BOUNDARY)
+        rows[1]["quality_status"]="DEGRADED"
+        rows[1]["quality_reasons"]=["SOURCE_GAP"]
+        rows[1]["dataset_fingerprint"]=digest({
+            k:v for k,v in rows[1].items() if k!="dataset_fingerprint"})
+        with self.assertRaisesRegex(ProvenanceReadError,
+                                     "ROLLUP_SOURCE_NOT_QUALIFIED"):
+            qualified_rollup_snapshot("BTCUSDT","5m",1,
+                reader=lambda *_:rows,now_ms=NOW)
+        with self.assertRaises(ProvenanceReadError):
+            historical_asof_snapshot("BTCUSDT","5m",1,
+                BOUNDARY,BOUNDARY+60000,
+                reader=lambda *_:rows,now_ms=BOUNDARY+3600000)
+
     def test_historical_handler_managed_bearer_and_post_revoke(self):
         path=(HISTORICAL_ROUTE+"?symbol=BTCUSDT&timeframe=5m&limit=3"+
               "&before_ms="+str(BOUNDARY)+"&as_of_ms="+str(BOUNDARY+60000))

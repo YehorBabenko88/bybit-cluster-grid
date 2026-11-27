@@ -29,6 +29,7 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
          and envelope.get("timeframe") == "1m"
          and envelope.get("producer") == "market_data"
          and envelope.get("record_integrity") == "VERIFIED"
+         and envelope.get("source_declared_quality") == ["GOOD"]
          and envelope.get("status") == "PARTIAL"
          and envelope.get("reason") in ("EXCHANGE_COMPLETENESS_UNATTESTED", "HISTORICAL_AS_OF_SOURCE_ONLY")
          and envelope.get("source_authenticity") == "NOT_INDEPENDENTLY_ATTESTED"
@@ -118,6 +119,7 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
         "coverage": {"expected_minutes": expected,
                      "observed_minutes": expected, "missing_minutes": 0},
         "record_integrity": "VERIFIED",
+        "source_declared_quality": ["GOOD"],
         "source_authenticity": "NOT_INDEPENDENTLY_ATTESTED",
         "exchange_completeness": "NOT_ATTESTED",
         "quality_attestation": "NOT_INDEPENDENTLY_ATTESTED",
