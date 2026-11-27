@@ -13,7 +13,7 @@ from market_data import history_api
 from market_data.admission import startup_identity
 from .qualified_read_contract import ProvenanceReadError, qualify_records
 from .qualified_rollup import MINUTES, project_qualified_rollup
-from .instrument_universe import unavailable_universe
+from .instrument_universe import unavailable_universe, recorded_universe_snapshot
 
 ROUTE = "/internal/v2/candles/qualified"
 ROLLUP_ROUTE = "/internal/v2/candles/qualified-rollup"
@@ -21,6 +21,7 @@ HISTORICAL_ROUTE = "/internal/v2/candles/historical-as-of"
 EXACT_ROLLUP_ROUTE = "/internal/v2/candles/qualified-rollup-exact"
 EXACT_HISTORICAL_ROUTE = "/internal/v2/candles/historical-as-of-exact"
 INSTRUMENT_UNIVERSE_ROUTE = "/internal/v2/instruments/universe"
+RECORDED_UNIVERSE_ROUTE = "/internal/v2/instruments/recorded"
 _MAX_MS = 9223372036854775807
 
 
@@ -181,7 +182,7 @@ class Handler(history_api.Handler):
     def do_GET(self):
         # Keep historical v1 GET behavior unchanged except for new v2
         # requirement that the entire replacement listener be Root-managed.
-        if urlsplit(self.path).path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE, EXACT_ROLLUP_ROUTE, EXACT_HISTORICAL_ROUTE, INSTRUMENT_UNIVERSE_ROUTE):
+        if urlsplit(self.path).path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE, EXACT_ROLLUP_ROUTE, EXACT_HISTORICAL_ROUTE, INSTRUMENT_UNIVERSE_ROUTE, RECORDED_UNIVERSE_ROUTE):
             return super().do_GET()
         if not self._managed_request():
             return
@@ -189,9 +190,9 @@ class Handler(history_api.Handler):
             if len(self.path.encode("utf-8")) > 2048 or "#" in self.path:
                 raise ValueError("invalid route bounds")
             u=urlsplit(self.path)
-            if u.path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE, EXACT_ROLLUP_ROUTE, EXACT_HISTORICAL_ROUTE, INSTRUMENT_UNIVERSE_ROUTE):
+            if u.path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE, EXACT_ROLLUP_ROUTE, EXACT_HISTORICAL_ROUTE, INSTRUMENT_UNIVERSE_ROUTE, RECORDED_UNIVERSE_ROUTE):
                 raise ValueError("route mismatch")
-            if u.path == INSTRUMENT_UNIVERSE_ROUTE:
+            if u.path in (INSTRUMENT_UNIVERSE_ROUTE, RECORDED_UNIVERSE_ROUTE):
                 if u.query:
                     raise ValueError("instrument universe has no query parameters")
                 q={}
@@ -223,6 +224,10 @@ class Handler(history_api.Handler):
                 # provenance is NEVER an authorized list for mass delisting.
                 # No SQL or exchange reads and no second listener.
                 result=unavailable_universe()
+            elif u.path == RECORDED_UNIVERSE_ROUTE:
+                # Stored registry observation only; NEVER a complete or
+                # exchange-authenticated inventory and NEVER a delist grant.
+                result=recorded_universe_snapshot()
             elif u.path in (HISTORICAL_ROUTE, EXACT_HISTORICAL_ROUTE):
                 result=historical_asof_snapshot(
                     q["symbol"][0],q["timeframe"][0],q["limit"][0],
