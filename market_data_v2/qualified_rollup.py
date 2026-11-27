@@ -88,12 +88,19 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms, exact=False)
             raw_volume = exact_sum((raw_buy, raw_sell))
             raw_delta = executed_volume_delta(raw_buy, raw_sell)
             if exact:
-                # A source-exact Decimal *string* is authoritative for display;
-                # binary64 is optional legacy visualization only and may lose
-                # sub-ULP amounts. No attempt to reconstruct unknown raw ticks.
-                buy = volume_total((raw_buy,)) if raw_buy else 0.0
-                sell = volume_total((raw_sell,)) if raw_sell else 0.0
-                delta = volume_delta(raw_buy, raw_sell) if raw_delta else 0.0
+                # Binary64 fields are PRESENTATION ONLY, not numerical proof.
+                # Preserve entire finite canonical Decimal domain by allowing
+                # unrepresentable display floats to be null; consumers MUST
+                # use the exact bounded Decimal strings for authoritative
+                # arithmetic, never reverse-infer missing original precision.
+                def presentation(amount):
+                    try:
+                        return volume_total((amount,)) if amount else 0.0
+                    except (ValueError, OverflowError):
+                        return None
+                buy = presentation(raw_buy)
+                sell = presentation(raw_sell)
+                delta = presentation(raw_delta)
             else:
                 buy = volume_total((raw_buy,))
                 sell = volume_total((raw_sell,))
