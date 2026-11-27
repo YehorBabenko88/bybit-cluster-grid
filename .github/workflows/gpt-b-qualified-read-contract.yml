@@ -42,7 +42,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: YehorBabenko88/bybit-cluster-grid
-          ref: eee29d8fae7c52d5b489a86a5a9ec08718265f18
+          ref: dfbfb657002275b7dd87cdcbb675014b7b3bf788
           path: .source/grid-b311
           persist-credentials: false
       - name: Checkout D136 original qualified Terminan consumer (test only)
@@ -63,7 +63,7 @@ jobs:
             '.source/math': '9e6acbd9e12a91189f57234828e31640983af553',
             '.source/terminan-d129': '6e4a39c185d51eeab37f004964655da3b8dd938b',
             '.source/math-d167': '14d9ca92803b3ede19c7292e85c3627554d5c1d9',
-            '.source/grid-b311': 'eee29d8fae7c52d5b489a86a5a9ec08718265f18',
+            '.source/grid-b311': 'dfbfb657002275b7dd87cdcbb675014b7b3bf788',
             '.source/terminan-d136': 'fe4316d7c1580b9799903b57d8471034b5281996',
           }
           for where, sha in pins.items():
