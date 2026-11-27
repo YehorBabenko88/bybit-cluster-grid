@@ -125,8 +125,7 @@ def historical_asof_snapshot(symbol, timeframe, limit, before_ms, as_of_ms,
     # Preserve the same bounded 1m -> 5m/15m projection and one Math SDK.
     # Its closed-bar check must use the historical cutoff, not current clock.
     projected = project_qualified_rollup(
-        dict(result, reason="EXCHANGE_COMPLETENESS_UNATTESTED"),
-        timeframe=timeframe, limit=limit, now_ms=as_of_ms)
+        result, timeframe=timeframe, limit=limit, now_ms=as_of_ms)
     # Mark as a distinct informational DTO; historical data is not live-fresh.
     base = {key:value for key,value in projected.items()
             if key != "dataset_fingerprint"}
