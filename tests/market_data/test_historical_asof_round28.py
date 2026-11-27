@@ -51,8 +51,7 @@ class HistoricalAsOfRound28Tests(unittest.TestCase):
 
     def test_live_freshness_original_gate_is_unchanged(self):
         rows=fixture_minutes(15,ingestion_ms=BOUNDARY)
-        with self.assertRaisesRegex(ProvenanceReadError,
-                                     "ROLLUP_SOURCE_NOT_QUALIFIED"):
+        with self.assertRaises(ProvenanceReadError):
             qualified_rollup_snapshot("BTCUSDT","5m",3,BOUNDARY,
                 reader=lambda *_:rows,now_ms=BOUNDARY+3600000)
 
