@@ -17,11 +17,13 @@ NOW = (1800000120000 // 900000) * 900000 + 45000
 BOUNDARY = (NOW // 900000) * 900000
 
 
-def fixture_minutes(count, *, shift=0):
+def fixture_minutes(count, *, shift=0, ingestion_ms=None):
     source = producer("round27-synthetic", "a" * 40,
                       "wss://stream.bybit.com/v5/public/linear")
     start = BOUNDARY - count * 60000 + shift
     records = []
+    if ingestion_ms is None:
+        ingestion_ms = NOW + (60000 if shift else 0)
     for i in range(count):
         minute = start + i * 60000
         row = {
@@ -40,7 +42,7 @@ def fixture_minutes(count, *, shift=0):
                 "volume": 1.0, "buy_count": 1, "sell_count": 0,
             }],
         }
-        records.append(minute_record(row, NOW + 60000,
+        records.append(minute_record(row, ingestion_ms,
                                      "round27-synthetic"))
     return records
 
@@ -137,6 +139,15 @@ class QualifiedRollupRound27Tests(unittest.TestCase):
             qualified_rollup_snapshot(
                 "BTCUSDT", "5m", 3,
                 reader=lambda *_: rows, now_ms=NOW+60000)
+
+    def test_open_last_minute_is_refused_even_when_events_are_observed(self):
+        rows = fixture_minutes(15, ingestion_ms=BOUNDARY-1000)
+        # Source has an observed trade, but the UTC minute has not closed.
+        with self.assertRaisesRegex(ProvenanceReadError,
+                                    "ROLLUP_CLOSED_BAR_REQUIRED"):
+            qualified_rollup_snapshot(
+                "BTCUSDT", "5m", 3,
+                reader=lambda *_: rows, now_ms=BOUNDARY-500)
 
     def test_bad_interval_limits_and_cursor_never_access_source(self):
         def forbidden(*_):
