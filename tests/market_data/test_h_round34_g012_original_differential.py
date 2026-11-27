@@ -13,6 +13,7 @@ from hashlib import sha1
 import importlib.util
 from pathlib import Path
 import sys
+import subprocess
 import types
 import unittest
 from unittest.mock import patch
@@ -32,12 +33,15 @@ OLD_MATH_BLOB = "aebe6f799ffe2c20c9b68daad10b96764c245246"
 
 
 def _original_blob(path, expected):
-    raw = path.read_bytes()
+    # Verify canonical Git bytes; Windows checkout may translate newlines.
+    checkout = path.parents[1]
+    relative = path.relative_to(checkout).as_posix()
+    raw = subprocess.check_output(
+        ["git", "-C", str(checkout), "show", "HEAD:" + relative])
     oid = sha1(b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw).hexdigest()
     if oid != expected:
         raise AssertionError("ORIGINAL_G012_GIT_BLOB_MISMATCH: " + path.name)
     return raw
-
 
 def _original_d129():
     source = _original_blob(OLD_D, OLD_D_BLOB).decode("utf-8")
