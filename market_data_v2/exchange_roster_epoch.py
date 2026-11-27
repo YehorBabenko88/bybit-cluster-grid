@@ -19,7 +19,7 @@ _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 async def observe_linear_roster(base_url, *, admission, lease_epoch,
                                 fetch_page=None, clock_ms=None,
                                 page_limit=1000, max_pages=128, max_symbols=4096,
-                                max_window_ms=600000):
+                                max_window_ms=600000, status=None):
     """Use existing Grid fetch_linear_instruments_page; optional test seam only.
 
     A Root admission guard must remain current before/after *every* request.
@@ -35,6 +35,10 @@ async def observe_linear_roster(base_url, *, admission, lease_epoch,
           and type(max_symbols) is int and 1 <= max_symbols <= 50000
           and type(max_window_ms) is int and 1 <= max_window_ms <= 600000,
           "GRID_ROSTER_BOUNDS")
+    if status is not None:
+        from market_data.bybit import _LINEAR_STATUS_QUERY
+        _need(type(status) is str and status in _LINEAR_STATUS_QUERY,
+              "GRID_ROSTER_STATUS_FILTER_INVALID")
     _need(admission is not None and callable(getattr(admission, "require_current", None)),
           "GRID_ROSTER_ROOT_ADMISSION_REQUIRED")
     if fetch_page is None:
@@ -62,7 +66,11 @@ async def observe_linear_roster(base_url, *, admission, lease_epoch,
             current()
             requested = cursor
             try:
-                page = await fetch_page(base_url, cursor=cursor, limit=page_limit)
+                if status is None:
+                    page = await fetch_page(base_url, cursor=cursor, limit=page_limit)
+                else:
+                    page = await fetch_page(base_url, cursor=cursor, limit=page_limit,
+                                            status=status)
             except Exception as exc:
                 raise UniverseReadError("GRID_ROSTER_SOURCE_UNAVAILABLE") from exc
             current()
@@ -70,10 +78,11 @@ async def observe_linear_roster(base_url, *, admission, lease_epoch,
             next_cursor = getattr(page, "next_cursor", None)
             body = getattr(page, "response", None)
             digest = getattr(body, "body_sha256", None)
-            status = getattr(body, "status", None)
+            response_status = getattr(body, "status", None)
             _need(getattr(page, "completeness", None) == "INCOMPLETE"
-                  and type(items) in (list, tuple) and 0 < len(items) <= page_limit
-                  and type(status) is int and 200 <= status < 300
+                  and type(items) in (list, tuple) and len(items) <= page_limit
+                  and (len(items) > 0 or status is not None and next_cursor is None)
+                  and type(response_status) is int and 200 <= response_status < 300
                   and type(digest) is str and _DIGEST.fullmatch(digest) is not None,
                   "GRID_ROSTER_PAGE_PROVENANCE")
             _need(next_cursor is None or (type(next_cursor) is str
@@ -94,6 +103,8 @@ async def observe_linear_roster(base_url, *, admission, lease_epoch,
                       and type(kind) is str and _FIELD.fullmatch(kind) is not None
                       and type(settle) is str and _SYMBOL.fullmatch(settle) is not None,
                       "GRID_ROSTER_RECORD_FIELDS")
+                _need(status is None or state == status,
+                      "GRID_ROSTER_STATUS_FILTER_MISMATCH")
                 _need(symbol not in seen_symbols, "GRID_ROSTER_DUPLICATE_SYMBOL")
                 seen_symbols.add(symbol)
                 subset.append((symbol, state, kind, settle))
@@ -143,7 +154,7 @@ async def observe_linear_roster(base_url, *, admission, lease_epoch,
                          settle_coin=settle) for s, state, kind, settle in first_records],
         "page_evidence": first_pages, "roster_sha256": _sha(first_records),
         "source_authenticity": "NOT_INDEPENDENTLY_ATTESTED",
-        "source_status_query": "OMITTED",
+        "source_status_query": "OMITTED" if status is None else status,
         "all_exchange_statuses_enumerated": False,
         "exchange_completeness": "NOT_ATTESTED", "source_freshness": "OBSERVATION_ONLY",
         "consumer_cutover_authorized": False, "delisting_authorized": False,
