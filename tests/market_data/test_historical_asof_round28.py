@@ -90,6 +90,30 @@ class HistoricalAsOfRound28Tests(unittest.TestCase):
                     BOUNDARY,BOUNDARY+60000,
                     reader=lambda *_:sample,now_ms=BOUNDARY+3600000)
 
+    def test_decimal_directional_delta_survives_binary64_total_rounding(self):
+        # Independent Math numeric regression: per-minute 1e16 directional
+        # amounts plus a small 0.01 imbalance are source-valid binary64.
+        # Rounding aggregated directional totals to float first would erase
+        # the imbalance. Canonical Math exact_sum must run before conversion.
+        rows=fixture_minutes(5,ingestion_ms=BOUNDARY)
+        for i,item in enumerate(rows):
+            buy=1e16 if i==0 else (1.01 if i==1 else 1.0)
+            sell=1e16 if i==0 else 1.0
+            delta=0.01 if i==1 else 0.0
+            candle=item["candle"]
+            candle.update(buy_volume=buy,sell_volume=sell,delta=delta)
+            item["levels"][0].update(
+                buy_volume=buy,sell_volume=sell,delta=delta,
+                volume=buy+sell)
+            item["dataset_fingerprint"]=digest({
+                k:v for k,v in item.items() if k!="dataset_fingerprint"})
+        out=qualified_rollup_snapshot(
+            "BTCUSDT","5m",1,reader=lambda *_:rows,now_ms=NOW)
+        candle=out["rows"][0]
+        self.assertEqual(candle["buy_volume"],candle["sell_volume"])
+        self.assertEqual(candle["delta"],0.01)
+        self.assertFalse(out["execution_authority"])
+
     def test_historical_handler_managed_bearer_and_post_revoke(self):
         path=(HISTORICAL_ROUTE+"?symbol=BTCUSDT&timeframe=5m&limit=3"+
               "&before_ms="+str(BOUNDARY)+"&as_of_ms="+str(BOUNDARY+60000))
