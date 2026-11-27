@@ -24,17 +24,17 @@ jobs:
           ref: 9e6acbd9e12a91189f57234828e31640983af553
           path: .source/math
           persist-credentials: false
-      - name: Checkout exact D133 Terminan consumer and historical UI candidate
+      - name: Checkout exact D134 Terminan consumer and managed Grid regression
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: YehorBabenko88/Terminan
-          ref: bcdf3287a47e60f6c50022adce7651bcb51e587f
+          ref: 3608e41b90b2dbf7a80d7daa86582a2440e11330
           path: .source/terminan
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: ${{ matrix.python }}
-      - name: Confirm immutable Grid Math and D133 checkouts
+      - name: Confirm immutable Grid Math and D134 checkouts
         shell: python
         env:
           GRID_TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -43,7 +43,7 @@ jobs:
           assert subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip() == os.environ['GRID_TEST_SHA']
           root=pathlib.Path('.source/math')
           assert subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip() == '9e6acbd9e12a91189f57234828e31640983af553'
-          assert subprocess.check_output(['git','-C','.source/terminan','rev-parse','HEAD'],text=True).strip() == 'bcdf3287a47e60f6c50022adce7651bcb51e587f'
+          assert subprocess.check_output(['git','-C','.source/terminan','rev-parse','HEAD'],text=True).strip() == '3608e41b90b2dbf7a80d7daa86582a2440e11330'
       - name: Install exact Math and pytest without credentials
         run: |
           python -m pip install --no-deps ./.source/math
@@ -62,7 +62,7 @@ jobs:
       - name: Execute qualified provenance and authenticated route regression suite
         run: python -m pytest -v --strict-markers -p no:cacheprovider tests/market_data/test_qualified_read_contract.py tests/market_data/test_qualified_route_v2.py tests/market_data/test_qualified_read_schema_v2.py tests/market_data/test_v2_wheel_guard.py tests/market_data/test_c_lab_fenced_writer.py tests/market_data/test_qualified_rollup_round27.py tests/market_data/test_historical_asof_round28.py tests/market_data/test_lossless_mtf_round30.py
 
-      - name: Execute original D133 managed Grid to Terminan HTTP roundtrip (inert)
+      - name: Execute original D134 managed Grid to Terminan HTTP roundtrip (inert)
         working-directory: .source/terminan
         env:
           ROUND3_GRID_SOURCE: ${{ github.workspace }}
