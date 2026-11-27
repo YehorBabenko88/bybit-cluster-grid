@@ -88,6 +88,12 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
             buy = volume_total((raw_buy,))
             sell = volume_total((raw_sell,))
             delta = volume_delta(raw_buy, raw_sell)
+            # The wire DTO includes binary64 buy/sell, which may round away a
+            # small exact difference. Until the consumer can independently
+            # validate the original exact directional totals, refuse rather
+            # than ship a seemingly valid but uncheckable numeric receipt.
+            need(delta == volume_delta(buy, sell),
+                 "ROLLUP_BINARY64_PARITY_UNAVAILABLE")
             trades = sum(row["candle"]["trade_count"] for row in group)
         except (ValueError, OverflowError, ArithmeticError) as exc:
             raise ProvenanceReadError("ROLLUP_NUMERIC_UNAVAILABLE") from exc
@@ -119,7 +125,6 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
         "coverage": {"expected_minutes": expected,
                      "observed_minutes": expected, "missing_minutes": 0},
         "record_integrity": "VERIFIED",
-        "source_declared_quality": ["GOOD"],
         "source_authenticity": "NOT_INDEPENDENTLY_ATTESTED",
         "exchange_completeness": "NOT_ATTESTED",
         "quality_attestation": "NOT_INDEPENDENTLY_ATTESTED",
