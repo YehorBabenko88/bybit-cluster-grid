@@ -119,3 +119,72 @@ def unavailable_universe(reason="UNIVERSE_SOURCE_NOT_INDEPENDENTLY_ATTESTED"):
         "paper_admitted": False, "consumer_cutover_authorized": False,
     }
     return dict(receipt, dataset_fingerprint=_sha(receipt))
+
+
+def recorded_universe_snapshot(*, reader=None, observed_at_ms=None):
+    """Read the entire bounded STORED registry for diagnostics, not delisting.
+
+    A single canonical Grid read-only SQL statement supplies one PostgreSQL
+    statement snapshot; no outbound Bybit connection or separate SQL writer.
+    This DOES NOT prove the storage contains every current exchange symbol.
+    The caller/HTTP handler must require current Root admission before/after.
+    """
+    import time
+    from market_data import history_api
+    if observed_at_ms is None:
+        observed_at_ms = int(time.time() * 1000)
+    _need(type(observed_at_ms) is int and 0 < observed_at_ms < 2**63,
+          "UNIVERSE_RECORDED_CLOCK")
+    source = reader if reader is not None else (
+        lambda count: history_api.query(
+            "SELECT symbol,status,contract_type FROM instruments "
+            "ORDER BY symbol LIMIT %s", (count,)))
+    _need(callable(source), "UNIVERSE_RECORDED_READER")
+    records = source(_MAX_SYMBOLS + 1)
+    _need(type(records) in (list, tuple) and 0 < len(records) <= _MAX_SYMBOLS,
+          "UNIVERSE_RECORDED_SOURCE_BOUNDS")
+    symbols = []
+    retired = 0
+    previous = None
+    for record in records:
+        _need(type(record) in (tuple, list) and len(record) == 3,
+              "UNIVERSE_RECORDED_ROW_SCHEMA")
+        symbol, status, contract_type = record
+        _need(type(symbol) is str and 0 < len(symbol) <= 36
+              and re.fullmatch(r"[A-Z0-9]{1,36}", symbol) is not None
+              and (previous is None or previous < symbol),
+              "UNIVERSE_RECORDED_ROW_ORDER")
+        previous = symbol
+        _need(type(status) is str and status in ("Trading", "Retired")
+              and (contract_type is None or
+                   type(contract_type) is str and len(contract_type) <= 64),
+              "UNIVERSE_RECORDED_ROW_STATUS")
+        if status == "Retired":
+            retired += 1
+        elif _SYMBOL.fullmatch(symbol) is not None:
+            # Informational only: no verified exchange enumeration/freshness.
+            symbols.append(symbol)
+    pages = []
+    for index, start in enumerate(range(0, len(symbols), _MAX_PAGE_SIZE)):
+        page = symbols[start:start + _MAX_PAGE_SIZE]
+        pages.append({"page_index": index, "symbols": page,
+                      "page_sha256": _sha(page)})
+    _need(len(pages) <= _MAX_PAGES, "UNIVERSE_RECORDED_PAGE_BOUNDS")
+    result = {
+        "schema": "market_data.instrument-universe-recorded.v1",
+        "status": "INFORMATIONAL", "reason": "STORED_GRID_REGISTRY_NOT_EXCHANGE_ENUMERATION",
+        "producer": "market_data", "venue": "Bybit", "market_type": "linear",
+        "observed_at_ms": observed_at_ms, "stored_row_count": len(records),
+        "stored_retired_count": retired, "symbol_count": len(symbols),
+        "page_count": len(pages), "pages": pages,
+        "source_authenticity": "NOT_INDEPENDENTLY_ATTESTED",
+        "exchange_completeness": "NOT_ATTESTED",
+        "source_freshness": "NOT_ATTESTED",
+        "read_only": True, "consumer_cutover_authorized": False,
+        "execution_authority": False, "trading_authorized": False,
+        "paper_admitted": False,
+    }
+    _need(len(json.dumps(result, sort_keys=True, separators=(",", ":"),
+                         allow_nan=False)) <= 8_388_608,
+          "UNIVERSE_RECORDED_BYTE_BOUND")
+    return dict(result, dataset_fingerprint=_sha(result))
