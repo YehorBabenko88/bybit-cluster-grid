@@ -165,7 +165,7 @@ class Handler(history_api.Handler):
             if len(self.path.encode("utf-8")) > 2048 or "#" in self.path:
                 raise ValueError("invalid route bounds")
             u=urlsplit(self.path)
-            if u.path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE):
+            if u.path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE, EXACT_ROLLUP_ROUTE, EXACT_HISTORICAL_ROUTE):
                 raise ValueError("route mismatch")
             if u.path in (HISTORICAL_ROUTE, EXACT_HISTORICAL_ROUTE):
                 q=parse_qs(u.query,keep_blank_values=True,max_num_fields=5,
