@@ -95,6 +95,8 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
             need(delta == volume_delta(buy, sell),
                  "ROLLUP_BINARY64_PARITY_UNAVAILABLE")
             trades = sum(row["candle"]["trade_count"] for row in group)
+        except ProvenanceReadError:
+            raise
         except (ValueError, OverflowError, ArithmeticError) as exc:
             raise ProvenanceReadError("ROLLUP_NUMERIC_UNAVAILABLE") from exc
         need(type(trades) is int and 0 <= trades < 2**63, "ROLLUP_TRADES")
