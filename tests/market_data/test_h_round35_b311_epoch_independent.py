@@ -20,7 +20,7 @@ UPSTREAM = ROOT / ".source" / "grid-b311" / "market_data_v2"
 UNIVERSE = UPSTREAM / "instrument_universe.py"
 EPOCH = UPSTREAM / "exchange_roster_epoch.py"
 UNIVERSE_BLOB = "d05cb998c71cf4b5c0076eb2bec060bedb478767"
-EPOCH_BLOB = "42ee1555697e76bb36b748c75113180d9205ec6d"
+EPOCH_BLOB = "b568b1dd2bef92467d2896c40a0b861eea306dcc"
 BTC = ("BTCUSDT", "Trading", "LinearPerpetual", "USDT")
 ETH = ("ETHUSDT", "Trading", "LinearPerpetual", "USDT")
 XRP = ("XRPUSDT", "Trading", "LinearPerpetual", "USDT")
@@ -155,7 +155,7 @@ class B311OriginalEpochIndependent(unittest.IsolatedAsyncioTestCase):
 
     async def test_root_staged_observation_read_is_still_informational(self):
         observed, _ = await self.scan([page([BTC]), page([BTC])])
-        checked = self.original.observation_for_read(observed)
+        checked = self.original.observation_for_read(observed, expected_lease_epoch="h-isolated-epoch", now_ms=1800000000000)
         self.assertEqual(checked, observed)
         self.assertIsNot(checked, observed)
         self.assertEqual(checked["status"], "INFORMATIONAL")
@@ -179,7 +179,46 @@ class B311OriginalEpochIndependent(unittest.IsolatedAsyncioTestCase):
                 if k != "dataset_fingerprint"})
             with self.subTest(field=field), self.assertRaises(
                     self.universe.UniverseReadError):
-                self.original.observation_for_read(altered)
+                self.original.observation_for_read(altered, expected_lease_epoch="h-isolated-epoch", now_ms=1800000000000)
+
+    async def test_root_staged_bytes_survive_clean_read_and_reject_replay(self):
+        observed, _ = await self.scan([page([BTC]), page([BTC])])
+        staged = self.original.freeze_observation_for_root(
+            observed, expected_lease_epoch="h-isolated-epoch",
+            now_ms=1800000000000)
+        checked = self.original.read_root_staged_roster(
+            staged, expected_lease_epoch="h-isolated-epoch",
+            now_ms=1800000000000)
+        self.assertEqual(checked, observed)
+        self.assertFalse(checked["delisting_authorized"])
+        self.assertFalse(checked["consumer_cutover_authorized"])
+        for incorrect in ("wrong-epoch", None):
+            with self.subTest(incorrect=incorrect), self.assertRaises(
+                    self.universe.UniverseReadError):
+                self.original.read_root_staged_roster(
+                    staged, expected_lease_epoch=incorrect,
+                    now_ms=1800000000000)
+        with self.assertRaisesRegex(self.universe.UniverseReadError,
+                                    "ROOT_STAGE_STALE"):
+            self.original.read_root_staged_roster(
+                staged, expected_lease_epoch="h-isolated-epoch",
+                now_ms=1800000060001)
+
+    async def test_immutable_stage_tampered_bytes_and_digest_refused(self):
+        from dataclasses import replace
+        observed, _ = await self.scan([page([BTC]), page([BTC])])
+        staged = self.original.freeze_observation_for_root(
+            observed, expected_lease_epoch="h-isolated-epoch",
+            now_ms=1800000000000)
+        for corrupted in (
+            replace(staged, payload_json=staged.payload_json + b"x"),
+            replace(staged, payload_sha256="0" * 64),
+        ):
+            with self.subTest(corrupted=corrupted.payload_sha256), self.assertRaisesRegex(
+                    self.universe.UniverseReadError, "IMMUTABLE_STAGE_CORRUPT"):
+                self.original.read_root_staged_roster(
+                    corrupted, expected_lease_epoch="h-isolated-epoch",
+                    now_ms=1800000000000)
 
     async def test_forged_digest_or_missing_root_refused(self):
         with self.assertRaisesRegex(self.universe.UniverseReadError,
