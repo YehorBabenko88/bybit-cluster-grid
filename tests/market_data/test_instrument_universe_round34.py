@@ -1,6 +1,9 @@
 """Inert fail-closed source-custody checks; no exchange, SQL or Root mutation."""
 import copy
 import unittest
+from unittest.mock import patch
+from test_qualified_rollup_round27 import handler, Admission
+from market_data_v2.read_api import INSTRUMENT_UNIVERSE_ROUTE
 from market_data_v2.instrument_universe import (
     UniverseReadError, _sha, unavailable_universe, qualified_universe_snapshot,
 )
@@ -75,6 +78,43 @@ class InstrumentUniverseRound34Tests(unittest.TestCase):
         self.assertFalse(row["consumer_cutover_authorized"])
         self.assertEqual(row["source_authenticity"], "NOT_ATTESTED")
         self.assertEqual(row["exchange_completeness"], "NOT_ATTESTED")
+
+
+    def test_root_managed_inert_universe_route_denies_without_sql(self):
+        h = handler(INSTRUMENT_UNIVERSE_ROUTE)
+        with patch("market_data.history_api.immutable_minutes",
+                   side_effect=AssertionError("unexpected PostgreSQL read")):
+            with patch("market_data.history_api.query",
+                       side_effect=AssertionError("unexpected registry query")):
+                h.do_GET()
+        self.assertEqual(len(h.results), 1)
+        self.assertEqual(h.results[0][0], 503)
+        self.assertEqual(h.results[0][1], unavailable_universe())
+        self.assertEqual(h.server.startup_admission.calls, 3)
+
+    def test_universe_route_requires_root_identity_and_valid_bearer(self):
+        for h in (handler(INSTRUMENT_UNIVERSE_ROUTE, identity=False),
+                  handler(INSTRUMENT_UNIVERSE_ROUTE, token=None),
+                  handler(INSTRUMENT_UNIVERSE_ROUTE, token="c" * 64)):
+            with self.subTest(path=h.path):
+                with patch("market_data.history_api.immutable_minutes",
+                           side_effect=AssertionError("unmanaged PostgreSQL read")):
+                    h.do_GET()
+                self.assertIn(h.results[0][0], (401, 503))
+                self.assertFalse(h.results[0][1].get("trading_authorized", False))
+
+    def test_universe_route_rejects_query_and_postread_lease_revocation(self):
+        query = handler(INSTRUMENT_UNIVERSE_ROUTE + "?symbol=BTCUSDT")
+        with patch("market_data.history_api.immutable_minutes",
+                   side_effect=AssertionError("query must not read SQL")):
+            query.do_GET()
+        self.assertEqual(query.results[0][0], 400)
+        revoked = handler(INSTRUMENT_UNIVERSE_ROUTE,
+                          admission=Admission((True, True, False)))
+        revoked.do_GET()
+        self.assertEqual(revoked.results[0][0], 503)
+        self.assertEqual(revoked.results[0][1]["error"],
+                         "CURRENT_ADMISSION_REQUIRED")
 
 
 if __name__ == "__main__":
