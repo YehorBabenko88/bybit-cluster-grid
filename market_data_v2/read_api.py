@@ -72,8 +72,10 @@ def qualified_rollup_snapshot(symbol, timeframe, limit, before_ms=None, *, reade
     if type(limit) is not int or not 1 <= limit <= 5:
         raise ValueError("QUALIFIED_ROLLUP_LIMIT_REQUIRED")
     expected = limit * MINUTES[timeframe]
+    if now_ms is None:
+        now_ms = int(time.time() * 1000)
     original = qualified_snapshot(symbol, expected, before_ms, reader=reader, now_ms=now_ms)
-    return project_qualified_rollup(original, timeframe=timeframe, limit=limit)
+    return project_qualified_rollup(original, timeframe=timeframe, limit=limit, now_ms=now_ms)
 
 
 class Handler(history_api.Handler):
