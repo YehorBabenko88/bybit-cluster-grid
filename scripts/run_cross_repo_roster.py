@@ -27,6 +27,10 @@ def main(argv=None):
     if report.exists():
         raise RuntimeError("evidence must be a new file")
     mapping = PARTITION["validate"]()
+    # Some subprocess-isolation tests restore os.environ on Windows, where
+    # empty inherited Git config values can disappear. Preserve the original
+    # Git environment for both exact checkout identity queries.
+    git_env = os.environ.copy()
     if args.scope == "grid":
         root = GRID
         nodes = mapping["grid_nodes"]
@@ -38,7 +42,7 @@ def main(argv=None):
             raise RuntimeError("source root cannot alias Grid source")
         head = subprocess.check_output(
             ["git", "-C", str(root), "rev-parse", "HEAD"],
-            text=True,
+            text=True, env=git_env,
         ).strip()
         if head != SOURCE_SHA:
             raise RuntimeError("source SHA differs from sealed custody pin")
@@ -58,6 +62,10 @@ def main(argv=None):
     # self-relative archives; no production network or credentials supplied.
     os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     os.chdir(root)
+    # Importlib mode does not add sibling fixture modules to sys.path.
+    # These are test-only roots; runtime modules still come from the installed wheel.
+    sys.path[:0] = [str(root / "tests" / "market_data"),
+                    str(root / "tests" / "marketdata")]
     import pytest
     result = pytest.main([
         "--rootdir", str(root),
@@ -72,7 +80,7 @@ def main(argv=None):
         "scope": args.scope,
         "source_sha": SOURCE_SHA,
         "grid_head": subprocess.check_output(
-            ["git", "-C", str(GRID), "rev-parse", "HEAD"], text=True
+            ["git", "-C", str(GRID), "rev-parse", "HEAD"], text=True, env=git_env
         ).strip(),
         "node_count": len(nodes),
         "total_required": mapping["total"],

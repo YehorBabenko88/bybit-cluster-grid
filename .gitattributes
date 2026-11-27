@@ -10,3 +10,7 @@ installer/PortableRuntime.psm1 -text
 installer/NativeJobProcess.cs -text
 installer/PinnedVendorDownload.psm1 -text
 installer/pinned-vendor-download.tests.ps1 -text
+
+# Custody tests authenticate raw committed bytes on Windows as well as POSIX.
+/scripts/runtime_lineage_custody.py -text
+/docs/** -text
