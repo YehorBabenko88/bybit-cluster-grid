@@ -60,7 +60,7 @@ def main():
  if v2_dir.exists():
   assert data_project['version']=='0.2.0.dev0','unapproved qualified read package version'
   assert v2_dir.is_dir() and not v2_dir.is_symlink()
-  allowed={'__init__.py','qualified_read_contract.py','read_api.py'}
+  allowed={'__init__.py','qualified_read_contract.py','read_api.py','qualified_rollup.py'}
   entries=list(v2_dir.iterdir())
   assert {p.name for p in entries}==allowed and all(p.is_file() and not p.is_symlink() for p in entries),'unknown or linked v2 runtime'
   v2={p.relative_to(root).as_posix():p.read_bytes() for p in entries}

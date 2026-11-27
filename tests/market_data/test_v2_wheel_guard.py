@@ -16,6 +16,7 @@ SRC={
     "market_data_v2/__init__.py":b"# exact v2 initializer\n",
     "market_data_v2/qualified_read_contract.py":b"# exact v2 validator\n",
     "market_data_v2/read_api.py":b"# exact v2 read route\n",
+    "market_data_v2/qualified_rollup.py":b"# exact bounded v2 rollup\n",
 }
 PROJECT={
     "name":"market-data","version":"0.2.0.dev0",
@@ -67,10 +68,20 @@ class StrictAdditiveWheelTests(unittest.TestCase):
     def test_exact_additive_v2_wheel_accepted(self):
         raw=self.check()
         self.assertEqual(set(SRC).issubset(raw),True)
-        self.assertEqual(len([k for k in raw if k.startswith("market_data_v2/")]),3)
+        self.assertEqual(len([k for k in raw if k.startswith("market_data_v2/")]),4)
 
     def test_extra_unapproved_namespace_member_refused(self):
         payload={**SRC,"market_data_v2/unreviewed_writer.py":b"# forbidden\n"}
+        with self.assertRaises(AssertionError):
+            self.check(content=payload)
+
+    def test_missing_v2_rollup_refused(self):
+        payload=dict(SRC);del payload["market_data_v2/qualified_rollup.py"]
+        with self.assertRaises(AssertionError):
+            self.check(content=payload)
+
+    def test_changed_v2_rollup_bytes_refused(self):
+        payload=dict(SRC);payload["market_data_v2/qualified_rollup.py"]=b"unsafe rewrite"
         with self.assertRaises(AssertionError):
             self.check(content=payload)
 

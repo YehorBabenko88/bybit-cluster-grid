@@ -12,8 +12,10 @@ from urllib.parse import urlsplit, parse_qs
 from market_data import history_api
 from market_data.admission import startup_identity
 from .qualified_read_contract import ProvenanceReadError, qualify_records
+from .qualified_rollup import MINUTES, project_qualified_rollup
 
 ROUTE = "/internal/v2/candles/qualified"
+ROLLUP_ROUTE = "/internal/v2/candles/qualified-rollup"
 _MAX_MS = 9223372036854775807
 
 
@@ -61,6 +63,21 @@ def qualified_snapshot(symbol, limit, before_ms=None, *, reader=None, now_ms=Non
                 limit=limit,paper_admitted=False)
 
 
+def qualified_rollup_snapshot(symbol, timeframe, limit, before_ms=None, *, reader=None, now_ms=None):
+    """Reuse the existing qualified 1m reader with a 75-minute bound."""
+    if type(timeframe) is not str or timeframe not in MINUTES:
+        raise ValueError("QUALIFIED_ROLLUP_TIMEFRAME_REQUIRED")
+    if type(limit) is str and re.fullmatch(r"[1-5]", limit):
+        limit = int(limit)
+    if type(limit) is not int or not 1 <= limit <= 5:
+        raise ValueError("QUALIFIED_ROLLUP_LIMIT_REQUIRED")
+    expected = limit * MINUTES[timeframe]
+    if now_ms is None:
+        now_ms = int(time.time() * 1000)
+    original = qualified_snapshot(symbol, expected, before_ms, reader=reader, now_ms=now_ms)
+    return project_qualified_rollup(original, timeframe=timeframe, limit=limit, now_ms=now_ms)
+
+
 class Handler(history_api.Handler):
     """Retain all v1 handlers and ingress deadlines, add managed v2 read only."""
 
@@ -75,7 +92,7 @@ class Handler(history_api.Handler):
     def do_GET(self):
         # Keep historical v1 GET behavior unchanged except for new v2
         # requirement that the entire replacement listener be Root-managed.
-        if urlsplit(self.path).path != ROUTE:
+        if urlsplit(self.path).path not in (ROUTE, ROLLUP_ROUTE):
             return super().do_GET()
         if not self._managed_request():
             return
@@ -83,17 +100,28 @@ class Handler(history_api.Handler):
             if len(self.path.encode("utf-8")) > 2048 or "#" in self.path:
                 raise ValueError("invalid route bounds")
             u=urlsplit(self.path)
-            if u.path != ROUTE:
+            if u.path not in (ROUTE, ROLLUP_ROUTE):
                 raise ValueError("route mismatch")
-            q=parse_qs(u.query,keep_blank_values=True,max_num_fields=3,
+            q=parse_qs(u.query,keep_blank_values=True,
+                       max_num_fields=4 if u.path == ROLLUP_ROUTE else 3,
                        strict_parsing=True)
-            if set(q) not in ({"symbol","limit"},{"symbol","limit","before_ms"}) or any(len(v)!=1 for v in q.values()):
+            required={"symbol","limit","timeframe"} if u.path == ROLLUP_ROUTE else {"symbol","limit"}
+            if (set(q) not in (required, required | {"before_ms"})
+                    or any(len(v)!=1 for v in q.values())):
                 raise ValueError("explicit query fields required")
+            if u.path == ROLLUP_ROUTE:
+                if q["timeframe"][0] not in MINUTES or re.fullmatch(r"[1-5]", q["limit"][0]) is None:
+                    raise ValueError("invalid rollup bounds")
             # Require a still-current lease immediately before reading.
             if self.server.startup_admission.require_current() is not True:
                 return self._json(503,{"error":"CURRENT_ADMISSION_REQUIRED"})
-            result=qualified_snapshot(q["symbol"][0],q["limit"][0],
-                                      q.get("before_ms",[None])[0])
+            if u.path == ROLLUP_ROUTE:
+                result=qualified_rollup_snapshot(
+                    q["symbol"][0],q["timeframe"][0],q["limit"][0],
+                    q.get("before_ms",[None])[0])
+            else:
+                result=qualified_snapshot(q["symbol"][0],q["limit"][0],
+                                          q.get("before_ms",[None])[0])
             # Deny a post-read lease revocation, avoiding stale read display.
             if self.server.startup_admission.require_current() is not True:
                 return self._json(503,{"error":"CURRENT_ADMISSION_REQUIRED"})
