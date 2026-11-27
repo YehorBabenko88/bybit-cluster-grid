@@ -171,10 +171,10 @@ class ObservedRouteTests(unittest.TestCase):
 
     def test_epoch_swaps_between_read_and_response_are_denied(self):
         class SwappingEpoch(HttpEpochAdmission):
-            calls = 0
+            epoch_calls = 0
             def current_roster_epoch(self):
-                self.calls += 1
-                return "opaque-root-epoch" if self.calls == 1 else "new-root-epoch"
+                self.epoch_calls += 1
+                return "opaque-root-epoch" if self.epoch_calls == 1 else "new-root-epoch"
         h = handler(OBSERVED_UNIVERSE_ROUTE, admission=SwappingEpoch())
         h.server.roster_observation = staged_observation()
         h.do_GET()
