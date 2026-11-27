@@ -1,7 +1,10 @@
 """Root-managed HTTP negative tests; no Bybit, SQL, trading or mutation."""
 import asyncio
 import copy
+import json
+import hashlib
 import unittest
+from dataclasses import FrozenInstanceError, replace
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -9,7 +12,8 @@ from test_qualified_rollup_round27 import handler, Admission as HttpAdmission
 from market_data_v2.read_api import (
     OBSERVED_UNIVERSE_ROUTE, INSTRUMENT_UNIVERSE_ROUTE,
 )
-from market_data_v2.exchange_roster_epoch import observe_linear_roster
+from market_data_v2.exchange_roster_epoch import (
+    observe_linear_roster, freeze_observation_for_root, RootStagedRoster)
 from market_data_v2.instrument_universe import _sha
 from market_data_v2 import read_api
 
@@ -36,10 +40,13 @@ def staged_observation():
     async def fetch(base_url, *, cursor, limit):
         assert cursor is None and limit == 1000
         return p
-    return asyncio.run(observe_linear_roster(
+    raw = asyncio.run(observe_linear_roster(
         "https://invalid.example", admission=RootAdmission(),
         lease_epoch="opaque-root-epoch", fetch_page=fetch,
         clock_ms=lambda: 1800000000000))
+    return freeze_observation_for_root(
+        raw, expected_lease_epoch="opaque-root-epoch",
+        now_ms=1800000000000)
 
 
 class ObservedRouteTests(unittest.TestCase):
@@ -100,11 +107,16 @@ class ObservedRouteTests(unittest.TestCase):
 
     def test_rehashed_forged_delisting_flag_is_still_rejected(self):
         h = handler(OBSERVED_UNIVERSE_ROUTE, admission=HttpEpochAdmission())
-        row = copy.deepcopy(staged_observation())
+        frozen = staged_observation()
+        row = json.loads(frozen.payload_json)
         row["delisting_authorized"] = True
         row["dataset_fingerprint"] = _sha({
             k: v for k, v in row.items() if k != "dataset_fingerprint"})
-        h.server.roster_observation = row
+        forged = json.dumps(row, sort_keys=True, separators=(",", ":"),
+                            ensure_ascii=True).encode("ascii")
+        h.server.roster_observation = replace(
+            frozen, payload_json=forged,
+            payload_sha256=hashlib.sha256(forged).hexdigest())
         h.do_GET()
         self.assertEqual(h.results[0][0], 503)
         self.assertNotIn("records", h.results[0][1])
@@ -122,6 +134,37 @@ class ObservedRouteTests(unittest.TestCase):
                 return "new-epoch"
         h = handler(OBSERVED_UNIVERSE_ROUTE, admission=ChangedEpoch())
         h.server.roster_observation = staged_observation()
+        h.do_GET()
+        self.assertEqual(h.results[0][0], 503)
+        self.assertNotIn("records", h.results[0][1])
+
+    def test_unfrozen_dict_staged_source_is_denied(self):
+        h = handler(OBSERVED_UNIVERSE_ROUTE, admission=HttpEpochAdmission())
+        raw = json.loads(staged_observation().payload_json)
+        h.server.roster_observation = raw
+        h.do_GET()
+        self.assertEqual(h.results[0][0], 503)
+        self.assertNotIn("records", h.results[0][1])
+
+    def test_staged_bytes_are_immutable(self):
+        frozen = staged_observation()
+        with self.assertRaises(FrozenInstanceError):
+            frozen.payload_json = b"changed"
+        self.assertIs(type(frozen.payload_json), bytes)
+
+    def test_mutated_payload_digest_is_denied(self):
+        h = handler(OBSERVED_UNIVERSE_ROUTE, admission=HttpEpochAdmission())
+        frozen = staged_observation()
+        h.server.roster_observation = replace(
+            frozen, payload_json=frozen.payload_json + b" ")
+        h.do_GET()
+        self.assertEqual(h.results[0][0], 503)
+        self.assertNotIn("records", h.results[0][1])
+
+    def test_replayed_staging_clock_is_denied(self):
+        h = handler(OBSERVED_UNIVERSE_ROUTE, admission=HttpEpochAdmission())
+        frozen = staged_observation()
+        h.server.roster_observation = replace(frozen, captured_ms=1799999900000)
         h.do_GET()
         self.assertEqual(h.results[0][0], 503)
         self.assertNotIn("records", h.results[0][1])

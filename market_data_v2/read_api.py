@@ -14,7 +14,7 @@ from market_data.admission import startup_identity
 from .qualified_read_contract import ProvenanceReadError, qualify_records
 from .qualified_rollup import MINUTES, project_qualified_rollup
 from .instrument_universe import UniverseReadError, unavailable_universe, recorded_universe_snapshot
-from .exchange_roster_epoch import observation_for_read
+from .exchange_roster_epoch import read_root_staged_roster
 
 ROUTE = "/internal/v2/candles/qualified"
 ROLLUP_ROUTE = "/internal/v2/candles/qualified-rollup"
@@ -239,7 +239,7 @@ class Handler(history_api.Handler):
                                      "current_roster_epoch", None)
                 if not callable(epoch_reader):
                     raise UniverseReadError("GRID_ROSTER_ROOT_EPOCH_UNAVAILABLE")
-                result=observation_for_read(
+                result=read_root_staged_roster(
                     getattr(self.server, "roster_observation", None),
                     expected_lease_epoch=epoch_reader(),
                     now_ms=int(time.time()*1000))

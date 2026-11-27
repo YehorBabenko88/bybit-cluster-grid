@@ -6,6 +6,9 @@ exchange completeness. No SQL writes, delisting, cutover, or trading authority.
 import json
 import re
 import time
+import hashlib
+import hmac
+from dataclasses import dataclass
 from .instrument_universe import UniverseReadError, _need, _sha
 
 _SYMBOL = re.compile(r"[A-Z0-9]{2,36}\Z")
@@ -254,3 +257,57 @@ def observation_for_read(snapshot, *, expected_lease_epoch, now_ms):
              _sha({k: v for k, v in data.items() if k != "dataset_fingerprint"}),
           "GRID_ROSTER_OBSERVATION_FINGERPRINT")
     return data
+
+
+@dataclass(frozen=True, slots=True)
+class RootStagedRoster:
+    """Immutable observational bytes; no external authority or source proof."""
+    payload_json: bytes
+    payload_sha256: str
+    lease_epoch: str
+    captured_ms: int
+
+
+def freeze_observation_for_root(snapshot, *, expected_lease_epoch, now_ms):
+    """Seal a defensively validated informational DTO under current Root epoch.
+
+    The Root owner alone must install the result on its managed in-memory
+    listener. This does not authenticate source completeness or grant delisting.
+    """
+    row = observation_for_read(snapshot, expected_lease_epoch=expected_lease_epoch,
+                               now_ms=now_ms)
+    payload = json.dumps(row, sort_keys=True, separators=(",", ":"),
+                         allow_nan=False, ensure_ascii=True).encode("ascii")
+    _need(len(payload) <= 8_388_608, "GRID_ROSTER_BYTE_LIMIT")
+    return RootStagedRoster(payload_json=payload,
+                            payload_sha256=hashlib.sha256(payload).hexdigest(),
+                            lease_epoch=expected_lease_epoch,
+                            captured_ms=now_ms)
+
+
+def read_root_staged_roster(staged, *, expected_lease_epoch, now_ms):
+    """Read a frozen Root-held observation; reject replay, mutation and drift."""
+    _need(type(staged) is RootStagedRoster,
+          "GRID_ROSTER_IMMUTABLE_STAGE_REQUIRED")
+    _need(type(now_ms) is int and 0 < now_ms < 2**63
+          and type(expected_lease_epoch) is str
+          and 0 < len(expected_lease_epoch) <= 128
+          and staged.lease_epoch == expected_lease_epoch
+          and type(staged.captured_ms) is int
+          and 0 < staged.captured_ms <= now_ms
+          and now_ms - staged.captured_ms <= 60000,
+          "GRID_ROSTER_ROOT_STAGE_STALE")
+    _need(type(staged.payload_json) is bytes
+          and 0 < len(staged.payload_json) <= 8_388_608
+          and type(staged.payload_sha256) is str
+          and _DIGEST.fullmatch(staged.payload_sha256) is not None
+          and hmac.compare_digest(
+              hashlib.sha256(staged.payload_json).hexdigest(),
+              staged.payload_sha256),
+          "GRID_ROSTER_IMMUTABLE_STAGE_CORRUPT")
+    try:
+        source = json.loads(staged.payload_json.decode("ascii"))
+    except (ValueError, UnicodeError) as exc:
+        raise UniverseReadError("GRID_ROSTER_IMMUTABLE_STAGE_CORRUPT") from exc
+    return observation_for_read(source, expected_lease_epoch=expected_lease_epoch,
+                                now_ms=now_ms)
