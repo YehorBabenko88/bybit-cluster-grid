@@ -145,6 +145,7 @@ def recorded_universe_snapshot(*, reader=None, observed_at_ms=None):
           "UNIVERSE_RECORDED_SOURCE_BOUNDS")
     symbols = []
     retired = 0
+    unknown_contracts = 0
     previous = None
     for record in records:
         _need(type(record) in (tuple, list) and len(record) == 3,
@@ -161,9 +162,12 @@ def recorded_universe_snapshot(*, reader=None, observed_at_ms=None):
               "UNIVERSE_RECORDED_ROW_STATUS")
         if status == "Retired":
             retired += 1
-        elif _SYMBOL.fullmatch(symbol) is not None:
+        elif (contract_type in ("LinearPerpetual", "LinearFutures")
+              and _SYMBOL.fullmatch(symbol) is not None):
             # Informational only: no verified exchange enumeration/freshness.
             symbols.append(symbol)
+        else:
+            unknown_contracts += 1
     pages = []
     for index, start in enumerate(range(0, len(symbols), _MAX_PAGE_SIZE)):
         page = symbols[start:start + _MAX_PAGE_SIZE]
@@ -175,7 +179,9 @@ def recorded_universe_snapshot(*, reader=None, observed_at_ms=None):
         "status": "INFORMATIONAL", "reason": "STORED_GRID_REGISTRY_NOT_EXCHANGE_ENUMERATION",
         "producer": "market_data", "venue": "Bybit", "market_type": "linear",
         "observed_at_ms": observed_at_ms, "stored_row_count": len(records),
-        "stored_retired_count": retired, "symbol_count": len(symbols),
+        "stored_retired_count": retired,
+        "unsupported_stored_contract_count": unknown_contracts,
+        "symbol_count": len(symbols),
         "page_count": len(pages), "pages": pages,
         "source_authenticity": "NOT_INDEPENDENTLY_ATTESTED",
         "exchange_completeness": "NOT_ATTESTED",
