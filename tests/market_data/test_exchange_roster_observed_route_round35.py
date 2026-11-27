@@ -1,0 +1,108 @@
+"""Root-managed HTTP negative tests; no Bybit, SQL, trading or mutation."""
+import asyncio
+import copy
+import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from test_qualified_rollup_round27 import handler, Admission as HttpAdmission
+from market_data_v2.read_api import (
+    OBSERVED_UNIVERSE_ROUTE, INSTRUMENT_UNIVERSE_ROUTE,
+)
+from market_data_v2.exchange_roster_epoch import observe_linear_roster
+from market_data_v2.instrument_universe import _sha
+
+
+class RootAdmission:
+    def require_current(self):
+        return True
+
+
+def staged_observation():
+    row = dict(symbol="BTCUSDT", status="Trading",
+               contractType="LinearPerpetual", settleCoin="USDT")
+    p = SimpleNamespace(items=(row,), next_cursor=None,
+                        completeness="INCOMPLETE",
+                        response=SimpleNamespace(status=200, body_sha256="a"*64))
+    async def fetch(base_url, *, cursor, limit):
+        assert cursor is None and limit == 1000
+        return p
+    return asyncio.run(observe_linear_roster(
+        "https://invalid.example", admission=RootAdmission(),
+        lease_epoch="opaque-root-epoch", fetch_page=fetch,
+        clock_ms=lambda: 1800000000000))
+
+
+class ObservedRouteTests(unittest.TestCase):
+    def test_root_managed_existing_listener_reads_only_staged_information(self):
+        h = handler(OBSERVED_UNIVERSE_ROUTE)
+        h.server.roster_observation = staged_observation()
+        with patch("market_data.history_api.query",
+                   side_effect=AssertionError("SQL not permitted")):
+            with patch("market_data.history_api.immutable_minutes",
+                       side_effect=AssertionError("candle reads forbidden")):
+                h.do_GET()
+        self.assertEqual(h.results[0][0], 200)
+        result = h.results[0][1]
+        self.assertEqual(result["status"], "INFORMATIONAL")
+        self.assertEqual(result["records"][0]["symbol"], "BTCUSDT")
+        self.assertFalse(result["delisting_authorized"])
+        self.assertFalse(result["consumer_cutover_authorized"])
+        self.assertFalse(result["trading_authorized"])
+        self.assertEqual(h.server.startup_admission.calls, 3)
+
+    def test_missing_staged_observation_is_503_and_discloses_no_rows(self):
+        h = handler(OBSERVED_UNIVERSE_ROUTE)
+        with patch("market_data.history_api.query",
+                   side_effect=AssertionError("no SQL allowed")):
+            h.do_GET()
+        self.assertEqual(h.results[0][0], 503)
+        self.assertEqual(h.results[0][1]["error"], "UNIVERSE_SOURCE_UNQUALIFIED")
+        self.assertNotIn("records", h.results[0][1])
+
+    def test_http_cannot_supply_an_observation_or_query_parameters(self):
+        h = handler(OBSERVED_UNIVERSE_ROUTE + "?symbols=BTCUSDT")
+        h.server.roster_observation = staged_observation()
+        h.do_GET()
+        self.assertEqual(h.results[0][0], 400)
+        self.assertNotIn("records", h.results[0][1])
+
+    def test_unmanaged_and_bad_bearer_denied_without_source(self):
+        for h in (handler(OBSERVED_UNIVERSE_ROUTE, identity=False),
+                  handler(OBSERVED_UNIVERSE_ROUTE, token=None),
+                  handler(OBSERVED_UNIVERSE_ROUTE, token="x"*64)):
+            with self.subTest(path=h.path):
+                h.server.roster_observation = staged_observation()
+                h.do_GET()
+                self.assertIn(h.results[0][0], (401, 503))
+                self.assertNotIn("records", h.results[0][1])
+
+    def test_post_read_lease_revocation_drops_entire_observation(self):
+        h = handler(OBSERVED_UNIVERSE_ROUTE,
+                    admission=HttpAdmission((True, True, False)))
+        h.server.roster_observation = staged_observation()
+        h.do_GET()
+        self.assertEqual(h.results[0], (503, {"error": "CURRENT_ADMISSION_REQUIRED"}))
+
+    def test_rehashed_forged_delisting_flag_is_still_rejected(self):
+        h = handler(OBSERVED_UNIVERSE_ROUTE)
+        row = copy.deepcopy(staged_observation())
+        row["delisting_authorized"] = True
+        row["dataset_fingerprint"] = _sha({
+            k: v for k, v in row.items() if k != "dataset_fingerprint"})
+        h.server.roster_observation = row
+        h.do_GET()
+        self.assertEqual(h.results[0][0], 503)
+        self.assertNotIn("records", h.results[0][1])
+
+    def test_authoritative_route_remains_default_unavailable(self):
+        h = handler(INSTRUMENT_UNIVERSE_ROUTE)
+        h.server.roster_observation = staged_observation()
+        h.do_GET()
+        self.assertEqual(h.results[0][0], 503)
+        self.assertEqual(h.results[0][1]["status"], "UNAVAILABLE")
+        self.assertFalse(h.results[0][1]["consumer_cutover_authorized"])
+
+
+if __name__ == "__main__":
+    unittest.main()
