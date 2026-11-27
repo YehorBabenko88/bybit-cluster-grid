@@ -20,9 +20,9 @@ class Content:
 class Response:
     status = 200
     headers = {"Content-Encoding": "identity"}
-    def __init__(self):
+    def __init__(self, returned_status="Trading"):
         data = {"retCode": 0, "result": {"list": [
-            {"symbol": "BTCUSDT", "status": "Trading",
+            {"symbol": "BTCUSDT", "status": returned_status,
              "contractType": "LinearPerpetual", "settleCoin": "USDT"}
         ], "nextPageCursor": ""}}
         self.content = Content(json.dumps(data).encode("utf-8"))
@@ -34,15 +34,17 @@ class Response:
         pass
 
 class Session:
-    def __init__(self):
+    def __init__(self, returned_status=None):
         self.calls = []
+        self.returned_status = returned_status
     async def __aenter__(self):
         return self
     async def __aexit__(self, *args):
         return False
     def get(self, url, **kwargs):
         self.calls.append((url, kwargs))
-        return Response()
+        return Response(self.returned_status or
+                        kwargs["params"].get("status", "Trading"))
 
 class BybitStatusFilterRound35(unittest.IsolatedAsyncioTestCase):
     async def fetch(self, **kwargs):
@@ -88,6 +90,14 @@ class BybitStatusFilterRound35(unittest.IsolatedAsyncioTestCase):
                 await fetch_linear_instruments_page(
                     "https://api.bybit.com", status="PreLaunch",
                     cursor="x" * 4097)
+
+    async def test_misclassified_status_is_refused_not_silently_assumed(self):
+        session = Session(returned_status="Trading")
+        with patch("market_data.bybit.aiohttp.ClientSession", return_value=session):
+            with self.assertRaisesRegex(ValueError, "status query mismatch"):
+                await fetch_linear_instruments_page(
+                    "https://api.bybit.com", status="PreLaunch")
+        self.assertEqual(len(session.calls), 1)
 
     async def test_status_filter_never_claims_complete_source(self):
         params = await self.fetch(status="PreLaunch")

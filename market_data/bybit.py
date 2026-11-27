@@ -119,6 +119,9 @@ async def fetch_linear_instruments_page(base_url: str, *, cursor: str | None = N
     if len(result["list"])>limit:raise ValueError("instrument page exceeds request row bound")
     if any(not isinstance(item, dict) for item in result["list"]):
         raise ValueError("invalid instrument page record")
+    if status is not None and any(item.get("status") != status
+                                  for item in result["list"]):
+        raise ValueError("Bybit instrument status query mismatch")
     next_cursor = result.get("nextPageCursor")
     if next_cursor is not None and (not isinstance(next_cursor, str)
                                     or len(next_cursor.encode("utf-8")) > 4096):
