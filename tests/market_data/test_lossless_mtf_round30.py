@@ -34,8 +34,10 @@ class LosslessMtfRound30(unittest.TestCase):
             with self.subTest(tf=tf):
                 self.assertEqual(got["schema"], "market_data.qualified-mtf-envelope.v2")
                 self.assertEqual(got["api_version"], {"major": 2, "minor": 1})
-                self.assertEqual(got["decimal_contract"], "CANONICAL_MATH_EXACT_SOURCE_VALUES")
-                self.assertEqual(got["numeric_presentation"], "DECIMAL_STRING_LOSSLESS")
+                self.assertEqual(got["decimal_contract"], "CANONICAL_MATH_EXACT_STORED_1M")
+                self.assertEqual(got["numeric_presentation"], "DECIMAL_STRING_EXACT_STORED_INPUTS")
+                self.assertEqual(got["source_numeric_precision"],
+                                 "STORED_1M_JSON_NUMBERS_NOT_PROVIDER_RAW")
                 self.assertEqual(got["status"], "PARTIAL")
                 self.assertEqual(got["coverage"]["missing_minutes"], 0)
                 self.assertFalse(got["execution_authority"])
