@@ -108,6 +108,8 @@ def historical_asof_snapshot(symbol, timeframe, limit, before_ms, as_of_ms,
         raise ValueError("HISTORICAL_MINUTE_ALIGNMENT")
     if as_of_ms - before_ms > 30 * 86400000:
         raise ValueError("HISTORICAL_AS_OF_WINDOW_EXCEEDED")
+    if type(symbol) is not str or history_api.SYMBOL.fullmatch(symbol) is None:
+        raise ValueError("HISTORICAL_SYMBOL_REQUIRED")
     read = history_api.immutable_minutes if reader is None else reader
     records = read(symbol, expected, before_ms)
     if not records:
