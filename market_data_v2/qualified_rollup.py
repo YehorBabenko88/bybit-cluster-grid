@@ -138,9 +138,11 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms, exact=False)
             }
             for key, value in exact_values.items():
                 rendered = str(value)
-                need(type(rendered) is str and len(rendered) <= 4300
-                     and Decimal(rendered) == value
-                     and str(Decimal(rendered)) == rendered,
+                # Fixed-size canonical Math Decimal bytes: no exponent alias,
+                # no nonfinite values and no ambient Decimal context rounding.
+                need(type(value) is Decimal and value.is_finite()
+                     and type(rendered) is str and len(rendered) <= 4300
+                     and Decimal(rendered).as_tuple() == value.as_tuple(),
                      "ROLLUP_DECIMAL_CANONICAL")
                 candle[key] = rendered
         windows.append(candle)
