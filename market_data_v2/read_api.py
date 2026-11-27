@@ -17,6 +17,8 @@ from .qualified_rollup import MINUTES, project_qualified_rollup
 ROUTE = "/internal/v2/candles/qualified"
 ROLLUP_ROUTE = "/internal/v2/candles/qualified-rollup"
 HISTORICAL_ROUTE = "/internal/v2/candles/historical-as-of"
+EXACT_ROLLUP_ROUTE = "/internal/v2/candles/qualified-rollup-exact"
+EXACT_HISTORICAL_ROUTE = "/internal/v2/candles/historical-as-of-exact"
 _MAX_MS = 9223372036854775807
 
 
@@ -64,7 +66,7 @@ def qualified_snapshot(symbol, limit, before_ms=None, *, reader=None, now_ms=Non
                 limit=limit,paper_admitted=False)
 
 
-def qualified_rollup_snapshot(symbol, timeframe, limit, before_ms=None, *, reader=None, now_ms=None):
+def qualified_rollup_snapshot(symbol, timeframe, limit, before_ms=None, *, reader=None, now_ms=None, exact=False):
     """Reuse the existing qualified 1m reader with a 75-minute bound."""
     if type(timeframe) is not str or timeframe not in MINUTES:
         raise ValueError("QUALIFIED_ROLLUP_TIMEFRAME_REQUIRED")
@@ -76,12 +78,12 @@ def qualified_rollup_snapshot(symbol, timeframe, limit, before_ms=None, *, reade
     if now_ms is None:
         now_ms = int(time.time() * 1000)
     original = qualified_snapshot(symbol, expected, before_ms, reader=reader, now_ms=now_ms)
-    return project_qualified_rollup(original, timeframe=timeframe, limit=limit, now_ms=now_ms)
+    return project_qualified_rollup(original, timeframe=timeframe, limit=limit, now_ms=now_ms, exact=exact)
 
 
 
 def historical_asof_snapshot(symbol, timeframe, limit, before_ms, as_of_ms,
-                             *, reader=None, now_ms=None):
+                             *, reader=None, now_ms=None, exact=False):
     """Pure source-only historical view; does not grant historical trust.
 
     Caller fixes an explicit as-of cutoff independent of wall-clock freshness.
@@ -125,11 +127,12 @@ def historical_asof_snapshot(symbol, timeframe, limit, before_ms, as_of_ms,
     # Preserve the same bounded 1m -> 5m/15m projection and one Math SDK.
     # Its closed-bar check must use the historical cutoff, not current clock.
     projected = project_qualified_rollup(
-        result, timeframe=timeframe, limit=limit, now_ms=as_of_ms)
+        result, timeframe=timeframe, limit=limit, now_ms=as_of_ms, exact=exact)
     # Mark as a distinct informational DTO; historical data is not live-fresh.
     base = {key:value for key,value in projected.items()
             if key != "dataset_fingerprint"}
-    base.update(schema="market_data.historical-as-of-mtf-envelope.v1",
+    base.update(schema=("market_data.historical-as-of-mtf-envelope.v2" if exact
+                        else "market_data.historical-as-of-mtf-envelope.v1"),
                 freshness_mode="HISTORICAL_AS_OF", as_of_ms=as_of_ms,
                 status="PARTIAL", reason="HISTORICAL_AS_OF_SOURCE_ONLY",
                 live_freshness="NOT_APPLICABLE",
@@ -154,7 +157,7 @@ class Handler(history_api.Handler):
     def do_GET(self):
         # Keep historical v1 GET behavior unchanged except for new v2
         # requirement that the entire replacement listener be Root-managed.
-        if urlsplit(self.path).path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE):
+        if urlsplit(self.path).path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE, EXACT_ROLLUP_ROUTE, EXACT_HISTORICAL_ROUTE):
             return super().do_GET()
         if not self._managed_request():
             return
@@ -164,7 +167,7 @@ class Handler(history_api.Handler):
             u=urlsplit(self.path)
             if u.path not in (ROUTE, ROLLUP_ROUTE, HISTORICAL_ROUTE):
                 raise ValueError("route mismatch")
-            if u.path == HISTORICAL_ROUTE:
+            if u.path in (HISTORICAL_ROUTE, EXACT_HISTORICAL_ROUTE):
                 q=parse_qs(u.query,keep_blank_values=True,max_num_fields=5,
                            strict_parsing=True)
                 required={"symbol","limit","timeframe","before_ms","as_of_ms"}
@@ -175,26 +178,28 @@ class Handler(history_api.Handler):
                     raise ValueError("invalid historical rollup bounds")
             else:
                 q=parse_qs(u.query,keep_blank_values=True,
-                           max_num_fields=4 if u.path == ROLLUP_ROUTE else 3,
+                           max_num_fields=4 if u.path in (ROLLUP_ROUTE, EXACT_ROLLUP_ROUTE) else 3,
                            strict_parsing=True)
-                required={"symbol","limit","timeframe"} if u.path == ROLLUP_ROUTE else {"symbol","limit"}
+                required={"symbol","limit","timeframe"} if u.path in (ROLLUP_ROUTE, EXACT_ROLLUP_ROUTE) else {"symbol","limit"}
                 if (set(q) not in (required, required | {"before_ms"})
                         or any(len(v)!=1 for v in q.values())):
                     raise ValueError("explicit query fields required")
-                if u.path == ROLLUP_ROUTE:
+                if u.path in (ROLLUP_ROUTE, EXACT_ROLLUP_ROUTE):
                     if q["timeframe"][0] not in MINUTES or re.fullmatch(r"[1-5]", q["limit"][0]) is None:
                         raise ValueError("invalid rollup bounds")
             # Require a still-current lease immediately before reading.
             if self.server.startup_admission.require_current() is not True:
                 return self._json(503,{"error":"CURRENT_ADMISSION_REQUIRED"})
-            if u.path == HISTORICAL_ROUTE:
+            if u.path in (HISTORICAL_ROUTE, EXACT_HISTORICAL_ROUTE):
                 result=historical_asof_snapshot(
                     q["symbol"][0],q["timeframe"][0],q["limit"][0],
-                    q["before_ms"][0],q["as_of_ms"][0])
-            elif u.path == ROLLUP_ROUTE:
+                    q["before_ms"][0],q["as_of_ms"][0],
+                    exact=u.path == EXACT_HISTORICAL_ROUTE)
+            elif u.path in (ROLLUP_ROUTE, EXACT_ROLLUP_ROUTE):
                 result=qualified_rollup_snapshot(
                     q["symbol"][0],q["timeframe"][0],q["limit"][0],
-                    q.get("before_ms",[None])[0])
+                    q.get("before_ms",[None])[0],
+                    exact=u.path == EXACT_ROLLUP_ROUTE)
             else:
                 result=qualified_snapshot(q["symbol"][0],q["limit"][0],
                                           q.get("before_ms",[None])[0])
