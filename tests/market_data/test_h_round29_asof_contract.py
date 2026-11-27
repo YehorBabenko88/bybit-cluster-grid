@@ -1,7 +1,7 @@
-"""H R29 exact-source Grid #305 ↔ Terminan #130 compatibility regressions.
+"""H R30 exact-source Grid historical/live Math and fail-closed regressions.
 
-The locally supplied original Terminan consumer is dynamically imported by the
-integration runner. This file never replaces original code, never trusts an
+Terminan's separate consumer is owner-qualified against a future versioned
+lossless DTO; this test imports original Grid+Math only. This file never replaces original code, never trusts an
 unmanaged transport, and never grants trading authority. Imported B/Terminan
 SHAs are pinned in H181, not automatically installed by this test.
 """
@@ -35,7 +35,8 @@ class HRound29ExactMathAndAsOf(unittest.TestCase):
                 "BTCUSDT", "5m", 1, BOUNDARY, asof,
                 reader=lambda *_:copy.deepcopy(older),
                 now_ms=asof + 3600000)
-        # Original minute fixture ingests at NOW=BOUNDARY+45000 > asof.\n        # Historical query must refuse this unobserved-at-asof record.
+        # Original minute fixture ingests at NOW=BOUNDARY+45000 > asof.
+        # Historical query must refuse this unobserved-at-asof record.
 
     def test_live_old_source_is_not_historical_partial(self):
         batch = minutes(5)
