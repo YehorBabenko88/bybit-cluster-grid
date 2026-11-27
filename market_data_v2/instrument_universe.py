@@ -63,13 +63,11 @@ def qualified_universe_snapshot(pages, *, observation_ms, source_receipt):
           and type(r["page_count"]) is int and r["page_count"] == len(pages)
           and type(r["complete_count"]) is int and 0 < r["complete_count"] <= _MAX_SYMBOLS,
           "UNIVERSE_SOURCE_IDENTITY_REQUIRED")
-    # Provenance is not self-authenticating. The external attestation flag
-    # is NOT sufficient: only an independent Root-side receipt verifier may
-    # admit this in the future. Until wired, this API is explicitly unavailable.
-    _need(r["completeness"] == "EXHAUSTIVE_ATTESTED"
-          and r["independent_source_attestation"] is True
-          and r["admitted_by_root"] is True,
-          "UNIVERSE_COMPLETENESS_NOT_ATTESTED")
+    # A self-asserted receipt cannot authenticate its own completeness. Do
+    # not trust even a caller-forged True, digest, release, or Root label.
+    # Production must substitute a distinct independently verified capability
+    # issued by Root before any instrument snapshot can be admitted.
+    _need(False, "UNIVERSE_INDEPENDENT_ROOT_ATTESTATION_NOT_INSTALLED")
     symbols = []
     for index, page in enumerate(pages):
         _need(type(page) is dict and set(page) == {"page_index", "symbols", "page_sha256"},
