@@ -45,6 +45,23 @@ def _uuid4(value):
     return value
 
 
+def _consul_session_id(value):
+    """Only canonical UUID-shaped Consul IDs fit C's existing SQL uuid ABI.
+
+    Consul issues the ID; this syntax check never proves live lease authority.
+    The actual E Root permit, backend binding and C SQL fencing remain mandatory.
+    """
+    _deny(type(value) is str, "FENCE_CONSUL_SESSION_ID_REQUIRED")
+    try:
+        parsed = uuid.UUID(value)
+    except (ValueError, AttributeError) as exc:
+        raise FencedWriterRejected("FENCE_CONSUL_SESSION_ID_REQUIRED") from exc
+    # Consul 2.1 can issue an NCS-variant UUID-shaped ID (version=None).
+    # Do not invent a UUID4/5 variant conversion or accept noncanonical text.
+    _deny(str(parsed) == value, "FENCE_CONSUL_SESSION_ID_REQUIRED")
+    return value
+
+
 def _sha64(value):
     _deny(type(value) is str and _SHA64.fullmatch(value) is not None,
           "FENCE_SOURCE_DIGEST_REQUIRED")
@@ -115,7 +132,7 @@ class CanonicalLabMinuteWriter:
               "FENCE_E_ROOT_EPOCH_REQUIRED")
         self._epoch=epoch
         self._backend_start=bound_backend_start
-        self._params=(owner,namespace,generation,token,_uuid4(session_id),
+        self._params=(owner,namespace,generation,token,_consul_session_id(session_id),
                       _uuid4(instance_id),_uuid4(node_incarnation_id),
                       _sha64(source_sha256),_sha64(schema_sha256))
         self._closed=False

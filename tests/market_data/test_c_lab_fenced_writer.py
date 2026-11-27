@@ -152,6 +152,66 @@ class CanonicalLabFencedWriterTests(unittest.TestCase):
                 writer(c,**diff)
             self.assertEqual(c.calls,[])
 
+    def test_real_consul21_ncs_session_preserved_in_original_sql_abi(self):
+        # Actual Consul 2.1 receipt: canonical UUID-shaped, NCS variant,
+        # Python uuid.version is None. Syntax is NOT lease/root authority.
+        session = "4a91bb79-c488-1086-0664-30ccbc028eda"
+        parsed = uuid.UUID(session)
+        self.assertEqual(str(parsed), session)
+        self.assertIsNone(parsed.version)
+        self.assertNotEqual(parsed.variant, uuid.RFC_4122)
+        c = Connection()
+        a = Admission()
+        result = writer(c, a, session_id=session).write(
+            record(), content_id=digest(record()))
+        self.assertEqual(result["status"], "LOCAL_COMMIT_RETURNED")
+        calls = [(sql, args) for sql, args in c.calls
+                 if "public.lab_fenced_insert(" in sql]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(len(calls[0][1]), 14)
+        self.assertEqual(calls[0][1][4], session)
+        self.assertEqual(calls[0][1][5], VALUES["instance_id"])
+        self.assertEqual(calls[0][1][6], VALUES["node_incarnation_id"])
+        self.assertEqual(c.calls[-1][0], "COMMIT")
+
+    def test_consul_session_requires_exact_canonical_uuid_shape(self):
+        valid = (
+            "4a91bb79-c488-1086-0664-30ccbc028eda",
+            str(uuid.uuid4()),
+            str(uuid.uuid5(uuid.NAMESPACE_DNS, "consul-fixture")),
+        )
+        for session in valid:
+            with self.subTest(session=session):
+                w = writer(Connection(), session_id=session)
+                self.assertEqual(w._params[4], session)
+        invalid = (
+            None, True, 42, "", "session-id", "4a91bb79c4881086066430ccbc028eda",
+            "4A91BB79-C488-1086-0664-30CCBC028EDA",
+            "{" + valid[0] + "}", " " + valid[0], valid[0] + "/suffix",
+        )
+        for session in invalid:
+            c = Connection()
+            with self.subTest(session=session), self.assertRaisesRegex(
+                    FencedWriterRejected, "FENCE_CONSUL_SESSION_ID_REQUIRED"):
+                writer(c, session_id=session)
+            self.assertEqual(c.calls, [])
+
+    def test_only_consul_session_may_use_nonstandard_variant(self):
+        real_session = "4a91bb79-c488-1086-0664-30ccbc028eda"
+        for field in ("instance_id", "node_incarnation_id"):
+            c = Connection()
+            with self.subTest(field=field), self.assertRaisesRegex(
+                    FencedWriterRejected, "FENCE_UUID_REQUIRED"):
+                writer(c, **{field: real_session})
+            self.assertEqual(c.calls, [])
+        # An unverified/forged permit is still denied even if session syntax
+        # is valid: this cannot turn an observed ID into Root admission.
+        c = Connection()
+        with self.assertRaisesRegex(
+                FencedWriterRejected, "FENCE_E_ROOT_OPERATION_PERMIT_REQUIRED"):
+            writer(c, SimpleNamespace(), session_id=real_session)
+        self.assertEqual(c.calls, [])
+
     def test_deny_no_auth_and_nonlab_authority(self):
         c=Connection()
         with self.assertRaisesRegex(
