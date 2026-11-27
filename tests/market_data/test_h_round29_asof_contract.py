@@ -28,14 +28,14 @@ class HRound29ExactMathAndAsOf(unittest.TestCase):
 
     def test_historical_asof_cuts_off_future_ingestion(self):
         batch = minutes(5)
-        asof = BOUNDARY + 60000
+        asof = BOUNDARY
         older = [copy.deepcopy(x) for x in batch]
         with self.assertRaises(ProvenanceReadError):
             historical_asof_snapshot(
                 "BTCUSDT", "5m", 1, BOUNDARY, asof,
                 reader=lambda *_:copy.deepcopy(older),
                 now_ms=asof + 3600000)
-        # Original per-minute ingestion is NOW > asof, so refusal is mandatory.
+        # Original minute fixture ingests at NOW=BOUNDARY+45000 > asof.\n        # Historical query must refuse this unobserved-at-asof record.
 
     def test_live_old_source_is_not_historical_partial(self):
         batch = minutes(5)
