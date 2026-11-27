@@ -24,6 +24,13 @@ jobs:
           ref: 9e6acbd9e12a91189f57234828e31640983af553
           path: .source/math
           persist-credentials: false
+      - name: Checkout exact D133 Terminan consumer and historical UI candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: YehorBabenko88/Terminan
+          ref: bcdf3287a47e60f6c50022adce7651bcb51e587f
+          path: .source/terminan
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: ${{ matrix.python }}
@@ -33,6 +40,7 @@ jobs:
           import pathlib, subprocess
           root=pathlib.Path('.source/math')
           assert subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip() == '9e6acbd9e12a91189f57234828e31640983af553'
+          assert subprocess.check_output(['git','-C','.source/terminan','rev-parse','HEAD'],text=True).strip() == 'bcdf3287a47e60f6c50022adce7651bcb51e587f'
       - name: Install exact Math and pytest without credentials
         run: |
           python -m pip install --no-deps ./.source/math
@@ -50,3 +58,11 @@ jobs:
             'import importlib.metadata as meta; import market_data, market_data_v2.qualified_read_contract, market_data_v2.qualified_rollup, market_data_v2.read_api; assert meta.version("market-data") == "0.2.0.dev0"; assert market_data_v2.read_api.ROUTE == "/internal/v2/candles/qualified"; assert market_data_v2.read_api.ROLLUP_ROUTE == "/internal/v2/candles/qualified-rollup"'])
       - name: Execute qualified provenance and authenticated route regression suite
         run: python -m pytest -v --strict-markers -p no:cacheprovider tests/market_data/test_qualified_read_contract.py tests/market_data/test_qualified_route_v2.py tests/market_data/test_qualified_read_schema_v2.py tests/market_data/test_v2_wheel_guard.py tests/market_data/test_c_lab_fenced_writer.py tests/market_data/test_qualified_rollup_round27.py tests/market_data/test_historical_asof_round28.py tests/market_data/test_lossless_mtf_round30.py
+
+      - name: Execute original D133 managed Grid to Terminan HTTP roundtrip (inert)
+        working-directory: .source/terminan
+        env:
+          ROUND3_GRID_SOURCE: ${{ github.workspace }}
+          ROUND3_MATH_SOURCE: ${{ github.workspace }}/.source/math/python
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python -B -m unittest discover -s integration -p test_b_v2_roundtrip.py -v
