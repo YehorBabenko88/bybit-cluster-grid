@@ -16,8 +16,8 @@ MAX_MINUTES = 1000
 MAX_DECIMAL_CHARS = 4300
 MAX_RESPONSE_BYTES = 8_388_608
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
-_SYMBOL = re.compile(r"[A-Z0-9]{2,30}\\Z")
-_SOURCE = re.compile(r"[A-Za-z0-9_./:-]{1,128}\\Z")
+_SYMBOL = re.compile(r"[A-Z0-9]{2,30}\Z")
+_SOURCE = re.compile(r"[A-Za-z0-9_./:-]{1,128}\Z")
 
 # The existing Grid migration 24 stores this table. Never silently substitute
 # candles_1m: it has a different provenance and directional-volume contract.
