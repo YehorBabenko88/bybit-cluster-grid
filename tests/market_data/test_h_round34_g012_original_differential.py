@@ -94,7 +94,10 @@ def _legacy_receipt(rows):
 class HOriginalD129VsGridB308(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.original, cls.historic_math = _original_d129()
+        original, cls.historic_math = _original_d129()
+        # Original is a module-level function; prevent unittest instance access
+        # from injecting a spurious self positional argument (D's R35 failure).
+        cls.original = staticmethod(original)
 
     def _old(self, rows, timeframe, count):
         # Scoped injection only into original 68-line historical source,
