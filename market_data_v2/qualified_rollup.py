@@ -97,7 +97,7 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms):
         }
         windows.append(candle)
     result = {
-        "schema": "market_data.qualified-rollup-envelope.v1",
+        "schema": "market_data.qualified-mtf-envelope.v1",
         "api_version": {"major": 2, "minor": 0},
         "producer": "market_data", "symbol": envelope["symbol"],
         "timeframe": timeframe, "limit": limit,
