@@ -84,7 +84,7 @@ class QualifiedRollupRound27Tests(unittest.TestCase):
             with self.subTest(timeframe=timeframe):
                 self.assertEqual(reads, [("BTCUSDT", total, 2**63-1)])
                 self.assertEqual(output["schema"],
-                                 "market_data.qualified-rollup-envelope.v1")
+                                 "market_data.qualified-mtf-envelope.v1")
                 self.assertEqual(output["status"], "PARTIAL")
                 self.assertEqual(output["timeframe"], timeframe)
                 self.assertEqual(output["source_timeframe"], "1m")
