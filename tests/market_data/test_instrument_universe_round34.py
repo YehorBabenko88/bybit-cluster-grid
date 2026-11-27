@@ -205,5 +205,16 @@ class InstrumentUniverseRound34Tests(unittest.TestCase):
         self.assertNotIn("symbols", h.results[0][1])
 
 
+    def test_source_registry_corruption_maps_to_503_not_bad_client_request(self):
+        h = handler(RECORDED_UNIVERSE_ROUTE)
+        with patch("market_data.history_api.query",
+                   return_value=[("BTCUSDT", "Trading", "LinearPerpetual"),
+                                 ("BTCUSDT", "Trading", "LinearPerpetual")]):
+            h.do_GET()
+        self.assertEqual(h.results[0][0], 503)
+        self.assertEqual(h.results[0][1]["error"], "UNIVERSE_SOURCE_UNQUALIFIED")
+        self.assertNotIn("symbols", h.results[0][1])
+
+
 if __name__ == "__main__":
     unittest.main()
