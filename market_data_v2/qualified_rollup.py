@@ -21,6 +21,7 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms, exact=False)
         if ok is not True:
             raise ProvenanceReadError(reason)
 
+    need(type(exact) is bool, "ROLLUP_EXACT_MODE")
     need(type(timeframe) is str and timeframe in MINUTES, "ROLLUP_TIMEFRAME")
     need(type(now_ms) is int and 0 < now_ms < 2**63, "ROLLUP_CLOCK")
     need(type(limit) is int and 1 <= limit <= 5, "ROLLUP_LIMIT")
@@ -85,9 +86,9 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms, exact=False)
                                 for row in group)
             raw_sell = exact_sum(Decimal(str(row["candle"]["sell_volume"]))
                                  for row in group)
-            raw_volume = exact_sum((raw_buy, raw_sell))
-            raw_delta = executed_volume_delta(raw_buy, raw_sell)
             if exact:
+                raw_volume = exact_sum((raw_buy, raw_sell))
+                raw_delta = executed_volume_delta(raw_buy, raw_sell)
                 # Binary64 fields are PRESENTATION ONLY, not numerical proof.
                 # Preserve entire finite canonical Decimal domain by allowing
                 # unrepresentable display floats to be null; consumers MUST
