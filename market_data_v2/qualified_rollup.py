@@ -169,8 +169,9 @@ def project_qualified_rollup(envelope, *, timeframe, limit, now_ms, exact=False)
     }
     if exact:
         result["schema"] = "market_data.qualified-mtf-envelope.v2"
-        result["decimal_contract"] = "CANONICAL_MATH_EXACT_SOURCE_VALUES"
-        result["numeric_presentation"] = "DECIMAL_STRING_LOSSLESS"
+        result["decimal_contract"] = "CANONICAL_MATH_EXACT_STORED_1M"
+        result["numeric_presentation"] = "DECIMAL_STRING_EXACT_STORED_INPUTS"
+        result["source_numeric_precision"] = "STORED_1M_JSON_NUMBERS_NOT_PROVIDER_RAW"
         result["api_version"] = {"major": 2, "minor": 1}
     # Bound the derived output too; provenance fingerprints never grant trust.
     need(len(canonical(result)) <= 8_388_608, "ROLLUP_RESULT_BYTES")
