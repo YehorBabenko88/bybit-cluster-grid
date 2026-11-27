@@ -233,8 +233,16 @@ class Handler(history_api.Handler):
             elif u.path == OBSERVED_UNIVERSE_ROUTE:
                 # No HTTP-triggered exchange or SQL read. A Root-staged
                 # informational observation is absent by default.
+                # Root must expose its CURRENT epoch, not a cached string.
+                # The default managed API has no such extension and denies.
+                epoch_reader=getattr(self.server.startup_admission,
+                                     "current_roster_epoch", None)
+                if not callable(epoch_reader):
+                    raise UniverseReadError("GRID_ROSTER_ROOT_EPOCH_UNAVAILABLE")
                 result=observation_for_read(
-                    getattr(self.server, "roster_observation", None))
+                    getattr(self.server, "roster_observation", None),
+                    expected_lease_epoch=epoch_reader(),
+                    now_ms=int(time.time()*1000))
             elif u.path in (HISTORICAL_ROUTE, EXACT_HISTORICAL_ROUTE):
                 result=historical_asof_snapshot(
                     q["symbol"][0],q["timeframe"][0],q["limit"][0],

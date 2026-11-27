@@ -11,11 +11,20 @@ from market_data_v2.read_api import (
 )
 from market_data_v2.exchange_roster_epoch import observe_linear_roster
 from market_data_v2.instrument_universe import _sha
+from market_data_v2 import read_api
 
 
 class RootAdmission:
     def require_current(self):
         return True
+
+    def current_roster_epoch(self):
+        return "opaque-root-epoch"
+
+
+class HttpEpochAdmission(HttpAdmission):
+    def current_roster_epoch(self):
+        return "opaque-root-epoch"
 
 
 def staged_observation():
@@ -34,8 +43,13 @@ def staged_observation():
 
 
 class ObservedRouteTests(unittest.TestCase):
+    def setUp(self):
+        self._clock = patch.object(read_api.time, "time", return_value=1800000000)
+        self._clock.start()
+        self.addCleanup(self._clock.stop)
+
     def test_root_managed_existing_listener_reads_only_staged_information(self):
-        h = handler(OBSERVED_UNIVERSE_ROUTE)
+        h = handler(OBSERVED_UNIVERSE_ROUTE, admission=HttpEpochAdmission())
         h.server.roster_observation = staged_observation()
         with patch("market_data.history_api.query",
                    side_effect=AssertionError("SQL not permitted")):
@@ -52,7 +66,7 @@ class ObservedRouteTests(unittest.TestCase):
         self.assertEqual(h.server.startup_admission.calls, 3)
 
     def test_missing_staged_observation_is_503_and_discloses_no_rows(self):
-        h = handler(OBSERVED_UNIVERSE_ROUTE)
+        h = handler(OBSERVED_UNIVERSE_ROUTE, admission=HttpEpochAdmission())
         with patch("market_data.history_api.query",
                    side_effect=AssertionError("no SQL allowed")):
             h.do_GET()
@@ -61,16 +75,16 @@ class ObservedRouteTests(unittest.TestCase):
         self.assertNotIn("records", h.results[0][1])
 
     def test_http_cannot_supply_an_observation_or_query_parameters(self):
-        h = handler(OBSERVED_UNIVERSE_ROUTE + "?symbols=BTCUSDT")
+        h = handler(OBSERVED_UNIVERSE_ROUTE + "?symbols=BTCUSDT", admission=HttpEpochAdmission())
         h.server.roster_observation = staged_observation()
         h.do_GET()
         self.assertEqual(h.results[0][0], 400)
         self.assertNotIn("records", h.results[0][1])
 
     def test_unmanaged_and_bad_bearer_denied_without_source(self):
-        for h in (handler(OBSERVED_UNIVERSE_ROUTE, identity=False),
-                  handler(OBSERVED_UNIVERSE_ROUTE, token=None),
-                  handler(OBSERVED_UNIVERSE_ROUTE, token="x"*64)):
+        for h in (handler(OBSERVED_UNIVERSE_ROUTE, identity=False, admission=HttpEpochAdmission()),
+                  handler(OBSERVED_UNIVERSE_ROUTE, token=None, admission=HttpEpochAdmission()),
+                  handler(OBSERVED_UNIVERSE_ROUTE, token="x"*64, admission=HttpEpochAdmission())):
             with self.subTest(path=h.path):
                 h.server.roster_observation = staged_observation()
                 h.do_GET()
@@ -79,18 +93,35 @@ class ObservedRouteTests(unittest.TestCase):
 
     def test_post_read_lease_revocation_drops_entire_observation(self):
         h = handler(OBSERVED_UNIVERSE_ROUTE,
-                    admission=HttpAdmission((True, True, False)))
+                    admission=HttpEpochAdmission((True, True, False)))
         h.server.roster_observation = staged_observation()
         h.do_GET()
         self.assertEqual(h.results[0], (503, {"error": "CURRENT_ADMISSION_REQUIRED"}))
 
     def test_rehashed_forged_delisting_flag_is_still_rejected(self):
-        h = handler(OBSERVED_UNIVERSE_ROUTE)
+        h = handler(OBSERVED_UNIVERSE_ROUTE, admission=HttpEpochAdmission())
         row = copy.deepcopy(staged_observation())
         row["delisting_authorized"] = True
         row["dataset_fingerprint"] = _sha({
             k: v for k, v in row.items() if k != "dataset_fingerprint"})
         h.server.roster_observation = row
+        h.do_GET()
+        self.assertEqual(h.results[0][0], 503)
+        self.assertNotIn("records", h.results[0][1])
+
+    def test_root_epoch_method_absent_fails_closed(self):
+        h = handler(OBSERVED_UNIVERSE_ROUTE, admission=HttpAdmission())
+        h.server.roster_observation = staged_observation()
+        h.do_GET()
+        self.assertEqual(h.results[0][0], 503)
+        self.assertNotIn("records", h.results[0][1])
+
+    def test_root_epoch_mismatch_fails_closed(self):
+        class ChangedEpoch(HttpEpochAdmission):
+            def current_roster_epoch(self):
+                return "new-epoch"
+        h = handler(OBSERVED_UNIVERSE_ROUTE, admission=ChangedEpoch())
+        h.server.roster_observation = staged_observation()
         h.do_GET()
         self.assertEqual(h.results[0][0], 503)
         self.assertNotIn("records", h.results[0][1])

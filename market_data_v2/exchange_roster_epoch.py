@@ -151,8 +151,14 @@ async def observe_linear_roster(base_url, *, admission, lease_epoch,
     return dict(result, dataset_fingerprint=_sha(result))
 
 
-def observation_for_read(snapshot):
+def observation_for_read(snapshot, *, expected_lease_epoch, now_ms):
     """Defensively copy informational Root-staged observation, never grant delisting."""
+    _need(type(expected_lease_epoch) is str
+          and 0 < len(expected_lease_epoch) <= 128
+          and all(32 < ord(c) < 127 for c in expected_lease_epoch),
+          "GRID_ROSTER_EXPECTED_EPOCH_REQUIRED")
+    _need(type(now_ms) is int and 0 < now_ms < 2**63,
+          "GRID_ROSTER_READ_CLOCK_REQUIRED")
     _need(type(snapshot) is dict, "GRID_ROSTER_OBSERVATION_UNAVAILABLE")
     try:
         encoded = json.dumps(snapshot, sort_keys=True, separators=(",", ":"),
@@ -186,10 +192,14 @@ def observation_for_read(snapshot):
           data["cursor_walks_terminated"] == 2 and
           data["two_walk_roster_equal"] is True,
           "GRID_ROSTER_INFORMATIONAL_ONLY")
+    _need(data["lease_epoch"] == expected_lease_epoch,
+          "GRID_ROSTER_EPOCH_BINDING_MISMATCH")
     _need(type(data["first_observed_ms"]) is int and
           type(data["last_observed_ms"]) is int and
           0 < data["first_observed_ms"] <= data["last_observed_ms"] < 2**63 and
-          data["last_observed_ms"] - data["first_observed_ms"] <= 600000,
+          data["last_observed_ms"] - data["first_observed_ms"] <= 600000
+          and data["last_observed_ms"] <= now_ms
+          and now_ms - data["last_observed_ms"] <= 60000,
           "GRID_ROSTER_OBSERVATION_WINDOW")
     _need(type(data["lease_epoch"]) is str and 0 < len(data["lease_epoch"]) <= 128
           and type(data["record_count"]) is int
@@ -217,6 +227,8 @@ def observation_for_read(snapshot):
           and data["roster_sha256"] == _sha(rows),
           "GRID_ROSTER_OBSERVATION_FINGERPRINT")
     count = 0
+    previous_next_cursor = None
+    seen_request_cursors = set()
     for i, page in enumerate(data["page_evidence"]):
         _need(type(page) is dict and set(page) == {
               "page_index", "count", "request_cursor_sha256",
@@ -227,6 +239,15 @@ def observation_for_read(snapshot):
                       for k in ("request_cursor_sha256", "next_cursor_sha256",
                                 "body_sha256", "records_sha256")),
               "GRID_ROSTER_OBSERVATION_PAGE")
+        request_hash = page["request_cursor_sha256"]
+        next_hash = page["next_cursor_sha256"]
+        _need(request_hash == (_sha(None) if i == 0 else previous_next_cursor)
+              and request_hash not in seen_request_cursors
+              and (i + 1 < len(data["page_evidence"]) or next_hash == _sha(None))
+              and (i + 1 == len(data["page_evidence"]) or next_hash != _sha(None)),
+              "GRID_ROSTER_OBSERVATION_CURSOR_CHAIN")
+        seen_request_cursors.add(request_hash)
+        previous_next_cursor = next_hash
         count += page["count"]
     _need(count == len(rows) and type(data["dataset_fingerprint"]) is str
           and data["dataset_fingerprint"] ==

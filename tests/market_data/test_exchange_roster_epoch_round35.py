@@ -130,7 +130,8 @@ class EpochTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_defensive_copy_no_authority(self):
         snapshot, _ = await self.scan([page([BTC]), page([BTC])])
-        copied = observation_for_read(snapshot)
+        copied = observation_for_read(
+            snapshot, expected_lease_epoch="root-epoch-1", now_ms=1800000000000)
         self.assertEqual(copied, snapshot)
         copied["records"][0]["symbol"] = "XRPUSDT"
         self.assertEqual(snapshot["records"][0]["symbol"], "BTCUSDT")
@@ -145,14 +146,37 @@ class EpochTests(unittest.IsolatedAsyncioTestCase):
             row["dataset_fingerprint"] = _sha({
                 k:v for k,v in row.items() if k != "dataset_fingerprint"})
             with self.subTest(field=field), self.assertRaises(UniverseReadError):
-                observation_for_read(row)
+                observation_for_read(
+                    row, expected_lease_epoch="root-epoch-1", now_ms=1800000000000)
 
     async def test_malformed_cached_observation_refused(self):
         snapshot, _ = await self.scan([page([BTC]), page([BTC])])
         for item in (None, {}, dict(snapshot, record_count=9),
                      dict(snapshot, dataset_fingerprint="0"*64)):
             with self.subTest(item=str(item)[:30]), self.assertRaises(UniverseReadError):
-                observation_for_read(item)
+                observation_for_read(
+                    item, expected_lease_epoch="root-epoch-1", now_ms=1800000000000)
+
+    async def test_epoch_and_freshness_bound_on_read(self):
+        snapshot, _ = await self.scan([page([BTC]), page([BTC])])
+        for epoch, clock in (("another-epoch", 1800000000000),
+                             ("root-epoch-1", 1800000060001),
+                             ("root-epoch-1", 1799999999999),
+                             (None, 1800000000000)):
+            with self.subTest(epoch=epoch, clock=clock):
+                with self.assertRaises(UniverseReadError):
+                    observation_for_read(snapshot, expected_lease_epoch=epoch,
+                                         now_ms=clock)
+
+    async def test_forged_cursor_chain_rehashed_refused(self):
+        snapshot, _ = await self.scan([page([BTC], "next"), page([ETH]),
+                                       page([BTC], "next"), page([ETH])])
+        snapshot["page_evidence"][1]["request_cursor_sha256"] = "f"*64
+        snapshot["dataset_fingerprint"] = _sha({
+            k:v for k,v in snapshot.items() if k != "dataset_fingerprint"})
+        with self.assertRaisesRegex(UniverseReadError, "CURSOR_CHAIN"):
+            observation_for_read(snapshot, expected_lease_epoch="root-epoch-1",
+                                 now_ms=1800000000000)
 
     async def test_bogus_source_digest_fails(self):
         broken = page([BTC])
