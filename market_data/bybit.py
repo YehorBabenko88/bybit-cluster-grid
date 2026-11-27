@@ -86,15 +86,26 @@ def _bounded_result(response):
     return result
 
 
+_LINEAR_STATUS_QUERY = frozenset({
+    "PreLaunch", "PendingOpen", "Trading", "Delivering", "Closed",
+})
+
+
 async def fetch_linear_instruments_page(base_url: str, *, cursor: str | None = None,
-                                        limit: int = 1000) -> LinearInstrumentPage:
+                                        limit: int = 1000,
+                                        status: str | None = None) -> LinearInstrumentPage:
     """One request only; no retries, normalization, registry update or admission."""
     origin = _https_origin(base_url)
     _bounded_int(limit, "page limit", 1, 1000)
+    if status is not None and (type(status) is not str
+                               or status not in _LINEAR_STATUS_QUERY):
+        raise ValueError("invalid linear instrument status query")
     if cursor is not None and (not isinstance(cursor, str) or not cursor
                                or len(cursor.encode("utf-8")) > 4096):
         raise ValueError("invalid cursor")
     params = {"category": "linear", "limit": limit}
+    if status is not None:
+        params["status"] = status
     if cursor is not None:
         params["cursor"] = cursor
     timeout = aiohttp.ClientTimeout(total=35, connect=10, sock_read=30)
