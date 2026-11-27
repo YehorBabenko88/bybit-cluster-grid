@@ -45,7 +45,7 @@ def _original_blob(path, expected):
 
 def _original_d129():
     source = _original_blob(OLD_D, OLD_D_BLOB).decode("utf-8")
-    _original_blob(OLD_MATH, OLD_MATH_BLOB)
+    math_source = _original_blob(OLD_MATH, OLD_MATH_BLOB)
     module = ast.parse(source, filename=str(OLD_D))
     function = [node for node in module.body
                 if isinstance(node, ast.FunctionDef)
@@ -67,12 +67,11 @@ def _original_d129():
     safe_env = {"__builtins__": __builtins__, **constants}
     exec(compile(ast.Module(body=function, type_ignores=[]), str(OLD_D),
                  "exec"), safe_env)
-    spec = importlib.util.spec_from_file_location(
-        "h_original_math_d167", OLD_MATH)
-    if spec is None or spec.loader is None:
-        raise AssertionError("G012_ORIGINAL_MATH_IMPORT_MISSING")
-    historic = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(historic)
+    # Execute exact original immutable Git source bytes; never import a
+    # possibly platform-normalized or altered working-tree Math file.
+    historic = types.ModuleType("h_original_math_d167")
+    exec(compile(math_source.decode("utf-8"), str(OLD_MATH),
+                 "exec"), historic.__dict__)
     if not hasattr(historic, "aggregate_closed_minute_ohlcv"):
         raise AssertionError("G012_ORIGINAL_MATH_KERNEL_MISSING")
     return safe_env["qualified_timeframe_rows"], historic
