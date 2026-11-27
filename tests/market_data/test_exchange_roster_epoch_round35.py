@@ -41,7 +41,7 @@ class EpochTests(unittest.IsolatedAsyncioTestCase):
         params.update(overrides)
         return await observe_linear_roster("https://invalid.example", **params), calls
 
-    async def test_two_complete_walks_informational_with_all_statuses(self):
+    async def test_two_walks_informational_with_mixed_synthetic_statuses(self):
         result, calls = await self.scan([page([BTC, ETH], "continuation"),
                                          page([SOL]), page([BTC, ETH], "continuation"),
                                          page([SOL])])
@@ -53,6 +53,8 @@ class EpochTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["records"][2]["status"], "PreLaunch")
         self.assertEqual(result["status"], "INFORMATIONAL")
         self.assertEqual(result["exchange_completeness"], "NOT_ATTESTED")
+        self.assertEqual(result["source_status_query"], "OMITTED")
+        self.assertIs(result["all_exchange_statuses_enumerated"], False)
         self.assertFalse(result["delisting_authorized"])
         self.assertFalse(result["consumer_cutover_authorized"])
         self.assertEqual(result["dataset_fingerprint"],
@@ -177,6 +179,19 @@ class EpochTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(UniverseReadError, "CURSOR_CHAIN"):
             observation_for_read(snapshot, expected_lease_epoch="root-epoch-1",
                                  now_ms=1800000000000)
+
+    async def test_forged_complete_status_coverage_rehashed_is_refused(self):
+        snapshot, _ = await self.scan([page([BTC]), page([BTC])])
+        for field, value in (("source_status_query", "ALL"),
+                             ("all_exchange_statuses_enumerated", True)):
+            bad = copy.deepcopy(snapshot)
+            bad[field] = value
+            bad["dataset_fingerprint"] = _sha({
+                k: v for k, v in bad.items() if k != "dataset_fingerprint"})
+            with self.subTest(field=field), self.assertRaises(UniverseReadError):
+                observation_for_read(
+                    bad, expected_lease_epoch="root-epoch-1",
+                    now_ms=1800000000000)
 
     async def test_bogus_source_digest_fails(self):
         broken = page([BTC])

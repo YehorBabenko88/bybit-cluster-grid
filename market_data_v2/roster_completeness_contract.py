@@ -22,6 +22,8 @@ def completeness_evidence_request(staged, *, expected_lease_epoch, now_ms):
     observation = read_root_staged_roster(
         staged, expected_lease_epoch=expected_lease_epoch, now_ms=now_ms)
     _need(observation["status"] == "INFORMATIONAL"
+          and observation["source_status_query"] == "OMITTED"
+          and observation["all_exchange_statuses_enumerated"] is False
           and observation["exchange_completeness"] == "NOT_ATTESTED"
           and observation["consumer_cutover_authorized"] is False
           and observation["delisting_authorized"] is False,
@@ -31,6 +33,8 @@ def completeness_evidence_request(staged, *, expected_lease_epoch, now_ms):
         "status": "EVIDENCE_REQUIRED",
         "venue": "Bybit", "market_type": "linear",
         "source": "GRID_TWO_WALK_OBSERVATION_ONLY",
+        "source_status_query": observation["source_status_query"],
+        "all_exchange_statuses_enumerated": False,
         "source_epoch": observation["lease_epoch"],
         "roster_sha256": observation["roster_sha256"],
         "observation_fingerprint": observation["dataset_fingerprint"],
@@ -57,6 +61,7 @@ def inspect_untrusted_witness_claim(challenge, claim):
     _need(type(challenge) is dict and type(claim) is dict,
           "GRID_ROSTER_WITNESS_SCHEMA")
     request_keys = {"schema", "status", "venue", "market_type", "source",
+                    "source_status_query", "all_exchange_statuses_enumerated",
                     "source_epoch", "roster_sha256", "observation_fingerprint",
                     "first_observed_ms", "last_observed_ms", "record_count",
                     "page_count", "witness_requirement",
@@ -68,6 +73,8 @@ def inspect_untrusted_witness_claim(challenge, claim):
           and challenge["status"] == "EVIDENCE_REQUIRED"
           and challenge["venue"] == "Bybit" and challenge["market_type"] == "linear"
           and challenge["source"] == "GRID_TWO_WALK_OBSERVATION_ONLY"
+          and challenge["source_status_query"] == "OMITTED"
+          and challenge["all_exchange_statuses_enumerated"] is False
           and challenge["witness_requirement"]
               == "INDEPENDENT_ROOT_PINNED_EXTERNAL_AUTHORITY"
           and all(challenge[k] is False for k in (

@@ -143,6 +143,8 @@ async def observe_linear_roster(base_url, *, admission, lease_epoch,
                          settle_coin=settle) for s, state, kind, settle in first_records],
         "page_evidence": first_pages, "roster_sha256": _sha(first_records),
         "source_authenticity": "NOT_INDEPENDENTLY_ATTESTED",
+        "source_status_query": "OMITTED",
+        "all_exchange_statuses_enumerated": False,
         "exchange_completeness": "NOT_ATTESTED", "source_freshness": "OBSERVATION_ONLY",
         "consumer_cutover_authorized": False, "delisting_authorized": False,
         "execution_authority": False, "trading_authorized": False,
@@ -175,6 +177,7 @@ def observation_for_read(snapshot, *, expected_lease_epoch, now_ms):
             "first_observed_ms", "last_observed_ms", "cursor_walks_terminated",
             "two_walk_roster_equal", "record_count", "page_count", "records",
             "page_evidence", "roster_sha256", "source_authenticity",
+            "source_status_query", "all_exchange_statuses_enumerated",
             "exchange_completeness", "source_freshness",
             "consumer_cutover_authorized", "delisting_authorized",
             "execution_authority", "trading_authorized", "paper_admitted",
@@ -187,6 +190,8 @@ def observation_for_read(snapshot, *, expected_lease_epoch, now_ms):
           data["reason"] == "TWO_CURSOR_WALKS_NOT_INDEPENDENT_COMPLETENESS_PROOF" and
           data["lease_epoch_authenticity"] == "NOT_INDEPENDENTLY_ATTESTED" and
           data["source_authenticity"] == "NOT_INDEPENDENTLY_ATTESTED" and
+          data["source_status_query"] == "OMITTED" and
+          data["all_exchange_statuses_enumerated"] is False and
           data["exchange_completeness"] == "NOT_ATTESTED" and
           data["source_freshness"] == "OBSERVATION_ONLY" and
           all(data[k] is False for k in (

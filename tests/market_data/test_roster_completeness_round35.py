@@ -27,6 +27,8 @@ class CompletenessEvidenceTests(unittest.TestCase):
     def test_challenge_is_only_a_request(self):
         self.assertEqual(self.request["status"], "EVIDENCE_REQUIRED")
         self.assertEqual(self.request["exchange_completeness"], "NOT_ATTESTED")
+        self.assertEqual(self.request["source_status_query"], "OMITTED")
+        self.assertFalse(self.request["all_exchange_statuses_enumerated"])
         self.assertFalse(self.request["external_witness_verified"])
         self.assertFalse(self.request["delisting_authorized"])
         self.assertFalse(self.request["consumer_cutover_authorized"])
@@ -67,6 +69,14 @@ class CompletenessEvidenceTests(unittest.TestCase):
         bad = dict(self.claim, delisting_authorized=True)
         with self.assertRaises(UniverseReadError):
             inspect_untrusted_witness_claim(self.request, bad)
+
+    def test_forged_all_status_claim_cannot_be_upgraded(self):
+        bad = copy.deepcopy(self.request)
+        bad["all_exchange_statuses_enumerated"] = True
+        bad["challenge_sha256"] = _sha({
+            k: v for k, v in bad.items() if k != "challenge_sha256"})
+        with self.assertRaises(UniverseReadError):
+            inspect_untrusted_witness_claim(bad, self.claim)
 
     def test_wrong_root_epoch_cannot_issue_challenge(self):
         with self.assertRaises(UniverseReadError):
